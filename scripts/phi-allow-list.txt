@@ -13,10 +13,11 @@
 #   ID <value>            synthetic id matching an SSN / MRN / member-id shape
 #   EMAILDOMAIN <domain>  reserved / test email domain that is allowed to appear
 #
-# NOTE: the STARTER scanner only actively consumes EMAILDOMAIN (its floor is
-# SSN + email shapes). NAME / DOB / ID entries are loaded and ready for the
-# structured, field-level detectors you MUST add to scripts/phi-scan.ts before
-# relying on this as a real PHI gate — see the STARTER banner in that file.
+# NOTE: the floor consumes EMAILDOMAIN (SSN + email shapes). The ASTM P-record
+# detector added to scripts/phi-scan.ts consumes NAME + DOB: the patient name
+# tokens (P field 6) and birthdates (P field 8) of every synthetic fixture must
+# be declared below, or the scanner flags them. ID entries remain reserved for a
+# later phase's practice/lab-ID detector.
 #
 # To add a new synthetic fixture: reuse the tokens below, or append new ones here
 # and commit. Adding a token is a reviewed, intentional act — never silent.
@@ -27,12 +28,17 @@ EMAILDOMAIN example.org
 EMAILDOMAIN example.net
 EMAILDOMAIN example.test
 
-# --- Synthetic person-name tokens (example — extend for your fixtures) ---
-# NAME DOE
-# NAME JOHN
+# --- Synthetic person-name tokens (P field 6 — Last^First^Middle) ---
+# All fully synthetic; used only in test/fixtures/*.astm.
+NAME DOE
+NAME JANE
+NAME Q
+NAME ROE
+NAME RICHARD
 
-# --- Synthetic dates of birth (example — normalize to your detector's format) ---
-# DOB 19800115
+# --- Synthetic dates of birth (P field 8, YYYYMMDD[HHMMSS]) ---
+DOB 20200101
+DOB 19850612
 
-# --- Synthetic ids: SSN / MRN / member-id shapes (example) ---
+# --- Synthetic ids: SSN / MRN / member-id shapes (reserved for a later phase's detector) ---
 # ID MRN12345

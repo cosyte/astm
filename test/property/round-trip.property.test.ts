@@ -1,84 +1,97 @@
 /**
- * Property-based conformance tests for the cosyte parser archetype, driven by the shared
- * `@cosyte/test-utils` invariant runners. The kit owns the **invariants**; this parser owns the
- * **format-specific arbitraries** (the `Astm` generators below).
+ * Property-based conformance tests for `@cosyte/astm`, driven by the shared
+ * `@cosyte/test-utils` invariant runners. The kit owns the **invariants**; this
+ * parser owns the **format-specific arbitraries** below.
  *
- * This file is the intended shape for every `@cosyte/*` parser (see `@cosyte/hl7`'s
- * `test/property/`). While `@cosyte/astm` is still a scaffold:
+ * Active in Phase 1:
+ *   - **lenient-mode** — arbitrary / hostile bytes never throw outside the fatal
+ *     set, and every recovered warning carries a registered code + position; and
+ *   - **immutability** — the parsed model rejects mutation (frozen) and never
+ *     changes previously-read state.
  *
- *   - the **lenient-mode** invariant runs today against the stub parser (it must never throw on
- *     arbitrary input and must only emit registered warning codes) — a real, passing guard; and
- *   - the **round-trip** invariant is `it.todo` until the serializer (`serializeAstm` /
- *     `result.toString()`) lands. The body is written against the real runner so it typechecks and
- *     lints now, and flips on by changing `it.todo` to `it` once a serializer exists.
- *
- * Replace the placeholder arbitraries with real spec-clean and hostile generators as the parser
- * grows, and add the `immutabilityProperty` + warning-code snapshot guards (see `@cosyte/test-utils`).
+ * The **round-trip** invariant stays `it.todo` until the serializer lands (P7):
+ * there is no `serializeAstm` yet, so `parse(serialize(x))` cannot be asserted.
  */
 
 import { describe, it } from "vitest";
 import fc from "fast-check";
-import { lenientNeverThrowsProperty, roundTripProperty } from "@cosyte/test-utils";
+import {
+  immutabilityProperty,
+  lenientNeverThrowsProperty,
+  roundTripProperty,
+} from "@cosyte/test-utils";
 
-import { FATAL_CODES, WARNING_CODES, parseAstm, type ParsedAstm } from "../../src/index.js";
+import {
+  AstmParseError,
+  FATAL_CODES,
+  WARNING_CODES,
+  parseAstmRecords,
+  type AstmMessage,
+} from "../../src/index.js";
 
 const fatalCodes = new Set<string>(Object.values(FATAL_CODES));
 const knownWarningCodes = new Set<string>(Object.values(WARNING_CODES));
 
-/**
- * Placeholder arbitrary for **hostile / quirky** input — the lenient-mode generator. Today this is
- * just arbitrary strings; replace it with a generator that emits real ASTM quirks (truncated
- * segments, unknown elements, encoding oddities) the lenient parser must recover into warnings.
- */
-function hostileInput(): fc.Arbitrary<string> {
-  return fc.string();
+/** A single ASTM record line built from a random type letter and random fields. */
+function recordLine(): fc.Arbitrary<string> {
+  const typeLetter = fc.constantFrom("P", "O", "R", "L", "C", "Q", "M", "S", "Z");
+  const field = fc.stringMatching(/^[A-Za-z0-9.^\\&/ -]*$/u);
+  return fc
+    .tuple(typeLetter, fc.array(field, { maxLength: 6 }))
+    .map(([t, fields]) => [t, ...fields].join("|"));
 }
 
 /**
- * Placeholder arbitrary for **spec-clean** values — the round-trip generator. Today it produces the
- * stub's parsed shape; replace it with a generator of spec-valid messages the builder/serializer can
- * emit, so `parse(serialize(x))` can be asserted structurally equal to `x`.
+ * Spec-shaped input: a canonical header followed by random records. It always
+ * parses cleanly (leads with a delimiter-declaring `H`), so it feeds both the
+ * immutability runner and the "quirky-but-valid" half of the lenient runner.
  */
-function specCleanAstm(): fc.Arbitrary<ParsedAstm> {
-  return fc.constant({ value: {}, warnings: [] } satisfies ParsedAstm);
+function specShapedInput(): fc.Arbitrary<string> {
+  return fc.array(recordLine(), { maxLength: 8 }).map((lines) => ["H|\\^&", ...lines].join("\r"));
+}
+
+/**
+ * Hostile / quirky input — arbitrary bytes, header-less streams, and spec-shaped
+ * records mixed together. The lenient parser must recover every one into a
+ * warning or an *allowed* fatal, never an unclassified throw.
+ */
+function hostileInput(): fc.Arbitrary<string> {
+  return fc.oneof(fc.string(), fc.fullUnicodeString(), specShapedInput());
 }
 
 describe("astm conformance (archetype invariants)", () => {
   it("is lenient — arbitrary input never throws a non-fatal, and every warning has a known code", () => {
     lenientNeverThrowsProperty({
       arbitrary: hostileInput(),
-      parse: (raw: string) => parseAstm(raw),
-      // The stub parser never throws; once real fatals exist, only those may escape as throws.
-      isFatal: (err) =>
-        typeof err === "object" &&
-        err !== null &&
-        "code" in err &&
-        fatalCodes.has(String(err.code)),
-      getWarnings: (parsed) => (parsed as ParsedAstm).warnings,
+      parse: (raw: string) => parseAstmRecords(raw),
+      isFatal: (err) => err instanceof AstmParseError && fatalCodes.has(err.code),
+      getWarnings: (parsed) => (parsed as AstmMessage).warnings,
       isKnownCode: (code) => knownWarningCodes.has(code),
       hasPositionalContext: (warning) =>
-        warning.position === undefined || typeof warning.position === "object",
+        typeof warning.position === "object" &&
+        warning.position !== null &&
+        typeof (warning.position as { recordIndex?: unknown }).recordIndex === "number",
     });
   });
 
-  // TODO: flip `it.todo` -> `it` once a serializer (`serializeAstm` / `result.toString()`)
-  // exists. The body already typechecks and lints against the real runner.
+  it("is immutable — the parsed model rejects mutation and preserves prior state", () => {
+    immutabilityProperty({
+      arbitrary: specShapedInput(),
+      parse: (raw: string) => parseAstmRecords(raw),
+      // The frozen records array must reject a push (throws) — a valid frozen response.
+      mutate: (m) => (m.records as unknown[]).push({ type: "L" }),
+      getSnapshot: (m) => m.records.map((r) => r.type),
+    });
+  });
+
+  // TODO: flip `it.todo` -> `it` once a serializer (`serializeAstm` / `msg.toString()`)
+  // lands in Phase 7. The body already typechecks against the real runner.
   it.todo("round-trips — parse(serialize(x)) is structurally equal to x", () => {
     roundTripProperty({
-      arbitrary: specCleanAstm(),
-      // Replace with the real serializer once it lands.
-      serialize: (value) => JSON.stringify(value),
-      // Replace with the real parser once it returns the model type the arbitrary produces. The
-      // placeholder reconstructs the stub shape from the wire string without an unsafe cast.
-      parse: (raw): ParsedAstm => {
-        const decoded: unknown = JSON.parse(raw);
-        const warnings =
-          typeof decoded === "object" && decoded !== null && "warnings" in decoded
-            ? (decoded as ParsedAstm).warnings
-            : [];
-        return { value: {}, warnings };
-      },
-      equals: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+      arbitrary: fc.constant("H|\\^&\rL|1\r"),
+      serialize: (raw) => raw,
+      parse: (raw) => raw,
+      equals: (a, b) => a === b,
     });
   });
 });

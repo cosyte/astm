@@ -357,6 +357,76 @@ function scanCommonShapes(path: string, content: string, allow: AllowList, hits:
 }
 
 // ---------------------------------------------------------------------------
+// ASTM-specific structured detection — the P (patient) record loci
+// ---------------------------------------------------------------------------
+//
+// The P record concentrates ASTM's PHI: the patient name (field 6,
+// `Last^First^Middle`) and the birthdate (field 8, `YYYYMMDDHHMMSS`). This
+// detector parses the record the way the library does — reading the four
+// delimiters from the H record rather than assuming them — and flags any name
+// token or DOB that is NOT positively declared synthetic in the allow-list.
+//
+// This is a targeted extension of the floor toward the highest-value loci; a
+// full field-level sweep (practice/lab IDs, address, phone, C free text) is a
+// later phase. Coded, non-PHI fields (sex, order codes) are deliberately not
+// treated as names — parsing the format avoids that false-confidence trap.
+
+interface AstmDelims {
+  field: string;
+  component: string;
+}
+
+/** Read field + component delimiters from the first H record; fall back to the canonical set. */
+function readAstmDelims(records: string[]): AstmDelims {
+  for (const r of records) {
+    if (r.charAt(0) === "H" && r.length >= 5) {
+      const field = r.charAt(1);
+      const defEnd = r.indexOf(field, 2);
+      const def = r.slice(2, defEnd === -1 ? r.length : defEnd);
+      if (def.length >= 3) return { field, component: def.charAt(1) };
+    }
+  }
+  return { field: "|", component: "^" };
+}
+
+function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hits: Hit[]): void {
+  const records = content.split(/\r\n|\r|\n/).filter((r) => r.length > 0);
+  if (!records.some((r) => r.charAt(0) === "P")) return; // not an ASTM record stream with a patient
+  const d = readAstmDelims(records);
+
+  for (const record of records) {
+    if (record.charAt(0) !== "P") continue;
+    const fields = record.split(d.field);
+
+    // Field 6 — patient name (Last^First^Middle). Each non-empty component is a name token.
+    const nameField = fields[5] ?? "";
+    for (const token of nameField.split(d.component)) {
+      const t = token.trim();
+      if (t.length === 0) continue;
+      if (!allow.names.has(t.toUpperCase())) {
+        hits.push({
+          path,
+          segment: "P-6 (name)",
+          value: t,
+          reason: "patient name token not declared synthetic in phi-allow-list.txt",
+        });
+      }
+    }
+
+    // Field 8 — birthdate. A digit run that is not an allow-listed synthetic DOB is a hit.
+    const dob = (fields[7] ?? "").trim();
+    if (/^\d{4,}$/.test(dob) && !allow.dobs.has(dob)) {
+      hits.push({
+        path,
+        segment: "P-8 (dob)",
+        value: dob,
+        reason: "patient birthdate not declared synthetic in phi-allow-list.txt",
+      });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
 
@@ -371,35 +441,19 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
   }
   const text = buf.toString("utf8");
 
-  // The format-agnostic floor: dashed SSN + non-test email. This runs on every
-  // target and is all the starter detects.
+  // The format-agnostic floor: dashed SSN + non-test email. This runs on every target.
   scanCommonShapes(target.path, text, allow, hits);
 
-  // ── TODO: add ASTM-specific structured field-level PHI detection here ──
+  // ASTM-specific structured detection at the P-record loci (name + DOB), delimiter-aware.
   //
-  //   The floor above ONLY catches SSN/email shapes. Before you rely on this
-  //   scanner as a real safety gate you MUST add structured, field-level
-  //   detection for ASTM's PHI — at minimum: person NAMES, DATE OF BIRTH,
-  //   MRN / MEMBER ID, ADDRESS, and PHONE — parsing `text` according to the
-  //   ASTM wire format and checking each PHI-bearing field against the
-  //   allow-list (`allow.names` / `allow.dobs` / `allow.ids`), pushing a `Hit`
-  //   for anything not positively declared synthetic.
-  //
-  //   Parse the format properly (delimiters / segments / elements / tags) — do
-  //   NOT bolt on a blind text regex for names: coded values (`CBC^Complete
-  //   Blood Count`, `Boston^MA`) produce false confidence. See the sibling
-  //   parsers named in the STARTER banner at the top of this file for worked,
-  //   spec-aware examples you can adapt:
-  //
-  //     const d = detectASTMDelimiters(text);          // if applicable
-  //     for (const record of splitASTM(text, d)) {
-  //       // check name / dob / id / address / phone fields against `allow`
-  //       // hits.push({ path: target.path, segment: "<field>", value, reason });
-  //     }
-  //
-  //   Until this section is implemented, treat a green `pnpm phi-scan` as
-  //   "no SSN/email shapes found" — NOT as "no PHI".
-  // ───────────────────────────────────────────────────────────────────────────
+  //   This is a TARGETED extension, not a full field-level sweep. It flags the
+  //   highest-value PHI in an ASTM stream — the patient name and birthdate — but
+  //   does NOT yet cover practice/lab IDs, address, phone, or `C`-record free
+  //   text. Those loci are a later phase; until then, treat a green `pnpm
+  //   phi-scan` as "no SSN/email shapes and no undeclared patient name/DOB" —
+  //   NOT as a complete "no PHI" guarantee. Keep fixtures synthetic and declare
+  //   their identifiers in scripts/phi-allow-list.txt.
+  scanAstmPatientLoci(target.path, text, allow, hits);
 }
 
 // ---------------------------------------------------------------------------

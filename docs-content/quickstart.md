@@ -6,41 +6,42 @@ sidebar_position: 1
 
 # Quickstart
 
-Parse a ASTM payload and read the result in a few lines. `@cosyte/astm` is **lenient by default**
-(Postel's Law): real-world, vendor-quirky input parses into a value plus a list of tolerance
-**warnings**, rather than throwing.
+Parse an ASTM/CLSI-LIS02 record stream and read a result in a few lines. `@cosyte/astm` is **lenient
+by default** (Postel's Law): real-world, vendor-quirky input parses into an immutable message plus a
+list of tolerance **warnings**, rather than throwing — and it never hands you a confident wrong value.
 
-## Parse a payload
+## Parse a result upload
 
 ```ts runnable
-import { parseAstm } from "@cosyte/astm";
+import { parseAstmRecords, results } from "@cosyte/astm";
 
-// Replace this with a real ASTM message once the parser lands; on clean input the lenient
-// parser recovers nothing, so `warnings` is empty.
-const { value, warnings } = parseAstm("");
+// A de-framed ASTM record stream: header (declares the delimiters) + patient + order + result + end.
+const raw = "H|\\^&\rP|1|PRAC|LAB\rO|1|ACC\rR|1|^^^687|28.6|U/L||N||F\rL|1|N\r";
+const msg = parseAstmRecords(raw);
 
-warnings; // => []
+const first = results(msg)[0];
+first?.value; // => "28.6"
 ```
 
-`parseAstm` always returns a `{ value, warnings }` pair. Each warning carries a **stable code**
-you can branch on without it churning between releases:
+`parseAstmRecords` reads the four delimiters **from the header** (never hardcoded), decodes embedded
+escapes before splitting a value, and keeps the practice- and laboratory-assigned patient IDs
+distinct. Each warning carries a **stable code** you can branch on:
 
 ```ts
-import { parseAstm, WARNING_CODES } from "@cosyte/astm";
+import { parseAstmRecords, WARNING_CODES } from "@cosyte/astm";
 
-const { warnings } = parseAstm(raw);
+const { warnings } = parseAstmRecords(raw);
 
 for (const w of warnings) {
-  if (w.code === WARNING_CODES.EXAMPLE_TOLERATED_DEVIATION) {
-    // handle the tolerated deviation
+  if (w.code === WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE) {
+    // an unrecognized record was surfaced as an unsupported record, not dropped
   }
 }
 ```
 
 > **About runnable examples.** The first block above is tagged ```` ```ts runnable ````: the docs
 > build extracts it, runs it against the package, and asserts the `// =>` result — so a documented
-> example can never silently drift from the code. Tag a fence `runnable` only once its `// =>`
-> assertions match the shipped behavior; leave illustrative fragments as a plain ```` ```ts ```` block.
+> example can never silently drift from the code.
 
 ## Next
 

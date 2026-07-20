@@ -8,8 +8,9 @@ parser that turns real-world, vendor-quirky input into **warnings** rather than 
 a serializer that always emits spec-clean output (Postel's Law). It mirrors the API shape of the
 reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
-> **Status:** pre-alpha (`0.0.x`), not yet published to npm. The public API below is the scaffold;
-> the real parser lands in subsequent phases.
+> **Status:** pre-alpha (`0.0.x`), not yet published to npm. Phase 1 ships the **record** layer
+> (`H`/`P`/`O`/`R`/`L` read, delimiter self-declaration, escape decode). The E1381 framing layer,
+> result-flag semantics, and the serializer land in subsequent phases.
 
 ## Install
 
@@ -20,15 +21,21 @@ npm install @cosyte/astm
 ## Parse
 
 ```ts
-import { parseAstm } from "@cosyte/astm";
+import { parseAstmRecords, results, patient } from "@cosyte/astm";
 
-const result = parseAstm(raw);
+// A de-framed ASTM record stream (CR-delimited records; the header declares the delimiters).
+const msg = parseAstmRecords(raw);
 
-result.warnings; // stable, positional tolerance warnings (never throws on quirks)
+results(msg)[0]?.value; // the measured value, surfaced raw
+results(msg)[0]?.units; // vendor free-text units (a missing unit is a warning, never a default)
+patient(msg)?.practiceAssignedId; // kept distinct from laboratoryAssignedId (the misfiling guard)
+msg.warnings; // stable, value-free positional tolerance warnings (never throws on quirks)
 ```
 
-The parser is **lenient by default** — vendor quirks become warnings, not failures. A
-`{ strict: true }` mode (to be added) escalates every tolerated deviation to a thrown error.
+The parser is **lenient by default** — vendor quirks become warnings, not failures — and refuses to
+produce a confident wrong value: an embedded escaped delimiter reads as one component, an unknown
+record type is surfaced (never dropped), and a missing unit is flagged (never defaulted). A
+`{ strict: true }` mode escalates every tolerated deviation to a thrown error.
 
 ## The cosyte parser archetype
 
