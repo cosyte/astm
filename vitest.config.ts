@@ -3,12 +3,11 @@ import { cosyteVitest } from "@cosyte/vitest-config";
 /**
  * Vitest config for @cosyte/astm from the shared @cosyte/vitest-config standard.
  *
- * Per-directory >= 90 coverage gates on the core dir(s). Add directories to `coverageDirs` as the
- * parser grows (e.g. "model", "serialize", "helpers", "builder") — mirror @cosyte/hl7's layout once
- * the corresponding source lands.
+ * Per-directory >= 90 coverage gates on the core dir(s). Phase 1 ships the `common/` value layer
+ * and the `records/` record layer; add directories (e.g. "frames", "serialize") as later phases land.
  */
 export default cosyteVitest({
-  coverageDirs: ["parser"],
+  coverageDirs: ["common", "records"],
   test: {
     globals: false,
     environment: "node",

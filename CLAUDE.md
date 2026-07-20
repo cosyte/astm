@@ -16,9 +16,12 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
-- **Scaffolded from the shared `@cosyte/*` parser template.** Pre-alpha `0.0.x`, not yet published to
-  npm. `src/index.ts` carries archetype **stubs** (`parseAstm`, `WARNING_CODES`, `FATAL_CODES`)
-  — the real parser lands in subsequent phases.
+- **Phase 1 shipped (ASTM-1): the record foundation.** Pre-alpha `0.0.x`, not yet published to npm.
+  `parseAstmRecords` reads `H`/`P`/`O`/`R`/`L` with delimiter self-declaration and the escape codec;
+  `src/common/` holds the value layer and `src/records/` the record layer. Deferred to later phases:
+  result flag/status **semantics** (P2), comments/query/`M`/`S` (P3–P4), the E1381 **framing** layer
+  (P5+), and serialize/build (P7). The full sequence is in the meta-repo roadmap
+  `operations/roadmaps/astm.md`.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

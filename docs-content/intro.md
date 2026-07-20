@@ -11,8 +11,9 @@ Parse real-world, vendor-quirky ASTM and pull fields out in one line — without
 parser, an immutable model, a spec-clean serializer, and a profile system for vendor quirks. It
 mirrors the API shape of the reference parser, `@cosyte/hl7`.
 
-> **Status:** pre-alpha (`0.0.x`), not yet published to npm. This page describes the scaffold; the
-> real parser lands in subsequent phases.
+> **Status:** pre-alpha (`0.0.x`), not yet published to npm. Phase 1 ships the **record** layer
+> (`H`/`P`/`O`/`R`/`L` read, delimiter self-declaration, escape decode). The E1381 framing layer,
+> result-flag semantics, and the serializer land in subsequent phases.
 
 ## Install
 
@@ -23,16 +24,17 @@ npm install @cosyte/astm
 ## Parse a message
 
 ```ts
-import { parseAstm } from "@cosyte/astm";
+import { parseAstmRecords, results } from "@cosyte/astm";
 
-const result = parseAstm(raw);
+const msg = parseAstmRecords(raw);
 
-result.warnings; // stable, positional tolerance warnings
+results(msg)[0]?.value; // the measured value, surfaced raw
+msg.warnings; // stable, positional tolerance warnings
 ```
 
-The parser is **lenient by default** — vendor quirks become warnings, not failures — while the
-serializer always emits spec-clean output (Postel's Law). A `{ strict: true }` mode (to be added)
-escalates every tolerated deviation to a thrown error.
+The parser is **lenient by default** — vendor quirks become warnings, not failures (Postel's Law) —
+and refuses to produce a confident wrong value. A `{ strict: true }` mode escalates every tolerated
+deviation to a thrown error.
 
 ## Next
 

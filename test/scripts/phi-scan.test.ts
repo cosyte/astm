@@ -87,6 +87,42 @@ describe("phi-scan starter: clean + allow-listed content passes", () => {
   });
 });
 
+describe("phi-scan ASTM extension: the P-record loci (name + DOB)", () => {
+  const HEADER = "H|\\^&\r";
+
+  it("catches an undeclared patient name token in P field 6 (exit 1)", () => {
+    const r = scan("undeclared-name.astm", `${HEADER}P|1|A|B||SMITH^ALICE||20200101|F\r`);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toMatch(/SMITH/);
+    expect(r.stderr).toMatch(/P-6 \(name\)/);
+  });
+
+  it("catches an undeclared birthdate in P field 8 (exit 1)", () => {
+    const r = scan("undeclared-dob.astm", `${HEADER}P|1|A|B||DOE^JANE||19731105|F\r`);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toMatch(/19731105/);
+    expect(r.stderr).toMatch(/P-8 \(dob\)/);
+  });
+
+  it("passes a P record whose name + DOB are declared synthetic in the allow-list (exit 0)", () => {
+    // DOE / JANE / Q and 20200101 are declared in scripts/phi-allow-list.txt.
+    const r = scan("declared.astm", `${HEADER}P|1|A|B||DOE^JANE^Q||20200101|F\r`);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+  });
+
+  it("reads non-canonical delimiters from the header before scanning P (no false miss)", () => {
+    // Field '#', component '*'. The name components must still be found and flagged.
+    const r = scan("nonstd-delims.astm", "H#~*!\rP#1#A#B##SMITH*ALICE##20200101#F\r");
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toMatch(/SMITH/);
+  });
+
+  it("does not treat a stream without a P record as ASTM PHI (exit 0)", () => {
+    const r = scan("no-patient.astm", `${HEADER}O|1|ACC\rR|1|^^^687|28.6|U/L\rL|1\r`);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+  });
+});
+
 describe("phi-scan starter: the override-log gate", () => {
   it("rejects --allow-fixture without a matching override entry (exit 2)", () => {
     const clean = join(dir, "override-me.txt");
