@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { sortedCodeSet } from "@cosyte/test-utils";
 
-import { FATAL_CODES, FRAME_WARNING_CODES, WARNING_CODES } from "../src/index.js";
+import {
+  FATAL_CODES,
+  FRAME_WARNING_CODES,
+  LTP_WARNING_CODES,
+  WARNING_CODES,
+} from "../src/index.js";
 
 /**
  * The warning/fatal code surface is part of the public contract — a rename or
@@ -24,6 +29,7 @@ describe("stable code surface", () => {
         "ASTM_RECORD_UNKNOWN_TYPE",
         "ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE",
         "ASTM_UNKNOWN_ESCAPE_SEQUENCE",
+        "PROFILE_QUIRK_APPLIED",
       ]
     `);
   });
@@ -35,6 +41,16 @@ describe("stable code surface", () => {
         "ASTM_FRAME_OVERSIZE",
         "ASTM_FRAME_SEQUENCE_GAP",
         "ASTM_FRAME_UNTERMINATED",
+      ]
+    `);
+  });
+
+  it("LTP warning codes are stable (the ASTM_LTP_* registry)", () => {
+    expect(sortedCodeSet(LTP_WARNING_CODES)).toMatchInlineSnapshot(`
+      [
+        "ASTM_LTP_AMBIGUOUS_TRANSPORT",
+        "ASTM_LTP_FRAME_REJECTED",
+        "ASTM_LTP_UNEXPECTED_EVENT",
       ]
     `);
   });
@@ -52,13 +68,15 @@ describe("stable code surface", () => {
   it("keeps each registry key === value", () => {
     for (const [k, v] of Object.entries(WARNING_CODES)) expect(k).toBe(v);
     for (const [k, v] of Object.entries(FRAME_WARNING_CODES)) expect(k).toBe(v);
+    for (const [k, v] of Object.entries(LTP_WARNING_CODES)) expect(k).toBe(v);
     for (const [k, v] of Object.entries(FATAL_CODES)) expect(k).toBe(v);
   });
 
-  it("warning and fatal code sets are disjoint (record + frame warnings vs fatals)", () => {
+  it("warning and fatal code sets are disjoint (record + frame + LTP warnings vs fatals)", () => {
     const warns = new Set<string>([
       ...Object.values(WARNING_CODES),
       ...Object.values(FRAME_WARNING_CODES),
+      ...Object.values(LTP_WARNING_CODES),
     ]);
     for (const f of Object.values(FATAL_CODES)) expect(warns.has(f)).toBe(false);
   });

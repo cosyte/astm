@@ -17,6 +17,7 @@ import type { Delimiters } from "../common/delimiters.js";
 import type { AstmDate } from "../common/dates.js";
 import type { UniversalTestId } from "../common/coding-system.js";
 import type { AstmRecordWarning } from "../common/warnings.js";
+import type { AstmProfile } from "../profiles/types.js";
 import type { AbnormalFlag, ReferenceRange, ResultStatus } from "./result-semantics.js";
 
 /**
@@ -420,6 +421,14 @@ export interface AstmMessage {
    */
   readonly classification: AstmMessageClassification;
   readonly warnings: readonly AstmRecordWarning[];
+  /**
+   * The vendor profile that was active for this parse, when one applied — its
+   * `name` and resolved `lineage` (attribution only; the profile object itself is
+   * not embedded). Absent when no profile applied. A profile that tolerated a
+   * deviation shows up as a `PROFILE_QUIRK_APPLIED` entry in {@link warnings}, not
+   * here.
+   */
+  readonly profile?: { readonly name: string; readonly lineage: readonly string[] };
 }
 
 /**
@@ -428,7 +437,17 @@ export interface AstmMessage {
 export interface AstmParseOptions {
   /**
    * When `true`, escalate any Tier-2 deviation to a thrown {@link AstmStrictError}
-   * instead of accumulating a warning. Off by default.
+   * instead of accumulating a warning. Off by default. A deviation a profile
+   * *expected* (a `PROFILE_QUIRK_APPLIED`) does **not** escalate — it is known,
+   * benign, and still recorded.
    */
   readonly strict?: boolean;
+  /**
+   * An active vendor {@link AstmProfile}. Its quirk tolerances downgrade the
+   * deviations it *expects* to `PROFILE_QUIRK_APPLIED` warnings (values are never
+   * altered). An explicit profile wins over the process-scoped default
+   * ({@link setDefaultAstmProfile}); pass `null` to opt out of the default for a
+   * single call. Omit to use the default, or no profile when none is registered.
+   */
+  readonly profile?: AstmProfile | null;
 }

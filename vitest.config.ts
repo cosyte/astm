@@ -7,7 +7,7 @@ import { cosyteVitest } from "@cosyte/vitest-config";
  * and the `records/` record layer; add directories (e.g. "frames", "serialize") as later phases land.
  */
 export default cosyteVitest({
-  coverageDirs: ["common", "records"],
+  coverageDirs: ["common", "records", "profiles"],
   test: {
     globals: false,
     environment: "node",

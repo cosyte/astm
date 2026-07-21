@@ -29,7 +29,13 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 > builders** — `serializeAstmRecords` / `buildAstmMessage` emit canonical `H|\^&` records (embedded
 > delimiters re-escaped, nothing clinical fabricated) and `composeAstmFrames` / `serializeFramedAstm`
 > frame them with **computed** checksums + frame numbers and the 240-byte split, so both layers
-> round-trip by construction. The vendor **profile** system lands in the next phase.
+> round-trip by construction. Phase 8 adds the vendor **profile** system — `defineAstmProfile()` builds
+> a provenance-backed profile whose quirk tolerances downgrade _expected_, non-safety-critical
+> deviations to a `PROFILE_QUIRK_APPLIED` warning (values are never altered), guarded by a
+> definition-time safety gate that refuses to tolerate any result value / flag / status / range /
+> units, patient or comment context, message-kind, or frame / LTP integrity warning — a profile can
+> never make a bad checksum "ok" or a cancelled result read "final." Named per-vendor profiles are
+> deferred pending a public vendor-attributed quirk document.
 
 ## Decode a framed byte stream
 
@@ -130,8 +136,10 @@ record type is surfaced (never dropped), and a missing unit is flagged (never de
 - **Zero runtime dependencies** — Node stdlib only (healthcare integrations vet every dependency).
 - **Dual ESM + CJS** — built with `tsup`, validated with `attw`.
 - **Immutability** — parsed models are immutable; mutation is via explicit methods.
-- **Profile system** — a `defineProfile()` API for vendor quirks (to be added), with built-in
-  profiles authored through the same public API.
+- **Profile system** — a `defineAstmProfile()` API for vendor quirks, with built-in profiles authored
+  through the same public API. A profile only ever downgrades an _expected_, non-safety-critical warning
+  to `PROFILE_QUIRK_APPLIED` (it never alters a value) and may force the raw-vs-framed transport; a
+  default-deny safety gate refuses to tolerate any safety-critical deviation at definition time.
 
 ## License
 

@@ -34,6 +34,9 @@ import {
   parseReferenceRange,
 } from "./result-semantics.js";
 import { classifyMessage } from "./host-query.js";
+import { applyAstmProfileToWarnings } from "../profiles/apply.js";
+import { getDefaultAstmProfile } from "../profiles/registry.js";
+import type { AstmProfile } from "../profiles/types.js";
 import { fieldScalar, tokenizeRecord } from "./tokenize.js";
 import type {
   AstmField,
@@ -153,13 +156,49 @@ export function parseAstmRecords(
     warnings.push(ambiguousMessageKind({ recordIndex: 0, recordType: "H" }));
   }
 
-  const header = records[0] as HeaderRecord;
-  const message: AstmMessage = { header, records, delimiters, classification, warnings };
+  // ── Phase 8: vendor profile tolerance. The profile transform runs LAST, over the
+  // fully-accumulated warnings — it only ever re-badges a warning it *expects* to a
+  // PROFILE_QUIRK_APPLIED (values, records, and delimiters are already built and are
+  // never touched). A safety-critical deviation can never be tolerated (enforced at
+  // defineAstmProfile time), so the transform can only quiet benign structural noise.
+  const profile = resolveProfile(options);
+  const finalWarnings = applyAstmProfileToWarnings(warnings, profile);
 
-  if (options.strict === true && warnings.length > 0) {
-    throw new AstmStrictError(warnings);
+  // Strict mode escalates only the deviations that were NOT expected by a profile —
+  // an expected PROFILE_QUIRK_APPLIED is known and benign, so it is recorded, not thrown.
+  if (options.strict === true) {
+    const escalating = finalWarnings.filter((w) => w.expected !== true);
+    if (escalating.length > 0) {
+      throw new AstmStrictError(escalating);
+    }
   }
+
+  const header = records[0] as HeaderRecord;
+  const message: AstmMessage =
+    profile !== undefined
+      ? {
+          header,
+          records,
+          delimiters,
+          classification,
+          warnings: finalWarnings,
+          profile: { name: profile.name, lineage: profile.lineage },
+        }
+      : { header, records, delimiters, classification, warnings: finalWarnings };
+
   return deepFreeze(message);
+}
+
+/**
+ * Resolve the effective profile for a parse. An explicit `options.profile` wins: an
+ * {@link AstmProfile} is used as-is; `null` opts out of the process-scoped default
+ * for this call. When `profile` is omitted, the process-scoped default
+ * ({@link setDefaultAstmProfile}) applies, or `undefined` when none is set.
+ */
+function resolveProfile(options: AstmParseOptions): AstmProfile | undefined {
+  if (options.profile === null) return undefined;
+  if (options.profile !== undefined) return options.profile;
+  return getDefaultAstmProfile();
 }
 
 /** Decode record bytes as latin1 so every byte survives to the string 1:1 (ASTM is byte-oriented). */
