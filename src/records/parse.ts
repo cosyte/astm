@@ -11,11 +11,13 @@
 import { AstmParseError, FATAL_CODES } from "../common/errors.js";
 import { deepFreeze } from "../common/freeze.js";
 import { isNonStandard, readDelimiters, type Delimiters } from "../common/delimiters.js";
-import { parseAstmDate } from "../common/dates.js";
+import { parseAstmDate, type AstmDate } from "../common/dates.js";
 import { recognizeUniversalTestId } from "../common/coding-system.js";
 import {
   ambiguousValueSplit,
   nonStandardDelimiters,
+  orphanComment,
+  partialTimestamp,
   undefinedAbnormalFlag,
   undefinedResultStatus,
   unitsAbsent,
@@ -35,6 +37,7 @@ import type {
   AstmMessage,
   AstmParseOptions,
   AstmRecord,
+  CommentRecord,
   HeaderRecord,
   OrderRecord,
   PatientName,
@@ -130,9 +133,11 @@ export function parseAstmRecords(
     warnings.push(nonStandardDelimiters({ recordIndex: 0, recordType: "H" }));
   }
 
-  const records: AstmRecord[] = lines.map((line, recordIndex) =>
+  const built: AstmRecord[] = lines.map((line, recordIndex) =>
     buildRecord(line, recordIndex, delimiters, warnings),
   );
+  // Second pass: attach each comment to its immediately-preceding H/P/O/R parent (an orphan → root).
+  const records = attachComments(built, warnings);
 
   const header = records[0] as HeaderRecord;
   const message: AstmMessage = { header, records, delimiters, warnings };
@@ -172,11 +177,13 @@ function buildRecord(
     case "H":
       return { type: "H", recordIndex, fields, delimiters: d } satisfies HeaderRecord;
     case "P":
-      return buildPatient(recordIndex, fields);
+      return buildPatient(recordIndex, fields, warnings);
     case "O":
       return buildOrder(recordIndex, fields);
     case "R":
       return buildResult(recordIndex, fields, warnings);
+    case "C":
+      return buildComment(recordIndex, fields);
     case "L":
       return { type: "L", recordIndex, fields } satisfies TerminatorRecord;
     default: {
@@ -186,7 +193,11 @@ function buildRecord(
   }
 }
 
-function buildPatient(recordIndex: number, fields: readonly AstmField[]): PatientRecord {
+function buildPatient(
+  recordIndex: number,
+  fields: readonly AstmField[],
+  warnings: AstmRecordWarning[],
+): PatientRecord {
   const nameField = astmField(fields, 6);
   const name: PatientName | undefined =
     nameField !== undefined && fieldScalar(nameField) !== undefined
@@ -198,17 +209,26 @@ function buildPatient(recordIndex: number, fields: readonly AstmField[]): Patien
         }
       : undefined;
 
-  const birthRaw = fieldScalar(astmField(fields, 8));
-  const birthDate = birthRaw !== undefined ? parseAstmDate(birthRaw) : undefined;
+  const birthDate = parseDateField(
+    fieldScalar(astmField(fields, 8)),
+    recordIndex,
+    "P",
+    8,
+    warnings,
+  );
 
   return {
     type: "P",
     recordIndex,
     fields,
     ...definedString("seq", fieldScalar(astmField(fields, 2))),
+    // The three patient identifiers stay DISTINCT — practice-assigned (3), laboratory-assigned (4),
+    // and a third ID (5) never collapse into one; conflating them is the primary misfiling path.
     ...definedString("practiceAssignedId", fieldScalar(astmField(fields, 3))),
     ...definedString("laboratoryAssignedId", fieldScalar(astmField(fields, 4))),
+    ...definedString("patientIdThree", fieldScalar(astmField(fields, 5))),
     ...(name !== undefined ? { name } : {}),
+    ...definedString("mothersMaidenName", fieldScalar(astmField(fields, 7))),
     ...(birthDate !== undefined ? { birthDate } : {}),
     ...definedString("sex", fieldScalar(astmField(fields, 9))),
   };
@@ -226,6 +246,12 @@ function buildOrder(recordIndex: number, fields: readonly AstmField[]): OrderRec
     ...(hasContent(utidField)
       ? { universalTestId: recognizeUniversalTestId(utidField.components) }
       : {}),
+    // Priority (6), action code (~12), and report type (~26) are surfaced verbatim. The `~` field
+    // indices and the code sets are `[OSS-derived]` (paywalled), so they are never mapped to a
+    // guessed meaning — see the JSDoc on `OrderRecord`.
+    ...definedString("priority", fieldScalar(astmField(fields, 6))),
+    ...definedString("actionCode", fieldScalar(astmField(fields, 12))),
+    ...definedString("reportType", fieldScalar(astmField(fields, 26))),
   };
 }
 
@@ -245,10 +271,20 @@ function buildResult(
 ): ResultRecord {
   const utidField = astmField(fields, 3);
   const valueField = astmField(fields, 4);
-  const startedRaw = fieldScalar(astmField(fields, 12));
-  const completedRaw = fieldScalar(astmField(fields, 13));
-  const startedAt = startedRaw !== undefined ? parseAstmDate(startedRaw) : undefined;
-  const completedAt = completedRaw !== undefined ? parseAstmDate(completedRaw) : undefined;
+  const startedAt = parseDateField(
+    fieldScalar(astmField(fields, 12)),
+    recordIndex,
+    "R",
+    12,
+    warnings,
+  );
+  const completedAt = parseDateField(
+    fieldScalar(astmField(fields, 13)),
+    recordIndex,
+    "R",
+    13,
+    warnings,
+  );
 
   // A value field with more than one component carried an *unescaped* component delimiter — an
   // ambiguity. Fail-safe: surface BOTH the full raw value (so nothing is truncated) AND the split,
@@ -315,6 +351,92 @@ function buildResult(
     ...(completedAt !== undefined ? { completedAt } : {}),
     ...definedString("instrument", fieldScalar(astmField(fields, 14))),
   };
+}
+
+/**
+ * Build a `C` (comment) record from its fields. Parent attachment is resolved in a second pass
+ * ({@link attachComments}); here `attachedToRoot` is a provisional `false` and `parentIndex` is unset.
+ */
+function buildComment(recordIndex: number, fields: readonly AstmField[]): CommentRecord {
+  const textField = astmField(fields, 4);
+  // Comment text is component-capable: multiple components are a normal structured comment, not an
+  // ambiguity, so no warning. Surface the FULL field text (never truncated) plus the component split.
+  const textComponents =
+    textField !== undefined && textField.components.length > 1 ? textField.components : undefined;
+  const text = textField !== undefined && textField.raw.length > 0 ? textField.raw : undefined;
+
+  return {
+    type: "C",
+    recordIndex,
+    fields,
+    attachedToRoot: false,
+    ...definedString("seq", fieldScalar(astmField(fields, 2))),
+    ...definedString("source", fieldScalar(astmField(fields, 3))),
+    ...definedString("text", text),
+    ...(textComponents !== undefined ? { textComponents } : {}),
+    ...definedString("commentType", fieldScalar(astmField(fields, 5))),
+  };
+}
+
+/**
+ * Attach every `C` (comment) record to its parent by position — the immediately-preceding
+ * `H`/`P`/`O`/`R` record; consecutive comments share that parent. **Fail-safe:** a comment with no
+ * valid preceding parent is an **orphan** — it is attached to the message root (`attachedToRoot:
+ * true`) with an `ASTM_RECORD_ORPHAN_COMMENT` warning, **never dropped**. Returns a new array; the
+ * non-comment records pass through unchanged.
+ *
+ * @param records - The built records, in wire order.
+ * @param warnings - The accumulator an orphan comment warns onto.
+ * @returns The records with each comment's `parentIndex` / `attachedToRoot` resolved.
+ * @example
+ * ```ts
+ * import { attachComments } from "@cosyte/astm";
+ * // A comment with no preceding H/P/O/R is an orphan attached to the root.
+ * const warnings: import("@cosyte/astm").AstmRecordWarning[] = [];
+ * const out = attachComments(
+ *   [{ type: "C", recordIndex: 0, fields: [], attachedToRoot: false }],
+ *   warnings,
+ * );
+ * (out[0] as { attachedToRoot: boolean }).attachedToRoot; // true
+ * ```
+ */
+export function attachComments(
+  records: readonly AstmRecord[],
+  warnings: AstmRecordWarning[],
+): AstmRecord[] {
+  let lastParentIndex: number | undefined;
+  return records.map((rec) => {
+    if (rec.type === "H" || rec.type === "P" || rec.type === "O" || rec.type === "R") {
+      lastParentIndex = rec.recordIndex;
+      return rec;
+    }
+    if (rec.type !== "C") return rec;
+    if (lastParentIndex === undefined) {
+      warnings.push(orphanComment({ recordIndex: rec.recordIndex, recordType: "C" }));
+      return { ...rec, attachedToRoot: true };
+    }
+    return { ...rec, parentIndex: lastParentIndex, attachedToRoot: false };
+  });
+}
+
+/**
+ * Parse a `YYYYMMDDHHMMSS` date field, emitting a value-free `ASTM_RECORD_PARTIAL_TIMESTAMP` warning
+ * when the digit run truncates a component (an odd length that cuts a two-digit component in half).
+ * The raw run is preserved and the structured value is never zero-filled into a fabricated time.
+ */
+function parseDateField(
+  raw: string | undefined,
+  recordIndex: number,
+  recordType: string,
+  fieldIndex: number,
+  warnings: AstmRecordWarning[],
+): AstmDate | undefined {
+  if (raw === undefined) return undefined;
+  const date = parseAstmDate(raw);
+  if (date?.truncated === true) {
+    warnings.push(partialTimestamp({ recordIndex, recordType, fieldIndex }));
+  }
+  return date;
 }
 
 /**

@@ -45,6 +45,34 @@ describe("parseAstmDate — precision-preserving, no timezone", () => {
     expect(parseAstmDate("abc")).toBeUndefined();
     expect(parseAstmDate("202")).toBeUndefined();
   });
+
+  it("flags an odd digit run as truncated and stops at the last COMPLETE component", () => {
+    // 7 digits: year + month + a half-given day. Day is dropped (not zero-filled), raw preserved.
+    const d = parseAstmDate("2020010");
+    expect(d?.precision).toBe("month");
+    expect(d?.day).toBeUndefined(); // never zero-filled into a fabricated day
+    expect(d?.raw).toBe("2020010"); // the dangling digit is preserved
+    expect(d?.truncated).toBe(true);
+    // 13 digits: truncated second.
+    expect(parseAstmDate("2024040110150")?.truncated).toBe(true);
+    // 5 digits: truncated month.
+    expect(parseAstmDate("20241")?.truncated).toBe(true);
+  });
+
+  it("does NOT flag clean component-aligned lengths (4/6/8/10/12/14) or trailing sub-seconds", () => {
+    for (const clean of [
+      "2024",
+      "202403",
+      "20240315",
+      "2024031509",
+      "202403150930",
+      "20240315093045",
+    ]) {
+      expect(parseAstmDate(clean)?.truncated).toBeUndefined();
+    }
+    // >14 digits (fractional seconds) is extra precision, not truncation — not flagged.
+    expect(parseAstmDate("20240315093045678")?.truncated).toBeUndefined();
+  });
 });
 
 describe("astmDateToLocalISO — no Z, no offset (never assumes UTC)", () => {

@@ -87,7 +87,7 @@ describe("phi-scan starter: clean + allow-listed content passes", () => {
   });
 });
 
-describe("phi-scan ASTM extension: the P-record loci (name + DOB)", () => {
+describe("phi-scan ASTM extension: the P-record loci (name + mother's maiden + DOB)", () => {
   const HEADER = "H|\\^&\r";
 
   it("catches an undeclared patient name token in P field 6 (exit 1)", () => {
@@ -95,6 +95,14 @@ describe("phi-scan ASTM extension: the P-record loci (name + DOB)", () => {
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
     expect(r.stderr).toMatch(/SMITH/);
     expect(r.stderr).toMatch(/P-6 \(name\)/);
+  });
+
+  it("catches an undeclared mother's maiden name in P field 7 (exit 1)", () => {
+    // DOE / JANE / Q and DOB are declared; the maiden name WELDON is not.
+    const r = scan("undeclared-maiden.astm", `${HEADER}P|1|A|B||DOE^JANE^Q|WELDON|20200101|F\r`);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toMatch(/WELDON/);
+    expect(r.stderr).toMatch(/P-7 \(mother's-maiden\)/);
   });
 
   it("catches an undeclared birthdate in P field 8 (exit 1)", () => {

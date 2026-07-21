@@ -36,6 +36,15 @@ export interface AstmDate {
   readonly second?: number;
   /** How far the components are populated. */
   readonly precision: AstmDatePrecision;
+  /**
+   * `true` when the digit run does **not** align to a whole-component boundary — an odd number of
+   * digits that cuts a two-digit component (month/day/hour/minute/second) in half (lengths 5, 7, 9,
+   * 11, 13). The full run is preserved in {@link AstmDate.raw} and the structured value is truncated
+   * to the last **complete** component — the dangling digit is **never zero-filled into a fabricated
+   * time**. Absent (never `false`) for a clean value. A caller surfaces this as a value-free
+   * `ASTM_RECORD_PARTIAL_TIMESTAMP` warning.
+   */
+  readonly truncated?: true;
 }
 
 /**
@@ -62,7 +71,12 @@ export function parseAstmDate(raw: string): AstmDate | undefined {
   if (!/^\d{4,}$/u.test(s)) return undefined;
 
   const year = Number(s.slice(0, 4));
-  const base = { raw: s, year } as const;
+  // An odd length below the full 14 digits cuts a two-digit component in half — the value is
+  // truncated mid-component. The raw run is preserved verbatim; the dangling digit is dropped from
+  // the structured value rather than zero-filled into a fabricated time, and the flag lets a caller
+  // warn. Extra digits beyond 14 (fractional seconds some vendors append) are not "truncated".
+  const truncated = s.length < 14 && s.length % 2 === 1;
+  const base = { raw: s, year, ...(truncated ? { truncated: true as const } : {}) };
 
   if (s.length < 6) return { ...base, precision: "year" };
   const month = Number(s.slice(4, 6));

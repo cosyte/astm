@@ -75,6 +75,35 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
   - New warning codes (registry extended, snapshot locked): `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG`,
     `ASTM_RECORD_UNDEFINED_RESULT_STATUS`, `ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE`,
     `ASTM_RECORD_UNITS_ABSENT` — all value-free (code + record/field index only).
+- **Patient/order identity depth, comments, and partial-timestamp hardening (ASTM-3, roadmap Phase 3).**
+  The misfiling-prevention slice: model the identity that a result files against, and the context that
+  qualifies it.
+  - **Full patient (`P`) identity.** The **practice-assigned ID (field 3)**, the **laboratory-assigned
+    ID (field 4)**, and a **third patient ID (field 5)** are modeled as **distinct** fields that never
+    collapse into one — conflating them is the primary result-misfiling path. Adds mother's maiden name
+    (field 7) alongside the existing name components (field 6), birthdate (field 8), and sex (field 9).
+  - **Full order (`O`).** `priority` (field 6), `actionCode` (field ~12), and `reportType` (field ~26)
+    are surfaced **verbatim** on top of the existing specimen/accession + Universal Test ID. The `~`
+    field indices and the code sets are `[OSS-derived]` (paywalled) — never mapped to a guessed meaning.
+  - **The `C` (comment) record.** Modeled as `source` (field 3), `text` (field 4, component-capable —
+    the full text is surfaced plus the component split, never truncated), and `commentType` (field 5).
+    Each comment is **attached by position** to the immediately-preceding `H`/`P`/`O`/`R` parent
+    (`parentIndex`); consecutive comments share that parent. **Fail-safe:** an **orphan** comment with no
+    valid parent is attached to the message root (`attachedToRoot: true`) with an
+    `ASTM_RECORD_ORPHAN_COMMENT` warning — **never silently dropped**. New extractors `comments(msg)` /
+    `commentsFor(msg, record)` / `orders(msg)`, and the pure `attachComments()` attachment pass.
+  - **Comment-type codes are `[OSS-derived]`.** `I` (instrument) is the only value seen in the
+    permissively-licensed real transcripts; `G`/`T`/`P` are defined only in the paywalled CLSI LIS02-A2
+    and are **not** interpreted — `commentType` is surfaced raw, never mapped to a guessed meaning.
+  - **Partial-timestamp hardening.** A `YYYYMMDDHHMMSS` value with an odd digit run that truncates a
+    two-digit component (lengths 5/7/9/11/13) sets `AstmDate.truncated`, is preserved verbatim in `raw`,
+    and stops at the last **complete** component — the dangling digit is **never zero-filled into a
+    fabricated time**. A caller surfaces this as a value-free `ASTM_RECORD_PARTIAL_TIMESTAMP` warning
+    (P field 8, R fields 12/13). No timezone is modeled — times stay instrument-local, never assumed UTC.
+  - New warning codes (registry extended, snapshot locked): `ASTM_RECORD_ORPHAN_COMMENT`,
+    `ASTM_RECORD_PARTIAL_TIMESTAMP` — value-free (code + record/field index only).
+  - `scripts/phi-scan.ts` extended toward the mother's-maiden locus (P field 7), on top of the existing
+    name (field 6) + DOB (field 8) detection; synthetic fixtures declared in `scripts/phi-allow-list.txt`.
 
 ### Changed
 
@@ -84,8 +113,7 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Deferred (later phases)
 
-- Patient/order identity **depth**, the `C` comment record, and partial-timestamp hardening — Phase 3.
-  Query (`Q`) + host-query flow and `M` / `S` surfaced verbatim — Phase 4. The E1381 framing layer
+- Query (`Q`) + host-query flow and `M` / `S` surfaced verbatim — Phase 4. The E1381 framing layer
   (checksums, 240-split) — Phase 5+. Serialize / build — Phase 7.
 
 ### Deprecated
