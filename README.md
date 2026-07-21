@@ -35,7 +35,12 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 > definition-time safety gate that refuses to tolerate any result value / flag / status / range /
 > units, patient or comment context, message-kind, or frame / LTP integrity warning — a profile can
 > never make a bad checksum "ok" or a cancelled result read "final." Named per-vendor profiles are
-> deferred pending a public vendor-attributed quirk document.
+> deferred pending a public vendor-attributed quirk document. Phase 9 adds **LIVD-aware LOINC
+> recognition** — `applyLivd(msg, catalog)` maps an analyzer's local test code to a standard **LOINC**
+> from a **consumer-supplied** IICC LIVD catalog (`defineLivdCatalog`), as an **additive, advisory**
+> annotation that never mutates the raw code/value and **never guesses a LOINC** (an unmapped or
+> ambiguous code surfaces as such). No LOINC / SNOMED / LIVD dictionary is bundled — the package stays a
+> structural recognizer, and the consumer brings their own catalog.
 
 ## Decode a framed byte stream
 
@@ -125,6 +130,37 @@ produce a confident wrong value: an embedded escaped delimiter reads as one comp
 record type is surfaced (never dropped), and a missing unit is flagged (never defaulted). A
 `{ strict: true }` mode escalates every tolerated deviation to a thrown error.
 
+## Map local codes to LOINC (LIVD, bring-your-own)
+
+An analyzer sends a proprietary local test code in the Universal Test ID; a standard LOINC is mapped
+downstream. Supply your own IICC LIVD ("LOINC to Vendor IVD") catalog and annotate a message — the
+mapping is **additive and advisory**: it never touches the raw code or value, and an unmapped or
+ambiguous code is surfaced as such, **never a guessed LOINC**.
+
+```ts
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+// Your LIVD catalog: the vendor transmission code (Vendor Analyte Code) → LOINC.
+const catalog = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8", loincLongName: "AST" }]);
+
+const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
+const { annotations, warnings } = applyLivd(msg, catalog);
+
+annotations[0]?.mapping; // { status: "mapped", loinc: "1920-8", loincLongName: "AST", source: "livd", derived: true }
+warnings; // ASTM_LIVD_UNMAPPED_CODE / ASTM_LIVD_AMBIGUOUS_MAPPING (value-free) for codes with no single LOINC
+```
+
+**No LOINC / SNOMED / LIVD dictionary is bundled.** LOINC is © Regenstrief (redistributable only with
+its attribution notice) and the public CDC LIVD file is SARS-CoV-2-specific and carries
+separately-licensed SNOMED CT — so the package ships no terminology data and you bring the catalog (and
+its license obligations).
+
+> **Scope your catalog to the source device fleet.** The ASTM Universal Test ID carries no manufacturer
+> to disambiguate against, so the catalog keys on the vendor transmission code alone. Two different
+> instruments that reuse the same code for different analytes would both match — supply a catalog built
+> for the analyzers you actually receive from. (Conflicting entries _within_ one catalog are caught and
+> surfaced as `ambiguous`, never resolved to a guess.)
+
 ## The cosyte parser archetype
 
 - **Postel's Law** — liberal parser (lenient default + warnings), conservative serializer (always
@@ -140,6 +176,9 @@ record type is surfaced (never dropped), and a missing unit is flagged (never de
   through the same public API. A profile only ever downgrades an _expected_, non-safety-critical warning
   to `PROFILE_QUIRK_APPLIED` (it never alters a value) and may force the raw-vs-framed transport; a
   default-deny safety gate refuses to tolerate any safety-critical deviation at definition time.
+- **Terminology recognizer, not a dictionary** — LIVD-aware LOINC recognition is bring-your-own
+  (`applyLivd` over a consumer-supplied catalog): additive, advisory, and never a guessed LOINC. No
+  LOINC / SNOMED / LIVD data is bundled.
 
 ## License
 

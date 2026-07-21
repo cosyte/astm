@@ -39,14 +39,14 @@ for (const w of warnings) {
 }
 ```
 
-> **About runnable examples.** The first block above is tagged ```` ```ts runnable ````: the docs
+> **About runnable examples.** The first block above is tagged ` ```ts runnable `: the docs
 > build extracts it, runs it against the package, and asserts the `// =>` result — so a documented
 > example can never silently drift from the code.
 
 ## Read a result safely — status, flag, range
 
-A result carries the raw fields **and** a modeled, fail-safe view alongside them. The rule is *never
-a confident wrong value*: a corrected or cancelled result never reads as active-final, an unrecognized
+A result carries the raw fields **and** a modeled, fail-safe view alongside them. The rule is _never
+a confident wrong value_: a corrected or cancelled result never reads as active-final, an unrecognized
 abnormal flag is never coerced to "normal", and an unparseable reference range never fabricates a
 bound.
 
@@ -74,7 +74,7 @@ r?.flag?.meaning; // "above-normal" (HL7 Table 0078); an unknown flag → "undef
 r?.range?.kind; // "closed" (low "10", high "40"); an unparseable range → "unparsed", no invented bound
 ```
 
-> Units are vendor **free text**, never UCUM. A *numeric* result value with no units raises an
+> Units are vendor **free text**, never UCUM. A _numeric_ result value with no units raises an
 > `ASTM_RECORD_UNITS_ABSENT` warning — a missing unit is flagged, never defaulted, guessed, or
 > converted. The reference-range delimiter is `[OSS-derived]` (roadmap open question); anything that
 > does not match `low-high` / `<high` / `>low` is surfaced verbatim.
@@ -188,6 +188,36 @@ const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
 const bytes = serializeFramedAstm(msg); // spec-clean framed stream
 
 results(parseFramedAstm(bytes).message)[0]?.value; // => "28.6"
+```
+
+## Map a local code to LOINC (LIVD, bring-your-own)
+
+An analyzer transmits a proprietary **local** test code in the Universal Test ID; a
+standard **LOINC** is mapped downstream. Supply your own IICC LIVD catalog and
+`applyLivd` annotates the message — **additively**. It never touches the raw code or
+value, and it **never guesses a LOINC**: an unmapped or ambiguous code is surfaced as
+such (a wrong LOINC would mis-identify the test). No terminology data is bundled — you
+bring the catalog.
+
+```ts runnable
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+const catalog = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8", loincLongName: "AST" }]);
+const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
+
+applyLivd(msg, catalog).annotations[0]?.mapping.status; // => "mapped"
+```
+
+A code the catalog does not hold stays verbatim and is reported `unmapped` with a
+value-free `ASTM_LIVD_UNMAPPED_CODE` warning — never a fabricated LOINC:
+
+```ts runnable
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+const catalog = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8" }]);
+const msg = parseAstmRecords("H|\\^&\rR|1|^^^999|5|U/L||N||F\rL|1\r");
+
+applyLivd(msg, catalog).annotations[0]?.mapping.status; // => "unmapped"
 ```
 
 ## Next

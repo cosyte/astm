@@ -165,6 +165,32 @@ export type {
   AnyAstmWarningCode,
 } from "./profiles/index.js";
 
+// ── The terminology layer (P9): LIVD-aware LOINC recognition (bring-your-own) ──
+// `@cosyte/astm` bundles no LOINC/SNOMED/LIVD data (roadmap §5): LOINC is © Regenstrief
+// (redistributable only with its attribution notice) and the public CDC LIVD file is
+// SARS-CoV-2-specific and carries separately-licensed SNOMED — not a general public-domain
+// catalog. So a consumer supplies their own IICC LIVD catalog (`defineLivdCatalog`) and
+// `applyLivd` produces an additive, advisory LOINC annotation layer that never mutates the
+// raw code/value and never guesses a LOINC — an unmapped/ambiguous code surfaces as such.
+export {
+  defineLivdCatalog,
+  applyLivd,
+  lookupLivdForRecord,
+  LIVD_WARNING_CODES,
+  livdUnmappedCode,
+  livdAmbiguousMapping,
+} from "./terminology/index.js";
+export type {
+  LivdCatalog,
+  LivdEntry,
+  LivdLookup,
+  LivdAnnotation,
+  LivdMapping,
+  LivdResult,
+  AstmLivdWarning,
+  LivdWarningCode,
+} from "./terminology/index.js";
+
 // ── The LTP protocol layer (P6): transport detection + pure session reducer ──
 export { detectFraming } from "./ltp/transport.js";
 export type { AstmFraming, DetectFramingOptions, DetectFramingResult } from "./ltp/transport.js";

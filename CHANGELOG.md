@@ -267,6 +267,32 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
     `resolveProfileTransport`, `profileQuirkApplied`, `SAFETY_CRITICAL_CODES`, `TOLERABLE_CODES`,
     `ALL_ASTM_WARNING_CODES`, `isSafetyCriticalCode`, and the `AstmProfile`, `DefineAstmProfileOptions`,
     `AstmQuirkTolerance`, `AstmQuirkMatch`, `AstmProfileProvenance`, `AnyAstmWarningCode` types.
+- **LIVD-aware LOINC recognition — bring-your-own catalog, zero bundled terminology data (ASTM-9,
+  roadmap Phase 9).** The `src/terminology/` layer maps an analyzer's local test code (the Universal
+  Test ID's vendor/local code on `R`/`O` records) to a standard LOINC via a **consumer-supplied** IICC
+  LIVD ("LOINC to Vendor IVD") catalog — **additive, advisory, and never a guessed LOINC** (a wrong
+  LOINC mis-identifies a test).
+  - `defineLivdCatalog(entries)` builds an immutable, frozen catalog indexed by the **Vendor Analyte
+    Code** (the vendor transmission code the instrument sends), grounded firsthand on the IICC LIVD
+    digital format / HL7 LIVD IG; `catalog.lookup(code)` returns `mapped` (one LOINC), `unmapped` (a
+    miss), or `ambiguous` (a code matching more than one distinct LOINC — surfaced, **never resolved**).
+  - `applyLivd(msg, catalog)` produces a **separate** layer of per-`R`/`O` `LivdAnnotation`s and never
+    mutates, alters, or drops the raw reported code/value; a catalog hit is labeled `derived: true`
+    (`source: "livd"`), an inline LOINC already on the wire is surfaced `source: "wire"` (never
+    overwritten by the catalog), and a miss/conflict is `unmapped`/`ambiguous` with a **value-free**
+    warning — a LOINC is **never** fabricated. `lookupLivdForRecord(record, catalog)` annotates one
+    record.
+  - **No LOINC / SNOMED / LIVD data is bundled** (roadmap §5). Firsthand: LOINC is © Regenstrief —
+    redistributable only _with its attribution notice_, not public-domain; and the public CDC LIVD file
+    is a **SARS-CoV-2-specific** publication that also carries separately-licensed SNOMED CT, not a
+    general-analyte, public-domain catalog. The package stays a structural recognizer, not a dictionary:
+    the consumer supplies the LIVD data (and owns its license obligations).
+  - New `ASTM_LIVD_*` warning registry (`ASTM_LIVD_UNMAPPED_CODE`, `ASTM_LIVD_AMBIGUOUS_MAPPING`) — a
+    fourth, self-contained registry, deliberately outside the profile safety gate's universe (a LIVD
+    non-mapping is a post-parse advisory, not a parse-time deviation a profile could tolerate). New
+    exports: `defineLivdCatalog`, `applyLivd`, `lookupLivdForRecord`, `LIVD_WARNING_CODES`,
+    `livdUnmappedCode`, `livdAmbiguousMapping`, and the `LivdCatalog`, `LivdEntry`, `LivdLookup`,
+    `LivdAnnotation`, `LivdMapping`, `LivdResult`, `AstmLivdWarning`, `LivdWarningCode` types.
 
 ### Changed
 
@@ -278,11 +304,12 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
 
 - **Named per-vendor profiles** (cobas / Sysmex / ADVIA / Mindray / Snibe) stay `REAL-CORPUS`-gated —
   the Phase-8 engine supports them (tolerate + transport override), but no public vendor-attributed
-  quirk document grounds a named one; LIVD-aware LOINC recognition (Phase 9), and release hardening
-  (Phase 10). The LTP reducer remains a pure state machine — no live I/O: wiring it to a real
-  `SerialPort`/`net.Socket` (and the interactive contention/timeout/retransmit **timing**) is a thin
-  consumer adapter, and the standard's exact numeric timeouts / retry counts are deferred (we model
-  transitions, not timers).
+  quirk document grounds a named one; and release hardening (Phase 10). **No bundled terminology
+  dictionary** — LIVD-aware LOINC recognition is bring-your-own by design (Phase 9); the package ships
+  no LOINC / SNOMED / LIVD data and mapping quality is the consumer's catalog. The LTP reducer remains
+  a pure state machine — no live I/O: wiring it to a real `SerialPort`/`net.Socket` (and the
+  interactive contention/timeout/retransmit **timing**) is a thin consumer adapter, and the standard's
+  exact numeric timeouts / retry counts are deferred (we model transitions, not timers).
 
 ### Deprecated
 
