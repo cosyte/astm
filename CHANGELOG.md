@@ -190,6 +190,46 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
     `ltpInitialState`, `ltpReduce`, `LtpPhase`, `LtpState`, `LtpEvent`, `LtpAction`, `LtpTransition`,
     `AstmLtpWarning`, `LtpWarningCode`, `LTP_WARNING_CODES`, `ltpAmbiguousTransport`,
     `ltpUnexpectedEvent`, `ltpFrameRejected`.
+- **Spec-clean serializers + builders — both layers (ASTM-7, roadmap Phase 7).** The **emit** side: the
+  conservative inverse of the parser and the frame codec, so **round-trip fidelity holds by
+  construction**. Postel's Law's second half — liberal on parse, strict on emit.
+  - **Record serializer.** `serializeAstmRecords(msg | records)` and `serializeAstmRecord(record)` emit a
+    `CR`-terminated stream with the **canonical** `H|\^&` delimiters and every embedded delimiter
+    re-escaped. `encodeComponent()` is the exact inverse of the Phase-1 escape codec — the escape char is
+    encoded **first** (`&` → `&E&`), then the field / component / repeat delimiters (`&F&`/`&S&`/`&R&`) —
+    so a value containing a delimiter (a titre `1^40` → `1&S&40`) can never break framing and reads back
+    as **one** component. A source parsed with **non-canonical** delimiters is **normalized** to the
+    canonical set on emit (vendor-delimiter round-tripping is a Phase-8 profile concern). The header's
+    delimiter declaration is emitted **literally** (never escaped); `M`/`S` records are re-emitted
+    **byte-identically** from `rawLine`.
+  - **Message builder.** `buildAstmMessage(input)` constructs a spec-clean stream from typed input under
+    the **never-fabricate** discipline: it emits **only** the values the caller supplied — an omitted
+    field is left empty, **never a defaulted clinical value** (an unset result status reads back as
+    `unspecified`, never `final`; units / abnormal flags / patient IDs are never defaulted). The
+    **structure** — record type letters, the canonical delimiter declaration, per-record-type sequence
+    counters, the `L` terminator — is **computed, not guessed** (a sequence number may be overridden).
+  - **Frame encoder.** `composeAstmFrames(records, opts?)` is the exact inverse of `decodeAstmFrames`:
+    it wraps reassembled record bytes into `<STX> FN text <ETB|ETX> CS <CR><LF>` frames with the
+    modulo-256 **checksum** and the `0`–`7` **frame number** **computed** (never accepted-as-given or
+    faked; emitted uppercase), numbered continuously across the stream (start `1`, roll over `7 → 0`),
+    and every record over **240** text bytes **split** `ETB…ETX` (the seven control bytes never counted).
+    `serializeFramedAstm(msg | records)` composes both emit layers at the edge — the mirror of
+    `parseFramedAstm`.
+  - **Framing-integrity guards (typed errors, conservative emit).** A value carrying a `CR`/`LF` — which
+    no ASTM escape can encode — is refused with an `AstmSerializeError` (`ASTM_EMIT_UNENCODABLE_VALUE`)
+    rather than emitted into a corrupted wire; an empty record or empty record list is an
+    `AstmFrameEncodeError` (`ASTM_FRAME_EMPTY_RECORD`), never an empty frame.
+  - **Round-trip proven.** The shared archetype `roundTripProperty` is now **live** (serialize is the
+    idempotent inverse of parse); Tier-3 golden files round-trip every synthetic fixture through both the
+    record and framing layers (structural equality of the decoded field tree, zero frame warnings); and
+    `decodeAstmFrames(composeAstmFrames(x)).records ≡ x`.
+  - `HeaderRecord` gains an additive `rawLine` field (the escape char living inside the `\^&` definition
+    defeats the generic escape-aware tokenizer, so the raw header is the reliable source for both
+    delimiter reading and re-serialization). New exports: `serializeAstmRecords`, `serializeAstmRecord`,
+    `serializeField`, `encodeComponent`, `AstmSerializeError`, `buildAstmMessage` (+ `AstmRecordInput`,
+    `MessageInput`, `HeaderInput`, `PatientInput`, `PatientNameInput`, `OrderInput`, `ResultInput`,
+    `CommentInput`, `QueryInput`, `VerbatimInput`), `composeAstmFrames`, `AstmFrameEncodeError`,
+    `ComposeFramesOptions`, `serializeFramedAstm`.
 
 ### Changed
 
@@ -199,10 +239,11 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
 
 ### Deferred (later phases)
 
-- Serialize / build (both layers) — Phase 7. The frame codec decodes byte streams only, and the LTP
-  reducer is a pure state machine — no live I/O: wiring the reducer to a real `SerialPort`/`net.Socket`
-  (and the interactive contention/timeout/retransmit **timing**) is a thin consumer adapter, and the
-  standard's exact numeric timeouts / retry counts are deferred (we model transitions, not timers).
+- The vendor **profile** system (Phase 8), LIVD-aware LOINC recognition (Phase 9), and release hardening
+  (Phase 10). The LTP reducer remains a pure state machine — no live I/O: wiring it to a real
+  `SerialPort`/`net.Socket` (and the interactive contention/timeout/retransmit **timing**) is a thin
+  consumer adapter, and the standard's exact numeric timeouts / retry counts are deferred (we model
+  transitions, not timers).
 
 ### Deprecated
 

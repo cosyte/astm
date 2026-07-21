@@ -141,6 +141,55 @@ results(message)[0]?.value; // parsed from the reassembled, checksum-verified re
 > `{ strict: true }`. The checksum is emitted uppercase but **accepted lowercase** — a real-vendor
 > quirk. Frame warnings carry only a **frame number + byte offset**, never the record bytes.
 
+## Serialize and build (emit)
+
+Emit is the conservative inverse of parse. `serializeAstmRecords` turns a parsed
+message back into a spec-clean, `CR`-terminated stream — always the **canonical**
+`H|\^&` delimiters, every embedded delimiter re-escaped — so it round-trips:
+
+```ts runnable
+import { parseAstmRecords, serializeAstmRecords } from "@cosyte/astm";
+
+const raw = "H|\\^&\rP|1|PRAC|LAB\rR|1|^^^687|28.6|U/L||N||F\rL|1\r";
+serializeAstmRecords(parseAstmRecords(raw)); // => "H|\\^&\rP|1|PRAC|LAB\rR|1|^^^687|28.6|U/L||N||F\rL|1\r"
+```
+
+`buildAstmMessage` constructs a spec-clean stream from typed input — and **never
+fabricates**. It emits only the values you supply; an omitted field stays empty,
+never a defaulted clinical value. A result whose status you did not set reads back
+as `unspecified`, never `final`:
+
+```ts runnable
+import { buildAstmMessage, parseAstmRecords, results } from "@cosyte/astm";
+
+const raw = buildAstmMessage({
+  records: [{ type: "R", universalTestId: ["", "", "", "687"], value: "28.6", units: "U/L" }],
+});
+
+results(parseAstmRecords(raw))[0]?.status.meaning; // => "unspecified"
+```
+
+Every value is escape-encoded on emit, so an embedded delimiter can never break
+framing — a titre `1^40` is emitted as `1&S&40` and reads back as one component. A
+value carrying a `CR`/`LF` (which no escape can encode) is refused with a typed
+`AstmSerializeError` rather than a corrupted wire.
+
+## Frame it for the wire
+
+`composeAstmFrames` is the inverse of `decodeAstmFrames`: it wraps reassembled
+record bytes into `<STX> FN text <ETB|ETX> CS <CR><LF>` frames, **computing** each
+modulo-256 checksum and frame number and splitting any record over 240 bytes —
+never faking either. `serializeFramedAstm` composes both emit layers at the edge:
+
+```ts runnable
+import { parseAstmRecords, serializeFramedAstm, parseFramedAstm, results } from "@cosyte/astm";
+
+const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
+const bytes = serializeFramedAstm(msg); // spec-clean framed stream
+
+results(parseFramedAstm(bytes).message)[0]?.value; // => "28.6"
+```
+
 ## Next
 
 - [Core Concepts](./concepts-archetype) — the parser archetype and the tolerance model.

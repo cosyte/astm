@@ -16,6 +16,34 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
+- **Phase 7 shipped (ASTM-7): spec-clean serializers + builders — both layers now round-trip by
+  construction.** `src/records/serialize.ts` + `src/records/build.ts` are the conservative inverse of the
+  record parser; `src/frames/encode.ts` is the inverse of the frame codec; `serializeFramedAstm`
+  composes both emit layers at the edge (the mirror of `parseFramedAstm`). **Record emit:**
+  `serializeAstmRecords(msg | records)` / `serializeAstmRecord(record)` emit a `CR`-terminated stream
+  with the **canonical** `H|\^&` delimiters (a non-canonical source is normalized — vendor-delimiter
+  round-tripping is a Phase-8 profile concern), re-escaping every embedded `|`/`^`/`\`/`&` via
+  `encodeComponent` (the exact inverse of the P1 escape codec — escape char first, then the three
+  delimiters). The header's delimiter declaration is emitted **literally** (never escaped) and its data
+  fields are reconstructed from `HeaderRecord.rawLine` (new additive field — the escape char living
+  inside the `\^&` definition defeats the generic escape-aware tokenizer, so the raw header is the
+  reliable source); `M`/`S` are re-emitted **byte-identically** from `rawLine`. **Frame emit:**
+  `composeAstmFrames(records, opts?)` frames reassembled record bytes into `<STX> FN text <ETB|ETX> CS
+<CR><LF>` — the modulo-256 checksum and the `0`–`7` frame number are **computed, never faked**;
+  frame numbers run continuously (start `1`, roll over `7 → 0`); a record over **240** bytes is split
+  `ETB…ETB…ETX`. **Never-fabricate discipline:** a builder emits only supplied values (an omitted result
+  status reads back `unspecified`, never `final`; units/flags/IDs are never defaulted) — structure
+  (record types, delimiters, per-type seq counters, the `L` terminator) is computed, not guessed. Two
+  typed emit errors guard framing integrity: `AstmSerializeError` (`ASTM_EMIT_UNENCODABLE_VALUE` — a
+  `CR`/`LF` in a value cannot be escaped) and `AstmFrameEncodeError` (`ASTM_FRAME_EMPTY_RECORD` — an
+  empty record/list is never an empty frame). Round-trip is proven: the archetype `roundTripProperty`
+  is live (serialize is the idempotent inverse of parse), Tier-3 golden files round-trip every synthetic
+  fixture through both layers, and `decodeAstmFrames(composeAstmFrames(x)) ≡ x`. New exports:
+  `serializeAstmRecords`, `serializeAstmRecord`, `serializeField`, `encodeComponent`, `AstmSerializeError`,
+  `buildAstmMessage` (+ the `*Input` types), `composeAstmFrames`, `AstmFrameEncodeError`,
+  `ComposeFramesOptions`, `serializeFramedAstm`. **Deferred:** the vendor profile system (P8), LIVD
+  terminology (P9), release hardening (P10); and, as before, the socket/serial adapter + numeric
+  timeout/retry timing (we model transitions, not timers).
 - **Phase 6 shipped (ASTM-6): transport variants + the pure LTP protocol reducer — the framing layer is
   now feature-complete for decode.** `src/ltp/` sits above the frame codec with two pieces, no live I/O.
   `detectFraming(bytes, opts?)` auto-detects the transport reality from the leading byte: `STX`/`ENQ` ⇒

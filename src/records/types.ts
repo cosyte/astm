@@ -53,6 +53,14 @@ export interface HeaderRecord extends RecordBase {
   readonly type: "H";
   /** The four delimiters resolved from this header. */
   readonly delimiters: Delimiters;
+  /**
+   * The header's exact wire text (terminator excluded), preserved because the
+   * escape character appears **literally** inside the delimiter-definition field
+   * (`\^&`), which the generic escape-aware tokenizer cannot split cleanly. The
+   * delimiters are read from this raw text (never from {@link RecordBase.fields}),
+   * and the serializer reconstructs the header's data fields from it.
+   */
+  readonly rawLine: string;
 }
 
 /**

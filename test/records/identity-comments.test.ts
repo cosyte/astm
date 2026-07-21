@@ -142,6 +142,7 @@ describe("attachComments — the orphan fail-safe", () => {
         recordIndex: 0,
         fields: [],
         delimiters: { field: "|", repeat: "\\", component: "^", escape: "&" },
+        rawLine: "H|\\^&",
       },
       { type: "O", recordIndex: 1, fields: [] },
       { type: "C", recordIndex: 2, fields: [], attachedToRoot: false },

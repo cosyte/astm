@@ -15,8 +15,10 @@ mirrors the API shape of the reference parser, `@cosyte/hl7`.
 > `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and escape decode (Phase 1),
 > models safety-critical result semantics (Phase 2), patient/order identity depth + the `C` comment
 > record attached by position + partial-timestamp hardening (Phase 3), and the `Q` request-information
-> record + host-query classification + verbatim `M`/`S` records (Phase 4). The **record-content layer is
-> now feature-complete**; the E1381 framing layer and the serializer land in subsequent phases.
+> record + host-query classification + verbatim `M`/`S` records (Phase 4). The E1381/CLSI-LIS01
+> **framing** layer decodes framed byte streams (Phase 5) with a pure LTP transport reducer (Phase 6),
+> and the **spec-clean serializers + builders** (Phase 7) round-trip both layers by construction. The
+> vendor **profile** system lands in a subsequent phase.
 
 ## Install
 

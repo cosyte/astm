@@ -3,14 +3,15 @@
  * `@cosyte/test-utils` invariant runners. The kit owns the **invariants**; this
  * parser owns the **format-specific arbitraries** below.
  *
- * Active in Phase 1:
+ * Active:
  *   - **lenient-mode** — arbitrary / hostile bytes never throw outside the fatal
- *     set, and every recovered warning carries a registered code + position; and
+ *     set, and every recovered warning carries a registered code + position;
  *   - **immutability** — the parsed model rejects mutation (frozen) and never
- *     changes previously-read state.
- *
- * The **round-trip** invariant stays `it.todo` until the serializer lands (P7):
- * there is no `serializeAstm` yet, so `parse(serialize(x))` cannot be asserted.
+ *     changes previously-read state; and
+ *   - **round-trip** (P7) — `serialize` is the conservative inverse of `parse`:
+ *     for any spec-shaped message, `serialize(parse(serialize(x))) === serialize(x)`
+ *     (serialization is idempotent, so re-parsing an emitted stream yields the same
+ *     canonical form — embedded delimiters re-escaped, delimiters normalized).
  */
 
 import { describe, it } from "vitest";
@@ -26,6 +27,7 @@ import {
   FATAL_CODES,
   WARNING_CODES,
   parseAstmRecords,
+  serializeAstmRecords,
   type AstmMessage,
 } from "../../src/index.js";
 
@@ -84,14 +86,15 @@ describe("astm conformance (archetype invariants)", () => {
     });
   });
 
-  // TODO: flip `it.todo` -> `it` once a serializer (`serializeAstm` / `msg.toString()`)
-  // lands in Phase 7. The body already typechecks against the real runner.
-  it.todo("round-trips — parse(serialize(x)) is structurally equal to x", () => {
-    roundTripProperty({
-      arbitrary: fc.constant("H|\\^&\rL|1\r"),
-      serialize: (raw) => raw,
-      parse: (raw) => raw,
-      equals: (a, b) => a === b,
+  it("round-trips — the serializer is the conservative inverse of the parser", () => {
+    roundTripProperty<AstmMessage>({
+      // The parser's own arbitrary: a spec-shaped message, parsed into the model.
+      arbitrary: specShapedInput().map((raw) => parseAstmRecords(raw)),
+      serialize: (msg) => serializeAstmRecords(msg),
+      parse: (raw) => parseAstmRecords(raw),
+      // Structural equality via the canonical wire form (the model carries the shared
+      // `header === records[0]` reference and re-escapes on emit, so compare canonically).
+      equals: (a, b) => serializeAstmRecords(a) === serializeAstmRecords(b),
     });
   });
 });

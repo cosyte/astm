@@ -25,7 +25,11 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 > edge. Phase 6 adds the **transport layer**: `detectFraming` auto-detects framed (serial / cobas 4800 /
 > Iguana) vs raw (cobas b121, framing dropped) streams, and `ltpReduce` is a **pure, socket-free**
 > receiver-side `ENQ`/`ACK`/`NAK`/`EOT` state machine whose one rule mirrors `mllp`'s ACK-failsafe — a
-> bad-checksum frame is **NAK**ed, never falsely **ACK**ed. The serializer lands in the next phase.
+> bad-checksum frame is **NAK**ed, never falsely **ACK**ed. Phase 7 adds the **spec-clean serializers +
+> builders** — `serializeAstmRecords` / `buildAstmMessage` emit canonical `H|\^&` records (embedded
+> delimiters re-escaped, nothing clinical fabricated) and `composeAstmFrames` / `serializeFramedAstm`
+> frame them with **computed** checksums + frame numbers and the 240-byte split, so both layers
+> round-trip by construction. The vendor **profile** system lands in the next phase.
 
 ## Decode a framed byte stream
 
