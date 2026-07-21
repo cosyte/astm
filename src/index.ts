@@ -19,8 +19,17 @@
  * record bytes — verifying the modulo-256 checksum (a bad frame is surfaced
  * untrusted, never merged), tracking frame-number sequencing (a gap is never
  * silently bridged), and reassembling the 240-byte-limited multi-frame records.
- * {@link parseFramedAstm} composes the two layers at the edge. The interactive LTP
- * reducer (`ENQ`/`ACK`/`NAK`/`EOT`, P6) and serialize/build (P7) are deferred.
+ * {@link parseFramedAstm} composes the two layers at the edge.
+ *
+ * The LTP **protocol** layer (P6) sits above the frame codec: {@link detectFraming}
+ * auto-detects the transport reality — framed (serial / cobas 4800 / Iguana) vs raw
+ * (cobas b121, framing dropped) — from the stream's leading byte, and
+ * {@link ltpReduce} is a **pure, socket-free** receiver-side state machine over
+ * `ENQ`/`ACK`/`NAK`/`EOT` + frame-received events. The consumer owns the wire; the
+ * reducer decides. Its inviolable rule mirrors `mllp`'s ACK-failsafe: a frame the
+ * codec did not vouch for is answered with `NAK`, **never** a fabricated positive
+ * `ACK`, and never merged into a record — a `NAK` drives retransmit, not acceptance.
+ * Serialize/build (P7) is deferred.
  */
 
 /**
@@ -102,6 +111,25 @@ export type { AstmDate, AstmDatePrecision } from "./common/dates.js";
 export { recognizeUniversalTestId, primaryCode } from "./common/coding-system.js";
 export type { UniversalTestId, UniversalTestIdProvenance } from "./common/coding-system.js";
 export { deepFreeze } from "./common/freeze.js";
+
+// ── The LTP protocol layer (P6): transport detection + pure session reducer ──
+export { detectFraming } from "./ltp/transport.js";
+export type { AstmFraming, DetectFramingOptions, DetectFramingResult } from "./ltp/transport.js";
+export { ltpInitialState, ltpReduce } from "./ltp/reducer.js";
+export {
+  LTP_WARNING_CODES,
+  ltpAmbiguousTransport,
+  ltpUnexpectedEvent,
+  ltpFrameRejected,
+} from "./ltp/warnings.js";
+export type { LtpWarningCode, AstmLtpWarning } from "./ltp/warnings.js";
+export {
+  ENQ as ASTM_ENQ,
+  ACK as ASTM_ACK,
+  NAK as ASTM_NAK,
+  EOT as ASTM_EOT,
+} from "./ltp/constants.js";
+export type { LtpPhase, LtpState, LtpEvent, LtpAction, LtpTransition } from "./ltp/types.js";
 
 // ── The E1381 / CLSI-LIS01 framing layer (P5) ──
 export { decodeAstmFrames } from "./frames/decode.js";

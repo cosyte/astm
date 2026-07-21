@@ -158,6 +158,38 @@ warnings: readonly AstmFrameWarning[] }`. A frame is `<STX> FN text <ETB|ETX> CS
   - New types/exports: `AstmFrame`, `FrameChecksum`, `FrameTerminator`, `FrameOptions`,
     `DecodeAstmFramesResult`, `FramedAstmResult`, `AstmFramePosition`, `AstmFrameWarning`,
     `FrameWarningCode`, `FRAME_WARNING_CODES`.
+- **Transport variants + pure LTP protocol reducer (ASTM-6, roadmap Phase 6).** The **LTP protocol
+  layer** — `src/ltp/` — sits above the frame codec: transport auto-detection plus a deterministic,
+  socket-free session state machine. No live I/O: the consumer owns the wire and clock; this layer
+  decides.
+  - **Transport auto-detection.** `detectFraming(bytes, opts?)` → `{ framing: "framed" | "raw";
+defaulted: boolean; warnings }`. A leading `STX`/`ENQ` ⇒ **framed** (serial, and the cobas 4800 /
+    iNTERFACEWARE Iguana framed-over-TCP reality); a leading bare record letter (`H`/`P`/`O`/`R`/`C`/
+    `Q`/`M`/`S`/`L`) ⇒ **raw** (the cobas b121 raw-TCP reality — framing dropped, records streamed
+    directly). An unrecognizable lead **defaults to framed and warns**
+    (`ASTM_LTP_AMBIGUOUS_TRANSPORT`), never guessing silently into data loss; an `override` forces the
+    mode (the Phase-8 profile hook).
+  - **Pure receiver-side reducer.** `ltpReduce(state, event)` → `{ state, actions, warnings }`, seeded
+    by `ltpInitialState()`. Events are the four LTP control signals (`enq`/`ack`/`nak`/`eot`) plus a
+    codec-decoded `frame`; actions are `sendAck` / `sendNak` / `sendEot` / `deliverRecord`. It models
+    the LIS01-A2 establishment → transfer → termination phases as `neutral ⇄ transfer`, reassembling
+    `ETB…ETX` runs into delivered records and tracking the `0`–`7` frame sequence.
+  - **ACK-failsafe (safety-critical, borrowed from `mllp`).** A frame the codec did not vouch for — a
+    **bad checksum**, an **unterminated** frame, or one **out of sequence** — is answered with `NAK`,
+    **never** a fabricated positive `ACK`, and its bytes are **never** appended to a record or
+    delivered. A `NAK` drives **retransmit, not acceptance** (`ASTM_LTP_FRAME_REJECTED`). A duplicate
+    of the last-accepted frame is idempotently re-`ACK`ed without re-appending; a partial record open
+    on an `EOT` or `ENQ` restart is discarded, never delivered as if whole.
+  - New `ASTM_LTP_*` warning registry (a **third** registry alongside `ASTM_RECORD_*` / `ASTM_FRAME_*`;
+    value-free, carrying at most a frame number): `ASTM_LTP_AMBIGUOUS_TRANSPORT`,
+    `ASTM_LTP_UNEXPECTED_EVENT`, `ASTM_LTP_FRAME_REJECTED`.
+  - Property tests: the reducer **never emits `ACK` after an untrusted frame**; a full `ENQ → frames →
+EOT` session **reassembles exactly the source records**; a **raw-TCP stream equals its framed
+    twin**. Plus the transport-control control bytes `ASTM_ENQ` / `ASTM_ACK` / `ASTM_NAK` / `ASTM_EOT`.
+  - New types/exports: `detectFraming`, `AstmFraming`, `DetectFramingOptions`, `DetectFramingResult`,
+    `ltpInitialState`, `ltpReduce`, `LtpPhase`, `LtpState`, `LtpEvent`, `LtpAction`, `LtpTransition`,
+    `AstmLtpWarning`, `LtpWarningCode`, `LTP_WARNING_CODES`, `ltpAmbiguousTransport`,
+    `ltpUnexpectedEvent`, `ltpFrameRejected`.
 
 ### Changed
 
@@ -167,8 +199,10 @@ warnings: readonly AstmFrameWarning[] }`. A frame is `<STX> FN text <ETB|ETX> CS
 
 ### Deferred (later phases)
 
-- The interactive LTP protocol reducer (`ENQ`/`ACK`/`NAK`/`EOT`, transport variants) — Phase 6.
-  Serialize / build (both layers) — Phase 7. The frame codec decodes byte streams only; no live I/O.
+- Serialize / build (both layers) — Phase 7. The frame codec decodes byte streams only, and the LTP
+  reducer is a pure state machine — no live I/O: wiring the reducer to a real `SerialPort`/`net.Socket`
+  (and the interactive contention/timeout/retransmit **timing**) is a thin consumer adapter, and the
+  standard's exact numeric timeouts / retry counts are deferred (we model transitions, not timers).
 
 ### Deprecated
 
