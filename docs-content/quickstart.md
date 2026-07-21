@@ -104,6 +104,43 @@ IDs, the `ALL` keyword, and the request-information status codes are surfaced **
 data. They are surfaced **verbatim** on `record.rawLine` and **never** interpreted into clinical
 fields — a QC value must not be read as a patient result.
 
+## Decode a framed byte stream
+
+The record examples above assume **de-framed** record bytes. When you receive a raw ASTM byte stream
+straight off a serial line or socket, it arrives wrapped in **E1381/CLSI-LIS01 frames** —
+`<STX> FN text <ETB|ETX> CS <CR><LF>` — with a modulo-256 checksum and a frame number. `decodeAstmFrames`
+verifies each checksum, tracks the frame-number sequence, and reassembles multi-frame records; a
+bad-checksum frame is surfaced **flagged untrusted and never merged**, and a sequence gap is **never
+silently bridged**.
+
+```ts runnable
+import { decodeAstmFrames } from "@cosyte/astm";
+
+// One final (ETX) frame carrying the record text "L|1\r", with its correct checksum "3A".
+const bytes = new Uint8Array([0x02, 0x31, 0x4c, 0x7c, 0x31, 0x0d, 0x03, 0x33, 0x41, 0x0d, 0x0a]);
+const { frames } = decodeAstmFrames(bytes);
+
+frames[0]?.checksum.valid; // => true
+```
+
+`parseFramedAstm` composes the two layers at the edge — decode the frames, then parse the trusted,
+reassembled records into a message in one call. Only frames the framing layer vouched for reach the
+record parser, so a corrupted frame can never become a confident wrong value:
+
+```ts
+import { parseFramedAstm, results } from "@cosyte/astm";
+
+const { message, frames, frameWarnings } = parseFramedAstm(framedBytes);
+
+frameWarnings; // bad checksum / sequence gap / unterminated / oversize — each with a frame number + offset
+results(message)[0]?.value; // parsed from the reassembled, checksum-verified record bytes
+```
+
+> A checksum mismatch is a **warning** in the default lenient mode (the frame is kept for audit,
+> flagged `trusted: false`, and excluded from `records`) and a thrown `AstmFrameStrictError` under
+> `{ strict: true }`. The checksum is emitted uppercase but **accepted lowercase** — a real-vendor
+> quirk. Frame warnings carry only a **frame number + byte offset**, never the record bytes.
+
 ## Next
 
 - [Core Concepts](./concepts-archetype) — the parser archetype and the tolerance model.

@@ -13,7 +13,14 @@
  * request-information (`Q`) record + host-query classification + verbatim `M`/`S`
  * records (P4) are all modeled — the **record-content layer is now feature-complete**.
  *
- * Deferred to later phases: the E1381 framing layer (P5+) and serialize/build (P7).
+ * The E1381/CLSI-LIS01 **framing** layer (P5) lives alongside the record layer and
+ * shares nothing but the payload boundary: {@link decodeAstmFrames} decodes a framed
+ * byte stream (`<STX> FN text <ETB|ETX> CS <CR><LF>`) into frames + reassembled
+ * record bytes — verifying the modulo-256 checksum (a bad frame is surfaced
+ * untrusted, never merged), tracking frame-number sequencing (a gap is never
+ * silently bridged), and reassembling the 240-byte-limited multi-frame records.
+ * {@link parseFramedAstm} composes the two layers at the edge. The interactive LTP
+ * reducer (`ENQ`/`ACK`/`NAK`/`EOT`, P6) and serialize/build (P7) are deferred.
  */
 
 /**
@@ -95,3 +102,26 @@ export type { AstmDate, AstmDatePrecision } from "./common/dates.js";
 export { recognizeUniversalTestId, primaryCode } from "./common/coding-system.js";
 export type { UniversalTestId, UniversalTestIdProvenance } from "./common/coding-system.js";
 export { deepFreeze } from "./common/freeze.js";
+
+// ── The E1381 / CLSI-LIS01 framing layer (P5) ──
+export { decodeAstmFrames } from "./frames/decode.js";
+export { parseFramedAstm } from "./frames/compose.js";
+export type { FramedAstmResult } from "./frames/compose.js";
+export { computeChecksum, toChecksumHex, parseChecksumHex } from "./frames/checksum.js";
+export { AstmFrameStrictError } from "./frames/errors.js";
+export {
+  FRAME_WARNING_CODES,
+  frameBadChecksum,
+  frameSequenceGap,
+  frameUnterminated,
+  frameOversize,
+} from "./frames/warnings.js";
+export type { FrameWarningCode, AstmFrameWarning } from "./frames/warnings.js";
+export type { AstmFramePosition } from "./frames/position.js";
+export type {
+  AstmFrame,
+  FrameChecksum,
+  FrameTerminator,
+  FrameOptions,
+  DecodeAstmFramesResult,
+} from "./frames/types.js";
