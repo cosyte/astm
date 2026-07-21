@@ -79,6 +79,31 @@ r?.range?.kind; // "closed" (low "10", high "40"); an unparseable range → "unp
 > converted. The reference-range delimiter is `[OSS-derived]` (roadmap open question); anything that
 > does not match `low-high` / `<high` / `>low` is surfaced verbatim.
 
+## Tell a query apart from a result upload
+
+A `Q` (request-information) record means the message is a **host-query request**, not a result set —
+so it must never be read as one. `parseAstmRecords` classifies every message up front; gate on
+`classification.isHostQueryRequest` before treating records as results.
+
+```ts runnable
+import { parseAstmRecords, query } from "@cosyte/astm";
+
+// An H/P/Q/L host-query request asking for all tests on a specimen.
+const raw = "H|\\^&\rP|1\rQ|1|^SPEC-7|^SPEC-7|ALL\rL|1\r";
+const msg = parseAstmRecords(raw);
+
+msg.classification.kind; // => "host-query"
+```
+
+The `Q` **dominates**: even a message that (anomalously) carries both a `Q` and an `R` is classified
+`host-query` and flagged — a query is never silently read as a result upload. The `Q` record's range
+IDs, the `ALL` keyword, and the request-information status codes are surfaced **verbatim** and flagged
+`[OSS-derived]` (their exact structure is paywalled — see the roadmap), never guessed.
+
+`M` (manufacturer) and `S` (scientific) records carry vendor-defined QC / calibration / maintenance
+data. They are surfaced **verbatim** on `record.rawLine` and **never** interpreted into clinical
+fields — a QC value must not be read as a patient result.
+
 ## Next
 
 - [Core Concepts](./concepts-archetype) — the parser archetype and the tolerance model.

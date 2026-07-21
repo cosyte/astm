@@ -237,6 +237,80 @@ export interface CommentRecord extends RecordBase {
 }
 
 /**
+ * The `Q` (Request Information) record — the host-query request.
+ *
+ * A `Q` record asks the LIS for information (e.g. outstanding orders for a
+ * specimen); its **presence classifies the whole message as a request, never a
+ * result set** (see {@link AstmMessage.classification}). Its safety-relevant
+ * fields — the starting/ending range ID and the request-information status — are
+ * surfaced **verbatim**; the field *positions* are the public ASTM E1394 layout,
+ * but their internal structure and code meanings are **`[OSS-derived / paywalled]`**
+ * (roadmap §10 Q3) and are therefore **never interpreted or guessed**.
+ */
+export interface QueryRecord extends RecordBase {
+  /** Field 2 — sequence number. */
+  readonly seq?: string;
+  readonly type: "Q";
+  /**
+   * Field 3 — starting range ID number, surfaced as the **full** verbatim field text (never truncated
+   * to a component). Its caret component structure (e.g. patient ID ^ specimen ID) is
+   * **`[OSS-derived / paywalled]`** — the raw split is available via {@link RecordBase.fields}, but the
+   * *meaning* of each component is **never** assigned here.
+   */
+  readonly startingRangeId?: string;
+  /** Field 4 — ending range ID number, surfaced verbatim (same `[OSS-derived]` caveat as field 3). */
+  readonly endingRangeId?: string;
+  /**
+   * Field 5 — Universal Test ID (the same caret structure as an `O`/`R` record's), recognized by
+   * provenance only. When the field is the literal universal-query keyword, {@link QueryRecord.queriesAllTests}
+   * is set instead — see its caveat.
+   */
+  readonly universalTestId?: UniversalTestId;
+  /**
+   * `true` when field 5 is the literal `ALL` universal-query keyword (case-insensitive). **`[OSS-derived
+   * / paywalled]`:** the token is surfaced because it appears in the OSS references, but its exact
+   * host-query *behavior* (which tests a bare `ALL` selects, and whether the vendor answers with a full
+   * `H/P/O/L` or a `P/O`-only response) is paywalled and vendor-specific — **not decided here**.
+   */
+  readonly queriesAllTests: boolean;
+  /**
+   * Field 13 — request-information status code(s), surfaced **verbatim**. The status code *set* is
+   * **`[OSS-derived / paywalled]`** (roadmap §10 Q3): with no publicly-groundable enumeration, this
+   * parser recognizes **none** of them and interprets nothing — every present status is surfaced raw
+   * and flagged with a value-free `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS` warning. Never mapped to a
+   * guessed meaning.
+   */
+  readonly requestInformationStatus?: string;
+}
+
+/**
+ * The `M` (manufacturer) record — vendor-defined free-form data
+ * (QC / calibration / maintenance), surfaced **VERBATIM** and **never interpreted
+ * into typed clinical fields**.
+ *
+ * Interpreting a vendor `M` record as clinical data would be a fabrication, so
+ * this record carries **no typed accessors at all**: the exact wire text is in
+ * {@link ManufacturerRecord.rawLine} (byte-preserving) and the tokenized tree in
+ * {@link RecordBase.fields}. Nothing is parsed into a value, a code, or a unit.
+ */
+export interface ManufacturerRecord extends RecordBase {
+  readonly type: "M";
+  /** The record's exact wire text (terminator excluded), preserved byte-for-byte for round-trip. */
+  readonly rawLine: string;
+}
+
+/**
+ * The `S` (scientific) record — vendor-defined free-form data, surfaced
+ * **VERBATIM** and **never interpreted into typed clinical fields** (same posture
+ * as {@link ManufacturerRecord}).
+ */
+export interface ScientificRecord extends RecordBase {
+  readonly type: "S";
+  /** The record's exact wire text (terminator excluded), preserved byte-for-byte for round-trip. */
+  readonly rawLine: string;
+}
+
+/**
  * The `L` (terminator) record — closes a message.
  */
 export interface TerminatorRecord extends RecordBase {
@@ -244,9 +318,10 @@ export interface TerminatorRecord extends RecordBase {
 }
 
 /**
- * Any record whose type letter is not yet modeled (`Q`/`M`/`S`/…, or a genuinely
- * unknown letter — `C` is modeled as of Phase 3). Surfaced with its raw fields
- * intact and flagged with an `ASTM_RECORD_UNKNOWN_TYPE` warning — never dropped.
+ * Any record whose type letter is not modeled (a genuinely unknown letter).
+ * `H`/`P`/`O`/`R`/`C`/`L` (Phases 1–3) and `Q`/`M`/`S` (Phase 4) are all modeled;
+ * anything else is surfaced with its raw fields intact and flagged with an
+ * `ASTM_RECORD_UNKNOWN_TYPE` warning — never dropped.
  */
 export interface UnsupportedRecord extends RecordBase {
   readonly type: "unsupported";
@@ -261,8 +336,57 @@ export type AstmRecord =
   | OrderRecord
   | ResultRecord
   | CommentRecord
+  | QueryRecord
+  | ManufacturerRecord
+  | ScientificRecord
   | TerminatorRecord
   | UnsupportedRecord;
+
+/**
+ * How a message is classified by the host-query flow.
+ *
+ * - `host-query` — the message carries at least one `Q` record: it is a **request
+ *   for information**, and **must never be read as a result set** (the load-bearing
+ *   safety distinction of this layer). `Q` **dominates**: a `Q` present classifies
+ *   the message as a request even if a result record is also present (an anomaly,
+ *   separately warned) — so a `Q`-bearing message is never silently treated as a
+ *   result upload.
+ * - `results` — no `Q`, at least one `R` (result) record: a result upload / response.
+ * - `orders` — no `Q`, no `R`, at least one `O` (order) record: an order download,
+ *   or a query response before results are attached.
+ * - `indeterminate` — none of the above (e.g. header + terminator only). Not
+ *   guessed into one of the other kinds.
+ */
+export type AstmMessageKind = "host-query" | "results" | "orders" | "indeterminate";
+
+/**
+ * The message-level classification from the host-query flow. `isHostQueryRequest`
+ * is the single boolean a consumer should gate on before treating records as
+ * results — it is `true` **iff** a `Q` record is present.
+ *
+ * @example
+ * ```ts
+ * import { parseAstmRecords } from "@cosyte/astm";
+ * const req = parseAstmRecords("H|\\^&\rP|1\rQ|1|^SPEC-7||ALL\rL|1\r");
+ * req.classification.kind;               // "host-query"
+ * req.classification.isHostQueryRequest; // true — never read its records as results
+ * ```
+ */
+export interface AstmMessageClassification {
+  /** The message kind. */
+  readonly kind: AstmMessageKind;
+  /** At least one `Q` (request-information) record is present. */
+  readonly hasQuery: boolean;
+  /** At least one `R` (result) record is present. */
+  readonly hasResults: boolean;
+  /** At least one `O` (order) record is present. */
+  readonly hasOrders: boolean;
+  /**
+   * `true` **iff** `kind === "host-query"` (a `Q` record is present) — the safety surface: gate on this
+   * before treating records as results, so a query is never misread as a result upload.
+   */
+  readonly isHostQueryRequest: boolean;
+}
 
 /**
  * A parsed ASTM message: the header, the ordered records (the header is also
@@ -280,6 +404,13 @@ export interface AstmMessage {
   readonly header: HeaderRecord;
   readonly records: readonly AstmRecord[];
   readonly delimiters: Delimiters;
+  /**
+   * The host-query classification of this message — whether it is a request (`Q`
+   * present), a result upload, an order download, or indeterminate. Gate on
+   * {@link AstmMessageClassification.isHostQueryRequest} before reading records as
+   * results.
+   */
+  readonly classification: AstmMessageClassification;
   readonly warnings: readonly AstmRecordWarning[];
 }
 

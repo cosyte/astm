@@ -104,6 +104,30 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
     `ASTM_RECORD_PARTIAL_TIMESTAMP` — value-free (code + record/field index only).
   - `scripts/phi-scan.ts` extended toward the mother's-maiden locus (P field 7), on top of the existing
     name (field 6) + DOB (field 8) detection; synthetic fixtures declared in `scripts/phi-allow-list.txt`.
+- **Query (`Q`) + host-query flow + `M`/`S` surfaced verbatim (ASTM-4, roadmap Phase 4).** Completes the
+  record grammar — **the record-content layer is now feature-complete.**
+  - **The `Q` (Request Information) record.** Modeled at the public ASTM E1394 field positions:
+    `startingRangeId` (field 3) and `endingRangeId` (field 4) surfaced as the **full verbatim field**
+    (never truncated to a component), the Universal Test ID (field 5, same caret structure as `O`/`R`),
+    and `requestInformationStatus` (field 13) surfaced **verbatim**. The range component structure, the
+    `ALL` universal-query keyword (`queriesAllTests`), and the request-information status code set are
+    all **`[OSS-derived / paywalled]`** (roadmap §10 Q3) — surfaced, flagged, and **never interpreted or
+    guessed**. New `query(msg)` extractor.
+  - **The host-query flow.** Every message is classified up front (`msg.classification`): an `H/P/Q/L`
+    **request** is `host-query`, an `R`-bearing message is `results`, an `O`-only message is `orders`,
+    else `indeterminate`. **Fail-safe:** the `Q` **dominates** — a `Q`-bearing message is a request and
+    is **never** read as a result set, even when a result record is also present (a contradiction flagged
+    with `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`). Gate on `classification.isHostQueryRequest`. Pure
+    `classifyMessage(records)` exported.
+  - **`M` (manufacturer) + `S` (scientific) records surfaced verbatim.** Vendor-defined free-form
+    QC / calibration / maintenance data, preserved byte-for-byte on `record.rawLine` and **never**
+    interpreted into typed clinical fields — a QC value can never be read as a patient result. Round-trip
+    byte-identical.
+  - New warning codes (registry extended, snapshot locked): `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`
+    (a Q request-information status surfaced verbatim; the code set is paywalled, so it is passed through
+    uninterpreted) and `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` — both value-free (code + position only).
+  - `AstmMessage` gains a `classification` field; `AstmRecord` gains `QueryRecord` / `ManufacturerRecord`
+    / `ScientificRecord` members (an unknown type letter is still an `UnsupportedRecord`, never dropped).
 
 ### Changed
 
@@ -113,8 +137,7 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Deferred (later phases)
 
-- Query (`Q`) + host-query flow and `M` / `S` surfaced verbatim — Phase 4. The E1381 framing layer
-  (checksums, 240-split) — Phase 5+. Serialize / build — Phase 7.
+- The E1381 framing layer (checksums, 240-split) — Phase 5+. Serialize / build — Phase 7.
 
 ### Deprecated
 

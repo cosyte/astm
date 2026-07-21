@@ -14,6 +14,7 @@ import type {
   CommentRecord,
   OrderRecord,
   PatientRecord,
+  QueryRecord,
   ResultRecord,
 } from "./types.js";
 
@@ -106,4 +107,22 @@ export function commentsFor(msg: AstmMessage, parent: AstmRecord): readonly Comm
   return msg.records.filter(
     (r): r is CommentRecord => r.type === "C" && r.parentIndex === parent.recordIndex,
   );
+}
+
+/**
+ * Every request-information (`Q`) record in the message, in wire order. A non-empty
+ * result means the message is a **host-query request**, not a result set — see
+ * {@link AstmMessage.classification} (`isHostQueryRequest`).
+ *
+ * @param msg - A parsed message.
+ * @returns The query records (possibly empty).
+ * @example
+ * ```ts
+ * import { parseAstmRecords, query } from "@cosyte/astm";
+ * const msg = parseAstmRecords("H|\\^&\rP|1\rQ|1|^SPEC-7||ALL\rL|1\r");
+ * query(msg)[0]?.queriesAllTests; // true
+ * ```
+ */
+export function query(msg: AstmMessage): readonly QueryRecord[] {
+  return msg.records.filter((r): r is QueryRecord => r.type === "Q");
 }

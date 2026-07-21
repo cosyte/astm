@@ -16,19 +16,24 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
-- **Phase 3 shipped (ASTM-3): identity depth + comments + timestamps.** Pre-alpha `0.0.x`, not yet
-  published to npm. `parseAstmRecords` reads `H`/`P`/`O`/`R`/`C`/`L` with delimiter self-declaration and
-  the escape codec (P1); the `R` record carries modeled, fail-safe result semantics alongside the raw
-  fields (P2) — `flag` (HL7 Table 0078, `undefined` never coerced to normal), `status` (a `C`/`X` never
-  reads as active-final; absent → `unspecified`), and `range` (bounds verbatim). P3 adds full patient
-  identity (the practice/lab/third IDs stay **distinct**, plus mother's maiden name), full order fields
-  (priority/action/report, `[OSS-derived]` indices), the `C` **comment** record attached by position to
-  its preceding `H`/`P`/`O`/`R` parent (an orphan → message root + `ASTM_RECORD_ORPHAN_COMMENT`, never
-  dropped), and partial-timestamp hardening (`AstmDate.truncated` + `ASTM_RECORD_PARTIAL_TIMESTAMP` —
-  odd digit runs preserved, never zero-filled). `src/common/` holds the value layer, `src/records/` the
-  record layer. Deferred to later phases: query (`Q`) + host-query flow and `M`/`S` (P4), the E1381
-  **framing** layer (P5+), and serialize/build (P7). The full sequence is in the meta-repo roadmap
-  `operations/roadmaps/astm.md`.
+- **Phase 4 shipped (ASTM-4): query + host-query flow + `M`/`S` verbatim — the record-content layer is
+  now feature-complete.** Pre-alpha `0.0.x`, not yet published to npm. `parseAstmRecords` reads
+  `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and the escape codec (P1); the `R`
+  record carries modeled, fail-safe result semantics alongside the raw fields (P2) — `flag` (HL7 Table
+  0078, `undefined` never coerced to normal), `status` (a `C`/`X` never reads as active-final; absent →
+  `unspecified`), and `range` (bounds verbatim). P3 adds full patient identity (the practice/lab/third
+  IDs stay **distinct**, plus mother's maiden name), full order fields (priority/action/report,
+  `[OSS-derived]` indices), the `C` **comment** record attached by position to its preceding
+  `H`/`P`/`O`/`R` parent (an orphan → message root + `ASTM_RECORD_ORPHAN_COMMENT`, never dropped), and
+  partial-timestamp hardening. P4 adds the `Q` **Request Information** record (starting/ending range ID +
+  Universal Test ID + request-info status, all surfaced verbatim — the range structure, `ALL` keyword,
+  and status code set are `[OSS-derived / paywalled]`, never guessed), the **host-query flow**
+  (`msg.classification`: a `Q`-bearing message is a `host-query` request and is **never** read as a
+  result set — the `Q` dominates, `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` flags a `Q`+`R` contradiction),
+  and `M`/`S` records surfaced **verbatim** (`record.rawLine`, byte-identical) — never interpreted into
+  clinical fields. `src/common/` holds the value layer, `src/records/` the record layer. Deferred to
+  later phases: the E1381 **framing** layer (P5+) and serialize/build (P7). The full sequence is in the
+  meta-repo roadmap `operations/roadmaps/astm.md`.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

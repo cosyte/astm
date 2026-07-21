@@ -1,6 +1,6 @@
 /**
  * Public entry point for the `@cosyte/astm` package — the ASTM/CLSI-LIS02
- * **record** layer (Phase 1).
+ * **record** layer.
  *
  * The north star: hand a de-framed ASTM record stream to {@link parseAstmRecords}
  * and pull a result's value, units, and flag out in one line — lenient on parse
@@ -8,11 +8,12 @@
  * — **never a confident wrong value**. Delimiters are read from each header,
  * embedded escapes are decoded before a value is split, the practice- and
  * laboratory-assigned patient IDs stay distinct, and every deviation is a stable,
- * value-free warning. Result flag/status semantics (P2) and patient/order identity
- * depth, the `C` comment record, and partial-timestamp hardening (P3) are modeled.
+ * value-free warning. Result flag/status semantics (P2), patient/order identity
+ * depth + the `C` comment record + partial-timestamp hardening (P3), and the
+ * request-information (`Q`) record + host-query classification + verbatim `M`/`S`
+ * records (P4) are all modeled — the **record-content layer is now feature-complete**.
  *
- * Deferred to later phases: query (`Q`) / host-query flow and `M` / `S` (P4), the
- * E1381 framing layer (P5+), and serialize/build (P7).
+ * Deferred to later phases: the E1381 framing layer (P5+) and serialize/build (P7).
  */
 
 /**
@@ -27,7 +28,8 @@
 export const VERSION = "0.0.0";
 
 export { parseAstmRecords, AstmStrictError, attachComments } from "./records/parse.js";
-export { results, patient, orders, comments, commentsFor } from "./records/extractors.js";
+export { results, patient, orders, comments, commentsFor, query } from "./records/extractors.js";
+export { classifyMessage } from "./records/host-query.js";
 export { fieldScalar, tokenizeRecord } from "./records/tokenize.js";
 export {
   interpretAbnormalFlag,
@@ -47,6 +49,8 @@ export type {
 export type {
   AstmField,
   AstmMessage,
+  AstmMessageClassification,
+  AstmMessageKind,
   AstmParseOptions,
   AstmRecord,
   HeaderRecord,
@@ -55,6 +59,9 @@ export type {
   OrderRecord,
   ResultRecord,
   CommentRecord,
+  QueryRecord,
+  ManufacturerRecord,
+  ScientificRecord,
   TerminatorRecord,
   UnsupportedRecord,
 } from "./records/types.js";
@@ -73,6 +80,8 @@ export {
   unitsAbsent,
   orphanComment,
   partialTimestamp,
+  uninterpretedQueryStatus,
+  ambiguousMessageKind,
 } from "./common/warnings.js";
 export type { WarningCode, AstmRecordWarning } from "./common/warnings.js";
 export type { AstmPosition } from "./common/position.js";
