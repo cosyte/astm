@@ -14,12 +14,14 @@ import { isNonStandard, readDelimiters, type Delimiters } from "../common/delimi
 import { parseAstmDate, type AstmDate } from "../common/dates.js";
 import { recognizeUniversalTestId } from "../common/coding-system.js";
 import {
+  ambiguousMessageKind,
   ambiguousValueSplit,
   nonStandardDelimiters,
   orphanComment,
   partialTimestamp,
   undefinedAbnormalFlag,
   undefinedResultStatus,
+  uninterpretedQueryStatus,
   unitsAbsent,
   unknownEscapeSequence,
   unknownRecordType,
@@ -31,6 +33,7 @@ import {
   interpretResultStatus,
   parseReferenceRange,
 } from "./result-semantics.js";
+import { classifyMessage } from "./host-query.js";
 import { fieldScalar, tokenizeRecord } from "./tokenize.js";
 import type {
   AstmField,
@@ -39,10 +42,13 @@ import type {
   AstmRecord,
   CommentRecord,
   HeaderRecord,
+  ManufacturerRecord,
   OrderRecord,
   PatientName,
   PatientRecord,
+  QueryRecord,
   ResultRecord,
+  ScientificRecord,
   TerminatorRecord,
   UnsupportedRecord,
 } from "./types.js";
@@ -139,8 +145,16 @@ export function parseAstmRecords(
   // Second pass: attach each comment to its immediately-preceding H/P/O/R parent (an orphan → root).
   const records = attachComments(built, warnings);
 
+  // Host-query classification. `Q` dominates so a query is never read as a result set; a message that
+  // carries BOTH a Q and an R is contradictory — classified host-query (still a request) and warned,
+  // never silently treated as a result upload.
+  const classification = classifyMessage(records);
+  if (classification.hasQuery && classification.hasResults) {
+    warnings.push(ambiguousMessageKind({ recordIndex: 0, recordType: "H" }));
+  }
+
   const header = records[0] as HeaderRecord;
-  const message: AstmMessage = { header, records, delimiters, warnings };
+  const message: AstmMessage = { header, records, delimiters, classification, warnings };
 
   if (options.strict === true && warnings.length > 0) {
     throw new AstmStrictError(warnings);
@@ -184,6 +198,14 @@ function buildRecord(
       return buildResult(recordIndex, fields, warnings);
     case "C":
       return buildComment(recordIndex, fields);
+    case "Q":
+      return buildQuery(recordIndex, fields, warnings);
+    // `M` (manufacturer) and `S` (scientific) are vendor-defined free-form data surfaced VERBATIM and
+    // NEVER interpreted into typed clinical fields — the exact wire line is preserved for round-trip.
+    case "M":
+      return { type: "M", recordIndex, fields, rawLine: line } satisfies ManufacturerRecord;
+    case "S":
+      return { type: "S", recordIndex, fields, rawLine: line } satisfies ScientificRecord;
     case "L":
       return { type: "L", recordIndex, fields } satisfies TerminatorRecord;
     default: {
@@ -375,6 +397,49 @@ function buildComment(recordIndex: number, fields: readonly AstmField[]): Commen
     ...definedString("text", text),
     ...(textComponents !== undefined ? { textComponents } : {}),
     ...definedString("commentType", fieldScalar(astmField(fields, 5))),
+  };
+}
+
+/**
+ * Build a `Q` (Request Information) record. The field *positions* are the public ASTM E1394 layout
+ * (3 = starting range ID, 4 = ending range ID, 5 = Universal Test ID, 13 = request-info status); the
+ * starting/ending range component structure, the `ALL` universal-query keyword, and the status code
+ * set are all `[OSS-derived / paywalled]` — surfaced **verbatim** and **never interpreted or guessed**.
+ * A present request-information status is flagged uninterpreted (the code set is paywalled).
+ */
+function buildQuery(
+  recordIndex: number,
+  fields: readonly AstmField[],
+  warnings: AstmRecordWarning[],
+): QueryRecord {
+  const utidField = astmField(fields, 5);
+  // The `ALL` universal-query keyword is recognized as a literal token only; its behavior is paywalled.
+  const utidRaw = fieldRaw(utidField);
+  const queriesAllTests = utidRaw !== undefined && utidRaw.trim().toUpperCase() === "ALL";
+
+  // Surfaced from the FULL field text (fieldRaw, not fieldScalar) so it is literally verbatim — never
+  // escape-decoded and never truncated to the first component — and so the uninterpreted-status warning
+  // fires on ANY non-empty field-13 (matching the range-ID fields above). The status code set is
+  // paywalled, so the value is passed through untouched, never interpreted.
+  const requestInformationStatus = fieldRaw(astmField(fields, 13));
+  if (requestInformationStatus !== undefined) {
+    warnings.push(uninterpretedQueryStatus({ recordIndex, recordType: "Q", fieldIndex: 13 }));
+  }
+
+  return {
+    type: "Q",
+    recordIndex,
+    fields,
+    ...definedString("seq", fieldScalar(astmField(fields, 2))),
+    // Range IDs are surfaced from the FULL field text (never truncated to a component); their internal
+    // caret structure is [OSS-derived]/paywalled and is not interpreted here.
+    ...definedString("startingRangeId", fieldRaw(astmField(fields, 3))),
+    ...definedString("endingRangeId", fieldRaw(astmField(fields, 4))),
+    ...(hasContent(utidField) && !queriesAllTests
+      ? { universalTestId: recognizeUniversalTestId(utidField.components) }
+      : {}),
+    queriesAllTests,
+    ...definedString("requestInformationStatus", requestInformationStatus),
   };
 }
 

@@ -65,6 +65,19 @@ export const WARNING_CODES = {
    * **complete** component — the dangling digit is **never zero-filled into a fabricated time**.
    */
   ASTM_RECORD_PARTIAL_TIMESTAMP: "ASTM_RECORD_PARTIAL_TIMESTAMP",
+  /**
+   * A `Q` (request-information) record carried a request-information status code (field 13). The code
+   * *set* is `[OSS-derived / paywalled]` with no publicly-groundable enumeration, so the parser
+   * interprets **none** of them: the status is surfaced verbatim and this value-free warning flags that
+   * it was passed through **uninterpreted** — never mapped to a guessed meaning.
+   */
+  ASTM_RECORD_UNINTERPRETED_QUERY_STATUS: "ASTM_RECORD_UNINTERPRETED_QUERY_STATUS",
+  /**
+   * A message carried **both** a `Q` (request) and an `R` (result) record — a contradictory shape. The
+   * message is classified `host-query` (the `Q` **dominates**, so it is never read as a result set) and
+   * this warning flags the anomaly. Positional context only; no field value.
+   */
+  ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND: "ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND",
 } as const;
 
 /**
@@ -277,6 +290,47 @@ export function partialTimestamp(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_PARTIAL_TIMESTAMP,
     message: "Timestamp digit run truncates a component — preserved verbatim, never zero-filled.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS` warning. Emitted when a `Q`
+ * record carries a request-information status code; the code set is paywalled, so
+ * the status is surfaced verbatim and never mapped to a guessed meaning.
+ *
+ * @example
+ * ```ts
+ * import { uninterpretedQueryStatus } from "@cosyte/astm";
+ * uninterpretedQueryStatus({ recordIndex: 2, recordType: "Q", fieldIndex: 13 });
+ * ```
+ */
+export function uninterpretedQueryStatus(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_UNINTERPRETED_QUERY_STATUS,
+    message:
+      "Query request-information status surfaced verbatim — code set paywalled, never interpreted.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` warning. Emitted when a message
+ * carries both a `Q` (request) and an `R` (result) record; the message is
+ * classified as a host-query request (the `Q` dominates) and the anomaly is
+ * flagged.
+ *
+ * @example
+ * ```ts
+ * import { ambiguousMessageKind } from "@cosyte/astm";
+ * ambiguousMessageKind({ recordIndex: 0, recordType: "H" });
+ * ```
+ */
+export function ambiguousMessageKind(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND,
+    message:
+      "Message carried both a Q (request) and an R (result) record — classified host-query; Q dominates.",
     position,
   };
 }

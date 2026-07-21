@@ -14,8 +14,11 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 > reference-range parsing, and the units-absent discipline; Phase 3 adds **identity depth, comments, and
 > timestamp hardening** — the three distinct patient IDs, mother's maiden name, full order fields, the
 > `C` comment record attached by position (orphans surfaced, never dropped), and partial timestamps
-> preserved and flagged, never zero-filled. The E1381 framing layer and the serializer land in
-> subsequent phases.
+> preserved and flagged, never zero-filled. Phase 4 adds the **`Q` request-information record + the
+> host-query flow** (a `Q`-bearing message is classified a request, **never** read as a result set) and
+> the **`M`/`S` records surfaced verbatim** (vendor QC/calibration data, never interpreted into clinical
+> fields) — the **record-content layer is now feature-complete**. The E1381 framing layer and the
+> serializer land in subsequent phases.
 
 ## Install
 
