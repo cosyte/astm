@@ -361,10 +361,11 @@ function scanCommonShapes(path: string, content: string, allow: AllowList, hits:
 // ---------------------------------------------------------------------------
 //
 // The P record concentrates ASTM's PHI: the patient name (field 6,
-// `Last^First^Middle`) and the birthdate (field 8, `YYYYMMDDHHMMSS`). This
-// detector parses the record the way the library does — reading the four
-// delimiters from the H record rather than assuming them — and flags any name
-// token or DOB that is NOT positively declared synthetic in the allow-list.
+// `Last^First^Middle`), the mother's maiden name (field 7, a surname), and the
+// birthdate (field 8, `YYYYMMDDHHMMSS`). This detector parses the record the way
+// the library does — reading the four delimiters from the H record rather than
+// assuming them — and flags any name token or DOB that is NOT positively declared
+// synthetic in the allow-list.
 //
 // This is a targeted extension of the floor toward the highest-value loci; a
 // full field-level sweep (practice/lab IDs, address, phone, C free text) is a
@@ -398,18 +399,24 @@ function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hi
     if (record.charAt(0) !== "P") continue;
     const fields = record.split(d.field);
 
-    // Field 6 — patient name (Last^First^Middle). Each non-empty component is a name token.
-    const nameField = fields[5] ?? "";
-    for (const token of nameField.split(d.component)) {
-      const t = token.trim();
-      if (t.length === 0) continue;
-      if (!allow.names.has(t.toUpperCase())) {
-        hits.push({
-          path,
-          segment: "P-6 (name)",
-          value: t,
-          reason: "patient name token not declared synthetic in phi-allow-list.txt",
-        });
+    // Field 6 — patient name (Last^First^Middle). Field 7 — mother's maiden name (a surname).
+    // Each non-empty component of either is a name token that must be declared synthetic.
+    for (const [idx, locus] of [
+      [5, "P-6 (name)"],
+      [6, "P-7 (mother's-maiden)"],
+    ] as const) {
+      const nameField = fields[idx] ?? "";
+      for (const token of nameField.split(d.component)) {
+        const t = token.trim();
+        if (t.length === 0) continue;
+        if (!allow.names.has(t.toUpperCase())) {
+          hits.push({
+            path,
+            segment: locus,
+            value: t,
+            reason: "patient name token not declared synthetic in phi-allow-list.txt",
+          });
+        }
       }
     }
 
@@ -444,15 +451,17 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
   // The format-agnostic floor: dashed SSN + non-test email. This runs on every target.
   scanCommonShapes(target.path, text, allow, hits);
 
-  // ASTM-specific structured detection at the P-record loci (name + DOB), delimiter-aware.
+  // ASTM-specific structured detection at the P-record loci (name + mother's
+  // maiden + DOB), delimiter-aware.
   //
   //   This is a TARGETED extension, not a full field-level sweep. It flags the
-  //   highest-value PHI in an ASTM stream — the patient name and birthdate — but
-  //   does NOT yet cover practice/lab IDs, address, phone, or `C`-record free
-  //   text. Those loci are a later phase; until then, treat a green `pnpm
-  //   phi-scan` as "no SSN/email shapes and no undeclared patient name/DOB" —
-  //   NOT as a complete "no PHI" guarantee. Keep fixtures synthetic and declare
-  //   their identifiers in scripts/phi-allow-list.txt.
+  //   highest-value PHI in an ASTM stream — the patient name, mother's maiden
+  //   name, and birthdate — but does NOT yet cover practice/lab IDs, address,
+  //   phone, or `C`-record free text. Those loci are a later phase; until then,
+  //   treat a green `pnpm phi-scan` as "no SSN/email shapes and no undeclared
+  //   patient name / maiden name / DOB" — NOT as a complete "no PHI" guarantee.
+  //   Keep fixtures synthetic and declare their identifiers in
+  //   scripts/phi-allow-list.txt.
   scanAstmPatientLoci(target.path, text, allow, hits);
 }
 

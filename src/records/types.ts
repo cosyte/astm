@@ -80,9 +80,16 @@ export interface PatientRecord extends RecordBase {
   readonly practiceAssignedId?: string;
   /** Field 4 — laboratory-assigned patient ID. Distinct from {@link PatientRecord.practiceAssignedId}. */
   readonly laboratoryAssignedId?: string;
+  /**
+   * Field 5 — a third patient identifier (e.g. a national/alternate ID), surfaced verbatim. Kept
+   * separate from the practice- and laboratory-assigned IDs — the three never collapse into one.
+   */
+  readonly patientIdThree?: string;
   /** Field 6 — patient name (`Last^First^Middle`). */
   readonly name?: PatientName;
-  /** Field 8 — birthdate (`YYYYMMDDHHMMSS`, precision-preserving). */
+  /** Field 7 — mother's maiden name, surfaced verbatim (a surname component; PHI). */
+  readonly mothersMaidenName?: string;
+  /** Field 8 — birthdate (`YYYYMMDDHHMMSS`, precision-preserving; a truncated run sets `truncated`). */
   readonly birthDate?: AstmDate;
   /** Field 9 — sex, surfaced raw (`M`/`F`/`U`/vendor value). */
   readonly sex?: string;
@@ -101,6 +108,22 @@ export interface OrderRecord extends RecordBase {
   readonly instrumentSpecimenId?: string;
   /** Field 5 — Universal Test ID (same caret structure as a result's). */
   readonly universalTestId?: UniversalTestId;
+  /**
+   * Field 6 — priority, surfaced raw (e.g. `S` STAT, `R` routine, `A` ASAP). Vendor letters vary;
+   * the code set is `[OSS-derived]` (the exact enumeration is in the paywalled CLSI LIS02-A2), so the
+   * value is surfaced verbatim and **never mapped to a guessed meaning**.
+   */
+  readonly priority?: string;
+  /**
+   * Field 12 — action code, surfaced raw (e.g. `C` cancel, `A` add, `N` new). The exact field index
+   * (`~12`) and the code set are `[OSS-derived]` (paywalled) — surfaced verbatim, never interpreted.
+   */
+  readonly actionCode?: string;
+  /**
+   * Field 26 — report type, surfaced raw (e.g. `F` final, `P` preliminary, `X` cancel). The exact
+   * field index (`~26`) and the code set are `[OSS-derived]` (paywalled) — surfaced verbatim.
+   */
+  readonly reportType?: string;
 }
 
 /**
@@ -171,6 +194,49 @@ export interface ResultRecord extends RecordBase {
 }
 
 /**
+ * The `C` (comment) record — free-text context attached to a parent record.
+ *
+ * A comment is **attached by position** to the immediately-preceding `H`/`P`/`O`/`R` record
+ * ({@link CommentRecord.parentIndex}); consecutive comments share that parent. **Fail-safe:** a
+ * comment with no valid preceding parent is an **orphan** — it is attached to the message root
+ * ({@link CommentRecord.attachedToRoot} `true`) and a value-free `ASTM_RECORD_ORPHAN_COMMENT` warning
+ * fires — **never silently dropped**, so a comment carrying (e.g.) "QC / non-compliant" context can
+ * never float away unnoticed.
+ */
+export interface CommentRecord extends RecordBase {
+  readonly type: "C";
+  /** Field 2 — sequence number. */
+  readonly seq?: string;
+  /** Field 3 — comment source (who/what produced it), surfaced verbatim. */
+  readonly source?: string;
+  /**
+   * Field 4 — the comment text, surfaced as the **full** field text (all components), never
+   * truncated to the first component. The component structure is in {@link CommentRecord.textComponents}.
+   */
+  readonly text?: string;
+  /**
+   * Field 4 — the comment text split into its decoded components (comment text is component-capable;
+   * multiple components are a normal structured comment, **not** an ambiguity). Present only when the
+   * field carried more than one component.
+   */
+  readonly textComponents?: readonly string[];
+  /**
+   * Field 5 — comment type code, surfaced verbatim. **`[OSS-derived]`:** `I` (instrument) is the only
+   * value seen in the permissively-licensed real transcripts; other values (e.g. `G`/`T`/`P`) are
+   * defined only in the paywalled CLSI LIS02-A2 and are **not** interpreted here — the raw code is
+   * surfaced, never mapped to a guessed meaning.
+   */
+  readonly commentType?: string;
+  /**
+   * The `recordIndex` of the `H`/`P`/`O`/`R` record this comment is attached to, or `undefined` when
+   * the comment is an orphan attached to the message root (see {@link CommentRecord.attachedToRoot}).
+   */
+  readonly parentIndex?: number;
+  /** `true` when no valid parent preceded — the comment is attached to the message root (and warned). */
+  readonly attachedToRoot: boolean;
+}
+
+/**
  * The `L` (terminator) record — closes a message.
  */
 export interface TerminatorRecord extends RecordBase {
@@ -178,9 +244,9 @@ export interface TerminatorRecord extends RecordBase {
 }
 
 /**
- * Any record whose type letter is not modeled in Phase 1 (`C`/`Q`/`M`/`S`/…, or
- * a genuinely unknown letter). Surfaced with its raw fields intact and flagged
- * with an `ASTM_RECORD_UNKNOWN_TYPE` warning — never dropped.
+ * Any record whose type letter is not yet modeled (`Q`/`M`/`S`/…, or a genuinely
+ * unknown letter — `C` is modeled as of Phase 3). Surfaced with its raw fields
+ * intact and flagged with an `ASTM_RECORD_UNKNOWN_TYPE` warning — never dropped.
  */
 export interface UnsupportedRecord extends RecordBase {
   readonly type: "unsupported";
@@ -194,6 +260,7 @@ export type AstmRecord =
   | PatientRecord
   | OrderRecord
   | ResultRecord
+  | CommentRecord
   | TerminatorRecord
   | UnsupportedRecord;
 

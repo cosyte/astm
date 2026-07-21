@@ -28,17 +28,20 @@ EMAILDOMAIN example.org
 EMAILDOMAIN example.net
 EMAILDOMAIN example.test
 
-# --- Synthetic person-name tokens (P field 6 — Last^First^Middle) ---
+# --- Synthetic person-name tokens (P field 6 — Last^First^Middle; P field 7 — mother's maiden) ---
 # All fully synthetic; used only in test/fixtures/*.astm.
 NAME DOE
 NAME JANE
 NAME Q
 NAME ROE
 NAME RICHARD
+NAME KING
 
 # --- Synthetic dates of birth (P field 8, YYYYMMDD[HHMMSS]) ---
 DOB 20200101
 DOB 19850612
+# Deliberately truncated (7-digit) synthetic DOB — the partial-timestamp fixture.
+DOB 2020010
 
 # --- Synthetic ids: SSN / MRN / member-id shapes (reserved for a later phase's detector) ---
 # ID MRN12345

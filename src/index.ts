@@ -8,10 +8,11 @@
  * — **never a confident wrong value**. Delimiters are read from each header,
  * embedded escapes are decoded before a value is split, the practice- and
  * laboratory-assigned patient IDs stay distinct, and every deviation is a stable,
- * value-free warning.
+ * value-free warning. Result flag/status semantics (P2) and patient/order identity
+ * depth, the `C` comment record, and partial-timestamp hardening (P3) are modeled.
  *
- * Deferred to later phases: result flag/status *semantics* (P2), comments / query
- * / `M` / `S` (P3–P4), the E1381 framing layer (P5+), and serialize/build (P7).
+ * Deferred to later phases: query (`Q`) / host-query flow and `M` / `S` (P4), the
+ * E1381 framing layer (P5+), and serialize/build (P7).
  */
 
 /**
@@ -25,8 +26,8 @@
  */
 export const VERSION = "0.0.0";
 
-export { parseAstmRecords, AstmStrictError } from "./records/parse.js";
-export { results, patient } from "./records/extractors.js";
+export { parseAstmRecords, AstmStrictError, attachComments } from "./records/parse.js";
+export { results, patient, orders, comments, commentsFor } from "./records/extractors.js";
 export { fieldScalar, tokenizeRecord } from "./records/tokenize.js";
 export {
   interpretAbnormalFlag,
@@ -53,6 +54,7 @@ export type {
   PatientName,
   OrderRecord,
   ResultRecord,
+  CommentRecord,
   TerminatorRecord,
   UnsupportedRecord,
 } from "./records/types.js";
@@ -69,6 +71,8 @@ export {
   undefinedResultStatus,
   unparseableReferenceRange,
   unitsAbsent,
+  orphanComment,
+  partialTimestamp,
 } from "./common/warnings.js";
 export type { WarningCode, AstmRecordWarning } from "./common/warnings.js";
 export type { AstmPosition } from "./common/position.js";

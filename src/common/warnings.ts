@@ -54,6 +54,17 @@ export const WARNING_CODES = {
    * (not UCUM); a missing unit is flagged here and **never defaulted, guessed, or converted**.
    */
   ASTM_RECORD_UNITS_ABSENT: "ASTM_RECORD_UNITS_ABSENT",
+  /**
+   * A `C` (comment) record had no valid preceding `H`/`P`/`O`/`R` parent — an **orphan**. The comment
+   * is attached to the message root (`attachedToRoot: true`) and surfaced, **never dropped**.
+   */
+  ASTM_RECORD_ORPHAN_COMMENT: "ASTM_RECORD_ORPHAN_COMMENT",
+  /**
+   * A `YYYYMMDDHHMMSS` timestamp had an odd digit run that truncates a two-digit component in half
+   * (e.g. a partial day/hour). The raw run is preserved and the structured value stops at the last
+   * **complete** component — the dangling digit is **never zero-filled into a fabricated time**.
+   */
+  ASTM_RECORD_PARTIAL_TIMESTAMP: "ASTM_RECORD_PARTIAL_TIMESTAMP",
 } as const;
 
 /**
@@ -228,6 +239,44 @@ export function unitsAbsent(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_UNITS_ABSENT,
     message: "Numeric result value carried no units — never defaulted, guessed, or converted.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_ORPHAN_COMMENT` warning. Emitted when a `C` record had no
+ * valid preceding `H`/`P`/`O`/`R` parent; the comment is attached to the message
+ * root and surfaced, never dropped.
+ *
+ * @example
+ * ```ts
+ * import { orphanComment } from "@cosyte/astm";
+ * orphanComment({ recordIndex: 5, recordType: "C" });
+ * ```
+ */
+export function orphanComment(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_ORPHAN_COMMENT,
+    message: "Comment had no valid preceding parent — attached to the message root, never dropped.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_PARTIAL_TIMESTAMP` warning. Emitted when a
+ * `YYYYMMDDHHMMSS` value had an odd digit run that truncates a component; the raw
+ * run is preserved and no time is fabricated.
+ *
+ * @example
+ * ```ts
+ * import { partialTimestamp } from "@cosyte/astm";
+ * partialTimestamp({ recordIndex: 2, recordType: "P", fieldIndex: 8 });
+ * ```
+ */
+export function partialTimestamp(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_PARTIAL_TIMESTAMP,
+    message: "Timestamp digit run truncates a component — preserved verbatim, never zero-filled.",
     position,
   };
 }
