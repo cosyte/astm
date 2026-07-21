@@ -11,14 +11,15 @@ Parse real-world, vendor-quirky ASTM and pull fields out in one line — without
 parser, an immutable model, a spec-clean serializer, and a profile system for vendor quirks. It
 mirrors the API shape of the reference parser, `@cosyte/hl7`.
 
-> **Status:** pre-alpha (`0.0.x`), not yet published to npm. The **record** layer reads
-> `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and escape decode (Phase 1),
-> models safety-critical result semantics (Phase 2), patient/order identity depth + the `C` comment
-> record attached by position + partial-timestamp hardening (Phase 3), and the `Q` request-information
-> record + host-query classification + verbatim `M`/`S` records (Phase 4). The E1381/CLSI-LIS01
-> **framing** layer decodes framed byte streams (Phase 5) with a pure LTP transport reducer (Phase 6),
-> and the **spec-clean serializers + builders** (Phase 7) round-trip both layers by construction. The
-> vendor **profile** system lands in a subsequent phase.
+> **Status:** pre-alpha (`0.0.x`), not yet published to npm — but **feature-complete** and in release
+> hardening. The **record** layer reads `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter
+> self-declaration and escape decode, safety-critical result semantics, patient/order identity depth,
+> the `C` comment record, and host-query classification. The E1381/CLSI-LIS01 **framing** layer
+> decodes framed byte streams with a pure LTP transport reducer, the **spec-clean serializers +
+> builders** round-trip both layers by construction, the vendor **profile** system tolerates
+> documented quirks without ever touching a value, and **LIVD**-aware LOINC recognition maps local
+> codes from a bring-your-own catalog. Read [What this library does — and does not do](./limitations)
+> before you rely on it: the promise is narrow and honest.
 
 ## Install
 

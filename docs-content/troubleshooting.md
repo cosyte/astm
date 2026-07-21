@@ -36,17 +36,28 @@ too. Catch and inspect the error's code to tell the two apart.
 Warning `message` fields are safe to log — they **never contain PHI**. Never log the raw payload
 itself; it may carry protected health information.
 
+## A value came back without units, or a flag as "undefined"
+
+That is the fail-safe design, not a bug. A numeric result with no units raises
+`ASTM_RECORD_UNITS_ABSENT` and the unit is left empty — never defaulted or guessed. An abnormal flag
+the parser does not recognize is surfaced as `"undefined"`, never coerced to `"normal"`. An
+unparseable reference range is surfaced verbatim with no invented bound. In every case the library
+refuses to hand you a confident wrong value — inspect the warning and decide.
+
+## A framed stream lost a frame, or a checksum is wrong
+
+The frame layer validates every modulo-256 checksum and tracks the frame-number sequence. A
+bad-checksum frame is flagged `trusted: false` and **never merged** into a record (a warning in
+lenient mode, a thrown `AstmFrameStrictError` in strict); a sequence gap is warned and **never
+silently bridged**. Read `frameWarnings` from `parseFramedAstm` — each carries a frame number and byte
+offset, never the record bytes.
+
 ## Known limitations
 
-> **Status:** `@cosyte/astm` Phase 1 ships the **record** layer only. Result flag/status letters are
-> surfaced **raw** (their semantics — including correction/cancel handling — arrive in Phase 2).
-
-- **No framing layer yet** — Phase 1 assumes already-de-framed record bytes. The E1381/LIS01 frame
-  codec (checksums, the 240-char split) is a later phase.
-- **Flag/status semantics deferred** — `R` abnormal flags and result status are raw strings for now;
-  the HL7 Table 0078 modeling and the fail-safe `UNDEFINED` fallback land in Phase 2.
-- **No comments / query / `M` / `S`** — those record types surface as unsupported records for now.
-- **No serializer yet** — the spec-clean emit side (with re-escaping) is added in Phase 7.
+`@cosyte/astm` is feature-complete across both layers, but its promise is deliberately narrow. See
+[What it does — and does not do](./limitations) for the full, honest boundary — no live I/O, units are
+verbatim free text (not UCUM), no bundled terminology dictionary (LIVD is bring-your-own), and `M`/`S`
+records are surfaced verbatim, never interpreted.
 
 The **API Reference** always reflects exactly what this release ships — treat it as the source of
 truth over any prose above.

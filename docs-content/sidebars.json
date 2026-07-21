@@ -15,7 +15,7 @@
       "type": "category",
       "label": "Core Concepts",
       "collapsed": false,
-      "items": ["concepts-archetype"]
+      "items": ["concepts-archetype", "architecture"]
     },
     {
       "type": "category",
@@ -26,6 +26,11 @@
       "type": "category",
       "label": "Troubleshooting",
       "items": ["troubleshooting"]
+    },
+    {
+      "type": "category",
+      "label": "About",
+      "items": ["limitations"]
     }
   ]
 }

@@ -29,7 +29,8 @@ import {
 
 import { checksumOf, def, frame, hex2 } from "../frames/_frame-builder.js";
 
-const NUM_RUNS = 1500;
+/** Nightly runs scale via ASTM_FUZZ_RUNS (the scheduled fuzz workflow sets it); CI default is 1500. */
+const NUM_RUNS = Number(process.env["ASTM_FUZZ_RUNS"] ?? 1500);
 
 const KNOWN_FRAME_CODES = new Set<string>(Object.values(FRAME_WARNING_CODES));
 
