@@ -4,6 +4,7 @@ import { sortedCodeSet } from "@cosyte/test-utils";
 import {
   FATAL_CODES,
   FRAME_WARNING_CODES,
+  LIVD_WARNING_CODES,
   LTP_WARNING_CODES,
   WARNING_CODES,
 } from "../src/index.js";
@@ -55,6 +56,15 @@ describe("stable code surface", () => {
     `);
   });
 
+  it("LIVD warning codes are stable (the ASTM_LIVD_* registry)", () => {
+    expect(sortedCodeSet(LIVD_WARNING_CODES)).toMatchInlineSnapshot(`
+      [
+        "ASTM_LIVD_AMBIGUOUS_MAPPING",
+        "ASTM_LIVD_UNMAPPED_CODE",
+      ]
+    `);
+  });
+
   it("fatal codes are stable (EMPTY_INPUT shared across layers)", () => {
     expect(sortedCodeSet(FATAL_CODES)).toMatchInlineSnapshot(`
       [
@@ -69,14 +79,16 @@ describe("stable code surface", () => {
     for (const [k, v] of Object.entries(WARNING_CODES)) expect(k).toBe(v);
     for (const [k, v] of Object.entries(FRAME_WARNING_CODES)) expect(k).toBe(v);
     for (const [k, v] of Object.entries(LTP_WARNING_CODES)) expect(k).toBe(v);
+    for (const [k, v] of Object.entries(LIVD_WARNING_CODES)) expect(k).toBe(v);
     for (const [k, v] of Object.entries(FATAL_CODES)) expect(k).toBe(v);
   });
 
-  it("warning and fatal code sets are disjoint (record + frame + LTP warnings vs fatals)", () => {
+  it("warning and fatal code sets are disjoint (record + frame + LTP + LIVD warnings vs fatals)", () => {
     const warns = new Set<string>([
       ...Object.values(WARNING_CODES),
       ...Object.values(FRAME_WARNING_CODES),
       ...Object.values(LTP_WARNING_CODES),
+      ...Object.values(LIVD_WARNING_CODES),
     ]);
     for (const f of Object.values(FATAL_CODES)) expect(warns.has(f)).toBe(false);
   });
