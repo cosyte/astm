@@ -12,7 +12,9 @@
  */
 
 import { parseAstmRecords } from "../records/parse.js";
-import type { AstmMessage, AstmParseOptions } from "../records/types.js";
+import { serializeAstmRecord } from "../records/serialize.js";
+import type { AstmMessage, AstmParseOptions, AstmRecord } from "../records/types.js";
+import { composeAstmFrames, type ComposeFramesOptions } from "./encode.js";
 import { decodeAstmFrames } from "./decode.js";
 import type { AstmFrame, FrameOptions } from "./types.js";
 import type { AstmFrameWarning } from "./warnings.js";
@@ -67,6 +69,42 @@ export function parseFramedAstm(
   const joined = concatBytes(records);
   const message = parseAstmRecords(joined, options);
   return { message, frames, frameWarnings: warnings };
+}
+
+/**
+ * Serialize an ASTM message (or a bare record list) and frame it into a spec-clean
+ * byte stream in one call — the inverse of {@link parseFramedAstm}, composing the
+ * two emit layers at the edge.
+ *
+ * Each record is serialized to spec-clean, `CR`-terminated wire text (canonical
+ * delimiters, embedded delimiters re-escaped) and then framed **independently**
+ * (one record per `ETX`-closed frame run), so the framing exactly mirrors what
+ * {@link decodeAstmFrames} reassembles: `parseFramedAstm(serializeFramedAstm(msg))`
+ * yields an equal message.
+ *
+ * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
+ * @param options - Frame-encode options.
+ * @returns The framed byte stream.
+ * @throws {@link AstmSerializeError} when a value contains an unencodable `CR`/`LF`.
+ * @throws {@link AstmFrameEncodeError} when there are no records to frame.
+ * @example
+ * ```ts
+ * import { parseAstmRecords, serializeFramedAstm, parseFramedAstm } from "@cosyte/astm";
+ * const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
+ * const bytes = serializeFramedAstm(msg);
+ * parseFramedAstm(bytes).message.records.length; // 3
+ * ```
+ */
+export function serializeFramedAstm(
+  input: AstmMessage | readonly AstmRecord[],
+  options: ComposeFramesOptions = {},
+): Uint8Array {
+  const records: readonly AstmRecord[] = Array.isArray(input)
+    ? (input as readonly AstmRecord[])
+    : (input as AstmMessage).records;
+  // Frame each record independently (record text + its CR terminator) so decode reassembles per record.
+  const recordBytes = records.map((r) => serializeAstmRecord(r) + "\r");
+  return composeAstmFrames(recordBytes, options);
 }
 
 /** Concatenate the reassembled record byte-strings into one de-framed record stream. */

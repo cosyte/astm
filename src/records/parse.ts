@@ -189,7 +189,13 @@ function buildRecord(
 
   switch (rawType) {
     case "H":
-      return { type: "H", recordIndex, fields, delimiters: d } satisfies HeaderRecord;
+      return {
+        type: "H",
+        recordIndex,
+        fields,
+        delimiters: d,
+        rawLine: line,
+      } satisfies HeaderRecord;
     case "P":
       return buildPatient(recordIndex, fields, warnings);
     case "O":
