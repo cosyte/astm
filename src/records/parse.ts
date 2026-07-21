@@ -16,10 +16,19 @@ import { recognizeUniversalTestId } from "../common/coding-system.js";
 import {
   ambiguousValueSplit,
   nonStandardDelimiters,
+  undefinedAbnormalFlag,
+  undefinedResultStatus,
+  unitsAbsent,
   unknownEscapeSequence,
   unknownRecordType,
+  unparseableReferenceRange,
   type AstmRecordWarning,
 } from "../common/warnings.js";
+import {
+  interpretAbnormalFlag,
+  interpretResultStatus,
+  parseReferenceRange,
+} from "./result-semantics.js";
 import { fieldScalar, tokenizeRecord } from "./tokenize.js";
 import type {
   AstmField,
@@ -253,6 +262,37 @@ function buildResult(
     warnings.push(ambiguousValueSplit({ recordIndex, recordType: "R", fieldIndex: 4 }));
   }
 
+  // ── Phase 2: modeled, fail-safe result semantics (raw fields still surfaced alongside). ──
+  const units = fieldScalar(astmField(fields, 5));
+  // Reference range is surfaced from the FULL field text (not the first component), so a
+  // component-delimited value (`low^high`) is preserved verbatim and read as `unparsed` + warned,
+  // never truncated to a single bound. A present-but-empty field is treated as absent (no warn).
+  const rangeRaw = fieldRaw(astmField(fields, 6));
+  const flagRaw = fieldScalar(astmField(fields, 7));
+  const statusRaw = fieldScalar(astmField(fields, 9));
+
+  // Units: a *numeric* value with no units is the hazard (a bare magnitude is meaningless). Warn only
+  // then — a qualitative result (e.g. "POSITIVE") legitimately has no units. Never default or guess.
+  if (units === undefined && value !== undefined && isNumericValue(value)) {
+    warnings.push(unitsAbsent({ recordIndex, recordType: "R", fieldIndex: 5 }));
+  }
+
+  const range = rangeRaw !== undefined ? parseReferenceRange(rangeRaw) : undefined;
+  if (range?.kind === "unparsed") {
+    warnings.push(unparseableReferenceRange({ recordIndex, recordType: "R", fieldIndex: 6 }));
+  }
+
+  const flag = flagRaw !== undefined ? interpretAbnormalFlag(flagRaw) : undefined;
+  if (flag !== undefined && !flag.recognized) {
+    warnings.push(undefinedAbnormalFlag({ recordIndex, recordType: "R", fieldIndex: 7 }));
+  }
+
+  // Status is ALWAYS modeled: an absent field 9 yields `unspecified` (never assumed `final`).
+  const status = interpretResultStatus(statusRaw);
+  if (statusRaw !== undefined && !status.recognized) {
+    warnings.push(undefinedResultStatus({ recordIndex, recordType: "R", fieldIndex: 9 }));
+  }
+
   return {
     type: "R",
     recordIndex,
@@ -263,15 +303,32 @@ function buildResult(
       : {}),
     ...definedString("value", value),
     ...(valueComponents !== undefined ? { valueComponents } : {}),
-    ...definedString("units", fieldScalar(astmField(fields, 5))),
-    ...definedString("referenceRange", fieldScalar(astmField(fields, 6))),
-    ...definedString("abnormalFlags", fieldScalar(astmField(fields, 7))),
-    ...definedString("resultStatus", fieldScalar(astmField(fields, 9))),
+    ...definedString("units", units),
+    ...definedString("referenceRange", rangeRaw),
+    ...(range !== undefined ? { range } : {}),
+    ...definedString("abnormalFlags", flagRaw),
+    ...(flag !== undefined ? { flag } : {}),
+    ...definedString("resultStatus", statusRaw),
+    status,
     ...definedString("operator", fieldScalar(astmField(fields, 11))),
     ...(startedAt !== undefined ? { startedAt } : {}),
     ...(completedAt !== undefined ? { completedAt } : {}),
     ...definedString("instrument", fieldScalar(astmField(fields, 14))),
   };
+}
+
+/**
+ * Whether a result value is purely numeric (optional comparator + sign + digits) — the case where a
+ * missing unit is a genuine hazard. A qualitative value (letters, e.g. `POSITIVE`) is excluded, so it
+ * does not trip the units-absent warning.
+ */
+function isNumericValue(value: string): boolean {
+  return /^\s*[<>]?\s*-?\d+(?:\.\d+)?\s*$/u.test(value);
+}
+
+/** The full field text (all components), or `undefined` when the field is absent or empty. */
+function fieldRaw(field: AstmField | undefined): string | undefined {
+  return field !== undefined && field.raw.length > 0 ? field.raw : undefined;
 }
 
 /** Spread helper: include `{ [key]: value }` only when `value` is a defined string. */

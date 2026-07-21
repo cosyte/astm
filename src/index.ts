@@ -28,6 +28,21 @@ export const VERSION = "0.0.0";
 export { parseAstmRecords, AstmStrictError } from "./records/parse.js";
 export { results, patient } from "./records/extractors.js";
 export { fieldScalar, tokenizeRecord } from "./records/tokenize.js";
+export {
+  interpretAbnormalFlag,
+  interpretResultStatus,
+  parseReferenceRange,
+} from "./records/result-semantics.js";
+export type {
+  AbnormalFlag,
+  AbnormalFlagCode,
+  AbnormalFlagMeaning,
+  ReferenceRange,
+  ReferenceRangeKind,
+  ResultStatus,
+  ResultStatusCode,
+  ResultStatusMeaning,
+} from "./records/result-semantics.js";
 export type {
   AstmField,
   AstmMessage,
@@ -50,6 +65,10 @@ export {
   nonStandardDelimiters,
   unknownEscapeSequence,
   ambiguousValueSplit,
+  undefinedAbnormalFlag,
+  undefinedResultStatus,
+  unparseableReferenceRange,
+  unitsAbsent,
 } from "./common/warnings.js";
 export type { WarningCode, AstmRecordWarning } from "./common/warnings.js";
 export type { AstmPosition } from "./common/position.js";
