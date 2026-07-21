@@ -78,6 +78,17 @@ export const WARNING_CODES = {
    * this warning flags the anomaly. Positional context only; no field value.
    */
   ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND: "ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND",
+  /**
+   * The downgraded form an active vendor {@link AstmProfile} produces from a deviation it *expects*
+   * (see `src/profiles/`). The original warning is **never dropped**: its code moves to
+   * {@link AstmRecordWarning.toleratedCode}, the warning is re-badged `PROFILE_QUIRK_APPLIED` with
+   * `expected: true` and the tolerating profile named, so a consumer can filter known, grounded noise
+   * while the fact of the deviation — and where it was — survives. A profile can only ever reach this
+   * path for a **non-safety-critical** code (enforced at profile-definition time); a safety-critical
+   * deviation (a result value, flag, status, patient identifier, code system, or a frame-integrity
+   * warning) can **never** be tolerated, so it can never be re-badged here.
+   */
+  PROFILE_QUIRK_APPLIED: "PROFILE_QUIRK_APPLIED",
 } as const;
 
 /**
@@ -106,6 +117,20 @@ export interface AstmRecordWarning {
   /** Human-readable detail for logs. Never contains a field value. */
   readonly message: string;
   readonly position: AstmPosition;
+  /**
+   * `true` when an active vendor {@link AstmProfile} *expected* this deviation and re-badged it as a
+   * {@link WARNING_CODES.PROFILE_QUIRK_APPLIED}. An `expected` warning does **not** escalate to a
+   * thrown `AstmStrictError` in strict mode (the whole point of the profile is that this deviation is
+   * known and benign) — it is still recorded, so nothing is hidden. Absent on an untolerated warning.
+   */
+  readonly expected?: boolean;
+  /** The name of the {@link AstmProfile} that tolerated this warning, when `expected`. */
+  readonly profile?: string;
+  /**
+   * When `code` is {@link WARNING_CODES.PROFILE_QUIRK_APPLIED}, the original warning code the profile
+   * tolerated — so a consumer can still see *which* deviation was re-badged as expected.
+   */
+  readonly toleratedCode?: WarningCode;
 }
 
 /**
@@ -332,5 +357,40 @@ export function ambiguousMessageKind(position: AstmPosition): AstmRecordWarning 
     message:
       "Message carried both a Q (request) and an R (result) record — classified host-query; Q dominates.",
     position,
+  };
+}
+
+/**
+ * Build a `PROFILE_QUIRK_APPLIED` warning — the downgraded form an active vendor profile produces from
+ * a deviation it *expects*. The original warning is **not dropped**: its `code` moves to
+ * `toleratedCode`, the warning is re-badged `PROFILE_QUIRK_APPLIED`, `expected` is set, and the
+ * tolerating profile is named. The original `position` and `message` are preserved (both PHI-free by
+ * the same construction as every other factory), so a consumer can filter known, grounded noise while
+ * the fact of the deviation, and where it was, survive. A profile can only ever reach this path for a
+ * **non-safety-critical** code (enforced at profile-definition time by the safety gate).
+ *
+ * @param original - The warning the profile tolerated.
+ * @param profileName - The name of the tolerating profile.
+ * @returns The re-badged, still-informative warning.
+ * @example
+ * ```ts
+ * import { profileQuirkApplied, unknownEscapeSequence } from "@cosyte/astm";
+ * const original = unknownEscapeSequence({ recordIndex: 4, recordType: "R", fieldIndex: 5 });
+ * const w = profileQuirkApplied(original, "referenceCorpus");
+ * w.code; // "PROFILE_QUIRK_APPLIED"
+ * w.toleratedCode; // "ASTM_UNKNOWN_ESCAPE_SEQUENCE"
+ * ```
+ */
+export function profileQuirkApplied(
+  original: AstmRecordWarning,
+  profileName: string,
+): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.PROFILE_QUIRK_APPLIED,
+    message: `Profile "${profileName}" expected ${original.code}: ${original.message}`,
+    position: original.position,
+    expected: true,
+    profile: profileName,
+    toleratedCode: original.code,
   };
 }

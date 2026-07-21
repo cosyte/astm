@@ -118,6 +118,7 @@ export {
   partialTimestamp,
   uninterpretedQueryStatus,
   ambiguousMessageKind,
+  profileQuirkApplied,
 } from "./common/warnings.js";
 export type { WarningCode, AstmRecordWarning } from "./common/warnings.js";
 export type { AstmPosition } from "./common/position.js";
@@ -131,6 +132,38 @@ export type { AstmDate, AstmDatePrecision } from "./common/dates.js";
 export { recognizeUniversalTestId, primaryCode } from "./common/coding-system.js";
 export type { UniversalTestId, UniversalTestIdProvenance } from "./common/coding-system.js";
 export { deepFreeze } from "./common/freeze.js";
+
+// ── The vendor profile system (P8): the engine + registry + tolerance transform ──
+// `defineAstmProfile` builds an immutable, provenance-backed profile with a
+// definition-time safety gate (a profile can never tolerate a safety-critical
+// deviation, and never alters an extracted value — it only re-badges an expected
+// warning to PROFILE_QUIRK_APPLIED and can force the raw-vs-framed transport). The
+// built-in registry ships `default` + the corpus-grounded `referenceCorpus`; named
+// vendor profiles are deferred (REAL-CORPUS) but fully supported by the engine.
+export {
+  defineAstmProfile,
+  AstmProfileDefinitionError,
+  astmProfiles,
+  getAstmProfile,
+  listAstmProfiles,
+  setDefaultAstmProfile,
+  getDefaultAstmProfile,
+  applyAstmProfile,
+  applyAstmProfileToWarnings,
+  resolveProfileTransport,
+  SAFETY_CRITICAL_CODES,
+  TOLERABLE_CODES,
+  ALL_ASTM_WARNING_CODES,
+  isSafetyCriticalCode,
+} from "./profiles/index.js";
+export type {
+  AstmProfile,
+  DefineAstmProfileOptions,
+  AstmQuirkTolerance,
+  AstmQuirkMatch,
+  AstmProfileProvenance,
+  AnyAstmWarningCode,
+} from "./profiles/index.js";
 
 // ── The LTP protocol layer (P6): transport detection + pure session reducer ──
 export { detectFraming } from "./ltp/transport.js";

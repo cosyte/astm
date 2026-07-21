@@ -16,6 +16,41 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
+- **Phase 8 shipped (ASTM-8): the vendor profile system — engine + registry + quirk-tolerance
+  transform + a definition-time safety gate.** `src/profiles/` mirrors the sibling `@cosyte/hl7`
+  `defineProfile` / `@cosyte/ccda` `defineCcdaProfile` shape. `defineAstmProfile(opts)` builds a frozen,
+  provenance-backed profile (`name` / `lineage` / `describe()` / `extends`-merge) that declares the
+  **non-safety-critical** warning codes a class of real-world ASTM streams is expected to trip, plus an
+  optional `transport` override (the raw-vs-framed-TCP knob a consumer feeds to
+  `detectFraming(bytes, { override })`). **A profile never touches an extracted value** — the runtime
+  transform (`applyAstmProfileToWarnings`, run last in `parseAstmRecords`) only ever re-badges a warning
+  it _expects_ to `PROFILE_QUIRK_APPLIED` (flagged `expected`, carrying the original `toleratedCode`);
+  a spec-clean message parses byte-identically with or without a profile, and no warning is ever
+  dropped. **The safety gate is default-deny and total** (`src/profiles/safety.ts`): only four benign,
+  value-preserving record codes are tolerable (`ASTM_RECORD_UNKNOWN_TYPE`,
+  `ASTM_NONSTANDARD_DELIMITERS`, `ASTM_UNKNOWN_ESCAPE_SEQUENCE`,
+  `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`); **every other code across all three registries — record,
+  frame (`ASTM_FRAME_*`), and LTP (`ASTM_LTP_*`) — is safety-critical and refused at definition time**,
+  so a profile can never make a bad checksum "ok," a cancelled result read "final," or quiet a wrong
+  value / flag / status / range / units / patient or comment context / message-kind ambiguity. Any new
+  warning code is safety-critical **by default** until deliberately added to the allow-list.
+  `parseAstmRecords(raw, { profile })` accepts an explicit profile (`null` opts out of the process
+  default set via `setDefaultAstmProfile`); an expected quirk does **not** escalate in `strict` mode.
+  **Built-ins:** `astmProfiles.default` (tolerates nothing) + `astmProfiles.referenceCorpus` — a
+  **non-vendor**, evidence-backed profile grounded firsthand in the redistributable OSS reference corpus
+  (`kxepal/python-astm` `codec.py` (BSD) + `senaite.astm`, which split on raw delimiters and never
+  un-escape `&F&`/`&S&`/`&R&`/`&E&`), tolerating only the resulting non-standard-escape _syntactic_
+  noise (the value is preserved byte-for-byte). New warning code `PROFILE_QUIRK_APPLIED`; new exports:
+  `defineAstmProfile`, `AstmProfileDefinitionError`, `astmProfiles`, `getAstmProfile`,
+  `listAstmProfiles`, `set/getDefaultAstmProfile`, `applyAstmProfile`, `applyAstmProfileToWarnings`,
+  `resolveProfileTransport`, `profileQuirkApplied`, `SAFETY_CRITICAL_CODES`, `TOLERABLE_CODES`,
+  `ALL_ASTM_WARNING_CODES`, `isSafetyCriticalCode`, and the `AstmProfile*` types.
+  **Deferred:** **named per-vendor profiles** (cobas / Sysmex / ADVIA / Mindray / Snibe) stay
+  `REAL-CORPUS`-gated — the engine fully _supports_ them (tolerate + transport override), but no public
+  vendor-attributed quirk document grounds a named one, and firsthand inspection of the public corpus
+  (python-astm, senaite `sysmex_xn550` / `cobas_c111` transcripts) found the record layer spec-clean
+  (canonical `|\^&`, standard record grammar), so none are authored. Also deferred: LIVD terminology
+  (P9) and release hardening (P10).
 - **Phase 7 shipped (ASTM-7): spec-clean serializers + builders — both layers now round-trip by
   construction.** `src/records/serialize.ts` + `src/records/build.ts` are the conservative inverse of the
   record parser; `src/frames/encode.ts` is the inverse of the frame codec; `serializeFramedAstm`
