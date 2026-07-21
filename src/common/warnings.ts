@@ -34,6 +34,26 @@ export const WARNING_CODES = {
    * ambiguity is never resolved silently into a truncated value.
    */
   ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT: "ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT",
+  /**
+   * A result's abnormal-flag field (`R` field 7) carried a letter outside HL7 Table 0078. The flag is
+   * surfaced as `undefined` — never dropped, and **never coerced to `normal`** (a clinical error).
+   */
+  ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG: "ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG",
+  /**
+   * A result's status field (`R` field 9) carried a letter that is not a recognized status. It is
+   * surfaced as `undefined` and, like every non-`F` status, never reads as active-final.
+   */
+  ASTM_RECORD_UNDEFINED_RESULT_STATUS: "ASTM_RECORD_UNDEFINED_RESULT_STATUS",
+  /**
+   * A result's reference-range field (`R` field 6) did not match a recognized form (`low-high`,
+   * `<high`, `>low`). The text is surfaced verbatim as `unparsed` — a bound is **never fabricated**.
+   */
+  ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE: "ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE",
+  /**
+   * A result carried a numeric value but no units (`R` field 5 empty). Units are vendor free text
+   * (not UCUM); a missing unit is flagged here and **never defaulted, guessed, or converted**.
+   */
+  ASTM_RECORD_UNITS_ABSENT: "ASTM_RECORD_UNITS_ABSENT",
 } as const;
 
 /**
@@ -135,6 +155,79 @@ export function ambiguousValueSplit(position: AstmPosition): AstmRecordWarning {
     code: WARNING_CODES.ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT,
     message:
       "Result value contained an unescaped component delimiter — full raw value and split both surfaced.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG` warning. The flag is surfaced as
+ * `undefined` (never coerced to `normal`); the warning carries only the position.
+ *
+ * @example
+ * ```ts
+ * import { undefinedAbnormalFlag } from "@cosyte/astm";
+ * undefinedAbnormalFlag({ recordIndex: 4, recordType: "R", fieldIndex: 7 });
+ * ```
+ */
+export function undefinedAbnormalFlag(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG,
+    message: "Abnormal flag is not in HL7 Table 0078 — surfaced as undefined, never as normal.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_UNDEFINED_RESULT_STATUS` warning. The status is surfaced
+ * as `undefined` and, like every non-final status, never reads as active-final.
+ *
+ * @example
+ * ```ts
+ * import { undefinedResultStatus } from "@cosyte/astm";
+ * undefinedResultStatus({ recordIndex: 4, recordType: "R", fieldIndex: 9 });
+ * ```
+ */
+export function undefinedResultStatus(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_UNDEFINED_RESULT_STATUS,
+    message: "Result status is not a recognized status letter — surfaced as undefined.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE` warning. The range text is
+ * surfaced verbatim as `unparsed`; no bound is fabricated.
+ *
+ * @example
+ * ```ts
+ * import { unparseableReferenceRange } from "@cosyte/astm";
+ * unparseableReferenceRange({ recordIndex: 4, recordType: "R", fieldIndex: 6 });
+ * ```
+ */
+export function unparseableReferenceRange(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE,
+    message:
+      "Reference range did not match a recognized form — surfaced verbatim, no bound invented.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_UNITS_ABSENT` warning. Emitted when a result carries a
+ * numeric value but no units; units are never defaulted, guessed, or converted.
+ *
+ * @example
+ * ```ts
+ * import { unitsAbsent } from "@cosyte/astm";
+ * unitsAbsent({ recordIndex: 4, recordType: "R", fieldIndex: 5 });
+ * ```
+ */
+export function unitsAbsent(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_UNITS_ABSENT,
+    message: "Numeric result value carried no units — never defaulted, guessed, or converted.",
     position,
   };
 }

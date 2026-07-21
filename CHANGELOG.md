@@ -48,6 +48,33 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 - Public exports replace the scaffold stubs: `parseAstmRecords`, `results`, `patient`,
   `AstmParseError`, `AstmStrictError`, the record/value model types, and the `WARNING_CODES` /
   `FATAL_CODES` registries.
+- **Safety-critical result semantics (ASTM-2, roadmap Phase 2).** The raw `R`-record letters that
+  Phase 1 surfaced are now modeled into fail-safe semantics, under one rule — _never a confident wrong
+  value_. The raw strings (`abnormalFlags`, `resultStatus`, `referenceRange`, `units`) still coexist
+  with the modeled views; nothing is collapsed or reconciled.
+  - **Abnormal flags (field 7) → HL7 Table 0078.** `interpretAbnormalFlag()` and the `flag` field on
+    `ResultRecord` model the full value set: `L`/`H`, panic `LL`/`HH`, off-scale `<`/`>`, `N`, `A`/`AA`,
+    the **directional** significant-change `U` (up) / `D` (down) — _not_ units/delta — `B`/`W`, and
+    microbiology `S`/`R`/`I`. An **unrecognized** flag is surfaced as `meaning: "undefined"` with an
+    `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG` warning — **never dropped, never coerced to `normal`**.
+  - **Result status (field 9).** `interpretResultStatus()` and the always-present `status` field model
+    `F`/`C`/`P`/`R`/`S`/`I`/`X`, with **`C` correction** (`supersedes: true`) and **`X` cancel**
+    (`cancelled: true`) so a superseded/cancelled result can **never** read as current — `isActiveFinal`
+    is `true` only for a plain `F`. An **absent** status is typed `unspecified` (never assumed `final`);
+    an unrecognized one is `undefined` + `ASTM_RECORD_UNDEFINED_RESULT_STATUS`.
+  - **Reference range (field 6).** `parseReferenceRange()` and the `range` field parse `low-high`
+    (closed), `<high` (open-low), and `>low` (open-high); bounds are surfaced as **verbatim numeric
+    text** (never coerced to floats). The range is read from the **full field text**, so a
+    component-delimited value (`low^high`) is preserved verbatim and read as `unparsed` — never
+    truncated to a single bound. An unparseable range is `kind: "unparsed"` +
+    `ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE` — **no bound is fabricated**. The exact delimiter is
+    `[OSS-derived]` pending the purchased CLSI LIS02-A2 (roadmap §10 Q1).
+  - **Units discipline (field 5).** A _numeric_ result value with no units raises
+    `ASTM_RECORD_UNITS_ABSENT`; units are vendor free text (not UCUM) and are **never defaulted,
+    guessed, or converted**.
+  - New warning codes (registry extended, snapshot locked): `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG`,
+    `ASTM_RECORD_UNDEFINED_RESULT_STATUS`, `ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE`,
+    `ASTM_RECORD_UNITS_ABSENT` — all value-free (code + record/field index only).
 
 ### Changed
 
@@ -57,9 +84,9 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Deferred (later phases)
 
-- Result flag/status **semantics** (HL7 Table 0078 modeling, correction/cancel, `UNDEFINED`
-  fallback, reference-range parsing) — Phase 2. Comments / query / `M` / `S` — Phases 3–4. The E1381
-  framing layer (checksums, 240-split) — Phase 5+. Serialize / build — Phase 7.
+- Patient/order identity **depth**, the `C` comment record, and partial-timestamp hardening — Phase 3.
+  Query (`Q`) + host-query flow and `M` / `S` surfaced verbatim — Phase 4. The E1381 framing layer
+  (checksums, 240-split) — Phase 5+. Serialize / build — Phase 7.
 
 ### Deprecated
 

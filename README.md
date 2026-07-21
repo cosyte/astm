@@ -9,8 +9,10 @@ a serializer that always emits spec-clean output (Postel's Law). It mirrors the 
 reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
 > **Status:** pre-alpha (`0.0.x`), not yet published to npm. Phase 1 ships the **record** layer
-> (`H`/`P`/`O`/`R`/`L` read, delimiter self-declaration, escape decode). The E1381 framing layer,
-> result-flag semantics, and the serializer land in subsequent phases.
+> (`H`/`P`/`O`/`R`/`L` read, delimiter self-declaration, escape decode); Phase 2 adds **safety-critical
+> result semantics** — HL7 Table 0078 abnormal flags, result status (with correction `C` / cancel `X`),
+> reference-range parsing, and the units-absent discipline. The E1381 framing layer and the serializer
+> land in subsequent phases.
 
 ## Install
 

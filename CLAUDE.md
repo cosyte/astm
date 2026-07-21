@@ -16,12 +16,15 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
-- **Phase 1 shipped (ASTM-1): the record foundation.** Pre-alpha `0.0.x`, not yet published to npm.
-  `parseAstmRecords` reads `H`/`P`/`O`/`R`/`L` with delimiter self-declaration and the escape codec;
-  `src/common/` holds the value layer and `src/records/` the record layer. Deferred to later phases:
-  result flag/status **semantics** (P2), comments/query/`M`/`S` (P3–P4), the E1381 **framing** layer
-  (P5+), and serialize/build (P7). The full sequence is in the meta-repo roadmap
-  `operations/roadmaps/astm.md`.
+- **Phase 2 shipped (ASTM-2): safety-critical result semantics.** Pre-alpha `0.0.x`, not yet
+  published to npm. `parseAstmRecords` reads `H`/`P`/`O`/`R`/`L` with delimiter self-declaration and
+  the escape codec (P1); the `R` record now carries modeled, fail-safe semantics alongside the raw
+  fields (P2) — `flag` (HL7 Table 0078, `undefined` never coerced to normal), `status` (a `C`/`X`
+  never reads as active-final; absent → `unspecified`, never `final`), and `range` (bounds verbatim,
+  never fabricated), plus the numeric-value units-absent warning. `src/common/` holds the value layer,
+  `src/records/` the record layer (`result-semantics.ts` is the P2 interpreters). Deferred to later
+  phases: comments/query/`M`/`S` (P3–P4), the E1381 **framing** layer (P5+), and serialize/build (P7).
+  The full sequence is in the meta-repo roadmap `operations/roadmaps/astm.md`.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

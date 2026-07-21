@@ -17,6 +17,7 @@ import type { Delimiters } from "../common/delimiters.js";
 import type { AstmDate } from "../common/dates.js";
 import type { UniversalTestId } from "../common/coding-system.js";
 import type { AstmRecordWarning } from "../common/warnings.js";
+import type { AbnormalFlag, ReferenceRange, ResultStatus } from "./result-semantics.js";
 
 /**
  * One ASTM field, as split from a record. The tree holds **decoded** component
@@ -105,10 +106,13 @@ export interface OrderRecord extends RecordBase {
 /**
  * The `R` (result) record — the value itself.
  *
- * Phase-1 surfaces the safety-critical fields **raw**: value, units, reference
- * range, abnormal flags, and result status are strings exactly as received.
- * Turning the flag/status letters into modeled semantics (with the fail-safe
- * `UNDEFINED` fallback and correction/cancel handling) is Phase 2.
+ * The raw safety-critical fields (value, `units`, `referenceRange`,
+ * `abnormalFlags`, `resultStatus`) are always surfaced exactly as received.
+ * Phase 2 adds the **modeled, fail-safe** semantics alongside them: `flag`
+ * (Table 0078, `undefined` never coerced to normal), `status` (a `C`/`X` never
+ * reads as active-final; an absent status is `unspecified`, never `final`), and
+ * `range` (open/closed bounds surfaced verbatim, never fabricated). The raw
+ * strings and the modeled views coexist — nothing is collapsed or reconciled.
  */
 export interface ResultRecord extends RecordBase {
   readonly type: "R";
@@ -133,10 +137,29 @@ export interface ResultRecord extends RecordBase {
   readonly units?: string;
   /** Field 6 — reference range, surfaced raw. */
   readonly referenceRange?: string;
-  /** Field 7 — abnormal flags, surfaced raw (HL7 Table 0078 values; semantics are Phase 2). */
+  /**
+   * Field 6 — the reference range parsed into low/high (or open-ended) bounds, present only when the
+   * field carried a value. An unparseable range is `kind: "unparsed"` with the raw text preserved and
+   * **no bound fabricated**. Bounds are verbatim numeric text, never coerced to floats.
+   */
+  readonly range?: ReferenceRange;
+  /** Field 7 — abnormal flags, surfaced raw (HL7 Table 0078 values). */
   readonly abnormalFlags?: string;
-  /** Field 9 — result status, surfaced raw (`F`/`C`/`X`/…; semantics are Phase 2). */
+  /**
+   * Field 7 — the abnormal flag interpreted against HL7 Table 0078, present only when the field
+   * carried a value. An unrecognized flag is `{ recognized: false, meaning: "undefined" }` — surfaced,
+   * never dropped, and **never coerced to `normal`**.
+   */
+  readonly flag?: AbnormalFlag;
+  /** Field 9 — result status, surfaced raw (`F`/`C`/`X`/…). */
   readonly resultStatus?: string;
+  /**
+   * Field 9 — the modeled result status. **Always present** (an absent field yields a typed
+   * `unspecified`, never assumed `final`), so `status.isActiveFinal` is always a reliable boolean: it
+   * is `true` only for a plain `F`, and `false` for a correction (`C`), a cancellation (`X`), a
+   * partial/preliminary/pending, an absent, or an unrecognized status.
+   */
+  readonly status: ResultStatus;
   /** Field 11 — operator. */
   readonly operator?: string;
   /** Field 12 — test started timestamp. */
