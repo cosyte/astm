@@ -33,8 +33,9 @@ Warnings and fatal errors carry **stable codes** — `WARNING_CODES` (Tier 2) an
 removing one is a **breaking change**. Codes are `key === value` entries, so the full set survives an
 `Object.values(...)` snapshot into a stability tripwire.
 
-> **Status:** the code registries currently hold placeholder entries; the real codes are added as the
-> parser grows, phase by phase. See the **API Reference** for the exact set this release ships.
+There are three registries, one per byte-level surface: `WARNING_CODES` (record layer),
+`FRAME_WARNING_CODES` (the frame codec), and `LTP_WARNING_CODES` (the transport reducer) — plus
+`FATAL_CODES` for the Tier-3 throws. See the **API Reference** for the exact set this release ships.
 
 ## Immutability
 

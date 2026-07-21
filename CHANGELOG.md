@@ -293,6 +293,42 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
     exports: `defineLivdCatalog`, `applyLivd`, `lookupLivdForRecord`, `LIVD_WARNING_CODES`,
     `livdUnmappedCode`, `livdAmbiguousMapping`, and the `LivdCatalog`, `LivdEntry`, `LivdLookup`,
     `LivdAnnotation`, `LivdMapping`, `LivdResult`, `AstmLivdWarning`, `LivdWarningCode` types.
+- **Release hardening (ASTM-10, roadmap Phase 10 — the final phase).** Publish-readiness for the now
+  feature-complete parser: coverage, fuzz, firsthand differential testing, the full docs spine, and a
+  proven release shape. No new runtime API.
+  - **Differential conformance vs [python-astm][pa]** (BSD-3-Clause reference codec, commit
+    `4170ce0c`), grounded **firsthand** in `test/differential/`: outputs captured once from the
+    reference (`generate-reference-vectors.py` → `reference-vectors.json`; **no reference code
+    vendored**), then asserted against `@cosyte/astm` on three shared paths — the **modulo-256
+    checksum**, the **record field/component split** (escape-free, non-header), and a
+    **cross-implementation frame decode** (python encodes + splits → our decoder verifies every
+    checksum and reassembles the exact record bytes). The **deliberate divergences** are asserted on
+    purpose: we un-escape `&F&`/`&S&`/`&R&`/`&E&` (python leaves them literal), we validate the frame
+    checksum (python does not verify on decode), and we classify the `Q` host-query (python has no
+    model). CI needs no Python — only the captured JSON.
+  - **Per-directory ≥ 90 coverage gating extended to the whole `src/` surface** — `frames`, `ltp`,
+    and `terminology` now gate per-dir alongside `common`/`records`/`profiles` (on top of the global
+    gate), so the release bar holds directory by directory, not just in aggregate.
+  - **Record-tokenizer fuzz** (`test/property/records-fuzz.property.test.ts`) — the companion to the
+    frame-codec fuzz: arbitrary / truncated / delimiter- and escape-laden input into
+    `parseAstmRecords` never crashes, hangs, or OOMs; lenient mode only ever throws a sanctioned
+    Tier-3 fatal, strict only `AstmStrictError`, and every warning carries a registered code. Both
+    fuzz suites scale via `ASTM_FUZZ_RUNS`, driven up nightly by a scheduled **Fuzz** workflow
+    (`.github/workflows/fuzz.yml`) and runnable on demand via `pnpm test:fuzz`.
+  - **Publish dry-run proven release-shaped:** `attw` all-green (per-condition ESM/CJS types), a new
+    `smoke` gate (`scripts/smoke.mjs`) that imports the **built** ESM and requires the **built** CJS
+    entry and parses a result through each (now wired into `verify.sh`), and an `npm publish
+--dry-run` pack inspection (10 files — `dist/` + `README`/`LICENSE`/`CHANGELOG`/`package.json`,
+    no `src` or tests). Zero runtime dependencies; MIT.
+  - **Full Diátaxis docs spine + honesty docs.** New `docs-content/limitations.md` (**What it does —
+    and does not do**: no live I/O, units are verbatim free text not UCUM, no bundled terminology
+    dictionary, `M`/`S` verbatim, the archived-standard status, and the MIT-vs-CLSI license posture)
+    and `docs-content/architecture.md` (the two independent layers and their payload boundary); the
+    **Guides** page is now real how-to recipes (was a placeholder), and the intro / troubleshooting /
+    concepts status blocks are refreshed to the feature-complete state. Every ` ```ts runnable `
+    example is executed by the doc/code-agreement gate.
+
+[pa]: https://github.com/kxepal/python-astm
 
 ### Changed
 
@@ -304,7 +340,7 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
 
 - **Named per-vendor profiles** (cobas / Sysmex / ADVIA / Mindray / Snibe) stay `REAL-CORPUS`-gated —
   the Phase-8 engine supports them (tolerate + transport override), but no public vendor-attributed
-  quirk document grounds a named one; and release hardening (Phase 10). **No bundled terminology
+  quirk document grounds a named one. **No bundled terminology
   dictionary** — LIVD-aware LOINC recognition is bring-your-own by design (Phase 9); the package ships
   no LOINC / SNOMED / LIVD data and mapping quality is the consumer's catalog. The LTP reducer remains
   a pure state machine — no live I/O: wiring it to a real `SerialPort`/`net.Socket` (and the

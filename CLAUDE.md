@@ -16,6 +16,32 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
+- **Phase 10 shipped (ASTM-10): release hardening — the final roadmap phase. The parser is
+  feature-complete.** No new runtime API; this phase is coverage, fuzz, differential testing, docs, and
+  a proven release shape. **Differential conformance vs `python-astm`** (BSD, commit `4170ce0c`),
+  grounded **firsthand** in `test/differential/`: its outputs were captured once
+  (`generate-reference-vectors.py` → `reference-vectors.json`; **no reference code vendored**, CI needs
+  no Python) and asserted against ours on three shared paths — the modulo-256 checksum, the record
+  field/component split (escape-free, non-header), and a cross-implementation frame decode (python
+  encodes + splits → our decoder verifies every checksum and reassembles the exact bytes) — plus the
+  **deliberate divergences** asserted on purpose (we un-escape `&F&`/`&S&`/`&R&`/`&E&`, we validate the
+  checksum on decode, we classify the `Q` host-query; python does none). **Per-dir ≥ 90 coverage** now
+  gates the whole `src/` (`frames`/`ltp`/`terminology` added to `common`/`records`/`profiles`). A
+  **record-tokenizer fuzz** joins the frame-codec fuzz; both scale via `ASTM_FUZZ_RUNS`, run nightly by
+  a scheduled **Fuzz** workflow (`.github/workflows/fuzz.yml`) and on demand via `pnpm test:fuzz`.
+  **Publish dry-run proven:** `attw` green, a new `smoke` gate (`scripts/smoke.mjs`, in `verify.sh`)
+  exercising the built ESM + CJS entries, and an `npm publish --dry-run` clean 10-file tarball. **Full
+  Diátaxis docs spine + honesty docs**: `docs-content/limitations.md` (what it does / does not do +
+  license posture) and `architecture.md` (the two-layer model), real how-to guides, refreshed status
+  blocks. **Founder-gated tail (not crossed):** the actual `npm publish` and the repo public-flip
+  remain the two standing human stops — everything up to them is done.
+- **Phase 9 shipped (ASTM-9): LIVD-aware LOINC recognition — bring-your-own catalog, zero bundled
+  terminology data.** `src/terminology/` maps an analyzer's local test code to a LOINC via a
+  **consumer-supplied** IICC LIVD catalog — additive, advisory, never a guessed LOINC.
+  `defineLivdCatalog` / `applyLivd` / `lookupLivdForRecord`; the raw code/value is never mutated, an
+  inline wire LOINC is never overwritten, and a miss/conflict is `unmapped`/`ambiguous` with a
+  value-free warning. **No LOINC/SNOMED/LIVD data is bundled.** Fourth warning registry `ASTM_LIVD_*`
+  (`ASTM_LIVD_UNMAPPED_CODE`, `ASTM_LIVD_AMBIGUOUS_MAPPING`), outside the profile safety gate.
 - **Phase 8 shipped (ASTM-8): the vendor profile system — engine + registry + quirk-tolerance
   transform + a definition-time safety gate.** `src/profiles/` mirrors the sibling `@cosyte/hl7`
   `defineProfile` / `@cosyte/ccda` `defineCcdaProfile` shape. `defineAstmProfile(opts)` builds a frozen,
@@ -49,8 +75,8 @@ immutability + explicit mutation, and the profile system.
   `REAL-CORPUS`-gated — the engine fully _supports_ them (tolerate + transport override), but no public
   vendor-attributed quirk document grounds a named one, and firsthand inspection of the public corpus
   (python-astm, senaite `sysmex_xn550` / `cobas_c111` transcripts) found the record layer spec-clean
-  (canonical `|\^&`, standard record grammar), so none are authored. Also deferred: LIVD terminology
-  (P9) and release hardening (P10).
+  (canonical `|\^&`, standard record grammar), so none are authored. (LIVD terminology and release
+  hardening — P9/P10 — have since shipped; see the entries above.)
 - **Phase 7 shipped (ASTM-7): spec-clean serializers + builders — both layers now round-trip by
   construction.** `src/records/serialize.ts` + `src/records/build.ts` are the conservative inverse of the
   record parser; `src/frames/encode.ts` is the inverse of the frame codec; `serializeFramedAstm`
