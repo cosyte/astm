@@ -22,8 +22,10 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 > bytes, **verifies the modulo-256 checksum** (a bad frame is surfaced untrusted and never merged),
 > tracks **frame-number sequencing** (a gap is never silently bridged), and **reassembles** the
 > 240-byte-limited multi-frame records; `parseFramedAstm` composes the framing and record layers at the
-> edge. The interactive LTP reducer (`ENQ`/`ACK`/`NAK`/`EOT`) and the serializer land in subsequent
-> phases.
+> edge. Phase 6 adds the **transport layer**: `detectFraming` auto-detects framed (serial / cobas 4800 /
+> Iguana) vs raw (cobas b121, framing dropped) streams, and `ltpReduce` is a **pure, socket-free**
+> receiver-side `ENQ`/`ACK`/`NAK`/`EOT` state machine whose one rule mirrors `mllp`'s ACK-failsafe — a
+> bad-checksum frame is **NAK**ed, never falsely **ACK**ed. The serializer lands in the next phase.
 
 ## Decode a framed byte stream
 
@@ -43,6 +45,50 @@ results(message)[0]?.value; // only checksum-verified frames ever reach the reco
 A checksum mismatch, a sequence gap, an unterminated frame, and an oversize (>240) frame are each a
 **warning** in the default lenient mode (surfaced, flagged, never silently trusted) and a thrown
 `AstmFrameStrictError` under `{ strict: true }`.
+
+## Drive the transport (framed vs raw) + the LTP protocol
+
+ASTM transport is not uniform: **serial** always frames, but over **TCP it varies within a single
+vendor** — the cobas 4800 and Iguana keep the full `ENQ`/`ACK` + `STX`/checksum framing, while the
+cobas b121 drops it and streams de-framed record bytes directly. Detect which you have, then drive the
+pure protocol reducer with your own socket I/O.
+
+```ts
+import {
+  detectFraming,
+  decodeAstmFrames,
+  parseAstmRecords,
+  ltpInitialState,
+  ltpReduce,
+} from "@cosyte/astm";
+
+// 1. Route by the stream's leading byte (STX/ENQ ⇒ framed; a bare record letter ⇒ raw).
+const { framing } = detectFraming(leadingBytes); // "framed" | "raw"  (override: { override: "raw" })
+if (framing === "raw") {
+  // cobas b121 raw-TCP: no handshake, no frames — parse the record bytes directly.
+  parseAstmRecords(rawBytes);
+}
+
+// 2. Framed transport: drive the pure receiver-side state machine. YOU own the socket + clock.
+let state = ltpInitialState();
+function onControlOrFrame(event) {
+  const { state: next, actions, warnings } = ltpReduce(state, event);
+  state = next;
+  for (const a of actions) {
+    if (a.type === "sendAck") socket.write(Uint8Array.of(0x06)); // ACK  — only ever for a good frame
+    if (a.type === "sendNak") socket.write(Uint8Array.of(0x15)); // NAK  — bad checksum ⇒ retransmit
+    if (a.type === "deliverRecord") parseAstmRecords(a.record); // a complete, trusted record
+  }
+  void warnings; // ASTM_LTP_* — value-free (a code + at most a frame number)
+}
+// Feed events as you read them: { type: "enq" }, { type: "frame", frame: decodeAstmFrames(b).frames[0] }, …
+```
+
+The reducer is deterministic and fully testable without a socket. Its inviolable rule: a frame the
+codec did not vouch for — bad checksum, unterminated, or out of sequence — yields `sendNak`, **never** a
+fabricated `sendAck`, and is **never** appended to a record. A `NAK` drives retransmit, not acceptance.
+The interactive contention/timeout/retransmit **timing** is the consumer's — this layer models the
+state transitions, not the wall-clock timers.
 
 ## Install
 

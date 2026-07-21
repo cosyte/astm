@@ -16,6 +16,25 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
+- **Phase 6 shipped (ASTM-6): transport variants + the pure LTP protocol reducer — the framing layer is
+  now feature-complete for decode.** `src/ltp/` sits above the frame codec with two pieces, no live I/O.
+  `detectFraming(bytes, opts?)` auto-detects the transport reality from the leading byte: `STX`/`ENQ` ⇒
+  **framed** (serial, and cobas 4800 / Iguana framed-over-TCP); a bare record letter ⇒ **raw** (cobas
+  b121 raw-TCP, framing dropped); an unrecognizable lead **defaults to framed and warns**
+  (`ASTM_LTP_AMBIGUOUS_TRANSPORT`), with an `override` for a Phase-8 profile — never a silent guess into
+  data loss. `ltpReduce(state, event)` is a **pure, socket-free** receiver-side state machine
+  (`ltpInitialState()` seeds it) over `enq`/`ack`/`nak`/`eot` + a codec-decoded `frame`, returning
+  `{ state, actions, warnings }` — actions `sendAck`/`sendNak`/`sendEot`/`deliverRecord`; the consumer
+  owns the wire and clock. It models LIS01-A2 establishment → transfer → termination as `neutral ⇄
+transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **ACK-failsafe (borrowed from
+  `mllp`):** a frame the codec did not vouch for — bad checksum, unterminated, or out of sequence — is
+  `NAK`ed, **never** a fabricated positive `ACK`, and **never** appended/delivered; a `NAK` drives
+  retransmit, not acceptance (`ASTM_LTP_FRAME_REJECTED`). Duplicate frames are idempotently re-`ACK`ed;
+  a partial record open at `EOT`/`ENQ`-restart is discarded, never delivered. A **third** warning
+  registry `ASTM_LTP_*` (value-free — a code + at most a frame number). Properties: never `ACK` after an
+  untrusted frame; a full `ENQ → frames → EOT` session reassembles exactly the source records; a raw-TCP
+  stream equals its framed twin. **Deferred:** serialize/build (P7); the socket/serial adapter + exact
+  numeric timeout/retry timing (we model transitions, not timers — open question §10).
 - **Phase 5 shipped (ASTM-5): the E1381/CLSI-LIS01 frame codec — the low-level framing layer begins.**
   `src/frames/` decodes a framed byte stream (`<STX> FN text <ETB|ETX> CS <CR><LF>`) via
   `decodeAstmFrames(bytes, opts?)` → `{ records, frames, warnings }`: it verifies the **modulo-256
@@ -30,9 +49,9 @@ immutability + explicit mutation, and the profile system.
   registry `ASTM_FRAME_*` (sharing only `EMPTY_INPUT` with the record layer; snapshot locked) —
   `ASTM_FRAME_BAD_CHECKSUM` / `ASTM_FRAME_SEQUENCE_GAP` / `ASTM_FRAME_UNTERMINATED` /
   `ASTM_FRAME_OVERSIZE`, every warning **value-free** (frame number + byte offset only). A **required
-  `fast-check` fuzz gate** over the codec runs under `verify`. Deferred: the interactive LTP reducer
-  (`ENQ`/`ACK`/`NAK`/`EOT`, P6) and serialize/build (P7) — the codec decodes byte streams only, no live
-  I/O.
+  `fast-check` fuzz gate** over the codec runs under `verify`. (The interactive LTP reducer
+  (`ENQ`/`ACK`/`NAK`/`EOT`) shipped in P6, above; serialize/build is P7 — the codec decodes byte streams
+  only, no live I/O.)
 - **Phase 4 shipped (ASTM-4): query + host-query flow + `M`/`S` verbatim — the record-content layer is
   now feature-complete.** Pre-alpha `0.0.x`, not yet published to npm. `parseAstmRecords` reads
   `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and the escape codec (P1); the `R`
