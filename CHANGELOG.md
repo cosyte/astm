@@ -128,6 +128,36 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
     uninterpreted) and `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` — both value-free (code + position only).
   - `AstmMessage` gains a `classification` field; `AstmRecord` gains `QueryRecord` / `ManufacturerRecord`
     / `ScientificRecord` members (an unknown type letter is still an `UnsupportedRecord`, never dropped).
+- **E1381/CLSI-LIS01 frame codec (ASTM-5, roadmap Phase 5).** The **low-level framing layer** begins —
+  a separate, independent layer from the record layer, sharing only the payload boundary. `src/frames/`
+  decodes a framed byte stream into frames + reassembled record bytes; `src/common/` and `src/records/`
+  are untouched.
+  - `decodeAstmFrames(bytes, opts?)` → `{ records: readonly Uint8Array[]; frames: readonly AstmFrame[];
+warnings: readonly AstmFrameWarning[] }`. A frame is `<STX> FN text <ETB|ETX> CS <CR><LF>`.
+  - **Modulo-256 checksum** over the bytes after `STX` up to and **including** the `ETB`/`ETX`
+    terminator, two hex chars — **verified on decode, emitted uppercase, accepted lowercase** (a real
+    vendor quirk). `computeChecksum` / `toChecksumHex` / `parseChecksumHex` exported.
+  - **Frame-number `0`–`7` sequencing** (rolls over `7 → 0 → 1`, starts at `1`) and **multi-frame record
+    reassembly** — text is capped at **240 bytes** (the seven control bytes are **not** counted), `ETB`
+    is intermediate / `ETX` final. `parseFramedAstm(bytes, opts?)` composes the framing and record layers
+    at the edge (decode → reassemble trusted records → `parseAstmRecords`).
+  - **Fail-safe (byte-level, safety-critical):** a **checksum mismatch** surfaces the frame flagged
+    `trusted: false` and **never merges** it into a record (default warn in lenient / thrown in strict —
+    the "checksums are routinely not validated" claim was _refuted_: we validate); a **frame-number gap**
+    warns and is **never silently bridged**; an **unterminated** frame surfaces the partial bytes
+    untrusted and **invents no partial record**; an **oversize** (>240) frame is flagged, never dropped.
+  - New `ASTM_FRAME_*` warning registry (a **second** registry alongside `ASTM_RECORD_*`, sharing only
+    the `EMPTY_INPUT` fatal; snapshot locked): `ASTM_FRAME_BAD_CHECKSUM`, `ASTM_FRAME_SEQUENCE_GAP`,
+    `ASTM_FRAME_UNTERMINATED`, `ASTM_FRAME_OVERSIZE` — every warning **value-free**, carrying a **frame
+    number + byte offset** only, never the record bytes a frame holds. `{ strict: true }` throws
+    `AstmFrameStrictError`.
+  - **Fuzz gate (required, part of `verify`):** a `fast-check` target over the codec — arbitrary /
+    truncated / mixed / control-char-laden bytes never crash, hang, or OOM; they degrade to a typed
+    error or a value-free warning. Plus property tests: N-frame reassembly equals the single-frame form,
+    and every trusted frame's recomputed checksum matches its declared value.
+  - New types/exports: `AstmFrame`, `FrameChecksum`, `FrameTerminator`, `FrameOptions`,
+    `DecodeAstmFramesResult`, `FramedAstmResult`, `AstmFramePosition`, `AstmFrameWarning`,
+    `FrameWarningCode`, `FRAME_WARNING_CODES`.
 
 ### Changed
 
@@ -137,7 +167,8 @@ its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until firs
 
 ### Deferred (later phases)
 
-- The E1381 framing layer (checksums, 240-split) — Phase 5+. Serialize / build — Phase 7.
+- The interactive LTP protocol reducer (`ENQ`/`ACK`/`NAK`/`EOT`, transport variants) — Phase 6.
+  Serialize / build (both layers) — Phase 7. The frame codec decodes byte streams only; no live I/O.
 
 ### Deprecated
 

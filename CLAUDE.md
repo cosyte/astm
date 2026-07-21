@@ -16,6 +16,23 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
+- **Phase 5 shipped (ASTM-5): the E1381/CLSI-LIS01 frame codec — the low-level framing layer begins.**
+  `src/frames/` decodes a framed byte stream (`<STX> FN text <ETB|ETX> CS <CR><LF>`) via
+  `decodeAstmFrames(bytes, opts?)` → `{ records, frames, warnings }`: it verifies the **modulo-256
+  checksum** (span = the byte after `STX` through the `ETB`/`ETX` terminator inclusive; emitted
+  uppercase, **accepted lowercase**), tracks **frame-number `0`–`7` sequencing** (rolls over, starts at
+  `1`), and **reassembles** the **240**-byte-limited multi-frame records (the 7 control bytes are not
+  counted; `ETB` intermediate / `ETX` final). `parseFramedAstm` composes the two layers at the edge.
+  **Fail-safe (byte-level):** a bad checksum → frame flagged `trusted: false`, **never merged** into a
+  record (warn in lenient / thrown in strict — validation is real, the "checksums not validated" claim
+  was refuted); a frame-number gap → warn, **never silently bridged**; an unterminated frame → warn,
+  **no partial record invented**; an oversize (>240) frame → warn, never dropped. A second warning
+  registry `ASTM_FRAME_*` (sharing only `EMPTY_INPUT` with the record layer; snapshot locked) —
+  `ASTM_FRAME_BAD_CHECKSUM` / `ASTM_FRAME_SEQUENCE_GAP` / `ASTM_FRAME_UNTERMINATED` /
+  `ASTM_FRAME_OVERSIZE`, every warning **value-free** (frame number + byte offset only). A **required
+  `fast-check` fuzz gate** over the codec runs under `verify`. Deferred: the interactive LTP reducer
+  (`ENQ`/`ACK`/`NAK`/`EOT`, P6) and serialize/build (P7) — the codec decodes byte streams only, no live
+  I/O.
 - **Phase 4 shipped (ASTM-4): query + host-query flow + `M`/`S` verbatim — the record-content layer is
   now feature-complete.** Pre-alpha `0.0.x`, not yet published to npm. `parseAstmRecords` reads
   `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and the escape codec (P1); the `R`

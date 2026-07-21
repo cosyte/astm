@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sortedCodeSet } from "@cosyte/test-utils";
 
-import { FATAL_CODES, WARNING_CODES } from "../src/index.js";
+import { FATAL_CODES, FRAME_WARNING_CODES, WARNING_CODES } from "../src/index.js";
 
 /**
  * The warning/fatal code surface is part of the public contract — a rename or
@@ -28,6 +28,17 @@ describe("stable code surface", () => {
     `);
   });
 
+  it("frame warning codes are stable (the ASTM_FRAME_* registry)", () => {
+    expect(sortedCodeSet(FRAME_WARNING_CODES)).toMatchInlineSnapshot(`
+      [
+        "ASTM_FRAME_BAD_CHECKSUM",
+        "ASTM_FRAME_OVERSIZE",
+        "ASTM_FRAME_SEQUENCE_GAP",
+        "ASTM_FRAME_UNTERMINATED",
+      ]
+    `);
+  });
+
   it("fatal codes are stable (EMPTY_INPUT shared across layers)", () => {
     expect(sortedCodeSet(FATAL_CODES)).toMatchInlineSnapshot(`
       [
@@ -40,11 +51,15 @@ describe("stable code surface", () => {
 
   it("keeps each registry key === value", () => {
     for (const [k, v] of Object.entries(WARNING_CODES)) expect(k).toBe(v);
+    for (const [k, v] of Object.entries(FRAME_WARNING_CODES)) expect(k).toBe(v);
     for (const [k, v] of Object.entries(FATAL_CODES)) expect(k).toBe(v);
   });
 
-  it("warning and fatal code sets are disjoint", () => {
-    const warns = new Set<string>(Object.values(WARNING_CODES));
+  it("warning and fatal code sets are disjoint (record + frame warnings vs fatals)", () => {
+    const warns = new Set<string>([
+      ...Object.values(WARNING_CODES),
+      ...Object.values(FRAME_WARNING_CODES),
+    ]);
     for (const f of Object.values(FATAL_CODES)) expect(warns.has(f)).toBe(false);
   });
 });

@@ -17,8 +17,32 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 > preserved and flagged, never zero-filled. Phase 4 adds the **`Q` request-information record + the
 > host-query flow** (a `Q`-bearing message is classified a request, **never** read as a result set) and
 > the **`M`/`S` records surfaced verbatim** (vendor QC/calibration data, never interpreted into clinical
-> fields) — the **record-content layer is now feature-complete**. The E1381 framing layer and the
-> serializer land in subsequent phases.
+> fields) — the **record-content layer is now feature-complete**. Phase 5 adds the **E1381/CLSI-LIS01
+> frame codec**: `decodeAstmFrames` decodes a framed byte stream into frames + reassembled record
+> bytes, **verifies the modulo-256 checksum** (a bad frame is surfaced untrusted and never merged),
+> tracks **frame-number sequencing** (a gap is never silently bridged), and **reassembles** the
+> 240-byte-limited multi-frame records; `parseFramedAstm` composes the framing and record layers at the
+> edge. The interactive LTP reducer (`ENQ`/`ACK`/`NAK`/`EOT`) and the serializer land in subsequent
+> phases.
+
+## Decode a framed byte stream
+
+```ts
+import { decodeAstmFrames, parseFramedAstm, results } from "@cosyte/astm";
+
+// A raw ASTM byte stream off a serial line or socket.
+const { records, frames, warnings } = decodeAstmFrames(framedBytes);
+frames[0]?.checksum.valid; // the modulo-256 checksum verdict (emitted uppercase, accepted lowercase)
+warnings; // ASTM_FRAME_* deviations, each with a frame number + byte offset (never the record bytes)
+
+// Or compose both layers: decode frames → parse the trusted, reassembled records.
+const { message } = parseFramedAstm(framedBytes);
+results(message)[0]?.value; // only checksum-verified frames ever reach the record parser
+```
+
+A checksum mismatch, a sequence gap, an unterminated frame, and an oversize (>240) frame are each a
+**warning** in the default lenient mode (surfaced, flagged, never silently trusted) and a thrown
+`AstmFrameStrictError` under `{ strict: true }`.
 
 ## Install
 
