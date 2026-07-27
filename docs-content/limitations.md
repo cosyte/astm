@@ -51,8 +51,8 @@ These are **non-goals**, not missing features — naming them so nothing over-tr
 - **No vendor-proprietary quirks absent from public specs.** The profile engine fully supports named
   vendor profiles, but a named per-vendor built-in ships **only** when a public, vendor-attributed
   quirk document grounds it. Inspection of the public reference corpus found the record layer
-  spec-clean, so no named vendor profiles are asserted — this is a deliberate abstention, not an
-  omission (the public-only policy, ADR 0018).
+  spec-clean, so no named vendor profiles are asserted. This is a deliberate abstention, not an
+  omission.
 - **No POCT1-A, no HL7 v2, no "extended" vendor dialects as first-class.** Those are separate
   standards. A vendor that emits HL7 v2 instead of ASTM uses `@cosyte/hl7`.
 

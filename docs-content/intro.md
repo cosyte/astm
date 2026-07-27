@@ -11,15 +11,16 @@ Parse real-world, vendor-quirky ASTM and pull fields out in one line — without
 parser, an immutable model, a spec-clean serializer, and a profile system for vendor quirks. It
 mirrors the API shape of the reference parser, `@cosyte/hl7`.
 
-> **Status:** pre-alpha (`0.0.x`), not yet published to npm — but **feature-complete** and in release
-> hardening. The **record** layer reads `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter
-> self-declaration and escape decode, safety-critical result semantics, patient/order identity depth,
-> the `C` comment record, and host-query classification. The E1381/CLSI-LIS01 **framing** layer
-> decodes framed byte streams with a pure LTP transport reducer, the **spec-clean serializers +
-> builders** round-trip both layers by construction, the vendor **profile** system tolerates
-> documented quirks without ever touching a value, and **LIVD**-aware LOINC recognition maps local
-> codes from a bring-your-own catalog. Read [What this library does — and does not do](./limitations)
-> before you rely on it: the promise is narrow and honest.
+> **Status:** published on npm at `0.0.1`, on the pre-alpha `0.0.x` ladder. Both layers are
+> **feature-complete**, but the public surface can still change within `0.0.x`, before `0.1.0`.
+> The **record** layer reads `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and
+> escape decode, safety-critical result semantics, patient/order identity depth, the `C` comment
+> record, and host-query classification. The E1381/CLSI-LIS01 **framing** layer decodes framed byte
+> streams with a pure LTP transport reducer, the **spec-clean serializers + builders** round-trip both
+> layers by construction, the vendor **profile** system tolerates documented quirks without ever
+> touching a value, and **LIVD**-aware LOINC recognition maps local codes from a bring-your-own
+> catalog. Read [What this library does — and does not do](./limitations) before you rely on it: the
+> promise is narrow and honest.
 
 ## Install
 

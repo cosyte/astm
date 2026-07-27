@@ -8,39 +8,42 @@ parser that turns real-world, vendor-quirky input into **warnings** rather than 
 a serializer that always emits spec-clean output (Postel's Law). It mirrors the API shape of the
 reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
-> **Status:** pre-alpha (`0.0.x`), not yet published to npm. Phase 1 ships the **record** layer
-> (`H`/`P`/`O`/`R`/`L` read, delimiter self-declaration, escape decode); Phase 2 adds **safety-critical
-> result semantics** — HL7 Table 0078 abnormal flags, result status (with correction `C` / cancel `X`),
-> reference-range parsing, and the units-absent discipline; Phase 3 adds **identity depth, comments, and
-> timestamp hardening** — the three distinct patient IDs, mother's maiden name, full order fields, the
-> `C` comment record attached by position (orphans surfaced, never dropped), and partial timestamps
-> preserved and flagged, never zero-filled. Phase 4 adds the **`Q` request-information record + the
-> host-query flow** (a `Q`-bearing message is classified a request, **never** read as a result set) and
-> the **`M`/`S` records surfaced verbatim** (vendor QC/calibration data, never interpreted into clinical
-> fields) — the **record-content layer is now feature-complete**. Phase 5 adds the **E1381/CLSI-LIS01
-> frame codec**: `decodeAstmFrames` decodes a framed byte stream into frames + reassembled record
-> bytes, **verifies the modulo-256 checksum** (a bad frame is surfaced untrusted and never merged),
-> tracks **frame-number sequencing** (a gap is never silently bridged), and **reassembles** the
-> 240-byte-limited multi-frame records; `parseFramedAstm` composes the framing and record layers at the
-> edge. Phase 6 adds the **transport layer**: `detectFraming` auto-detects framed (serial / cobas 4800 /
-> Iguana) vs raw (cobas b121, framing dropped) streams, and `ltpReduce` is a **pure, socket-free**
-> receiver-side `ENQ`/`ACK`/`NAK`/`EOT` state machine whose one rule mirrors `mllp`'s ACK-failsafe — a
-> bad-checksum frame is **NAK**ed, never falsely **ACK**ed. Phase 7 adds the **spec-clean serializers +
-> builders** — `serializeAstmRecords` / `buildAstmMessage` emit canonical `H|\^&` records (embedded
-> delimiters re-escaped, nothing clinical fabricated) and `composeAstmFrames` / `serializeFramedAstm`
-> frame them with **computed** checksums + frame numbers and the 240-byte split, so both layers
-> round-trip by construction. Phase 8 adds the vendor **profile** system — `defineAstmProfile()` builds
-> a provenance-backed profile whose quirk tolerances downgrade _expected_, non-safety-critical
-> deviations to a `PROFILE_QUIRK_APPLIED` warning (values are never altered), guarded by a
-> definition-time safety gate that refuses to tolerate any result value / flag / status / range /
-> units, patient or comment context, message-kind, or frame / LTP integrity warning — a profile can
-> never make a bad checksum "ok" or a cancelled result read "final." Named per-vendor profiles are
-> deferred pending a public vendor-attributed quirk document. Phase 9 adds **LIVD-aware LOINC
-> recognition** — `applyLivd(msg, catalog)` maps an analyzer's local test code to a standard **LOINC**
-> from a **consumer-supplied** IICC LIVD catalog (`defineLivdCatalog`), as an **additive, advisory**
-> annotation that never mutates the raw code/value and **never guesses a LOINC** (an unmapped or
-> ambiguous code surfaces as such). No LOINC / SNOMED / LIVD dictionary is bundled — the package stays a
-> structural recognizer, and the consumer brings their own catalog.
+> **Status:** published on npm at `0.0.1`, on the pre-alpha `0.0.x` ladder. Both layers are
+> feature-complete, but the public surface can still change within `0.0.x`, before `0.1.0`.
+
+## What it covers
+
+- **Records (E1394 / LIS02-A2).** `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` are read with per-header
+  delimiter self-declaration and escape decode, so an escaped delimiter inside a value reads as one
+  component. Result semantics are modeled and fail-safe: HL7 Table 0078 abnormal flags, result status
+  (a correction `C` or cancel `X` never reads as active-final), reference ranges kept verbatim, and a
+  missing unit flagged rather than defaulted. The practice-, laboratory-, and third patient IDs stay
+  distinct; a `C` comment attaches to its parent by position and an orphan is surfaced, never dropped;
+  a partial timestamp is preserved and flagged, never zero-filled. A `Q`-bearing message is classified
+  as a host query and is never read as a result set, and `M`/`S` vendor QC and calibration records are
+  surfaced verbatim rather than interpreted into clinical fields.
+- **Framing and transport (E1381 / LIS01-A2).** `decodeAstmFrames` turns a framed byte stream into
+  frames plus reassembled record bytes: it verifies the modulo-256 checksum (a bad frame is surfaced
+  untrusted and never merged), tracks frame-number sequencing (a gap is never silently bridged), and
+  reassembles the 240-byte-limited multi-frame records. `detectFraming` routes framed streams (serial,
+  cobas 4800, Iguana) from raw ones (cobas b121, framing dropped), and `ltpReduce` is a pure,
+  socket-free `ENQ`/`ACK`/`NAK`/`EOT` receiver state machine that NAKs a frame the codec did not vouch
+  for rather than fabricating an ACK. `parseFramedAstm` composes both layers at the edge.
+- **Emit.** `serializeAstmRecords` and `buildAstmMessage` emit canonical `H|\^&` records with embedded
+  delimiters re-escaped and nothing clinical fabricated; `composeAstmFrames` and `serializeFramedAstm`
+  frame them with computed checksums, frame numbers, and the 240-byte split. Both layers round-trip by
+  construction.
+- **Vendor profiles.** `defineAstmProfile()` builds a provenance-backed profile whose tolerances
+  downgrade _expected_, non-safety-critical deviations to a `PROFILE_QUIRK_APPLIED` warning without
+  ever altering a value, behind a definition-time safety gate that refuses to tolerate any result
+  value, flag, status, range, or units warning, any patient or comment context, any message-kind
+  ambiguity, and any frame or transport integrity warning. A profile can never make a bad checksum
+  "ok" or a cancelled result read "final." Named per-vendor profiles await a public,
+  vendor-attributed quirk document.
+- **Terminology, bring your own.** `applyLivd(msg, catalog)` maps an analyzer's local test code to a
+  LOINC from a consumer-supplied IICC LIVD catalog as an additive, advisory annotation that never
+  mutates the raw code or value and never guesses a LOINC. No LOINC, SNOMED, or LIVD dictionary is
+  bundled: the package stays a structural recognizer and you bring the catalog.
 
 ## Decode a framed byte stream
 

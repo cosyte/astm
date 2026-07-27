@@ -76,7 +76,7 @@ r?.range?.kind; // "closed" (low "10", high "40"); an unparseable range → "unp
 
 > Units are vendor **free text**, never UCUM. A _numeric_ result value with no units raises an
 > `ASTM_RECORD_UNITS_ABSENT` warning — a missing unit is flagged, never defaulted, guessed, or
-> converted. The reference-range delimiter is `[OSS-derived]` (roadmap open question); anything that
+> converted. The reference-range delimiter is `[OSS-derived]`; anything that
 > does not match `low-high` / `<high` / `>low` is surfaced verbatim.
 
 ## Tell a query apart from a result upload
@@ -98,7 +98,7 @@ msg.classification.kind; // => "host-query"
 The `Q` **dominates**: even a message that (anomalously) carries both a `Q` and an `R` is classified
 `host-query` and flagged — a query is never silently read as a result upload. The `Q` record's range
 IDs, the `ALL` keyword, and the request-information status codes are surfaced **verbatim** and flagged
-`[OSS-derived]` (their exact structure is paywalled — see the roadmap), never guessed.
+`[OSS-derived]` (their exact structure is paywalled), never guessed.
 
 `M` (manufacturer) and `S` (scientific) records carry vendor-defined QC / calibration / maintenance
 data. They are surfaced **verbatim** on `record.rawLine` and **never** interpreted into clinical

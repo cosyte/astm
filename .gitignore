@@ -6,6 +6,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Pack output (`pnpm pack` / `npm publish --dry-run`); a committed tarball goes stale the moment
+# the version moves, and one shipped as `cosyte-astm-0.0.0.tgz` on a repo publishing 0.0.1.
+*.tgz
+
 # Test / coverage
 coverage/
 .vitest-cache/
