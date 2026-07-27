@@ -46,7 +46,7 @@
  * console.log(VERSION);
  * ```
  */
-export const VERSION: string = "0.0.1";
+export const VERSION: string = "0.0.2";
 
 export { parseAstmRecords, AstmStrictError, attachComments } from "./records/parse.js";
 export {
