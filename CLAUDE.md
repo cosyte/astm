@@ -16,6 +16,10 @@ immutability + explicit mutation, and the profile system.
 
 ## Status
 
+- **Published.** The repo is **public** and `@cosyte/astm` is **live on npm at `0.0.1`** (published
+  2026-07-22; `registry.npmjs.org/@cosyte/astm` → `dist-tags.latest` = `0.0.1`). Re-verify against the
+  registry rather than quoting this line. Note that `www.npmjs.com` returns 403 to scripted requests,
+  so it is not a usable check: use the registry.
 - **Phase 10 shipped (ASTM-10): release hardening — the final roadmap phase. The parser is
   feature-complete.** No new runtime API; this phase is coverage, fuzz, differential testing, docs, and
   a proven release shape. **Differential conformance vs `python-astm`** (BSD, commit `4170ce0c`),
@@ -33,8 +37,9 @@ immutability + explicit mutation, and the profile system.
   exercising the built ESM + CJS entries, and an `npm publish --dry-run` clean 10-file tarball. **Full
   Diátaxis docs spine + honesty docs**: `docs-content/limitations.md` (what it does / does not do +
   license posture) and `architecture.md` (the two-layer model), real how-to guides, refreshed status
-  blocks. **Founder-gated tail (not crossed):** the actual `npm publish` and the repo public-flip
-  remain the two standing human stops — everything up to them is done.
+  blocks. **Founder-gated tail (crossed 2026-07-22):** the repo was flipped public and
+  `@cosyte/astm@0.0.1` was published to npm (`dist-tags.latest` = `0.0.1`). Both were the standing
+  human stops; both are done.
 - **Phase 9 shipped (ASTM-9): LIVD-aware LOINC recognition — bring-your-own catalog, zero bundled
   terminology data.** `src/terminology/` maps an analyzer's local test code to a LOINC via a
   **consumer-supplied** IICC LIVD catalog — additive, advisory, never a guessed LOINC.
@@ -142,7 +147,7 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
   (`ENQ`/`ACK`/`NAK`/`EOT`) shipped in P6, above; serialize/build is P7 — the codec decodes byte streams
   only, no live I/O.)
 - **Phase 4 shipped (ASTM-4): query + host-query flow + `M`/`S` verbatim — the record-content layer is
-  now feature-complete.** Pre-alpha `0.0.x`, not yet published to npm. `parseAstmRecords` reads
+  now feature-complete.** `parseAstmRecords` reads
   `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and the escape codec (P1); the `R`
   record carries modeled, fail-safe result semantics alongside the raw fields (P2) — `flag` (HL7 Table
   0078, `undefined` never coerced to normal), `status` (a `C`/`X` never reads as active-final; absent →

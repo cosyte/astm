@@ -33,7 +33,12 @@
  */
 
 /**
- * Library version string, synced with `package.json#version` at build time.
+ * Library version string, kept in lockstep with `package.json#version`.
+ *
+ * Changesets owns the bump and rewrites `package.json` only, so the release `version` script runs
+ * `scripts/sync-version.mjs` to rewrite this declaration in the same commit, and
+ * `test/sanity.test.ts` compares the two so a skipped sync goes red instead of shipping a version
+ * string that lies.
  *
  * @example
  * ```ts
@@ -41,7 +46,7 @@
  * console.log(VERSION);
  * ```
  */
-export const VERSION = "0.0.0";
+export const VERSION: string = "0.0.1";
 
 export { parseAstmRecords, AstmStrictError, attachComments } from "./records/parse.js";
 export {

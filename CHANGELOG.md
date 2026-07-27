@@ -9,8 +9,40 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ## [Unreleased]
 
-The first pre-alpha release (`0.0.1`) will ship the initial public API surface. The package begins
-its public history at `0.0.x`, per the cosyte version ladder (`0.0.x` until first alpha).
+### Fixed
+
+- **Publish status corrected across the public surface.** `@cosyte/astm` has been published on npm at
+  `0.0.1` since 2026-07-22 and the repository is public, but `README.md`, `docs-content/intro.md`, and
+  `docs-content/installation.md` each still opened with "pre-alpha (`0.0.x`), not yet published to
+  npm" (and the installation page told readers to consume the package from source instead). Those
+  three status blocks, plus the project guide, now state the real published version. The install
+  instructions no longer describe a package that does not exist.
+- **`VERSION` no longer lies about the release.** The published `0.0.1` exported `VERSION === "0.0.0"`
+  while `package.json` read `0.0.1`, which the documented install smoke test (print `VERSION`) surfaces
+  directly to an installer. The constant is corrected to `0.0.1`, `scripts/sync-version.mjs` now
+  rewrites it from `package.json` inside the release `version` script, and `test/sanity.test.ts`
+  asserts the two agree so a skipped sync fails the build instead of shipping. The declaration is now
+  annotated `: string` (matching `@cosyte/hl7`), so the emitted type is `string` rather than the
+  version literal.
+- Removed `cosyte-astm-0.0.0.tgz`, a 307 KB `pnpm pack` artifact committed to the repository root that
+  carried a stale `0.0.0` `dist/`, and added `*.tgz` to `.gitignore` so pack output cannot be
+  committed again.
+
+### Changed
+
+- The `README.md` status block is replaced by a "What it covers" summary of the record, framing and
+  transport, emit, profile, and terminology layers. Per the public-surface rule, a README describes
+  what the software does, not our internal phase numbering; the ASTM designations `E1381` and `E1394`
+  are reference material and stay. Same removal of internal cross-references a reader cannot follow
+  from `docs-content/limitations.md` and `docs-content/quickstart.md`, leaving the surrounding
+  sentences intact.
+- The released `0.0.1` entries now sit under a dated `## [0.0.1] - 2026-07-22` heading with a link to
+  its tag, instead of sitting under `[Unreleased]` behind a sentence saying `0.0.1` "will ship".
+
+## [0.0.1] - 2026-07-22
+
+The first pre-alpha release. The package begins its public history at `0.0.x`, per the cosyte version
+ladder (`0.0.x` until first alpha).
 
 ### Added
 
@@ -347,12 +379,5 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
   interactive contention/timeout/retransmit **timing**) is a thin consumer adapter, and the standard's
   exact numeric timeouts / retry counts are deferred (we model transitions, not timers).
 
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
 [Unreleased]: https://github.com/cosyte/astm/commits/main
+[0.0.1]: https://github.com/cosyte/astm/releases/tag/v0.0.1
