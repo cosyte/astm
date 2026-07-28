@@ -30,12 +30,16 @@
  * codec did not vouch for is answered with `NAK`, **never** a fabricated positive
  * `ACK`, and never merged into a record — a `NAK` drives retransmit, not acceptance.
  *
- * The **emit** half is the conservative inverse of all three: {@link buildAstmMessage}
- * constructs spec-clean records from typed caller input, {@link serializeAstmRecords}
- * writes them out with the canonical `H|\^&` delimiters by default and every embedded
- * delimiter re-escaped, {@link composeAstmFrames} wraps them back into checksummed
- * frames, and
- * {@link serializeFramedAstm} composes the last two.
+ * The **emit** half is the conservative inverse of the record and framing layers.
+ * {@link buildAstmMessage} constructs records from typed caller input, emitting only
+ * the values the caller supplied; {@link serializeAstmRecords} writes them out with the
+ * canonical `H|\^&` delimiters by default, re-escaping every embedded delimiter in a
+ * decoded component leaf (`M`/`S` records are re-emitted byte-identically from their
+ * preserved `rawLine`, and the header's delimiter declaration is emitted literally);
+ * {@link composeAstmFrames} wraps them back into frames whose checksum and frame number
+ * are computed rather than accepted; and {@link serializeFramedAstm} composes the last
+ * two. The protocol layer has no emit inverse by design: {@link ltpReduce} returns the
+ * actions to take, and the consumer owns the wire.
  */
 
 /**
