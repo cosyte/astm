@@ -1,20 +1,19 @@
 /**
- * The record-layer **emit** side: {@link serializeAstmRecords} — Phase 7.
+ * The record-layer **emit** side: {@link serializeAstmRecords}.
  *
  * The inverse of `parseAstmRecords`. Where the parser is liberal (vendor quirks
  * become warnings), the serializer is **conservative**: it always emits a
  * spec-clean stream with the **canonical** delimiter set (`H|\^&`), re-escapes
  * every embedded delimiter so an embedded `|`/`^`/`\`/`&` in a value can never
- * break framing (the exact inverse of the Phase-1 escape codec), and terminates
+ * break framing (the exact inverse of the escape codec), and terminates
  * each record with a `CR`.
  *
  * **Round-trip by construction.** Serialization emits from a record's **decoded**
  * component tree (`AstmField.repeats`) and re-escapes each leaf, so
  * `parseAstmRecords(serializeAstmRecords(msg))` reproduces the same modelled
  * fields — the same components, the same typed accessors, and the canonical
- * delimiter set (a non-canonical source is normalized to `H|\^&`, a documented
- * Phase-7 behavior; round-tripping a vendor's own delimiters is a Phase-8
- * profile concern).
+ * delimiter set (a non-canonical source is normalized to `H|\^&`; the serializer
+ * does not round-trip a vendor's own delimiters).
  *
  * **Never break framing.** A component leaf that contains a record terminator
  * (`CR`/`LF`) cannot be escaped by the ASTM escape codec (only the four declared
@@ -173,7 +172,8 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
  * Emit is **conservative**: the canonical `H|\^&` delimiters, every embedded
  * delimiter re-escaped, each record closed with a `CR`. A message parsed with
  * non-canonical delimiters is **normalized** to the canonical set on emit (a
- * documented Phase-7 behavior — vendor-delimiter round-tripping is Phase 8).
+ * documented behavior — the serializer does not round-trip a vendor's own
+ * delimiters).
  *
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
  * @returns The serialized record stream (`CR` after every record).

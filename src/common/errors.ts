@@ -4,7 +4,7 @@
  * Tier-3 **fatal** codes mark input the parser cannot recover into a structured
  * `AstmMessage`; anything less severe is a Tier-2 warning (see `./warnings.ts`).
  * `AstmParseError` is thrown directly and consumers narrow via the `code`
- * discriminant. The set is additions-only across phases — the record layer
+ * discriminant. The set is additions-only — the record layer
  * introduces three, one of which (`EMPTY_INPUT`) is shared with every future
  * layer (the frame codec adds its own `ASTM_FRAME_*` fatals later).
  */

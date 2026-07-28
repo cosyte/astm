@@ -1,8 +1,9 @@
 /**
  * The record-layer entry point: {@link parseAstmRecords}.
  *
- * Phase 1 assumes **already-de-framed** record bytes (the E1381/LIS01 framing
- * layer is a later phase). It reads the four delimiters from the header, tokenizes
+ * It assumes **already-de-framed** record bytes; {@link parseFramedAstm} composes
+ * the E1381/LIS01 framing layer with this one. It reads the four delimiters from
+ * the header, tokenizes
  * every record escape-aware, and builds the immutable {@link AstmMessage} — lenient
  * by default: vendor quirks become typed warnings, and only three unrecoverable
  * structural conditions are fatal.

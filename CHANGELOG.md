@@ -9,8 +9,55 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ## [Unreleased]
 
+### Added
+
+- **`pnpm check:no-internal-refs` + a `no-internal-refs` CI job** (`PUBLIC-SURFACE-HYGIENE`,
+  founder directive 2026-07-27). Internal only; no change to the published package surface. `astm` was
+  the last parser with no gate on this rule at all, which is why the class had regrown. The script is
+  ported from `ncpdp`'s copy (which carries three fixes `hl7`'s reference lacks: the `src/`
+  string-literal pass, the plural `phases?` stem, and `/` in the ADR separator class) plus `cli`'s
+  seventh rule, the prose roadmap citation, which neither `hl7` nor `ncpdp` has and which found the
+  second-largest class here. Four surfaces are scanned against seven rules: public markdown +
+  the npm `description`/`keywords`, `src/` doc comments, `src/` string literals, each line by line and
+  paragraph-reflowed. `//` comments, `CHANGELOG.md` and `.changeset/` are deliberately out of scope:
+  the convention names them as where identifiers belong.
+
+  Re-derived for this repo rather than copied: rule 2 now excludes E1381/CLSI-LIS01's own
+  **protocol phases** (`protocol`, `three-`, `establishment`, `transfer`, `termination`, `neutral`,
+  `idle`), because "phase" is the standard's word for the state of the line and `LtpState.phase` is an
+  exported field; and the `SPEC-7` / `ACC-42` synthetic example ids in every runnable sample are
+  `WORD-N` exactly, so a shape-keyed rule would rewrite the sample a consumer copy-pastes. Both are
+  asserted in negative self-tests, alongside `ASTM-E1394`, `CLSI-LIS01`, `LIS02-A2`, `POCT1-A`,
+  `E1394-97` and `ICD-10-CM`. A further negative self-test pins **bare `§` section citations as
+  deliberately unruled**, so closing that hole has to be a decision rather than a widening that lands
+  by accident.
+
+  The script also **refuses to run under a `grep` that cannot see its subject.** A scanner-visibility
+  probe seeds a violation into a file containing a NUL byte and requires it to come back as either a
+  hit or a stderr diagnostic; silence at exit 0 is a hard refusal, because a tool that skips a file
+  produces output identical to a tool that read it and found it clean. This is not theoretical: the
+  development container interposes a `grep` with `-I` forced, which drops such input without a word.
+  An interposed shell function is also `unset` rather than assumed absent. Both directions are
+  proven — an `-I`-forcing `grep` ahead of it on `PATH` makes the gate refuse, and an exported `grep`
+  function is neutralised. The companion `-G` (basic-regex) hazard needs no separate guard: every
+  positive self-test uses alternation, so a BRE-forced `grep` fails them and refuses.
+
+  Known gaps, stated rather than discovered later: a bare `P\d+` label (`(P7)`) is not caught, because
+  a general `P\d+` rule has corrupted ICD-10-CM codes in a sibling; `phase` at the end of a clause is
+  not caught; bare `§` section citations are deliberately unruled; and `dist/` is build output this
+  script cannot read, so it gates dist's source, not dist. Fourteen `P\d+` lines and the falsehoods
+  below were found by hand, not by a rule.
+
 ### Fixed
 
+- **The type documentation shipped in `dist/index.d.ts` no longer understates the library.** The
+  package entry point's own documentation ended "Serialize/build is deferred" on a tree that exports
+  `serializeAstmRecords`, `buildAstmMessage`, `composeAstmFrames` and `serializeFramedAstm`, and
+  `AstmMessage` documented only `H`/`P`/`O`/`R`/`L` as modeled with comment, query, `M`/`S`, framing
+  and serialization described as still to come, when all of them are modeled. Those sentences were
+  what a consumer's editor rendered on hover and what both declaration files carried. Every affected
+  block now describes what the code does. 18 source files changed; no runtime behaviour, export, type
+  or warning code is affected.
 - **The published documentation sidebar now follows the shared section order.** The shipped
   `docs-content/sidebars.json` carried a category named "About" holding the "what it does and does not
   do" page. That label is not one of the sections the documentation site recognises (Overview,

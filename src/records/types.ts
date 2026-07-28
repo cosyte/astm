@@ -7,10 +7,9 @@
  * accessors relevant to its type — the raw tree is always present so nothing the
  * parser did not model is lost.
  *
- * Phase-1 scope: `H`/`P`/`O`/`R`/`L` are modeled; every other type letter is an
- * {@link UnsupportedRecord} (surfaced, never dropped). Result-flag/status
- * *semantics*, comments/query/`M`/`S`, framing, and serialization are later
- * phases — this layer surfaces the safety-critical values **raw**.
+ * `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` are modeled; every other type letter is an
+ * {@link UnsupportedRecord} (surfaced, never dropped). Alongside the modeled
+ * views, this layer always surfaces the safety-critical values **raw**.
  */
 
 import type { Delimiters } from "../common/delimiters.js";
@@ -140,7 +139,7 @@ export interface OrderRecord extends RecordBase {
  *
  * The raw safety-critical fields (value, `units`, `referenceRange`,
  * `abnormalFlags`, `resultStatus`) are always surfaced exactly as received.
- * Phase 2 adds the **modeled, fail-safe** semantics alongside them: `flag`
+ * The **modeled, fail-safe** semantics sit alongside them: `flag`
  * (Table 0078, `undefined` never coerced to normal), `status` (a `C`/`X` never
  * reads as active-final; an absent status is `unspecified`, never `final`), and
  * `range` (open/closed bounds surfaced verbatim, never fabricated). The raw
@@ -254,7 +253,7 @@ export interface CommentRecord extends RecordBase {
  * fields — the starting/ending range ID and the request-information status — are
  * surfaced **verbatim**; the field *positions* are the public ASTM E1394 layout,
  * but their internal structure and code meanings are **`[OSS-derived / paywalled]`**
- * (roadmap §10 Q3) and are therefore **never interpreted or guessed**.
+ * and are therefore **never interpreted or guessed**.
  */
 export interface QueryRecord extends RecordBase {
   /** Field 2 — sequence number. */
@@ -284,7 +283,7 @@ export interface QueryRecord extends RecordBase {
   readonly queriesAllTests: boolean;
   /**
    * Field 13 — request-information status code(s), surfaced **verbatim**. The status code *set* is
-   * **`[OSS-derived / paywalled]`** (roadmap §10 Q3): with no publicly-groundable enumeration, this
+   * **`[OSS-derived / paywalled]`**: with no publicly-groundable enumeration, this
    * parser recognizes **none** of them and interprets nothing — every present status is surfaced raw
    * and flagged with a value-free `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS` warning. Never mapped to a
    * guessed meaning.
@@ -328,7 +327,7 @@ export interface TerminatorRecord extends RecordBase {
 
 /**
  * Any record whose type letter is not modeled (a genuinely unknown letter).
- * `H`/`P`/`O`/`R`/`C`/`L` (Phases 1–3) and `Q`/`M`/`S` (Phase 4) are all modeled;
+ * `H`/`P`/`O`/`R`/`C`/`L` and `Q`/`M`/`S` are all modeled;
  * anything else is surfaced with its raw fields intact and flagged with an
  * `ASTM_RECORD_UNKNOWN_TYPE` warning — never dropped.
  */

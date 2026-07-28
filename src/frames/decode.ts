@@ -49,8 +49,8 @@ import type {
  *
  * Bytes outside a frame (before the first `STX`, or between a frame's trailing
  * `LF` and the next `STX`) are skipped: in ASTM they are low-level transfer
- * control (`ENQ`/`ACK`/`NAK`/`EOT` — the Phase 6 protocol layer), never record
- * content, so skipping them is not data loss.
+ * control (`ENQ`/`ACK`/`NAK`/`EOT`), never record content, so skipping them is
+ * not data loss.
  *
  * @param bytes - The framed byte stream.
  * @param options - Decode options; lenient unless `strict` is set.

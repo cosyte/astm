@@ -8,12 +8,12 @@
  * — **never a confident wrong value**. Delimiters are read from each header,
  * embedded escapes are decoded before a value is split, the practice- and
  * laboratory-assigned patient IDs stay distinct, and every deviation is a stable,
- * value-free warning. Result flag/status semantics (P2), patient/order identity
- * depth + the `C` comment record + partial-timestamp hardening (P3), and the
+ * value-free warning. Result flag/status semantics, patient/order identity
+ * depth + the `C` comment record + partial-timestamp hardening, and the
  * request-information (`Q`) record + host-query classification + verbatim `M`/`S`
- * records (P4) are all modeled — the **record-content layer is now feature-complete**.
+ * records are all modeled — the **record-content layer is now feature-complete**.
  *
- * The E1381/CLSI-LIS01 **framing** layer (P5) lives alongside the record layer and
+ * The E1381/CLSI-LIS01 **framing** layer lives alongside the record layer and
  * shares nothing but the payload boundary: {@link decodeAstmFrames} decodes a framed
  * byte stream (`<STX> FN text <ETB|ETX> CS <CR><LF>`) into frames + reassembled
  * record bytes — verifying the modulo-256 checksum (a bad frame is surfaced
@@ -21,7 +21,7 @@
  * silently bridged), and reassembling the 240-byte-limited multi-frame records.
  * {@link parseFramedAstm} composes the two layers at the edge.
  *
- * The LTP **protocol** layer (P6) sits above the frame codec: {@link detectFraming}
+ * The LTP **protocol** layer sits above the frame codec: {@link detectFraming}
  * auto-detects the transport reality — framed (serial / cobas 4800 / Iguana) vs raw
  * (cobas b121, framing dropped) — from the stream's leading byte, and
  * {@link ltpReduce} is a **pure, socket-free** receiver-side state machine over
@@ -29,7 +29,6 @@
  * reducer decides. Its inviolable rule mirrors `mllp`'s ACK-failsafe: a frame the
  * codec did not vouch for is answered with `NAK`, **never** a fabricated positive
  * `ACK`, and never merged into a record — a `NAK` drives retransmit, not acceptance.
- * Serialize/build (P7) is deferred.
  */
 
 /**

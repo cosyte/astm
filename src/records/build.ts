@@ -1,5 +1,5 @@
 /**
- * The record-layer **builder**: {@link buildAstmMessage} — Phase 7.
+ * The record-layer **builder**: {@link buildAstmMessage}.
  *
  * A builder produces spec-clean E1394 records **by construction** from typed
  * caller input, under two disciplines:

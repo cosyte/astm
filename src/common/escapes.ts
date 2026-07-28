@@ -1,9 +1,9 @@
 /**
- * The ASTM escape codec — the Phase-1 fix for a documented silent-misread class.
+ * The ASTM escape codec — the fix for a documented silent-misread class.
  *
  * ASTM escapes an embedded delimiter with the escape character on both sides of
- * a single mnemonic letter (the InterSystems mnemonics, cross-verified in the
- * roadmap's OSS references):
+ * a single mnemonic letter (the InterSystems mnemonics, cross-verified against
+ * the OSS reference implementations):
  *
  * ```
  *   &F&  → field delimiter      (default "|")
@@ -23,8 +23,8 @@
  * leaf**: the escape sequence survives the split intact and only then decodes to
  * a single literal, so `1&S&40` reads as exactly one component.
  *
- * Re-escaping (the inverse, for spec-clean emit) belongs to the serialize phase
- * (P7) and is deliberately not implemented here.
+ * Re-escaping (the inverse, for spec-clean emit) lives in the serializer and is
+ * deliberately not implemented here.
  */
 
 import type { Delimiters } from "./delimiters.js";

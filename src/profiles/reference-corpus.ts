@@ -3,8 +3,7 @@
  * grounded firsthand in the **redistributable OSS reference corpus**, not an
  * invented per-vendor deviation matrix.
  *
- * Grounding (firsthand-verified 2026-07-21; the corpus is permissively licensed and
- * in scope for grounding, per the roadmap):
+ * Grounding (firsthand-verified 2026-07-21; the corpus is permissively licensed):
  *
  * - **`kxepal/python-astm` `codec.py`** (BSD) — its `decode_record` /
  *   `decode_component` / `decode_repeated_component` split fields, components, and
@@ -17,7 +16,7 @@
  *   or non-standard `&…&` body inside a free-text field (units, comments, test
  *   names) that our **escape-aware** tokenizer flags as
  *   `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. We are deliberately stricter than the OSS
- *   references here (roadmap §6 differential note), so the warning is *expected*
+ *   references here, so the warning is *expected*
  *   noise when talking to that ecosystem — recognizable and non-clinical.
  *
  * **Why this is safe.** The escape codec **preserves an unrecognized `&…&` body
@@ -31,8 +30,7 @@
  *
  * **Honesty.** This is a *reference-corpus* profile, not a claim about any named
  * analyzer vendor. No per-vendor ("cobas does X") behaviour is asserted; a named
- * vendor profile awaits a firsthand vendor-attributed quirk document and stays
- * deferred (`REAL-CORPUS`).
+ * vendor profile awaits a firsthand vendor-attributed quirk document.
  */
 
 import { defineAstmProfile } from "./define.js";
