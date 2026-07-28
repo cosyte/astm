@@ -18,8 +18,10 @@ this file is maintained by hand (Changesets handles the version bump and publish
   string-literal pass, the plural `phases?` stem, and `/` in the ADR separator class) plus `cli`'s
   seventh rule, the prose roadmap citation, which neither `hl7` nor `ncpdp` has and which found the
   second-largest class here. Four surfaces are scanned against seven rules: public markdown +
-  the npm `description`/`keywords`, `src/` doc comments, `src/` string literals, each line by line and
-  paragraph-reflowed. `//` comments, `CHANGELOG.md` and `.changeset/` are deliberately out of scope:
+  the npm `description`/`keywords`, `src/` doc comments, and `src/` string literals. The two prose
+  surfaces are scanned line by line **and** paragraph-reflowed, so a violation that straddles a wrap
+  is still caught; the npm metadata and the string-literal pass are line-scanned only, and a
+  violation split across the lines of a multi-line template literal is not seen at all. `//` comments, `CHANGELOG.md` and `.changeset/` are deliberately out of scope:
   the convention names them as where identifiers belong.
 
   Re-derived for this repo rather than copied: rule 2 now excludes E1381/CLSI-LIS01's own
@@ -79,6 +81,25 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   non-canonical `M`/`S` row consequently does not survive the round trip as separate fields. Both
   exceptions are now stated next to the round-trip claim they bound, and `serializeAstmRecords`
   gained the `@param d` its siblings already had.
+
+- **The published documentation sidebar now follows the shared section order.** The shipped
+  `docs-content/sidebars.json` carried a category named "About" holding the "what it does and does not
+  do" page. That label is not one of the sections the documentation site recognises (Overview,
+  Installation, Quickstart, Core Concepts, Guides, API Reference, Troubleshooting), so `docs.cosyte.com`
+  rendered this package with a section no other `@cosyte/*` package has. The page now sits under
+  **Troubleshooting**, beside the troubleshooting guide that already links to it, matching how
+  `@cosyte/mllp` files the same page. The page's own URL is unchanged, so existing links to it still
+  resolve. Both released documentation bundles (`v0.0.1` and `v0.0.2`) carry the old layout and cannot
+  be changed, because a release asset is immutable once published; this correction reaches readers with
+  the next release.
+- **The status note no longer quotes a version number that a release makes wrong.** `README.md`,
+  `docs-content/intro.md` and `docs-content/installation.md` each opened with "published on npm at
+  `0.0.1`" while the package was at `0.0.2`. Nothing bound those sentences to the manifest, so every
+  publish falsified them, and the two documentation pages ship inside the release bundle the
+  documentation site re-fetches forever. They now say the package is published and name the `0.0.x`
+  pre-alpha ladder, and leave the exact version to the registry, where it cannot go stale. The
+  exported `VERSION` constant is unaffected: it is generated from `package.json` at release time and
+  asserted equal to it.
 
 ## [0.0.2] - 2026-07-27
 

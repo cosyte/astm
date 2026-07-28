@@ -280,8 +280,11 @@
 #         loud red on a rare line rather than a silent hole, which is the same bargain the
 #         rule already makes for a bare `Phase III`; and narrowing it belongs in THE ONE
 #         SHARED LIST (residual (i)), not in a private divergence that makes the copies
-#         harder to diff. Measured zero instances ON THE GATED SURFACE (the phrase now
-#         occurs twice in this repo, in CHANGELOG.md and in this file, both ungated).
+#         harder to diff. Measured zero instances ON THE GATED SURFACE. The only occurrence
+#         anywhere in the repo is the quotation on the line above, in this file, which is
+#         ungated. (An earlier draft of this note also counted an occurrence in
+#         CHANGELOG.md that the SAME COMMIT had already deleted. Residual (xii) exists for
+#         precisely that mistake, and it was made here, twelve lines below it.)
 #  (xiv)  THE SURFACE-DRIFT TRIPWIRES ARE ASYMMETRIC, and the gap is on the ADD side. A
 #         SURFACE_PATHS entry that is renamed or deleted reds (the tracked-path loop), and a
 #         `package.json` `files` entry that is ADDED reds (the tarball tripwire). But a NEW
@@ -305,8 +308,12 @@
 #         the reasoning is at PHASE_NOT_CLINICAL and the short version is that it red on
 #         `the transfer phase 240 bytes ...`, which is this package's own reference prose.
 #         Closing it properly needs to distinguish a phase LABEL from the next clause's
-#         first token, which a regex cannot do here. Measured zero live instances on this
-#         tree. It is a reviewer's catch, and it is the price of protecting the standard's
+#         first token, which a regex cannot do here. Measured zero live instances ON THE
+#         GATED SURFACE (README.md, LICENSE, docs-content/ and src/**/*.ts, line-scanned
+#         and paragraph-reflowed). NOT zero in the repo: the sample sentence is quoted
+#         twice in this file, and CHANGELOG.md yields it once when reflowed. All are
+#         ungated, and stating which surface a zero was taken on is residual (xii).
+#         It is a reviewer's catch, and it is the price of protecting the standard's
 #         vocabulary: the exclusions that keep `protocol phase` and `acute phase` safe are
 #         the same ones that open this hole.
 #

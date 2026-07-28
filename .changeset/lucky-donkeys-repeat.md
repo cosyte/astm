@@ -16,9 +16,10 @@ documentation understated the library to the people reading it.
 The fatal-error taxonomy had a related problem: `FATAL_CODES` documented itself as
 later growing the frame codec's own `ASTM_FRAME_*` fatals. `FatalCode` is a closed
 three-value union and the frame codec does not widen it -- it reuses `EMPTY_INPUT`, and
-its own thrown errors are separate types carrying their own discriminants. Narrowing an
-`AstmParseError` on `code` will only ever see one of the three, and the documentation now
-says so.
+its own thrown errors are separate types: `AstmFrameEncodeError` carries its own
+`ASTM_FRAME_EMPTY_RECORD` code, and `AstmFrameStrictError` carries the rejected warnings
+rather than a `code` at all. Narrowing an `AstmParseError` on `code` will only ever see
+one of the three, and the documentation now says so.
 
 The serializer's round-trip note also now names what does **not** round-trip: `M`/`S`
 records are re-emitted byte-for-byte from their preserved raw line, so a non-canonical
