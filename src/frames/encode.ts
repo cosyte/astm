@@ -1,5 +1,5 @@
 /**
- * The frame-layer **emit** side: {@link composeAstmFrames} — Phase 7.
+ * The frame-layer **emit** side: {@link composeAstmFrames}.
  *
  * The exact inverse of {@link decodeAstmFrames}. Given the reassembled record
  * byte-strings (one entry per complete record — the same shape `decodeAstmFrames`

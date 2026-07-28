@@ -9,7 +9,83 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ## [Unreleased]
 
+### Added
+
+- **`pnpm check:no-internal-refs` + a `no-internal-refs` CI job** (`PUBLIC-SURFACE-HYGIENE`,
+  founder directive 2026-07-27). Internal only; no change to the published package surface. `astm` was
+  the last parser with no gate on this rule at all, which is why the class had regrown. The script is
+  ported from `ncpdp`'s copy (which carries three fixes `hl7`'s reference lacks: the `src/`
+  string-literal pass, the plural `phases?` stem, and `/` in the ADR separator class) plus `cli`'s
+  seventh rule, the prose roadmap citation, which neither `hl7` nor `ncpdp` has and which found the
+  second-largest class here. Four surfaces are scanned against seven rules: public markdown +
+  the npm `description`/`keywords`, `src/` doc comments, and `src/` string literals. The two prose
+  surfaces are scanned line by line **and** paragraph-reflowed, so a violation that straddles a wrap
+  is still caught; the npm metadata and the string-literal pass are line-scanned only. A multi-line
+  template literal is not scanned at all, split or not, because the extractor needs both delimiters
+  on one line. `//` comments, `CHANGELOG.md` and `.changeset/` are deliberately out of scope:
+  the convention names them as where identifiers belong.
+
+  Re-derived for this repo rather than copied: rule 2 now excludes E1381/CLSI-LIS01's own
+  **protocol phases** (`protocol`, `three-`, `establishment`, `transfer`, `termination`, `neutral`,
+  `idle`), because "phase" is the standard's word for the state of the line and `LtpState.phase` is an
+  exported field. The cost is disclosed rather than papered over: because a lookbehind exempts the
+  whole match, one of our own phases sitting behind one of those words is not caught (`the transfer
+phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was written, measured and
+  removed, because the justification did not survive the corpus: the digit is usually the next
+  clause's first token, so it red on `In the transfer phase 240 bytes is the maximum frame text` and
+  on `a three-phase 400 V supply`, which are reference prose. Where a rule cannot be guarded, it is
+  cut rather than hardened. And the `SPEC-7` /
+  `ACC-42` synthetic example ids in every runnable sample are
+  `WORD-N` exactly, so a shape-keyed rule would rewrite the sample a consumer copy-pastes. Both are
+  asserted in negative self-tests, alongside `ASTM-E1394`, `CLSI-LIS01`, `LIS02-A2`, `POCT1-A`,
+  `E1394-97` and `ICD-10-CM`. A further negative self-test pins **bare `§` section citations as
+  deliberately unruled**, so closing that hole has to be a decision rather than a widening that lands
+  by accident.
+
+  The script also **refuses to run under a `grep` that cannot see its subject.** A scanner-visibility
+  probe seeds a violation into a file containing a NUL byte and requires it to come back as either a
+  hit or a stderr diagnostic; silence at exit 0 is a hard refusal, because a tool that skips a file
+  produces output identical to a tool that read it and found it clean. This is not theoretical: the
+  development container interposes a `grep` with `-I` forced, which drops such input without a word.
+  An interposed shell function is also `unset` rather than assumed absent. Both directions are
+  proven — an `-I`-forcing `grep` ahead of it on `PATH` makes the gate refuse, and an exported `grep`
+  function is neutralised. The companion `-G` (basic-regex) hazard needs no separate guard: every
+  positive self-test uses alternation, so a BRE-forced `grep` fails them and refuses.
+
+  Known gaps, stated rather than discovered later: a bare `P\d+` label (`(P7)`) is not caught, because
+  a general `P\d+` rule has corrupted ICD-10-CM codes in a sibling; `phase` at the end of a clause is
+  not caught; bare `§` section citations are deliberately unruled; and `dist/` is build output this
+  script cannot read, so it gates dist's source, not dist. Fourteen `P\d+` lines and the falsehoods
+  below were found by hand, not by a rule.
+
 ### Fixed
+
+- **The type documentation shipped in `dist/index.d.ts` no longer understates the library.** The
+  entry-point module documentation ended by calling serialize and build deferred, on a tree that exports
+  `serializeAstmRecords`, `buildAstmMessage`, `composeAstmFrames` and `serializeFramedAstm`, and the
+  record-types module documentation described only `H`/`P`/`O`/`R`/`L` as modeled, naming
+  result-flag/status semantics, comment, query, `M`/`S`, framing and serialization as still to come,
+  when all of them are modeled. Both
+  blocks are carried verbatim in `dist/index.d.ts` and `dist/index.d.cts`, which is what an installer
+  receives. (They are module-level blocks that bind to no exported symbol, so they sit in the
+  declaration text rather than in any symbol's editor tooltip.) Every affected block now describes
+  what the code does. 18 source files changed; no runtime behaviour, export, type or warning code is
+  affected.
+- **The fatal-error taxonomy is now accurate about what `err.code` can hold.** `FATAL_CODES`
+  documented itself as later growing the frame codec's own `ASTM_FRAME_*` fatals. `FatalCode` is a
+  closed three-value union and the frame codec does not widen it: it reuses `EMPTY_INPUT` for an
+  empty stream, and its own thrown errors are separate types with their own discriminants
+  (`AstmFrameEncodeError` carries `ASTM_FRAME_EMPTY_RECORD`; `AstmFrameStrictError` carries the
+  rejected warnings rather than a `code`). Narrowing an `AstmParseError` on `code` will only ever
+  see one of the three.
+- **The serializer's round-trip note now names the cases that do not round-trip.** It claimed
+  serialization emits from the decoded component tree. Three record types do not: `H`, `M` and `S`
+  are emitted from their preserved `rawLine`, so an edit to their modeled `fields` is silently not
+  reflected on emit -- editing a header field and re-serializing keeps the original value, with no
+  warning. `M`/`S` additionally keep whatever delimiters they arrived with, so a non-canonical
+  `M`/`S` row does not come back as separate fields. Normalization to `H|\^&` is also skipped when a
+  delimiter set is passed explicitly. All of it is now stated next to the round-trip claim it
+  bounds, and `serializeAstmRecords` gained the `@param d` its siblings already had.
 
 - **The published documentation sidebar now follows the shared section order.** The shipped
   `docs-content/sidebars.json` carried a category named "About" holding the "what it does and does not

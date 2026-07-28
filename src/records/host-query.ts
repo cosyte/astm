@@ -1,6 +1,6 @@
 /**
  * The **host-query flow**: classify a message as a request, a result upload, an
- * order download, or indeterminate — Phase 4.
+ * order download, or indeterminate.
  *
  * On real analyzers the host-query mode is first-class and sometimes mandatory
  * (on the Roche cobas 4800 there is *no* results-sending-only option): the

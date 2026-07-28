@@ -34,8 +34,8 @@ export type AstmFraming = "framed" | "raw";
 export interface DetectFramingOptions {
   /**
    * A profile-supplied override. When set, detection is bypassed entirely and this
-   * value is returned with no warning — the way a Phase-8 vendor profile forces
-   * raw for a cobas b121 or framed for a cobas 4800 regardless of the leading byte.
+   * value is returned with no warning — the way a vendor profile forces raw for
+   * a cobas b121 or framed for a cobas 4800 regardless of the leading byte.
    */
   readonly override?: AstmFraming;
 }

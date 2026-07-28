@@ -1,5 +1,5 @@
 /**
- * The **additive, advisory** LIVD annotation layer (Phase 9). {@link applyLivd}
+ * The **additive, advisory** LIVD annotation layer. {@link applyLivd}
  * reads a parsed {@link AstmMessage} and a consumer-supplied {@link LivdCatalog}
  * and returns a **separate** layer of per-record LOINC annotations — it **never
  * mutates, alters, or drops** the raw reported code or value. Recognition is an

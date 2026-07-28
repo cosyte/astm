@@ -1,6 +1,6 @@
 /**
- * The **terminology** warning registry (`ASTM_LIVD_*`) for the Phase-9
- * LIVD-aware LOINC recognition layer — the fourth of the package's registries,
+ * The **terminology** warning registry (`ASTM_LIVD_*`) for the LIVD-aware LOINC
+ * recognition layer — the fourth of the package's registries,
  * alongside the record layer's `ASTM_RECORD_*`, the frame codec's `ASTM_FRAME_*`,
  * and the protocol reducer's `ASTM_LTP_*`.
  *

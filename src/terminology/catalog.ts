@@ -2,13 +2,13 @@
  * The **consumer-supplied** LIVD catalog: a vendor-test-code → LOINC index built
  * from an IICC LIVD ("LOINC to Vendor IVD") mapping the consumer provides.
  *
- * **Bring-your-own, by design (roadmap §5, Phase 9).** `@cosyte/astm` bundles
+ * **Bring-your-own, by design.** `@cosyte/astm` bundles
  * **no** LOINC, SNOMED, or LIVD data — LOINC is © Regenstrief (redistributable
  * only with its attribution notice) and the public CDC LIVD publication is a
  * SARS-CoV-2-specific file that also carries SNOMED CT (separately licensed), not
  * a general-analyte, public-domain catalog. So the package stays a **structural
  * recognizer, not a dictionary**: it recognizes the Universal Test ID's LOINC slot
- * and surfaces vendor codes verbatim (Phase 1), and this module lets a consumer
+ * and surfaces vendor codes verbatim, and this module lets a consumer
  * *supply* their own LIVD file to map those codes — the terminology data, and its
  * license obligations, are the consumer's.
  *

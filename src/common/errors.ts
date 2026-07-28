@@ -4,9 +4,13 @@
  * Tier-3 **fatal** codes mark input the parser cannot recover into a structured
  * `AstmMessage`; anything less severe is a Tier-2 warning (see `./warnings.ts`).
  * `AstmParseError` is thrown directly and consumers narrow via the `code`
- * discriminant. The set is additions-only across phases — the record layer
- * introduces three, one of which (`EMPTY_INPUT`) is shared with every future
- * layer (the frame codec adds its own `ASTM_FRAME_*` fatals later).
+ * discriminant. {@link FatalCode} is **closed**: these three are all of it. The frame
+ * codec reuses `EMPTY_INPUT` (an empty stream is fatal in both its lenient and strict
+ * modes) but does not widen the union — its own thrown errors are separate types with
+ * their own discriminants: {@link AstmFrameEncodeError} carries
+ * `ASTM_FRAME_EMPTY_RECORD`, and {@link AstmFrameStrictError} carries the rejected
+ * warnings rather than a `code`. So narrowing an `AstmParseError` on `code` will only
+ * ever see a value from this set.
  */
 
 import type { AstmPosition } from "./position.js";

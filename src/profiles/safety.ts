@@ -9,7 +9,7 @@
  * safety gate must not have), this module enumerates the tiny set of **explicitly
  * tolerable** codes and treats *every other* code, across all three registries
  * (record `ASTM_RECORD_*`, frame `ASTM_FRAME_*`, protocol `ASTM_LTP_*`), as
- * safety-critical. A warning code added in a future phase is therefore
+ * safety-critical. A warning code added later is therefore
  * safety-critical **by default** until someone deliberately, reviewably adds it to
  * the allow-list below. Widening the allow-list can only ever be an explicit,
  * argued act; forgetting to touch this file can never *weaken* the gate.

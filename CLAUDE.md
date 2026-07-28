@@ -246,3 +246,38 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md` 
    `[Unreleased]` entry per meaningful change. Renaming a stable warning code is a **breaking change**.
 3. **Crew + knowledgebase loop** — if this parser's public API or warning codes change, flag/update
    the matching `crew` healthcare skill + the KB product doc.
+4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). What a
+   consumer reads — `README.md`, `docs-content/`, the npm `description`, a release body, a JSDoc
+   block their editor renders on hover, a message string their log prints — says what the software
+   does and what changed. Item identifiers (`ASTM-7`, `REAL-CORPUS`), phase and wave language, ADR
+   numbers, meta-repo paths, prose citations of the roadmap and "how this got built" commentary
+   belong in the changeset, `CHANGELOG.md`, the commit, the PR and the roadmap. It is a
+   **translation** at the boundary, not a deletion, and when you strip an identifier off the front of
+   a line, **repair the head**: a fragment reads worse than the text it replaced. Gated by
+   `pnpm check:no-internal-refs` (job id `no-internal-refs`, required on `main`).
+
+   **Three source surfaces, three different answers.** `/** */` doc comments compile into
+   `dist/index.d.ts` / `.d.cts` and render in a consumer's editor, so they are **gated** — and on
+   this repo they were the whole of the backlog. String literals reach a consumer as message text, so
+   they are **gated too**. `//` and plain `/* */` comments are **not gated** and identifiers are
+   **welcome** in them, because **the convention says source comments are a place identifiers
+   belong.** That is the whole reason. **Do not justify this boundary from what reaches `dist/`** —
+   two attempts to in a sibling were both false and both caught by a refuter. Measured here: `dist`
+   is `files[0]`, there is no `.npmignore`, and `dist/*.map` carries every tracked source byte in
+   `sourcesContent`, so **everything in `src/` is in the tarball**. The line is not what reaches a
+   consumer's disk (all of it does) but what a consumer is **shown**. Removing a doc comment to
+   satisfy the gate is a **regression**, not a fix.
+
+   **The collision that bites hardest here is `phase`, and it is the standard's word, not ours.**
+   E1381 / CLSI-LIS01 defines the line's **protocol phase** — establishment, transfer, termination —
+   and `LtpState.phase` is an exported field of a published type. Rule 2 carries lookbehinds for all
+   of them. Never re-key it on the bare word, and never re-key rule 1 on the `WORD-N` shape: `ASTM-7`
+   is ours, but `ASTM-E1394`, `CLSI-LIS01`, `LIS02-A2`, `POCT1-A` and the `SPEC-7` / `ACC-42`
+   synthetic ids in every runnable example are the reference material a reader came for.
+
+   **The gate catches identifiers, not English sentences about our process, so the reviewer owns half
+   the rule — and that half is where the harm was.** The worst finds on this tree were not
+   identifiers at all: the entry point's own doc comment said "Serialize/build is deferred" while the
+   serializer was exported, and `AstmMessage` said framing and serialization were still to come while
+   both shipped. Stale phase prose does not merely leak process; **it goes false**, and it went false
+   in the file every consumer receives. A zero from the gate is not a zero.

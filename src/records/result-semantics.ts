@@ -1,7 +1,7 @@
 /**
- * Safety-critical result semantics for the ASTM `R` (result) record — Phase 2.
+ * Safety-critical result semantics for the ASTM `R` (result) record.
  *
- * Phase 1 surfaced the `R` record's flag, status, units, and reference-range
+ * The parser surfaces the `R` record's flag, status, units, and reference-range
  * fields **raw**. This module turns those raw letters into modeled, **fail-safe**
  * semantics, under one rule: **never a confident wrong value.**
  *
@@ -296,7 +296,7 @@ export type ReferenceRangeKind = "closed" | "open-low" | "open-high" | "unparsed
  * **`[OSS-derived]` — the exact lower/upper delimiter (`-`) and the open-ended
  * `<x`/`>x` forms are taken from the permissively-licensed OSS reference parsers
  * and cross-verified vendor transcripts; they are not confirmed against the
- * purchased CLSI LIS02-A2 (roadmap §10 Q1). Anything that does not match these
+ * purchased CLSI LIS02-A2. Anything that does not match these
  * forms is surfaced verbatim as `unparsed`, never guessed into a bound.**
  *
  * @example
