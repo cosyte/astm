@@ -14,6 +14,28 @@ warnings), conservative on emit (always spec-clean). See `documentation/conventi
 Postel's Law, the tiered tolerance model, stable warning codes, zero runtime deps, dual ESM + CJS,
 immutability + explicit mutation, and the profile system.
 
+## The shipped docs sidebar is a published contract
+
+`docs-content/` is tarred verbatim into the `docs-content.tar.gz` release asset that `cosyte/docs`
+ingests, so **`docs-content/sidebars.json` is a public contract, not a local build detail**, and a
+released asset is **immutable**: the docs pipeline re-fetches it forever, so a bad sidebar can only be
+superseded by a later release, never corrected in place. `v0.0.1` and `v0.0.2` both shipped a
+top-level category labelled **"About"**, which is not on the section spine `cosyte/docs` enforces in
+`scripts/check-ia-conformance.ts` (Overview, Installation, Quickstart, Core Concepts, Guides, API
+Reference, Troubleshooting). `v0.0.2` is the current route, so it rendered at `/astm/` on the live
+site, and it was the **only** such violation across the 15 released version slots in the ecosystem.
+
+`test/docs-sidebar-ia.test.ts` transcribes that spine and grades the file this repo ships. Two things
+about it are load-bearing:
+
+- **Categories are optional.** The rule is "if you have it, label it canonically and order it
+  canonically", so the minimal `{"docs":["intro"]}` conforms. Never make it demand a section.
+- **"API Reference" is injected by `cosyte/docs`, never authored here.** It is inserted just before
+  Troubleshooting when the package ships a source bundle, which this one does.
+
+The spine is transcribed rather than imported because a parser repo cannot depend on the docs site.
+That means the two copies can drift; the upstream file is the source of truth.
+
 ## Status
 
 - **Published.** The repo is **public** and `@cosyte/astm` is **live on npm**, on the pre-alpha

@@ -30,19 +30,6 @@ this file is maintained by hand (Changesets handles the version bump and publish
   exported `VERSION` constant is unaffected: it is generated from `package.json` at release time and
   asserted equal to it.
 
-### Added
-
-- A gate over the shipped `docs-content/sidebars.json`, so the sidebar cannot drift off the shared
-  section order again. It checks the section labels and their order, refuses a hand-authored "API
-  Reference" section (the documentation site inserts that one itself), and requires every page
-  referenced by the sidebar to exist and every shipped page to be reachable from it.
-
-### Changed
-
-- `format:check` now covers `docs-content/`, which sat outside its file patterns. Two pages
-  (`architecture.md`, `limitations.md`) were reformatted to bring the check green; the edits are
-  whitespace and emphasis-marker normalisation only, with no wording changes.
-
 ## [0.0.2] - 2026-07-27
 
 ### Fixed

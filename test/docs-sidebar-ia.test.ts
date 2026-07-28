@@ -45,7 +45,7 @@ const sidebarPath = `${docsContentDir}sidebars.json`;
 
 interface Category {
   readonly label: string;
-  readonly items: readonly string[];
+  readonly items: readonly unknown[];
 }
 
 const parsed: unknown = JSON.parse(readFileSync(sidebarPath, "utf8"));
@@ -64,12 +64,19 @@ function topLevelItems(sidebar: unknown): readonly unknown[] {
   return docs;
 }
 
+/**
+ * A category is anything carrying `type: "category"` and a string `label`, which is exactly what the
+ * upstream lint keys on. It deliberately says NOTHING about the shape of `items`: an earlier version
+ * of this file also required every entry of `items` to be a string, so a category holding a NESTED
+ * category was not recognised as a category at all, and its off-spine label slipped past the spine
+ * and order checks that exist to catch it. A narrowing that makes a gate blind to the very defect it
+ * grades is worse than no narrowing. `items` is validated where it is consumed instead.
+ */
 function isCategory(item: unknown): item is Category {
   if (typeof item !== "object" || item === null) return false;
   if (!("type" in item) || item.type !== "category") return false;
   if (!("label" in item) || typeof item.label !== "string") return false;
-  if (!("items" in item) || !Array.isArray(item.items)) return false;
-  return item.items.every((entry: unknown) => typeof entry === "string");
+  return "items" in item && Array.isArray(item.items);
 }
 
 /** The `intro`-style top-level doc reference, in either of the two shapes Docusaurus accepts. */
@@ -81,13 +88,32 @@ function docReferenceId(item: unknown): string | undefined {
   return item.id;
 }
 
+/**
+ * Every doc id reachable from a list of sidebar entries, descending through nested categories. The
+ * recursion is what keeps "every referenced doc exists" and "every shipped doc is reachable" honest
+ * if this sidebar ever grows a subcategory: a flat read would call a nested doc unreachable and a
+ * nested dangling id absent.
+ */
+function collectDocIds(entries: readonly unknown[]): string[] {
+  return entries.flatMap((entry) => {
+    const id = docReferenceId(entry);
+    if (id !== undefined) return [id];
+    return isCategory(entry) ? collectDocIds(entry.items) : [];
+  });
+}
+
+/** Every category at any depth, so an off-spine label cannot hide inside a conforming one. */
+function collectCategories(entries: readonly unknown[]): Category[] {
+  return entries.flatMap((entry) =>
+    isCategory(entry) ? [entry, ...collectCategories(entry.items)] : [],
+  );
+}
+
 const items = topLevelItems(parsed);
-const categories = items.filter(isCategory);
-const categoryLabels = categories.map((c) => c.label);
-const referencedIds = [
-  ...items.map(docReferenceId).filter((id): id is string => id !== undefined),
-  ...categories.flatMap((c) => c.items),
-];
+const topLevelCategories = items.filter(isCategory);
+const categoryLabels = topLevelCategories.map((c) => c.label);
+const allCategoryLabels = collectCategories(items).map((c) => c.label);
+const referencedIds = collectDocIds(items);
 
 describe("shipped docs sidebar conforms to the cosyte IA spine", () => {
   it("every top-level category label is on the canonical spine", () => {
@@ -97,8 +123,8 @@ describe("shipped docs sidebar conforms to the cosyte IA spine", () => {
     expect(offSpine).toEqual([]);
   });
 
-  it("does not author the resolver-injected API Reference category", () => {
-    expect(categoryLabels.filter((label) => RESOLVER_INJECTED.includes(label))).toEqual([]);
+  it("does not author the resolver-injected API Reference category, at any depth", () => {
+    expect(allCategoryLabels.filter((label) => RESOLVER_INJECTED.includes(label))).toEqual([]);
   });
 
   it("canonical categories appear in canonical order, with no repeats", () => {
