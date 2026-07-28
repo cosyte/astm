@@ -11,7 +11,7 @@ Parse real-world, vendor-quirky ASTM and pull fields out in one line — without
 parser, an immutable model, a spec-clean serializer, and a profile system for vendor quirks. It
 mirrors the API shape of the reference parser, `@cosyte/hl7`.
 
-> **Status:** published on npm at `0.0.1`, on the pre-alpha `0.0.x` ladder. Both layers are
+> **Status:** published on npm, on the pre-alpha `0.0.x` ladder. Both layers are
 > **feature-complete**, but the public surface can still change within `0.0.x`, before `0.1.0`.
 > The **record** layer reads `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and
 > escape decode, safety-critical result semantics, patient/order identity depth, the `C` comment

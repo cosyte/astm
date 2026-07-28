@@ -12,11 +12,11 @@ decode the layers independently and compose them only at the one point they meet
 
 ## Two standards, one domain
 
-| Layer | Standard | What it governs | Entry points |
-|-------|----------|-----------------|--------------|
-| **Records** | ASTM E1394-97 → **CLSI LIS02-A2** | *Message content* — the `H`/`P`/`O`/`R`/`C`/`Q`/`L`/`S`/`M` record grammar with self-declaring delimiters | `parseAstmRecords`, `serializeAstmRecords`, `buildAstmMessage` |
-| **Frames** | ASTM E1381-02 → **CLSI LIS01-A2** | *Low-level transfer* — `STX`-framed records, modulo-256 checksum, frame numbers, the `ENQ`/`ACK`/`NAK`/`EOT` handshake | `decodeAstmFrames`, `composeAstmFrames`, `ltpReduce` |
-| **Common** | — | Shared vocabulary — the delimiter model, the escape codec, the date value, code-system provenance, the warning registries | `CANONICAL_DELIMITERS`, value types |
+| Layer       | Standard                          | What it governs                                                                                                           | Entry points                                                   |
+| ----------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Records** | ASTM E1394-97 → **CLSI LIS02-A2** | _Message content_ — the `H`/`P`/`O`/`R`/`C`/`Q`/`L`/`S`/`M` record grammar with self-declaring delimiters                 | `parseAstmRecords`, `serializeAstmRecords`, `buildAstmMessage` |
+| **Frames**  | ASTM E1381-02 → **CLSI LIS01-A2** | _Low-level transfer_ — `STX`-framed records, modulo-256 checksum, frame numbers, the `ENQ`/`ACK`/`NAK`/`EOT` handshake    | `decodeAstmFrames`, `composeAstmFrames`, `ltpReduce`           |
+| **Common**  | —                                 | Shared vocabulary — the delimiter model, the escape codec, the date value, code-system provenance, the warning registries | `CANONICAL_DELIMITERS`, value types                            |
 
 The two standards **share nothing but the domain and the payload boundary**. A frame carries record
 bytes; a record knows nothing about frames. That is why the package is one repo, two composable
@@ -36,7 +36,7 @@ results(msg)[0]?.value;
 ```
 
 When you receive a raw byte stream off a serial line or socket, the frame layer decodes it first, and
-`parseFramedAstm` composes the two at the edge — only frames the framing layer *vouched for* (checksum
+`parseFramedAstm` composes the two at the edge — only frames the framing layer _vouched for_ (checksum
 verified, in sequence) ever reach the record parser:
 
 ```ts

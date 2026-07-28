@@ -25,12 +25,7 @@
     {
       "type": "category",
       "label": "Troubleshooting",
-      "items": ["troubleshooting"]
-    },
-    {
-      "type": "category",
-      "label": "About",
-      "items": ["limitations"]
+      "items": ["troubleshooting", "limitations"]
     }
   ]
 }
