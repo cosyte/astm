@@ -34,9 +34,10 @@
  * {@link buildAstmMessage} constructs records from typed caller input, emitting only
  * the values the caller supplied; {@link serializeAstmRecords} writes them out with the
  * canonical `H|\^&` delimiters by default, re-escaping every embedded delimiter in a
- * decoded component leaf (`M`/`S` records are re-emitted byte-identically from their
- * preserved `rawLine`, and the header's delimiter declaration is emitted literally);
- * {@link composeAstmFrames} wraps them back into frames whose modulo-256 checksum is
+ * decoded component leaf (`H`, `M` and `S` are emitted from their preserved
+ * `rawLine` rather than from the decoded tree, so an edit to their modelled `fields` is
+ * not reflected on emit); {@link composeAstmFrames} wraps them into frames whose
+ * modulo-256 checksum is
  * computed rather than accepted; and {@link serializeFramedAstm} composes the last two.
  * The protocol layer has no emit inverse by design: {@link ltpReduce} returns the actions
  * to take, and the consumer owns the wire.

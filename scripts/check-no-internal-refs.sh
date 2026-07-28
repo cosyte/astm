@@ -281,7 +281,8 @@
 #         rule already makes for a bare `Phase III`; and narrowing it belongs in THE ONE
 #         SHARED LIST (residual (i)), not in a private divergence that makes the copies
 #         harder to diff. Measured zero instances ON THE GATED SURFACE. The only occurrence
-#         anywhere in the repo is the quotation on the line above, in this file, which is
+#         anywhere in the repo is this rule's own quotation of it above, in this file,
+#         which is
 #         ungated. (An earlier draft of this note also counted an occurrence in
 #         CHANGELOG.md that the SAME COMMIT had already deleted. Residual (xii) exists for
 #         precisely that mistake, and it was made here, twelve lines below it.)
@@ -814,10 +815,19 @@ SRC_RULE_COUNT=7
 #     tracked `src/` contains no single-quoted string. Including `'` would instead capture
 #     comment prose between two apostrophes, which would drag `//` comments into scope
 #     through the back door.
-#   * A MULTI-LINE TEMPLATE LITERAL IS SCANNED PER LINE, so a violation split across its
-#     line breaks is missed. Under-reports rather than over-reports. There is no reflow
-#     pass here because a reflow would have to model template continuation, and the fix
-#     for a missed one is the same as for any residual: the reviewer.
+#   * A MULTI-LINE TEMPLATE LITERAL IS NOT SCANNED AT ALL -- not "scanned per line",
+#     which is what this note said until a refuter measured it. The extractor's regex
+#     requires BOTH delimiters on ONE line, so no line of a multi-line template is
+#     extracted, and a COMPLETE, UNSPLIT violation sitting on its first line is invisible
+#     too. That is materially worse than the "a violation split across the line breaks is
+#     missed" it replaced, and the difference matters: the old wording implied the unsplit
+#     case was covered.
+#     LIVE INSTANCE, in gated `src/`: `src/profiles/describe.ts:38-40` is a multi-line
+#     template, and its text reaches a consumer through `describeAstmProfile()`. It is
+#     clean today (` @record ${...}`), but nothing here would notice if it were not.
+#     There is no reflow pass because a reflow would have to model template continuation,
+#     which is a tokenizer. Stated as an UNREAD SURFACE rather than an under-report: the
+#     reviewer owns it, and now knows it.
 STR_RULE_NAME[0]="${RULE_NAME[0]}"; STR_RULE_PATTERN[0]="${RULE_PATTERN[0]}"
 STR_RULE_NAME[1]="${RULE_NAME[1]}"; STR_RULE_PATTERN[1]="${RULE_PATTERN[1]}"
 STR_RULE_NAME[2]="${RULE_NAME[2]}"; STR_RULE_PATTERN[2]="${RULE_PATTERN[2]}"
@@ -1610,4 +1620,4 @@ done
 [ -n "$SRC_HITS" ] && fail_with_hits "src/ doc comments, which compile into dist/ and render in every consumer's editor" "$SRC_HITS"
 [ -n "$STR_HITS" ] && fail_with_hits "src/ string literals, which reach a consumer as warning and error message text" "$STR_HITS"
 
-echo "check-no-internal-refs: OK (${scanned} public-surface file(s) and the npm metadata scanned against ${RULE_COUNT} rules, line by line and paragraph-joined; ${src_scanned} source file(s) scanned against ${SRC_RULE_COUNT} rules for doc-comment bookkeeping, line by line and paragraph-reflowed, and against ${STR_RULE_COUNT} rules for string-literal bookkeeping; ${gitlinks} gitlink(s) skipped)"
+echo "check-no-internal-refs: OK (${scanned} public-surface file(s) scanned against ${RULE_COUNT} rules line by line and paragraph-joined, and the npm metadata line by line; ${src_scanned} source file(s) scanned against ${SRC_RULE_COUNT} rules for doc-comment bookkeeping, line by line and paragraph-reflowed, and against ${STR_RULE_COUNT} rules for string-literal bookkeeping; ${gitlinks} gitlink(s) skipped)"

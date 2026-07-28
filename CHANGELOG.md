@@ -20,8 +20,9 @@ this file is maintained by hand (Changesets handles the version bump and publish
   second-largest class here. Four surfaces are scanned against seven rules: public markdown +
   the npm `description`/`keywords`, `src/` doc comments, and `src/` string literals. The two prose
   surfaces are scanned line by line **and** paragraph-reflowed, so a violation that straddles a wrap
-  is still caught; the npm metadata and the string-literal pass are line-scanned only, and a
-  violation split across the lines of a multi-line template literal is not seen at all. `//` comments, `CHANGELOG.md` and `.changeset/` are deliberately out of scope:
+  is still caught; the npm metadata and the string-literal pass are line-scanned only. A multi-line
+  template literal is not scanned at all, split or not, because the extractor needs both delimiters
+  on one line. `//` comments, `CHANGELOG.md` and `.changeset/` are deliberately out of scope:
   the convention names them as where identifiers belong.
 
   Re-derived for this repo rather than copied: rule 2 now excludes E1381/CLSI-LIS01's own
@@ -60,13 +61,15 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 ### Fixed
 
 - **The type documentation shipped in `dist/index.d.ts` no longer understates the library.** The
-  package entry point's own documentation ended "Serialize/build is deferred" on a tree that exports
-  `serializeAstmRecords`, `buildAstmMessage`, `composeAstmFrames` and `serializeFramedAstm`, and
-  `AstmMessage` documented only `H`/`P`/`O`/`R`/`L` as modeled with comment, query, `M`/`S`, framing
-  and serialization described as still to come, when all of them are modeled. Those sentences were
-  what a consumer's editor rendered on hover and what both declaration files carried. Every affected
-  block now describes what the code does. 18 source files changed; no runtime behaviour, export, type
-  or warning code is affected.
+  entry-point module documentation ended "Serialize/build is deferred" on a tree that exports
+  `serializeAstmRecords`, `buildAstmMessage`, `composeAstmFrames` and `serializeFramedAstm`, and the
+  record-types module documentation described only `H`/`P`/`O`/`R`/`L` as modeled, naming comment,
+  query, `M`/`S`, framing and serialization as still to come, when all of them are modeled. Both
+  blocks are carried verbatim in `dist/index.d.ts` and `dist/index.d.cts`, which is what an installer
+  receives. (They are module-level blocks that bind to no exported symbol, so they sit in the
+  declaration text rather than in any symbol's editor tooltip.) Every affected block now describes
+  what the code does. 18 source files changed; no runtime behaviour, export, type or warning code is
+  affected.
 - **The fatal-error taxonomy is now accurate about what `err.code` can hold.** `FATAL_CODES`
   documented itself as later growing the frame codec's own `ASTM_FRAME_*` fatals. `FatalCode` is a
   closed three-value union and the frame codec does not widen it: it reuses `EMPTY_INPUT` for an
