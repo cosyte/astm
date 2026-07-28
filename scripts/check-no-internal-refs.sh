@@ -208,7 +208,7 @@
 #         rewritten rather than escaped.
 #   (iv)  This gate does not check the em dash. `U+2014` is a separate founder directive
 #         with its own item (EMDASH-CONFORMANCE) and its own gate in the repos that have
-#         one. THIS REPO HAS NEITHER, and 16 files under `docs-content/` carry `U+2014`
+#         one. THIS REPO HAS NEITHER, and 8 tracked files under `docs-content/` carry `U+2014`
 #         today. That is deliberately NOT this gate's business: mixing the two rules would
 #         put one red under two wordings and would settle an item whose second half is
 #         founder-gated.
