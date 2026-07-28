@@ -34,13 +34,13 @@ These are **non-goals**, not missing features — naming them so nothing over-tr
 - **No live connection management.** The library decodes and encodes byte streams and provides a
   **pure** LTP protocol reducer (`ltpReduce`), but it does **not** own a serial port or a socket. The
   I/O adapter and the interactive **timeout / retransmit timing** are the consumer's. The standard's
-  exact numeric timeouts and retry counts live in the paywalled body and are modeled as *transitions,
-  not timers*.
+  exact numeric timeouts and retry counts live in the paywalled body and are modeled as _transitions,
+  not timers_.
 - **No unit semantics.** Units are surfaced as vendor **free text** — **not UCUM**, not normalized,
   not convertible. A numeric value with no units raises `ASTM_RECORD_UNITS_ABSENT`; a missing unit is
   never defaulted or guessed.
 - **No terminology dictionary.** LOINC and SNOMED are **not bundled** (see licensing below). The
-  Universal Test ID's LOINC slot is *recognized* when populated; vendor→LOINC mapping requires a
+  Universal Test ID's LOINC slot is _recognized_ when populated; vendor→LOINC mapping requires a
   **consumer-supplied** IICC LIVD catalog (`applyLivd`), and an unmapped code stays verbatim — never a
   fabricated LOINC.
 - **No interpretation of `M` / `S` records.** Vendor-defined manufacturer / scientific records

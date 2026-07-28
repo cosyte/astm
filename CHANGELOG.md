@@ -11,6 +11,42 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Fixed
 
+- **The published documentation sidebar now follows the shared section order.** The shipped
+  `docs-content/sidebars.json` carried a category named "About" holding the "what it does and does not
+  do" page. That label is not one of the sections the documentation site recognises (Overview,
+  Installation, Quickstart, Core Concepts, Guides, API Reference, Troubleshooting), so `docs.cosyte.com`
+  rendered this package with a section no other `@cosyte/*` package has. The page now sits under
+  **Troubleshooting**, beside the troubleshooting guide that already links to it, matching how
+  `@cosyte/mllp` files the same page. The page's own URL is unchanged, so existing links to it still
+  resolve. Both released documentation bundles (`v0.0.1` and `v0.0.2`) carry the old layout and cannot
+  be changed, because a release asset is immutable once published; this correction reaches readers with
+  the next release.
+- **The status note no longer quotes a version number that a release makes wrong.** `README.md`,
+  `docs-content/intro.md` and `docs-content/installation.md` each opened with "published on npm at
+  `0.0.1`" while the package was at `0.0.2`. Nothing bound those sentences to the manifest, so every
+  publish falsified them, and the two documentation pages ship inside the release bundle the
+  documentation site re-fetches forever. They now say the package is published and name the `0.0.x`
+  pre-alpha ladder, and leave the exact version to the registry, where it cannot go stale. The
+  exported `VERSION` constant is unaffected: it is generated from `package.json` at release time and
+  asserted equal to it.
+
+### Added
+
+- A gate over the shipped `docs-content/sidebars.json`, so the sidebar cannot drift off the shared
+  section order again. It checks the section labels and their order, refuses a hand-authored "API
+  Reference" section (the documentation site inserts that one itself), and requires every page
+  referenced by the sidebar to exist and every shipped page to be reachable from it.
+
+### Changed
+
+- `format:check` now covers `docs-content/`, which sat outside its file patterns. Two pages
+  (`architecture.md`, `limitations.md`) were reformatted to bring the check green; the edits are
+  whitespace and emphasis-marker normalisation only, with no wording changes.
+
+## [0.0.2] - 2026-07-27
+
+### Fixed
+
 - **Publish status corrected across the public surface.** `@cosyte/astm` has been published on npm at
   `0.0.1` since 2026-07-22 and the repository is public, but `README.md`, `docs-content/intro.md`, and
   `docs-content/installation.md` each still opened with "pre-alpha (`0.0.x`), not yet published to
@@ -380,4 +416,5 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
   exact numeric timeouts / retry counts are deferred (we model transitions, not timers).
 
 [Unreleased]: https://github.com/cosyte/astm/commits/main
+[0.0.2]: https://github.com/cosyte/astm/releases/tag/v0.0.2
 [0.0.1]: https://github.com/cosyte/astm/releases/tag/v0.0.1

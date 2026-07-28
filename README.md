@@ -8,7 +8,7 @@ parser that turns real-world, vendor-quirky input into **warnings** rather than 
 a serializer that always emits spec-clean output (Postel's Law). It mirrors the API shape of the
 reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
-> **Status:** published on npm at `0.0.1`, on the pre-alpha `0.0.x` ladder. Both layers are
+> **Status:** published on npm, on the pre-alpha `0.0.x` ladder. Both layers are
 > feature-complete, but the public surface can still change within `0.0.x`, before `0.1.0`.
 
 ## What it covers
