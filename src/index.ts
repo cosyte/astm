@@ -35,7 +35,7 @@
  * the values the caller supplied; {@link serializeAstmRecords} writes them out with the
  * canonical `H|\^&` delimiters by default, re-escaping every embedded delimiter in a
  * decoded component leaf (`H`, `M` and `S` are emitted from their preserved
- * `rawLine` rather than from the decoded tree, so an edit to their modelled `fields` is
+ * `rawLine` rather than from the decoded tree, so an edit to their modeled `fields` is
  * not reflected on emit); {@link composeAstmFrames} wraps them into frames whose
  * modulo-256 checksum is
  * computed rather than accepted; and {@link serializeFramedAstm} composes the last two.

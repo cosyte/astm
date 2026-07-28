@@ -61,10 +61,11 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 ### Fixed
 
 - **The type documentation shipped in `dist/index.d.ts` no longer understates the library.** The
-  entry-point module documentation ended "Serialize/build is deferred" on a tree that exports
+  entry-point module documentation ended by calling serialize and build deferred, on a tree that exports
   `serializeAstmRecords`, `buildAstmMessage`, `composeAstmFrames` and `serializeFramedAstm`, and the
-  record-types module documentation described only `H`/`P`/`O`/`R`/`L` as modeled, naming comment,
-  query, `M`/`S`, framing and serialization as still to come, when all of them are modeled. Both
+  record-types module documentation described only `H`/`P`/`O`/`R`/`L` as modeled, naming
+  result-flag/status semantics, comment, query, `M`/`S`, framing and serialization as still to come,
+  when all of them are modeled. Both
   blocks are carried verbatim in `dist/index.d.ts` and `dist/index.d.cts`, which is what an installer
   receives. (They are module-level blocks that bind to no exported symbol, so they sit in the
   declaration text rather than in any symbol's editor tooltip.) Every affected block now describes
@@ -77,13 +78,14 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   (`AstmFrameEncodeError` carries `ASTM_FRAME_EMPTY_RECORD`; `AstmFrameStrictError` carries the
   rejected warnings rather than a `code`). Narrowing an `AstmParseError` on `code` will only ever
   see one of the three.
-- **The serializer's round-trip note now names the case that does not round-trip.** It was accurate
-  that a non-canonical source is normalized to `H|\^&`, but two things are not normalized: an
-  explicitly passed delimiter set, and `M`/`S` records, which are re-emitted byte-for-byte from
-  their preserved `rawLine` and therefore keep whatever delimiters they arrived with. A
-  non-canonical `M`/`S` row consequently does not survive the round trip as separate fields. Both
-  exceptions are now stated next to the round-trip claim they bound, and `serializeAstmRecords`
-  gained the `@param d` its siblings already had.
+- **The serializer's round-trip note now names the cases that do not round-trip.** It claimed
+  serialization emits from the decoded component tree. Three record types do not: `H`, `M` and `S`
+  are emitted from their preserved `rawLine`, so an edit to their modeled `fields` is silently not
+  reflected on emit -- editing a header field and re-serializing keeps the original value, with no
+  warning. `M`/`S` additionally keep whatever delimiters they arrived with, so a non-canonical
+  `M`/`S` row does not come back as separate fields. Normalization to `H|\^&` is also skipped when a
+  delimiter set is passed explicitly. All of it is now stated next to the round-trip claim it
+  bounds, and `serializeAstmRecords` gained the `@param d` its siblings already had.
 
 - **The published documentation sidebar now follows the shared section order.** The shipped
   `docs-content/sidebars.json` carried a category named "About" holding the "what it does and does not

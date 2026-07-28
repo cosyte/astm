@@ -817,14 +817,17 @@ SRC_RULE_COUNT=7
 #     through the back door.
 #   * A MULTI-LINE TEMPLATE LITERAL IS NOT SCANNED AT ALL -- not "scanned per line",
 #     which is what this note said until a refuter measured it. The extractor's regex
-#     requires BOTH delimiters on ONE line, so no line of a multi-line template is
-#     extracted, and a COMPLETE, UNSPLIT violation sitting on its first line is invisible
-#     too. That is materially worse than the "a violation split across the line breaks is
+#     requires BOTH delimiters on ONE line, so a line of a multi-line template is
+#     extracted only if it happens to contain a complete literal of its own (a nested
+#     template, say). The opening and closing lines are not, and a COMPLETE, UNSPLIT
+#     violation sitting on the opening line is invisible. That is materially worse than the "a violation split across the line breaks is
 #     missed" it replaced, and the difference matters: the old wording implied the unsplit
 #     case was covered.
 #     LIVE INSTANCE, in gated `src/`: `src/profiles/describe.ts:38-40` is a multi-line
-#     template, and its text reaches a consumer through `describeAstmProfile()`. It is
-#     clean today (` @record ${...}`), but nothing here would notice if it were not.
+#     template -- the ONLY one in tracked `src/`, measured -- and its text reaches a
+#     consumer through `AstmProfile.describe()`, the optional method attached in
+#     `src/profiles/define.ts` and typed in `src/profiles/types.ts`. It is clean today
+#     (` @record ${...}`), but nothing here would notice if it were not.
 #     There is no reflow pass because a reflow would have to model template continuation,
 #     which is a tokenizer. Stated as an UNREAD SURFACE rather than an under-report: the
 #     reviewer owns it, and now knows it.

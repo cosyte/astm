@@ -8,13 +8,13 @@
  * break framing (the exact inverse of the escape codec), and terminates
  * each record with a `CR`.
  *
- * **Round-trip.** `parseAstmRecords(serializeAstmRecords(msg))` reproduces the modelled
+ * **Round-trip.** `parseAstmRecords(serializeAstmRecords(msg))` reproduces the modeled
  * records — the same components, the same typed accessors, and the canonical delimiter
  * set (a non-canonical source is normalized to `H|\^&` by default).
  *
  * **What is emitted from the raw line rather than from the model.** `H`, `M` and `S` are
  * emitted from their preserved `rawLine`, not from the decoded `AstmField.repeats` tree,
- * so an edit to their modelled `fields` is **not** reflected on emit. `M`/`S` go out
+ * so an edit to their modeled `fields` is **not** reflected on emit. `M`/`S` go out
  * byte-for-byte, neither re-escaped nor re-delimited, so a non-canonical `M`/`S` row keeps
  * its original delimiters and does not come back as separate fields. `H`'s data portion is
  * re-tokenized from the raw line and re-emitted against the canonical set, because the

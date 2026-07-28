@@ -6,11 +6,11 @@ Correct the API documentation shipped in the type declarations, and stop it goin
 
 The type documentation shipped in `dist/index.d.ts` described capabilities as unavailable
 that this package has shipped for some time. The entry-point module documentation ended
-with "Serialize/build is deferred" while `serializeAstmRecords`, `buildAstmMessage`,
-`composeAstmFrames` and `serializeFramedAstm` were all exported, and the record-types
-module documentation described only `H`/`P`/`O`/`R`/`L` as modelled, naming comment,
-query, `M`/`S`, framing and serialization as still to come, when all of them are modelled
-today. Both blocks ship inside the declaration files an installer receives, so the
+by calling serialize and build deferred, while `serializeAstmRecords`,
+`buildAstmMessage`, `composeAstmFrames` and `serializeFramedAstm` were all exported, and
+the record-types module documentation described only `H`/`P`/`O`/`R`/`L` as modeled,
+naming result-flag/status semantics, comment, query, `M`/`S`, framing and serialization as
+still to come, when all of them are modeled today. Both blocks ship inside the declaration files an installer receives, so the
 documentation understated the library to anyone reading it there.
 
 The fatal-error taxonomy had a related problem: `FATAL_CODES` documented itself as
@@ -23,7 +23,7 @@ one of the three, and the documentation now says so.
 
 The serializer's round-trip note also now names what does **not** round-trip. `H`, `M`
 and `S` are emitted from their preserved raw line rather than from the decoded field
-tree, so an edit to their modelled `fields` is silently not reflected on emit -- editing
+tree, so an edit to their modeled `fields` is silently not reflected on emit -- editing
 a header field and re-serializing keeps the original value, with no warning. `M`/`S`
 additionally keep their original delimiters and do not come back as separate fields.
 
