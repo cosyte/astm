@@ -25,11 +25,13 @@ this file is maintained by hand (Changesets handles the version bump and publish
   Re-derived for this repo rather than copied: rule 2 now excludes E1381/CLSI-LIS01's own
   **protocol phases** (`protocol`, `three-`, `establishment`, `transfer`, `termination`, `neutral`,
   `idle`), because "phase" is the standard's word for the state of the line and `LtpState.phase` is an
-  exported field. Because a lookbehind exempts the whole match, that exemption also hid one of our
-  own numbered phases sitting behind one of those words (`the transfer phase 8` did not red while
-  `Phase 8` did), so a companion arm takes it back: E1381 **names** its phases and never numbers
-  them, so one of those words followed by `phase` followed by a **digit** can only be ours. It is
-  deliberately digit-only, since a general form would flag "a phase 3 trial". And the `SPEC-7` /
+  exported field. The cost is disclosed rather than papered over: because a lookbehind exempts the
+  whole match, one of our own phases sitting behind one of those words is not caught (`the transfer
+phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was written, measured and
+  removed, because the justification did not survive the corpus: the digit is usually the next
+  clause's first token, so it red on `In the transfer phase 240 bytes is the maximum frame text` and
+  on `a three-phase 400 V supply`, which are reference prose. Where a rule cannot be guarded, it is
+  cut rather than hardened. And the `SPEC-7` /
   `ACC-42` synthetic example ids in every runnable sample are
   `WORD-N` exactly, so a shape-keyed rule would rewrite the sample a consumer copy-pastes. Both are
   asserted in negative self-tests, alongside `ASTM-E1394`, `CLSI-LIS01`, `LIS02-A2`, `POCT1-A`,
@@ -63,35 +65,20 @@ this file is maintained by hand (Changesets handles the version bump and publish
   what a consumer's editor rendered on hover and what both declaration files carried. Every affected
   block now describes what the code does. 18 source files changed; no runtime behaviour, export, type
   or warning code is affected.
-- **The fatal-error taxonomy no longer promises error codes that do not exist.** `FATAL_CODES`
-  documented itself as growing "later" with the frame codec's own `ASTM_FRAME_*` fatals. The frame
-  codec adds no fatal code at all: `ASTM_FRAME_*` is exclusively the Tier-2 _warning_ registry, the
-  frame layer reuses `EMPTY_INPUT`, and its strict-mode rejection is `AstmFrameStrictError`, which
-  carries the rejected warnings rather than a `code`. `FatalCode` is a closed three-value union. A
-  consumer narrowing on `err.code` was being told to expect values that can never be produced.
-- **The serializer's round-trip note no longer overstates normalization.** It is accurate that a
-  non-canonical source is normalized to `H|\^&` _by default_, but `serializeAstmRecords(input, d)`
-  takes an explicit delimiter set, and `M`/`S` records are emitted byte-identically from their
-  preserved `rawLine`. The note is now bounded accordingly rather than claiming the serializer never
-  reproduces a vendor's delimiters.
-- **The published documentation sidebar now follows the shared section order.** The shipped
-  `docs-content/sidebars.json` carried a category named "About" holding the "what it does and does not
-  do" page. That label is not one of the sections the documentation site recognises (Overview,
-  Installation, Quickstart, Core Concepts, Guides, API Reference, Troubleshooting), so `docs.cosyte.com`
-  rendered this package with a section no other `@cosyte/*` package has. The page now sits under
-  **Troubleshooting**, beside the troubleshooting guide that already links to it, matching how
-  `@cosyte/mllp` files the same page. The page's own URL is unchanged, so existing links to it still
-  resolve. Both released documentation bundles (`v0.0.1` and `v0.0.2`) carry the old layout and cannot
-  be changed, because a release asset is immutable once published; this correction reaches readers with
-  the next release.
-- **The status note no longer quotes a version number that a release makes wrong.** `README.md`,
-  `docs-content/intro.md` and `docs-content/installation.md` each opened with "published on npm at
-  `0.0.1`" while the package was at `0.0.2`. Nothing bound those sentences to the manifest, so every
-  publish falsified them, and the two documentation pages ship inside the release bundle the
-  documentation site re-fetches forever. They now say the package is published and name the `0.0.x`
-  pre-alpha ladder, and leave the exact version to the registry, where it cannot go stale. The
-  exported `VERSION` constant is unaffected: it is generated from `package.json` at release time and
-  asserted equal to it.
+- **The fatal-error taxonomy is now accurate about what `err.code` can hold.** `FATAL_CODES`
+  documented itself as later growing the frame codec's own `ASTM_FRAME_*` fatals. `FatalCode` is a
+  closed three-value union and the frame codec does not widen it: it reuses `EMPTY_INPUT` for an
+  empty stream, and its own thrown errors are separate types with their own discriminants
+  (`AstmFrameEncodeError` carries `ASTM_FRAME_EMPTY_RECORD`; `AstmFrameStrictError` carries the
+  rejected warnings rather than a `code`). Narrowing an `AstmParseError` on `code` will only ever
+  see one of the three.
+- **The serializer's round-trip note now names the case that does not round-trip.** It was accurate
+  that a non-canonical source is normalized to `H|\^&`, but two things are not normalized: an
+  explicitly passed delimiter set, and `M`/`S` records, which are re-emitted byte-for-byte from
+  their preserved `rawLine` and therefore keep whatever delimiters they arrived with. A
+  non-canonical `M`/`S` row consequently does not survive the round trip as separate fields. Both
+  exceptions are now stated next to the round-trip claim they bound, and `serializeAstmRecords`
+  gained the `@param d` its siblings already had.
 
 ## [0.0.2] - 2026-07-27
 

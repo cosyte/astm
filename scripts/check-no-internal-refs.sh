@@ -280,7 +280,8 @@
 #         loud red on a rare line rather than a silent hole, which is the same bargain the
 #         rule already makes for a bare `Phase III`; and narrowing it belongs in THE ONE
 #         SHARED LIST (residual (i)), not in a private divergence that makes the copies
-#         harder to diff. Measured zero instances on this tree.
+#         harder to diff. Measured zero instances ON THE GATED SURFACE (the phrase now
+#         occurs twice in this repo, in CHANGELOG.md and in this file, both ungated).
 #  (xiv)  THE SURFACE-DRIFT TRIPWIRES ARE ASYMMETRIC, and the gap is on the ADD side. A
 #         SURFACE_PATHS entry that is renamed or deleted reds (the tracked-path loop), and a
 #         `package.json` `files` entry that is ADDED reds (the tarball tripwire). But a NEW
@@ -294,6 +295,20 @@
 #         live instance today: the repo root carries README.md, CHANGELOG.md, CLAUDE.md,
 #         LICENSE and phi-scan-overrides.md, and every one is either scanned or excluded
 #         with a reason.
+#   (xv)  RULE 2's LOOKBEHINDS SWALLOW A FOLLOWING LABEL, AND THIS ONE IS OPEN. A
+#         lookbehind excludes the WHOLE match, so a numbered or lettered phase of OURS
+#         sitting behind an excluded word is not caught: `the transfer phase 8 adds the
+#         vendor profile` passes while `Phase 8 adds the vendor profile` reds. Measured,
+#         and it is BOTH exclusion families, not just the E1381 one added here -- `the
+#         acute phase 8 adds the vendor profile` and `the gas phase 7 lands it` pass too,
+#         inherited from the sibling copies. An arm keyed on a digit was tried and removed;
+#         the reasoning is at PHASE_NOT_CLINICAL and the short version is that it red on
+#         `the transfer phase 240 bytes ...`, which is this package's own reference prose.
+#         Closing it properly needs to distinguish a phase LABEL from the next clause's
+#         first token, which a regex cannot do here. Measured zero live instances on this
+#         tree. It is a reviewer's catch, and it is the price of protecting the standard's
+#         vocabulary: the exclusions that keep `protocol phase` and `acute phase` safe are
+#         the same ones that open this hole.
 #
 # ---------------------------------------------------------------------------
 # THE MEASUREMENT THIS GATE SHIPPED WITH, quoted with its tree (residual xii). Taken on the
@@ -533,29 +548,22 @@ ORDINAL='(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|ele
 PHASE_NOT_CLINICAL='(?<!study )(?<!clinical )(?<!trial )(?<!acute )(?<!chronic )(?<!luteal )(?<!follicular )(?<!liquid )(?<!gas )(?<!protocol )(?<!three-)(?<!establishment )(?<!transfer )(?<!termination )(?<!neutral )(?<!idle )'
 PHASE_NOT_ENGLISH='(?!of\b|with\b|in\b|out\b|the\b|and\b|is\b|for\b|to\b|(?:I{1,3}|IV)\s+(?:trial|stud|clinical|oncolog))'
 
-# THE LOOKBEHINDS ABOVE SWALLOW A FOLLOWING LABEL, AND THIS ARM TAKES IT BACK. A lookbehind
-# excludes the whole match, so once `transfer ` is exempt, `the transfer phase 8 adds the
-# vendor profile` stops matching -- the exemption meant to protect E1381's vocabulary also
-# hides one of OUR numbered phases when it happens to sit behind one of those words. Found
-# by a refuter, verified in both directions rather than argued: `Phase 8 adds ...` MATCHES,
-# `the transfer phase 8 adds ...` did NOT, and the same held for `protocol phase 7`,
-# `three-phase 6`, `the establishment phase 9` and `the neutral phase 4`.
-#
-# THE SEPARATION IS A FACT ABOUT THE STANDARD, not a heuristic: E1381 / CLSI-LIS01 NAMES its
-# phases (establishment, transfer, termination, neutral, idle) and NEVER NUMBERS them. So one
-# of those words followed by `phase` followed by a DIGIT cannot be the standard's vocabulary;
-# it can only be ours. This arm carries no clinical lookbehind precisely because it does not
-# need one, and it is deliberately DIGIT-ONLY: a general digit form would flag "a phase 3
-# trial", which is ordinary sponsor English in a lab feed and is exactly what
-# PHASE_NOT_CLINICAL exists to protect. Asserted in POSITIVE[1]; NEGATIVE[1] carries all five
-# names with no digit after them, so a widening to bare words reds there.
-#
-# STILL NOT CAUGHT, and stated rather than left to be rediscovered: the LETTER form behind an
-# excluded word (`the transfer phase W`). Catching it needs `[A-Za-z]` here, which collides
-# with the standard's own `transfer phase` immediately. Measured zero on this tree.
-LTP_PHASE_NUMBERED='(?:protocol|establishment|transfer|termination|neutral|idle|three)[ -]phases?[ -]\d+[a-z]?\b'
+# THE LOOKBEHINDS ABOVE SWALLOW A FOLLOWING LABEL. A lookbehind excludes the whole
+# match, so once `transfer ` is exempt, `the transfer phase 8 adds the vendor profile`
+# stops matching while `Phase 8 adds ...` still reds. That is a real hole and it is
+# DISCLOSED rather than closed -- residual (xv). An arm keyed on a DIGIT after one of the
+# excluded words was written, measured and REMOVED, and the measurement is why: the
+# justification ("E1381 names its phases and never numbers them, so a digit can only be
+# ours") does not survive contact with the corpus, because the digit is usually the first
+# token of the NEXT clause rather than a phase label. It red on `In the transfer phase 240
+# bytes is the maximum frame text`, `the idle phase 15-second timer expires`, `transfer
+# phase 2 of the handshake` and `a three-phase 400 V supply` -- E1381 reference prose and
+# ordinary electrical English, in a repo that documents the 240-byte limit throughout
+# `src/frames/` and `src/ltp/`. This file's own verdict applies: WHERE A RULE CANNOT BE
+# GUARDED, CUT IT RATHER THAN HARDEN IT, the same call that removed the determiner form of
+# `phase` in the hl7 copy. A gate that reds on correct content is a gate someone deletes.
 RULE_NAME[1]='phase or wave language'
-RULE_PATTERN[1]='(?i)\b(?:roadmap phases?\b[ ]?[A-Za-z0-9]*|'"$LTP_PHASE_NUMBERED"'|'"$PHASE_NOT_CLINICAL"'phases?[ -]'"$PHASE_NOT_ENGLISH"'[A-Za-z0-9]+[a-z]?\b|wave \d+\b|the \w+ and final phase\b|documentation residual\b|'"$ORDINAL"' (?:slice|wave)\b)'
+RULE_PATTERN[1]='(?i)\b(?:roadmap phases?\b[ ]?[A-Za-z0-9]*|'"$PHASE_NOT_CLINICAL"'phases?[ -]'"$PHASE_NOT_ENGLISH"'[A-Za-z0-9]+[a-z]?\b|wave \d+\b|the \w+ and final phase\b|documentation residual\b|'"$ORDINAL"' (?:slice|wave)\b)'
 
 # Rule 3: ADR references. An ADR number is a pointer into a decision record the reader did
 # not come here for. THIS REPO HAS NO `docs/adr/` OF ITS OWN, and the rule is kept anyway
@@ -835,7 +843,7 @@ self_test_fail() {
 # rule index -> text that MUST match. Every sample is written in THIS repo's own
 # vocabulary, so a reader can tell what the rule is for without opening another package.
 POSITIVE[0]='Item ASTM-7 is done, REAL-CORPUS is deferred, and CCDA-P7 with it'
-POSITIVE[1]='Phase 5b closes it (Phase W, Phase-1 and the thirteenth slice landed earlier, in wave 2), and Phases 1 and 3 preceded it; the transfer phase 8 and the protocol phase 7 are ours too'
+POSITIVE[1]='Phase 5b closes it (Phase W, Phase-1 and the thirteenth slice landed earlier, in wave 2), and Phases 1 and 3 preceded it'
 POSITIVE[2]='Decided in ADR 0015, restated in ADR-0021, and recorded in docs/adr/0001-transport.md'
 POSITIVE[3]='This slice adds the frame codec and the final slice removes it'
 POSITIVE[4]='Roadmap operations/roadmaps/astm.md and documentation/decisions/0015-x.md'
@@ -921,7 +929,7 @@ done
 # instead of deleting `ASTM-E1394` from an exported function's IntelliSense on the next
 # sweep.
 SRC_POSITIVE[0]='Item ASTM-7 is done, REAL-CORPUS is deferred, and CCDA-P7 with it'
-SRC_POSITIVE[1]='Phase 5b closes it (Phase W, Phase-1 and the thirteenth slice landed earlier, in wave 2), and Phases 1 and 3 preceded it; the transfer phase 8 and the protocol phase 7 are ours too'
+SRC_POSITIVE[1]='Phase 5b closes it (Phase W, Phase-1 and the thirteenth slice landed earlier, in wave 2), and Phases 1 and 3 preceded it'
 SRC_POSITIVE[2]='Decided in ADR 0015, restated in ADR-0021, and recorded in docs/adr/0001-transport.md'
 SRC_POSITIVE[3]='This slice adds the frame codec and the final slice removes it'
 SRC_POSITIVE[4]='Roadmap operations/roadmaps/astm.md and documentation/decisions/0015-x.md'

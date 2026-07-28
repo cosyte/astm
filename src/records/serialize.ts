@@ -12,7 +12,10 @@
  * component tree (`AstmField.repeats`) and re-escapes each leaf, so
  * `parseAstmRecords(serializeAstmRecords(msg))` reproduces the same modelled
  * fields — the same components, the same typed accessors, and the canonical
- * delimiter set (a non-canonical source is normalized to `H|\^&` by default).
+ * delimiter set (a non-canonical source is normalized to `H|\^&` by default). The
+ * exception is `M`/`S`, which are re-emitted verbatim from `rawLine` and are neither
+ * re-escaped nor re-delimited, so a non-canonical `M`/`S` row keeps its original
+ * delimiters and does not survive the round trip as separate fields.
  *
  * **Never break framing.** A component leaf that contains a record terminator
  * (`CR`/`LF`) cannot be escaped by the ASTM escape codec (only the four declared
@@ -170,10 +173,13 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
  *
  * Emit is **conservative**: the canonical `H|\^&` delimiters, every embedded
  * delimiter re-escaped, each record closed with a `CR`. A message parsed with
- * non-canonical delimiters is **normalized** to the canonical set on emit, unless
- * a delimiter set is passed explicitly.
+ * non-canonical delimiters is **normalized** to the canonical set on emit. Two things
+ * are not normalized: an explicitly passed `d`, and `M`/`S` records, which are
+ * re-emitted byte-for-byte from `rawLine` and so keep whatever delimiters they arrived
+ * with.
  *
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
+ * @param d - The delimiters to emit against; defaults to the canonical `H|\^&` set.
  * @returns The serialized record stream (`CR` after every record).
  * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`.
  * @example
