@@ -12,8 +12,7 @@
  * component tree (`AstmField.repeats`) and re-escapes each leaf, so
  * `parseAstmRecords(serializeAstmRecords(msg))` reproduces the same modelled
  * fields — the same components, the same typed accessors, and the canonical
- * delimiter set (a non-canonical source is normalized to `H|\^&`; the serializer
- * does not round-trip a vendor's own delimiters).
+ * delimiter set (a non-canonical source is normalized to `H|\^&` by default).
  *
  * **Never break framing.** A component leaf that contains a record terminator
  * (`CR`/`LF`) cannot be escaped by the ASTM escape codec (only the four declared
@@ -171,9 +170,8 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
  *
  * Emit is **conservative**: the canonical `H|\^&` delimiters, every embedded
  * delimiter re-escaped, each record closed with a `CR`. A message parsed with
- * non-canonical delimiters is **normalized** to the canonical set on emit (a
- * documented behavior — the serializer does not round-trip a vendor's own
- * delimiters).
+ * non-canonical delimiters is **normalized** to the canonical set on emit, unless
+ * a delimiter set is passed explicitly.
  *
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
  * @returns The serialized record stream (`CR` after every record).

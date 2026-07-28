@@ -327,8 +327,8 @@ export interface TerminatorRecord extends RecordBase {
 
 /**
  * Any record whose type letter is not modeled (a genuinely unknown letter).
- * `H`/`P`/`O`/`R`/`C`/`L` and `Q`/`M`/`S` are all modeled;
- * anything else is surfaced with its raw fields intact and flagged with an
+ * `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` are all modeled; anything else is surfaced
+ * with its raw fields intact and flagged with an
  * `ASTM_RECORD_UNKNOWN_TYPE` warning — never dropped.
  */
 export interface UnsupportedRecord extends RecordBase {

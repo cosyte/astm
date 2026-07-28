@@ -25,7 +25,12 @@ this file is maintained by hand (Changesets handles the version bump and publish
   Re-derived for this repo rather than copied: rule 2 now excludes E1381/CLSI-LIS01's own
   **protocol phases** (`protocol`, `three-`, `establishment`, `transfer`, `termination`, `neutral`,
   `idle`), because "phase" is the standard's word for the state of the line and `LtpState.phase` is an
-  exported field; and the `SPEC-7` / `ACC-42` synthetic example ids in every runnable sample are
+  exported field. Because a lookbehind exempts the whole match, that exemption also hid one of our
+  own numbered phases sitting behind one of those words (`the transfer phase 8` did not red while
+  `Phase 8` did), so a companion arm takes it back: E1381 **names** its phases and never numbers
+  them, so one of those words followed by `phase` followed by a **digit** can only be ours. It is
+  deliberately digit-only, since a general form would flag "a phase 3 trial". And the `SPEC-7` /
+  `ACC-42` synthetic example ids in every runnable sample are
   `WORD-N` exactly, so a shape-keyed rule would rewrite the sample a consumer copy-pastes. Both are
   asserted in negative self-tests, alongside `ASTM-E1394`, `CLSI-LIS01`, `LIS02-A2`, `POCT1-A`,
   `E1394-97` and `ICD-10-CM`. A further negative self-test pins **bare `§` section citations as
@@ -58,6 +63,17 @@ this file is maintained by hand (Changesets handles the version bump and publish
   what a consumer's editor rendered on hover and what both declaration files carried. Every affected
   block now describes what the code does. 18 source files changed; no runtime behaviour, export, type
   or warning code is affected.
+- **The fatal-error taxonomy no longer promises error codes that do not exist.** `FATAL_CODES`
+  documented itself as growing "later" with the frame codec's own `ASTM_FRAME_*` fatals. The frame
+  codec adds no fatal code at all: `ASTM_FRAME_*` is exclusively the Tier-2 _warning_ registry, the
+  frame layer reuses `EMPTY_INPUT`, and its strict-mode rejection is `AstmFrameStrictError`, which
+  carries the rejected warnings rather than a `code`. `FatalCode` is a closed three-value union. A
+  consumer narrowing on `err.code` was being told to expect values that can never be produced.
+- **The serializer's round-trip note no longer overstates normalization.** It is accurate that a
+  non-canonical source is normalized to `H|\^&` _by default_, but `serializeAstmRecords(input, d)`
+  takes an explicit delimiter set, and `M`/`S` records are emitted byte-identically from their
+  preserved `rawLine`. The note is now bounded accordingly rather than claiming the serializer never
+  reproduces a vendor's delimiters.
 - **The published documentation sidebar now follows the shared section order.** The shipped
   `docs-content/sidebars.json` carried a category named "About" holding the "what it does and does not
   do" page. That label is not one of the sections the documentation site recognises (Overview,

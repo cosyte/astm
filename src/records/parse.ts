@@ -2,11 +2,10 @@
  * The record-layer entry point: {@link parseAstmRecords}.
  *
  * It assumes **already-de-framed** record bytes; {@link parseFramedAstm} composes
- * the E1381/LIS01 framing layer with this one. It reads the four delimiters from
- * the header, tokenizes
- * every record escape-aware, and builds the immutable {@link AstmMessage} — lenient
- * by default: vendor quirks become typed warnings, and only three unrecoverable
- * structural conditions are fatal.
+ * the E1381/LIS01 framing layer with this one. It reads the four delimiters from the
+ * header, tokenizes every record escape-aware, and builds the immutable
+ * {@link AstmMessage} — lenient by default: vendor quirks become typed warnings, and
+ * only three unrecoverable structural conditions are fatal.
  */
 
 import { AstmParseError, FATAL_CODES } from "../common/errors.js";

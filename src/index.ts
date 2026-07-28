@@ -29,6 +29,13 @@
  * reducer decides. Its inviolable rule mirrors `mllp`'s ACK-failsafe: a frame the
  * codec did not vouch for is answered with `NAK`, **never** a fabricated positive
  * `ACK`, and never merged into a record — a `NAK` drives retransmit, not acceptance.
+ *
+ * The **emit** half is the conservative inverse of all three: {@link buildAstmMessage}
+ * constructs spec-clean records from typed caller input, {@link serializeAstmRecords}
+ * writes them out with the canonical `H|\^&` delimiters by default and every embedded
+ * delimiter re-escaped, {@link composeAstmFrames} wraps them back into checksummed
+ * frames, and
+ * {@link serializeFramedAstm} composes the last two.
  */
 
 /**

@@ -235,8 +235,10 @@
 #         typography across these repos -- `transform` had 28 bare ones and `deid` 19 --
 #         and keying on `§` alone is trap (1) arriving through punctuation, in a package
 #         that documents E1394, E1381, LIS01-A2, LIS02-A2 and POCT1-A. MEASURED ON THE BASE
-#         COMMIT OF THIS CHANGE: all six `§` occurrences on the gated surface were
-#         `roadmap §N`, every one of them caught by RULE 7, and none was a standards
+#         COMMIT OF THIS CHANGE: `§` occurred six times under `src/`, of which FIVE were on
+#         the gated surface (doc comments) and were all `roadmap §N` caught by RULE 7. The
+#         sixth, `src/index.ts:174`, sits in a `//` comment this gate deliberately never
+#         scans, so no rule caught it and none was meant to. NONE of the six was a standards
 #         citation. So the hole is real and is currently empty. IT IS PINNED BY A NEGATIVE
 #         SELF-TEST (`SECTION_CITATION_SAMPLE` below) asserting that NO rule matches a bare
 #         `§`, so closing it later has to be a decision someone makes on purpose.
@@ -267,6 +269,31 @@
 #         into `dist/`. That is the same wrap blindness this gate's second and third passes
 #         exist for, arriving in the REMEDIATION rather than in the detection. Also: QUOTE
 #         A COUNT WITH THE TREE IT WAS TAKEN ON, OR NOT AT ALL.
+# (xiii)  RULE 2 FALSE-POSITIVES ON A CLINICAL TRIAL PHASE WRITTEN WITH A DIGIT. Measured:
+#         `a phase 3 trial enrolled` REDS, while `a Phase III oncology trial` passes. The
+#         clinical-trial arm of PHASE_NOT_ENGLISH covers ROMAN numerals only
+#         (`(?:I{1,3}|IV)\s+(?:trial|stud|clinical|oncolog)`), so the digit form has no
+#         guard. THIS IS INHERITED, NOT INTRODUCED HERE: verified against `ncpdp`'s own
+#         RULE_PATTERN[1], which matches the same string, so it is shared by every copy of
+#         this gate. It is reachable in a clinical-LABORATORY package, where sponsor
+#         vocabulary is ordinary content. Left as-is deliberately, for two reasons: it is a
+#         loud red on a rare line rather than a silent hole, which is the same bargain the
+#         rule already makes for a bare `Phase III`; and narrowing it belongs in THE ONE
+#         SHARED LIST (residual (i)), not in a private divergence that makes the copies
+#         harder to diff. Measured zero instances on this tree.
+#  (xiv)  THE SURFACE-DRIFT TRIPWIRES ARE ASYMMETRIC, and the gap is on the ADD side. A
+#         SURFACE_PATHS entry that is renamed or deleted reds (the tracked-path loop), and a
+#         `package.json` `files` entry that is ADDED reds (the tarball tripwire). But a NEW
+#         top-level prose file that is not in `files` -- `SECURITY.md`, `CONTRIBUTING.md`,
+#         `CODE_OF_CONDUCT.md` -- is public surface on the repo's front page that NEITHER
+#         tripwire notices and no rule scans, and the gate keeps reporting OK. Closing it
+#         means either enumerating root markdown (which reds the moment someone adds a file
+#         deliberately) or globbing `*.md` at the root (which pulls in CHANGELOG.md, whose
+#         exclusion is the contested ecosystem-wide question in SCAN SURFACE). Stated rather
+#         than closed, because both fixes have costs a reader should choose knowingly. No
+#         live instance today: the repo root carries README.md, CHANGELOG.md, CLAUDE.md,
+#         LICENSE and phi-scan-overrides.md, and every one is either scanned or excluded
+#         with a reason.
 #
 # ---------------------------------------------------------------------------
 # THE MEASUREMENT THIS GATE SHIPPED WITH, quoted with its tree (residual xii). Taken on the
@@ -492,17 +519,43 @@ RULE_PATTERN[0]='\b(?!(?:'"$STANDARDS_DESIGNATION"')\b)(?:'"$PROJECT_PREFIXES"')
 # commit here wrote `Phase-1`, `Phase-7`, `Phase-8` and `Phase-9` WITH A HYPHEN across eight
 # doc-comment lines, every one of which a space-only rule walks straight past.
 #
-# `phases?` RATHER THAN `phase` IS AN NCPDP ADDITION, carried because it is measured here
-# too: the base commit read "additions-only across phases" and "(Phases 1-3)", which a
-# singular rule misses. Widening the stem rather than bolting on a second alternative keeps the
+# `phases?` RATHER THAN `phase` IS AN NCPDP ADDITION, carried because it earns its place
+# here too: the base commit read "(Phases 1-3)", which a singular rule walks straight past.
+# BE PRECISE ABOUT WHAT IT DOES NOT BUY, because the honest version of this note is shorter
+# than the tempting one: the tree also read "additions-only across phases", and rule 2 does
+# NOT match that (verified) -- `phases` is followed by an em dash, and the rule requires
+# `[A-Za-z0-9]+` after the separator. That one is residual (vi), a reviewer's catch, and it
+# was cleared by hand. Widening the stem rather than bolting on a second alternative keeps the
 # lookbehinds and the ordinary-English lookahead applied to the plural too, so "the clinical
 # phases" and "the three phases of the line" still survive; a separate `phases \d+` arm
 # would have had neither guard.
 ORDINAL='(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twenty-first|twenty-second|twenty-third|twenty-fourth|\d+(?:st|nd|rd|th))'
 PHASE_NOT_CLINICAL='(?<!study )(?<!clinical )(?<!trial )(?<!acute )(?<!chronic )(?<!luteal )(?<!follicular )(?<!liquid )(?<!gas )(?<!protocol )(?<!three-)(?<!establishment )(?<!transfer )(?<!termination )(?<!neutral )(?<!idle )'
 PHASE_NOT_ENGLISH='(?!of\b|with\b|in\b|out\b|the\b|and\b|is\b|for\b|to\b|(?:I{1,3}|IV)\s+(?:trial|stud|clinical|oncolog))'
+
+# THE LOOKBEHINDS ABOVE SWALLOW A FOLLOWING LABEL, AND THIS ARM TAKES IT BACK. A lookbehind
+# excludes the whole match, so once `transfer ` is exempt, `the transfer phase 8 adds the
+# vendor profile` stops matching -- the exemption meant to protect E1381's vocabulary also
+# hides one of OUR numbered phases when it happens to sit behind one of those words. Found
+# by a refuter, verified in both directions rather than argued: `Phase 8 adds ...` MATCHES,
+# `the transfer phase 8 adds ...` did NOT, and the same held for `protocol phase 7`,
+# `three-phase 6`, `the establishment phase 9` and `the neutral phase 4`.
+#
+# THE SEPARATION IS A FACT ABOUT THE STANDARD, not a heuristic: E1381 / CLSI-LIS01 NAMES its
+# phases (establishment, transfer, termination, neutral, idle) and NEVER NUMBERS them. So one
+# of those words followed by `phase` followed by a DIGIT cannot be the standard's vocabulary;
+# it can only be ours. This arm carries no clinical lookbehind precisely because it does not
+# need one, and it is deliberately DIGIT-ONLY: a general digit form would flag "a phase 3
+# trial", which is ordinary sponsor English in a lab feed and is exactly what
+# PHASE_NOT_CLINICAL exists to protect. Asserted in POSITIVE[1]; NEGATIVE[1] carries all five
+# names with no digit after them, so a widening to bare words reds there.
+#
+# STILL NOT CAUGHT, and stated rather than left to be rediscovered: the LETTER form behind an
+# excluded word (`the transfer phase W`). Catching it needs `[A-Za-z]` here, which collides
+# with the standard's own `transfer phase` immediately. Measured zero on this tree.
+LTP_PHASE_NUMBERED='(?:protocol|establishment|transfer|termination|neutral|idle|three)[ -]phases?[ -]\d+[a-z]?\b'
 RULE_NAME[1]='phase or wave language'
-RULE_PATTERN[1]='(?i)\b(?:roadmap phases?\b[ ]?[A-Za-z0-9]*|'"$PHASE_NOT_CLINICAL"'phases?[ -]'"$PHASE_NOT_ENGLISH"'[A-Za-z0-9]+[a-z]?\b|wave \d+\b|the \w+ and final phase\b|documentation residual\b|'"$ORDINAL"' (?:slice|wave)\b)'
+RULE_PATTERN[1]='(?i)\b(?:roadmap phases?\b[ ]?[A-Za-z0-9]*|'"$LTP_PHASE_NUMBERED"'|'"$PHASE_NOT_CLINICAL"'phases?[ -]'"$PHASE_NOT_ENGLISH"'[A-Za-z0-9]+[a-z]?\b|wave \d+\b|the \w+ and final phase\b|documentation residual\b|'"$ORDINAL"' (?:slice|wave)\b)'
 
 # Rule 3: ADR references. An ADR number is a pointer into a decision record the reader did
 # not come here for. THIS REPO HAS NO `docs/adr/` OF ITS OWN, and the rule is kept anyway
@@ -565,8 +618,12 @@ RULE_PATTERN[3]='(?i)\b(?:this|that|the|each|another|previous|next|final|current
 # @cosyte/astm has no meta-repo and no such file. Keyed on the known meta-repo paths, not on
 # a `dir/file.md` shape, for exactly the reason trap (1) gives -- this package's own pages
 # legitimately cite `docs-content/limitations.md` and `test/differential/README.md`, which a
-# shape rule would take with it. LIVE ON THIS TREE: `operations/roadmaps/astm.md` was cited
-# by path from a `src/` doc comment, which compiles into `dist/index.d.ts`.
+# shape rule would take with it. MEASURED ZERO ON THIS TREE, on every gated surface: no
+# meta-repo path was cited from public markdown, a doc comment or a string literal. The rule
+# is carried anyway because the convention that produces these is shared across the parsers,
+# a page or doc block copied from a sibling brings them along, and it is the ONLY cover for
+# the `documentation/decisions/` form, which carries no literal `ADR` for rule 3 to see. The
+# roadmap was cited here in PROSE instead, which is rule 7's job, not this one's.
 RULE_NAME[4]='internal repo path'
 RULE_PATTERN[4]='\boperations/(?:BACKLOG\.md|roadmaps/|plans/)|\bdocumentation/(?:decisions/|ecosystem-map\.md|conventions\.md)|\bBACKLOG\.md\b'
 
@@ -606,9 +663,11 @@ RULE_PATTERN[5]='\[S-[A-Z][A-Z0-9]+(?:-[A-Z0-9]+)*\]|(?i:\bopen[- ]question #?\d
 #   * `the|this|our roadmap`, because a doc comment reading "the roadmap defers this" is the
 #     same pointer with the repo name dropped, and a rule keyed on repo names alone walks
 #     past it.
-#   * `roadmap §`, the section-pointer form, which is the ONLY form measured live on this
-#     tree (six instances, all `roadmap §N`) and which survives even if the qualifier
-#     changes.
+#   * `roadmap §`, the section-pointer form, which survives even if the qualifier changes.
+#     It is the DOMINANT live form on this tree but not the only one: of the six rule-7 hits
+#     on the base commit, five were `roadmap §N` and the sixth
+#     (`src/profiles/reference-corpus.ts:7`, "per the roadmap") was caught by the
+#     `the roadmap` arm alone. Dropping that arm as unused would have missed it.
 #
 # THE ACCEPTED FALSE POSITIVE, stated rather than discovered: a README section headed
 # "Roadmap" that describes upcoming capability in consumer terms is legitimate content, and
@@ -636,12 +695,17 @@ RULE_COUNT=7
 # WHY A SECOND SURFACE EXISTS AT ALL. The block above scans markdown a reader browses.
 # This one scans the JSDoc a consumer's EDITOR renders: `src/` doc comments are compiled
 # into `dist/index.d.ts` and `dist/index.d.cts` by tsup, `dist` is the first entry in
-# package.json's `files`, and every `npm i @cosyte/ncpdp` receives them. It is the LARGER
-# of the two surfaces in this repo, not an afterthought: measured on the base commit of
-# the change that added this pass, tracked `src/**/*.ts` carried more matching doc-comment
-# lines than the whole public markdown surface put together, including exported symbols
-# documented as "the response-transaction element names this phase models" -- a sentence
-# that tells a consumer nothing except that we build in phases.
+# package.json's `files`, and every `npm i @cosyte/astm` receives them. It is the LARGER
+# of the two surfaces in this repo, and by a wider margin than anywhere else this gate has
+# been ported: measured on the base commit of the change that added this pass, tracked
+# `src/**/*.ts` carried 50 matching doc-comment rows while the whole public markdown surface
+# carried ZERO. The worst of them were not identifiers at all. `src/index.ts`, the package
+# entry point, ended its module doc with "Serialize/build (P7) is deferred." on a tree that
+# exports `serializeAstmRecords`, `buildAstmMessage`, `composeAstmFrames` and
+# `serializeFramedAstm`; `src/records/types.ts` documented `AstmMessage` as modelling only
+# `H`/`P`/`O`/`R`/`L`, with comments, query, `M`/`S`, framing and serialization named as
+# "later phases", while all five were shipped. Both rendered on hover and both were live in
+# `dist/index.d.ts`. Stale phase prose does not merely leak process; IT GOES FALSE.
 #
 # WHY A SEPARATE ARRAY RATHER THAN REUSING RULE_PATTERN. Code comments are not markdown.
 # The two surfaces have different collision profiles (TypeScript prose says `.slice()` and
@@ -771,7 +835,7 @@ self_test_fail() {
 # rule index -> text that MUST match. Every sample is written in THIS repo's own
 # vocabulary, so a reader can tell what the rule is for without opening another package.
 POSITIVE[0]='Item ASTM-7 is done, REAL-CORPUS is deferred, and CCDA-P7 with it'
-POSITIVE[1]='Phase 5b closes it (Phase W, Phase-1 and the thirteenth slice landed earlier, in wave 2), and Phases 1 and 3 preceded it'
+POSITIVE[1]='Phase 5b closes it (Phase W, Phase-1 and the thirteenth slice landed earlier, in wave 2), and Phases 1 and 3 preceded it; the transfer phase 8 and the protocol phase 7 are ours too'
 POSITIVE[2]='Decided in ADR 0015, restated in ADR-0021, and recorded in docs/adr/0001-transport.md'
 POSITIVE[3]='This slice adds the frame codec and the final slice removes it'
 POSITIVE[4]='Roadmap operations/roadmaps/astm.md and documentation/decisions/0015-x.md'
@@ -857,7 +921,7 @@ done
 # instead of deleting `ASTM-E1394` from an exported function's IntelliSense on the next
 # sweep.
 SRC_POSITIVE[0]='Item ASTM-7 is done, REAL-CORPUS is deferred, and CCDA-P7 with it'
-SRC_POSITIVE[1]='Phase 5b closes it (Phase W, Phase-1 and the thirteenth slice landed earlier, in wave 2), and Phases 1 and 3 preceded it'
+SRC_POSITIVE[1]='Phase 5b closes it (Phase W, Phase-1 and the thirteenth slice landed earlier, in wave 2), and Phases 1 and 3 preceded it; the transfer phase 8 and the protocol phase 7 are ours too'
 SRC_POSITIVE[2]='Decided in ADR 0015, restated in ADR-0021, and recorded in docs/adr/0001-transport.md'
 SRC_POSITIVE[3]='This slice adds the frame codec and the final slice removes it'
 SRC_POSITIVE[4]='Roadmap operations/roadmaps/astm.md and documentation/decisions/0015-x.md'
