@@ -1,6 +1,6 @@
 {
   "name": "@cosyte/astm",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "ASTM parser, serializer, and builder for Node.js and TypeScript — lenient on parse, spec-clean on emit.",
   "keywords": [
     "astm",
