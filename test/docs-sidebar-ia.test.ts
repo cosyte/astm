@@ -65,12 +65,24 @@ function topLevelItems(sidebar: unknown): readonly unknown[] {
 }
 
 /**
- * A category is anything carrying `type: "category"` and a string `label`, which is exactly what the
- * upstream lint keys on. It deliberately says NOTHING about the shape of `items`: an earlier version
- * of this file also required every entry of `items` to be a string, so a category holding a NESTED
- * category was not recognised as a category at all, and its off-spine label slipped past the spine
- * and order checks that exist to catch it. A narrowing that makes a gate blind to the very defect it
- * grades is worse than no narrowing. `items` is validated where it is consumed instead.
+ * A category carries `type: "category"`, a string `label`, and an `items` array.
+ *
+ * It says nothing about the CONTENTS of `items`, and that part is load-bearing. An earlier version of
+ * this file required every entry of `items` to be a string, so a category holding a NESTED category
+ * was not recognised as a category at all, and its off-spine label slipped past the spine and order
+ * checks that exist to catch it. A narrowing that makes a gate blind to the very defect it grades is
+ * worse than no narrowing.
+ *
+ * THE STATED BOUND: requiring `items` to be present and an array is still one condition MORE than the
+ * upstream lint, which keys on `type` plus `label` alone (`isCategoryItem` in `cosyte/docs`
+ * `scripts/check-ia-conformance.ts`). So a category written with a `link` and no `items` is invisible
+ * here and would be graded upstream. That divergence is deliberate and it is safe for one reason
+ * worth knowing rather than rediscovering: `@docusaurus/plugin-content-docs` declares `items` as
+ * `Joi.array().required()` on a category, so such a sidebar fails the docs build loudly instead of
+ * serving a wrong menu. Every shape Docusaurus will actually accept is graded here. **Do not close
+ * the gap by dropping the `items` requirement** and leaving the two walks below to destructure
+ * whatever turns up; the honest fix, if this bound ever stops holding, is to grade the missing
+ * `items` as its own failure.
  */
 function isCategory(item: unknown): item is Category {
   if (typeof item !== "object" || item === null) return false;
