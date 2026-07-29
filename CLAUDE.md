@@ -235,18 +235,55 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
 
 ## Known defects live on `main` (recorded here so they survive independently of any backlog)
 
-1. **🩺 `patient()` and `results()` are scoped to the STREAM, not to a message — a wrong-patient path.**
-   On a stream carrying several messages, `patient(msg)` returns the **first** `P` record in the whole
-   stream while `results(msg)` returns **every** `R` record in it, so pairing the two — which is
-   exactly what `README.md`'s north-star one-liner does — can attribute one patient's results to
-   another. Reproduces with an **ordinary same-delimiter two-message stream**; no redeclaration
-   needed, and **zero warnings**. Nothing is mis-_read_ (every `P` and `R` is correct in
-   `msg.records`), and there is no message- or patient-scoped grouping API. Found by the
-   `conformance-refuter` while grading `ASTM-SECOND-HEADER-COLLAPSE` 2026-07-29 and deliberately
-   **not** folded into that slice: it is `PRE-EXISTING` and needs its own design (a grouping API is a
-   public-surface addition, not a bug fix). A consumer caveat is in `docs-content/quickstart.md`;
-   **this is the highest-severity open item in this repo and should come before further parser work.**
-2. **The parser reads delimiter declarations it cannot reverse, and says nothing.** `readDelimiters`
+1. **CLOSED 2026-07-29 by `ASTM-PATIENT-RESULT-MISATTRIBUTION`** — was: `patient()` and `results()`
+   scoped to the STREAM, not to a message, a wrong-patient path. On a stream carrying several
+   messages `patient(msg)` returned the **first** `P` in the whole stream while `results(msg)`
+   returned **every** `R` in it, so pairing the two — exactly what `README.md`'s north-star one-liner
+   does — attributed one patient's results to another, reproducing on an **ordinary same-delimiter
+   two-message stream** with **zero** warnings and no `strict` objection. Found by the
+   `conformance-refuter` grading `ASTM-SECOND-HEADER-COLLAPSE` and correctly not folded into it: the
+   fix is a public-surface **addition**, not a bug fix.
+   **▶ THE FIX IS DELIBERATELY BREAKING — read `CHANGELOG.md` `[Unreleased]` before touching
+   `extractors.ts`.** `messages(msg)` splits a parsed stream into its `H` … `L` messages, each
+   carrying only its own records; `patient`, `results`, `orders`, `comments` and `query` now throw
+   `AstmAmbiguousStreamError` (`ASTM_AMBIGUOUS_MULTI_MESSAGE`) on a multi-message stream rather than
+   answering across patients, and `patient()` also throws `ASTM_AMBIGUOUS_MULTI_PATIENT` on a single
+   message carrying several `P` records — the same guess one level down. The break is the fix: the
+   callers it breaks are the population that was being silently corrupted. **Note the second break
+   reaches SINGLE-message callers** — a lone message carrying several patients used to answer with
+   the first of them — so never write "single-message streams are unaffected"; the true statement is
+   that one message carrying at most one `P` is unchanged, as is a `P`-less result-only message.
+   `commentsFor()` is unchanged because its parent record already names the message.
+   **Still open, deliberately deferred to its own slice: within-message patient scoping** — which `P`
+   an `R` files against when one message carries several. The clauses that would ground it (the
+   message-level structure diagram and the `P` sequence-number rule) are withheld from CLSI's free
+   sample and paywalled, so the layer declines rather than inventing a rule: `patient` is `undefined`
+   and `patients` carries all of them. **Multi-patient messages are real** — an openly-published
+   vendor interface grammar makes the patient group repeatable on the **download** direction, which
+   is precisely the direction the OSS test corpora do not cover — so this is a deferral with a known
+   shape, not a claim the case does not arise. Do not close it by guessing a hierarchy.
+2. **A record whose type letter is not recognized as `H` silently re-merges two messages.** Message
+   grouping keys on the `H` letter, in lockstep with the delimiter scoping, so a header the reader
+   does not see as a header (a stray byte before it, for instance) does not open a new message: the
+   two messages merge, `patient()` answers confidently, and the closed misattribution is restored.
+   A lenient parse does warn `ASTM_RECORD_UNKNOWN_TYPE` — but that code sits on the profile safety
+   gate's **tolerable** allow-list, so a consumer profile tolerating it re-badges the only signal and
+   `{ strict: true }` then accepts the stream. `PRE-EXISTING` (reproduces on `b1b46fc`, where the flat
+   accessors misattributed unconditionally). `assertSinglePatient` still catches the variant where
+   the merged second message carries a `P`. **The real question is the allow-list classification:**
+   `ASTM_RECORD_UNKNOWN_TYPE` was admitted as "benign, value-preserving" before an unrecognized
+   record could mean a lost **message boundary**, and re-deriving that belongs in its own slice.
+   Found by the `conformance-refuter` grading `ASTM-PATIENT-RESULT-MISATTRIBUTION` 2026-07-29.
+3. **`msg.classification` is folded over the whole STREAM but documented as per-message.**
+   `src/records/types.ts` describes it as the classification of "this message"; `classifyMessage`
+   folds every record in the stream, so on a multi-message stream a `Q` in one message reports as
+   host-query for all of them (with `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` when an `R` is also
+   present). The dangerous direction is closed — `Q` dominates, so a query never reads as a result
+   set — and the over-trigger warns, which is why this is not a stop-the-line. `PRE-EXISTING`.
+   `AstmStreamMessage` deliberately carries no `classification`; `classifyMessage(m.records)` derives
+   the per-message answer and is documented on `queries`. Found by the `conformance-refuter` grading
+   `ASTM-PATIENT-RESULT-MISATTRIBUTION` 2026-07-29.
+4. **The parser reads delimiter declarations it cannot reverse, and says nothing.** `readDelimiters`
    checks only that the field separator differs from the other three, so a header declaring `H|^^&`
    (repeat === component) or `H|\&&` (component === escape) parses with **zero warnings** — and the
    resulting set cannot carry a field tree back out, because the boundary between two roles sharing a
@@ -256,7 +293,7 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    Whether the reader should warn (and under which code) is the open question; it is **parse**-side,
    `PRE-EXISTING`, and was deliberately not folded into the emit slice that surfaced it.
    Found while grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
-3. **A delimiter that collides with a record's type letter corrupts the record, and the emit-side
+5. **A delimiter that collides with a record's type letter corrupts the record, and the emit-side
    delimiter check does not catch it.** Emitting with `field: "R"` escapes the `R` record's own type
    letter away (it is just another leaf to `encodeLeaf`), so the line goes out as `&F&R1R…` and
    re-reads as an **unsupported** record — one result in, zero out of `results()`. It passes all
@@ -267,7 +304,7 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    "no delimiter may be a type letter" — the real condition is that a record's type letter must
    survive emit unescaped), and deriving it inside a slice about two other gaps is how a fix outgrows
    the thing it fixes. Found by the `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
-4. **Any raw control character in a _value_ survives record emit and then breaks the frame layer.**
+6. **Any raw control character in a _value_ survives record emit and then breaks the frame layer.**
    Emit rejects `CR`/`LF` in a component and nothing else, so a value carrying `STX`/`ETX`/`ETB`
    passes `serializeAstmRecord`, truncates the frame body in `composeAstmFrames`, and makes
    `parseFramedAstm` drop the whole record behind an `ASTM_FRAME_BAD_CHECKSUM`. A warning does fire
@@ -275,7 +312,7 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    stop-the-line. `PRE-EXISTING`; the surplus half of this was closed by `ASTM-EMIT-RESIDUALS`
    (`declarationResidual` drops any control character), the **value** half was not. Found by the
    `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
-5. **The frame encoder truncates every character to its low byte, so a non-control character can
+7. **The frame encoder truncates every character to its low byte, so a non-control character can
    become a frame control byte.** `src/frames/encode.ts` writes `input.charCodeAt(i) & 0xff`, which
    means `U+0102`/`U+0103`/`U+0117` land on the wire as `STX`/`ETX`/`ETB` and `U+010D` as `CR`.
    Framing then breaks: `parseFramedAstm` throws `ASTM_RECORD_NO_HEADER`, or a field is displaced into
@@ -287,7 +324,7 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    (refuse a non-Latin-1 code point? encode UTF-8?) and belongs in its own slice.** Found by the
    `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
 
-Items 2 and 3 of this list — the `>3`-char declaration losing its surplus on emit, and
+Two further defects once on this list — the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d` — were recorded with
 `ASTM-MIXED-DELIMITER-EMIT` (#21), left again by `ASTM-SECOND-HEADER-COLLAPSE` (#22), and **both
 closed by `ASTM-EMIT-RESIDUALS`** — read `CHANGELOG.md` `[Unreleased]` for the dispositions chosen

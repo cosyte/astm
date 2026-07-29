@@ -13,6 +13,12 @@
  * request-information (`Q`) record + host-query classification + verbatim `M`/`S`
  * records are all modeled — the **record-content layer is now feature-complete**.
  *
+ * A parsed model is a whole record **stream**, and a stream may carry several `H` … `L`
+ * messages. {@link messages} splits it into them, so a patient and a result are only ever
+ * paired inside the message that carried both; the flat extractors ({@link patient},
+ * {@link results}, …) read the whole stream and therefore **refuse** one they cannot answer
+ * for, with an {@link AstmAmbiguousStreamError}, rather than answering across patients.
+ *
  * The E1381/CLSI-LIS01 **framing** layer lives alongside the record layer and
  * shares nothing but the payload boundary: {@link decodeAstmFrames} decodes a framed
  * byte stream (`<STX> FN text <ETB|ETX> CS <CR><LF>`) into frames + reassembled
@@ -83,6 +89,8 @@ export type {
   VerbatimInput,
 } from "./records/build.js";
 export { results, patient, orders, comments, commentsFor, query } from "./records/extractors.js";
+export { messages, AMBIGUOUS_CODES, AstmAmbiguousStreamError } from "./records/messages.js";
+export type { AstmStreamMessage, AmbiguousCode } from "./records/messages.js";
 export { classifyMessage } from "./records/host-query.js";
 export { fieldScalar, tokenizeHeader, tokenizeRecord } from "./records/tokenize.js";
 export {

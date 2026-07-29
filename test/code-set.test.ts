@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { sortedCodeSet } from "@cosyte/test-utils";
 
 import {
+  AMBIGUOUS_CODES,
   FATAL_CODES,
   FRAME_WARNING_CODES,
   LIVD_WARNING_CODES,
@@ -67,6 +68,15 @@ describe("stable code surface", () => {
     `);
   });
 
+  it("ambiguity codes are stable (the ASTM_AMBIGUOUS_* registry)", () => {
+    expect(sortedCodeSet(AMBIGUOUS_CODES)).toMatchInlineSnapshot(`
+      [
+        "ASTM_AMBIGUOUS_MULTI_MESSAGE",
+        "ASTM_AMBIGUOUS_MULTI_PATIENT",
+      ]
+    `);
+  });
+
   it("fatal codes are stable (EMPTY_INPUT shared across layers)", () => {
     expect(sortedCodeSet(FATAL_CODES)).toMatchInlineSnapshot(`
       [
@@ -83,6 +93,7 @@ describe("stable code surface", () => {
     for (const [k, v] of Object.entries(LTP_WARNING_CODES)) expect(k).toBe(v);
     for (const [k, v] of Object.entries(LIVD_WARNING_CODES)) expect(k).toBe(v);
     for (const [k, v] of Object.entries(FATAL_CODES)) expect(k).toBe(v);
+    for (const [k, v] of Object.entries(AMBIGUOUS_CODES)) expect(k).toBe(v);
   });
 
   it("warning and fatal code sets are disjoint (record + frame + LTP + LIVD warnings vs fatals)", () => {
@@ -93,5 +104,10 @@ describe("stable code surface", () => {
       ...Object.values(LIVD_WARNING_CODES),
     ]);
     for (const f of Object.values(FATAL_CODES)) expect(warns.has(f)).toBe(false);
+    // The ambiguity codes are thrown, never warned, so they must not collide with either tier.
+    for (const a of Object.values(AMBIGUOUS_CODES)) {
+      expect(warns.has(a)).toBe(false);
+      expect(Object.values(FATAL_CODES)).not.toContain(a);
+    }
   });
 });

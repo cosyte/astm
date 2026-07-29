@@ -21,9 +21,18 @@ import {
   AstmProfileDefinitionError,
   parseAstmRecords,
   serializeAstmRecords,
-  results,
+  messages,
   type ResultRecord,
 } from "../../src/index.js";
+
+/**
+ * These fixtures are multi-message streams, so the flat `results()` refuses them
+ * (`ASTM_AMBIGUOUS_MULTI_MESSAGE` — a stream-wide answer would span patients). The
+ * delimiter question under test is per-message anyway, so each assertion below reads the
+ * message it means through `messages()`.
+ */
+const resultsOfMessage = (raw: string, index: number): readonly ResultRecord[] =>
+  messages(parseAstmRecords(raw))[index]?.results ?? [];
 
 /** Message one, canonical `|\^&`. */
 const MSG_CANONICAL = "H|\\^&|||sender\rP|1||LAB-1\rO|1|SPEC-7\rR|1|^^^687|28.6|U/L||N||F\rL|1|N\r";
@@ -43,7 +52,7 @@ describe("a later header that redeclares the delimiters", () => {
   });
 
   it("recovers the second message's result instead of silently losing it", () => {
-    const second = results(msg)[1];
+    const second = messages(msg)[1]?.results[0];
     expect(second).toBeDefined();
     expect(second?.value).toBe("99.9");
     expect(second?.units).toBe("mmol/L");
@@ -95,12 +104,16 @@ describe("a later header that redeclares the delimiters", () => {
 
   it("emits a stream whose records survive a re-read (both messages in one set)", () => {
     const reparsed = parseAstmRecords(serializeAstmRecords(msg));
-    expect(results(reparsed).map((r: ResultRecord) => [r.value, r.units, r.abnormalFlags])).toEqual(
-      [
-        ["28.6", "U/L", "N"],
-        ["99.9", "mmol/L", "H"],
-      ],
-    );
+    expect(
+      messages(reparsed).flatMap((m) =>
+        m.results.map((r: ResultRecord) => [r.value, r.units, r.abnormalFlags]),
+      ),
+    ).toEqual([
+      ["28.6", "U/L", "N"],
+      ["99.9", "mmol/L", "H"],
+    ]);
+    // Both messages survive the round-trip as messages, each with its own result.
+    expect(messages(reparsed).map((m) => m.results.length)).toEqual([1, 1]);
     // Normalized to one set, so the re-read sees no redeclaration at all.
     expect(reparsed.warnings).toEqual([]);
   });
@@ -124,7 +137,7 @@ describe("a later header that restates the set already in force", () => {
   it("still parses both messages' records in full", () => {
     const msg = parseAstmRecords(raw);
     expect(msg.records.map((r) => r.fields.length)).toEqual([5, 4, 3, 5, 4, 9, 3]);
-    expect(results(msg)[0]?.value).toBe("99.9");
+    expect(messages(msg)[1]?.results[0]?.value).toBe("99.9");
   });
 
   it("is accepted by strict mode", () => {
@@ -137,7 +150,7 @@ describe("a later header that cannot declare a usable set", () => {
     const raw = "H|\\^&|||sender\rL|1|N\rH|\rR|1|^^^688|99.9|mmol/L||H||F\rL|1|N\r";
     expect(codes(raw)).toEqual([WARNING_CODES.ASTM_RECORD_UNREADABLE_REDECLARATION]);
     // Records after it are still read with the previous set, so nothing is lost.
-    expect(results(parseAstmRecords(raw))[0]?.value).toBe("99.9");
+    expect(resultsOfMessage(raw, 1)[0]?.value).toBe("99.9");
   });
 
   it("keeps the set in force when the field separator also names another role", () => {
@@ -173,7 +186,7 @@ describe("a redeclaration with no intervening terminator", () => {
     // guessing that the header is 'not really' a header would lose the records after it.
     const raw = "H|\\^&|||sender\rP|1||LAB-1\rH*~:#***s2\rR*1*::688*99.9*mmol/L**H**F\rL*1*N\r";
     const msg = parseAstmRecords(raw);
-    expect(results(msg)[0]?.value).toBe("99.9");
+    expect(messages(msg)[1]?.results[0]?.value).toBe("99.9");
     expect(msg.warnings.map((w) => w.code)).toContain(
       WARNING_CODES.ASTM_RECORD_DELIMITERS_REDECLARED,
     );

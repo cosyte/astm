@@ -135,6 +135,36 @@ produce a confident wrong value: an embedded escaped delimiter reads as one comp
 record type is surfaced (never dropped), and a missing unit is flagged (never defaulted). A
 `{ strict: true }` mode escalates every tolerated deviation to a thrown error.
 
+### Several messages in one stream
+
+A message runs from its `H` header to its `L` terminator, so a stream can carry several. `messages()`
+splits a parsed stream into them, and each entry carries only its own records — so a patient is only
+ever paired with the results that message actually carried:
+
+```ts
+import { parseAstmRecords, messages } from "@cosyte/astm";
+
+for (const m of messages(parseAstmRecords(raw))) {
+  m.patient?.practiceAssignedId; // the P for THIS message
+  m.results; // the Rs for THIS message
+  m.delimiters; // the set THIS message's records were read with
+}
+```
+
+The flat accessors above (`patient`, `results`, `orders`, `comments`, `query`) read the whole stream,
+so they **throw** `AstmAmbiguousStreamError` on a stream they cannot answer for rather than answering
+across patients:
+
+- `ASTM_AMBIGUOUS_MULTI_MESSAGE` from any of the five, when the stream carries more than one message.
+- `ASTM_AMBIGUOUS_MULTI_PATIENT` from `patient()` only, when a **single** message carries more than
+  one `P` record. "The first `P`" is a guess about whose result it is, so it is refused there too.
+
+**Both are breaking**, and the second one reaches single-message callers: a lone message carrying
+several patients used to answer with the first of them. A stream that is one message with at most one
+patient is unchanged, and so is a result-only message with no `P` at all, which still answers
+`undefined`. `commentsFor()` is unchanged on every stream, because the parent record you hand it
+already names the message.
+
 ## Map local codes to LOINC (LIVD, bring-your-own)
 
 An analyzer sends a proprietary local test code in the Universal Test ID; a standard LOINC is mapped
