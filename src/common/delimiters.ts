@@ -73,10 +73,18 @@ export type DelimiterReadResult =
  * Read the four delimiters from a header record's raw text (a single `H`
  * record, its terminator already stripped).
  *
- * Returns `{ ok: false }` when the record cannot declare all four delimiters —
- * it is shorter than `H` + a field separator + a 3-char delimiter definition —
- * which the caller escalates to the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal.
- * This function does not throw; delimiter resolution and the fatal decision are
+ * Returns `undefined` when the record cannot declare all four delimiters — it is
+ * shorter than `H` + a field separator + a 3-char delimiter definition, or the
+ * field separator it names also appears among the other three.
+ *
+ * What the caller does with that depends on **which** header it is. On the first
+ * header it is the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal, because there is no
+ * earlier set to fall back to. On any later header — a stream may carry several
+ * messages, each declaring its own set — the delimiters already in force are kept
+ * and an `ASTM_RECORD_UNREADABLE_REDECLARATION` warning is raised instead; a set is
+ * never guessed and no record is dropped.
+ *
+ * This function does not throw: delimiter resolution and the escalation decision are
  * kept separate so the reader stays pure and testable.
  *
  * @param headerRecord - The raw `H` record text (no trailing CR/LF).

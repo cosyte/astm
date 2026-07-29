@@ -2,8 +2,8 @@
  * The record-layer entry point: {@link parseAstmRecords}.
  *
  * It assumes **already-de-framed** record bytes; {@link parseFramedAstm} composes
- * the E1381/LIS01 framing layer with this one. It reads the four delimiters from the
- * header, tokenizes every record escape-aware, and builds the immutable
+ * the E1381/LIS01 framing layer with this one. It reads the four delimiters from each
+ * `H` record, tokenizes every record escape-aware, and builds the immutable
  * {@link AstmMessage} — lenient by default: vendor quirks become typed warnings, and
  * only three unrecoverable structural conditions are fatal.
  */
@@ -16,6 +16,7 @@ import { recognizeUniversalTestId } from "../common/coding-system.js";
 import {
   ambiguousMessageKind,
   ambiguousValueSplit,
+  delimitersRedeclared,
   nonStandardDelimiters,
   orphanComment,
   partialTimestamp,
@@ -26,6 +27,7 @@ import {
   unknownEscapeSequence,
   unknownRecordType,
   unparseableReferenceRange,
+  unreadableRedeclaration,
   type AstmRecordWarning,
 } from "../common/warnings.js";
 import {
@@ -86,8 +88,18 @@ export class AstmStrictError extends Error {
  *
  * The stream is a sequence of records separated by `CR` (with `LF`/`CRLF`
  * tolerated); the first record must be an `H` header, which declares the
- * delimiters used by the rest. Lenient by default — set `strict` to reject any
- * tolerated deviation.
+ * delimiters. Lenient by default — set `strict` to reject any tolerated deviation.
+ *
+ * **Several messages in one stream.** A message runs `H` … `L`, so a stream may carry
+ * more than one, and each `H` declares the delimiters for the records that follow it.
+ * A later header that declares a **different** set is honored from that header onward
+ * and flagged `ASTM_RECORD_DELIMITERS_REDECLARED`; records already read keep the set
+ * they were read with, so a redeclaration never reinterprets earlier bytes. A header
+ * that merely restates the set in force is a no-op and warns nothing. A later header
+ * that cannot declare a usable set keeps the delimiters already in force and warns
+ * `ASTM_RECORD_UNREADABLE_REDECLARATION` — a set is never guessed, and no record is
+ * dropped. Per-header sets are on each {@link HeaderRecord.delimiters};
+ * {@link AstmMessage.delimiters} is the first header's.
  *
  * @param raw - The de-framed record bytes, as a string or `Uint8Array` (decoded
  *   latin1 so byte values survive 1:1).
@@ -142,9 +154,23 @@ export function parseAstmRecords(
     warnings.push(nonStandardDelimiters({ recordIndex: 0, recordType: "H" }));
   }
 
-  const built: AstmRecord[] = lines.map((line, recordIndex) =>
-    buildRecord(line, recordIndex, delimiters, warnings),
-  );
+  // Delimiters are scoped to a *message*, and a message runs `H` … `L` — so one stream may carry
+  // several messages back to back, each header declaring its own set. The active set is therefore
+  // re-read at every `H` and governs that header and the records that follow it. Reading the whole
+  // stream with the FIRST header's set is what silently merged every field of a redeclared message
+  // into one (ASTM-SECOND-HEADER-COLLAPSE): a lost result, with no warning.
+  //
+  // Forward scoping is also the only reading that never reinterprets bytes it has already consumed:
+  // records before a redeclaration keep the set they were read with, so the two sets never disagree
+  // about the same bytes. "Last header wins retroactively" would require re-reading records already
+  // delivered; "first header wins forever" is the collapse itself.
+  let active = delimiters;
+  const built: AstmRecord[] = lines.map((line, recordIndex) => {
+    if (recordIndex > 0 && line.charAt(0) === "H") {
+      active = adoptRedeclaredDelimiters(line, active, recordIndex, warnings);
+    }
+    return buildRecord(line, recordIndex, active, warnings);
+  });
   // Second pass: attach each comment to its immediately-preceding H/P/O/R parent (an orphan → root).
   const records = attachComments(built, warnings);
 
@@ -199,6 +225,47 @@ function resolveProfile(options: AstmParseOptions): AstmProfile | undefined {
   if (options.profile === null) return undefined;
   if (options.profile !== undefined) return options.profile;
   return getDefaultAstmProfile();
+}
+
+/**
+ * Resolve the delimiter set a **subsequent** `H` record puts into force.
+ *
+ * Three outcomes, all fail-safe — a set is never guessed and no record is ever dropped:
+ *
+ * - **Unusable declaration** (too short, or the field separator also names one of the other three):
+ *   keep the set already in force and warn. The identical condition on the *first* header is the
+ *   `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal, because there is no earlier set to fall back to.
+ * - **Same set restated**: a no-op. A stream carrying several messages in one delimiter set is
+ *   ordinary, so this warns nothing — warning would be pure noise on a conformant shape.
+ * - **Different set**: adopt it, and warn. This is the only case where a reader still using the old
+ *   set would start merging fields, so it is the only case worth a signal.
+ */
+function adoptRedeclaredDelimiters(
+  line: string,
+  active: Delimiters,
+  recordIndex: number,
+  warnings: AstmRecordWarning[],
+): Delimiters {
+  const position = { recordIndex, recordType: "H" };
+  const declared = readDelimiters(line);
+  if (declared === undefined) {
+    warnings.push(unreadableRedeclaration(position));
+    return active;
+  }
+  if (sameDelimiters(declared, active)) return active;
+  warnings.push(delimitersRedeclared(position));
+  if (isNonStandard(declared)) warnings.push(nonStandardDelimiters(position));
+  return declared;
+}
+
+/** Whether two delimiter sets agree on all four roles. */
+function sameDelimiters(a: Delimiters, b: Delimiters): boolean {
+  return (
+    a.field === b.field &&
+    a.repeat === b.repeat &&
+    a.component === b.component &&
+    a.escape === b.escape
+  );
 }
 
 /** Decode record bytes as latin1 so every byte survives to the string 1:1 (ASTM is byte-oriented). */

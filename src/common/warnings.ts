@@ -79,6 +79,28 @@ export const WARNING_CODES = {
    */
   ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND: "ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND",
   /**
+   * A later `H` (header) record declared a **different** delimiter set from the one in force, and the
+   * parser **followed it**: that header and every record after it are read with the newly-declared
+   * delimiters, until the next `H`. Records already read keep the set that was in force when they were
+   * read — a redeclaration never reinterprets bytes that have already been consumed.
+   *
+   * A stream carrying several messages back to back is ordinary, and a header that simply **repeats**
+   * the delimiters already in force is a no-op that warns nothing. This code fires only when the set
+   * actually changes, because that is the point at which a reader still using the old set would begin
+   * merging fields together.
+   */
+  ASTM_RECORD_DELIMITERS_REDECLARED: "ASTM_RECORD_DELIMITERS_REDECLARED",
+  /**
+   * A later `H` (header) record could not declare a usable delimiter set — it was too short, or the
+   * field separator it named also appeared among the other three, leaving the four roles
+   * indistinguishable. The delimiters **already in force are kept** and every record is still surfaced;
+   * a set is never guessed and no record is dropped.
+   *
+   * The same condition on the *first* header is unrecoverable and remains the
+   * `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal — there is no earlier set to fall back to.
+   */
+  ASTM_RECORD_UNREADABLE_REDECLARATION: "ASTM_RECORD_UNREADABLE_REDECLARATION",
+  /**
    * The downgraded form an active vendor {@link AstmProfile} produces from a deviation it *expects*
    * (see `src/profiles/`). The original warning is **never dropped**: its code moves to
    * {@link AstmRecordWarning.toleratedCode}, the warning is re-badged `PROFILE_QUIRK_APPLIED` with
@@ -165,6 +187,47 @@ export function nonStandardDelimiters(position: AstmPosition): AstmRecordWarning
   return {
     code: WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
     message: "Header declared non-canonical delimiters — read from the header and honored.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_DELIMITERS_REDECLARED` warning. Emitted when a later `H`
+ * record declares a delimiter set different from the one in force; the new set is
+ * honored from that header onward. Positional context only — never the delimiters
+ * themselves.
+ *
+ * @example
+ * ```ts
+ * import { delimitersRedeclared } from "@cosyte/astm";
+ * delimitersRedeclared({ recordIndex: 5, recordType: "H" });
+ * ```
+ */
+export function delimitersRedeclared(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_DELIMITERS_REDECLARED,
+    message:
+      "A later header declared different delimiters — honored from that header onward; earlier records keep the set they were read with.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_UNREADABLE_REDECLARATION` warning. Emitted when a later
+ * `H` record cannot declare a usable delimiter set; the set already in force is
+ * kept and every record is still surfaced.
+ *
+ * @example
+ * ```ts
+ * import { unreadableRedeclaration } from "@cosyte/astm";
+ * unreadableRedeclaration({ recordIndex: 2, recordType: "H" });
+ * ```
+ */
+export function unreadableRedeclaration(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_UNREADABLE_REDECLARATION,
+    message:
+      "A later header could not declare a usable delimiter set — the delimiters already in force were kept.",
     position,
   };
 }

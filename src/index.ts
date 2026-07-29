@@ -135,6 +135,8 @@ export {
   partialTimestamp,
   uninterpretedQueryStatus,
   ambiguousMessageKind,
+  delimitersRedeclared,
+  unreadableRedeclaration,
   profileQuirkApplied,
 } from "./common/warnings.js";
 export type { WarningCode, AstmRecordWarning } from "./common/warnings.js";

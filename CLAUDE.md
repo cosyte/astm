@@ -192,7 +192,22 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
   only, no live I/O.)
 - **Phase 4 shipped (ASTM-4): query + host-query flow + `M`/`S` verbatim — the record-content layer is
   now feature-complete.** `parseAstmRecords` reads
-  `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and the escape codec (P1); the `R`
+  `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and the escape codec (P1).
+  **▶ DELIMITER SCOPING CHANGED 2026-07-29 (`ASTM-SECOND-HEADER-COLLAPSE`) — read `CHANGELOG.md`
+  `[Unreleased]` before touching `parse.ts`.** Delimiters were read **only from the first header** and
+  applied to the whole stream, so a second `H` that redeclared them made **every following record
+  collapse into one field, with zero warnings**, accepted by `strict` — shipped `0.0.1`–`0.0.3`. This
+  is `ASTM-MIXED-DELIMITER-EMIT` one layer over, on the **parse** side, which is why #21 did not
+  narrow it. A message runs `H` … `L`, so the active set is now re-read at **every** `H` and scoped
+  **forward** (records already read keep the set they were read with — the only reading that never
+  reinterprets consumed bytes). A changed set warns `ASTM_RECORD_DELIMITERS_REDECLARED`; a restated
+  set is a silent no-op; an unusable later declaration keeps the set in force and warns
+  `ASTM_RECORD_UNREADABLE_REDECLARATION` (the same condition on the **first** header is still the
+  `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal, pinned by a test). **The forward-scoping rule is a
+  reasoned choice, NOT a citation** — LIS02-A2 §5.4/§6.2 are withheld from CLSI's free sample and the
+  normative text on redeclaration was not reachable; do not add a clause number for it. The OSS corpus
+  cannot ground it either (python-astm and senaite both hardcode `|\^&` and never read the
+  declaration). The `R`
   record carries modeled, fail-safe result semantics alongside the raw fields (P2) — `flag` (HL7 Table
   0078, `undefined` never coerced to normal), `status` (a `C`/`X` never reads as active-final; absent →
   `unspecified`), and `range` (bounds verbatim). P3 adds full patient identity (the practice/lab/third
@@ -208,6 +223,31 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
   clinical fields. `src/common/` holds the value layer, `src/records/` the record layer. Deferred to
   later phases: the E1381 **framing** layer (P5+) and serialize/build (P7). The full sequence is in the
   meta-repo roadmap `operations/roadmaps/astm.md`.
+
+## Known defects live on `main` (recorded here so they survive independently of any backlog)
+
+1. **🩺 `patient()` and `results()` are scoped to the STREAM, not to a message — a wrong-patient path.**
+   On a stream carrying several messages, `patient(msg)` returns the **first** `P` record in the whole
+   stream while `results(msg)` returns **every** `R` record in it, so pairing the two — which is
+   exactly what `README.md`'s north-star one-liner does — can attribute one patient's results to
+   another. Reproduces with an **ordinary same-delimiter two-message stream**; no redeclaration
+   needed, and **zero warnings**. Nothing is mis-_read_ (every `P` and `R` is correct in
+   `msg.records`), and there is no message- or patient-scoped grouping API. Found by the
+   `conformance-refuter` while grading `ASTM-SECOND-HEADER-COLLAPSE` 2026-07-29 and deliberately
+   **not** folded into that slice: it is `PRE-EXISTING` and needs its own design (a grouping API is a
+   public-surface addition, not a bug fix). A consumer caveat is in `docs-content/quickstart.md`;
+   **this is the highest-severity open item in this repo and should come before further parser work.**
+2. **A delimiter declaration longer than 3 chars silently loses its extra bytes on emit.** What a
+   fourth declaration byte even means is unresolved by the same withheld LIS02-A2 clauses (§5.4/§6.2).
+   Emit-side.
+3. **`serializeAstmRecords(msg, d)` does not validate a caller-supplied `d`.** A malformed set (a
+   multi-char delimiter, an empty escape, a `field`/`escape` collision) emits a stream this library's
+   own parser then rejects or mis-reads, with **no typed error**; an empty escape garbles values
+   before that. Emit-side.
+
+Items 2 and 3 were recorded with `ASTM-MIXED-DELIMITER-EMIT` (#21) and left again by
+`ASTM-SECOND-HEADER-COLLAPSE` (#22) — both are **emit**-side and neither falls inside a parse-side
+slice naturally.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

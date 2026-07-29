@@ -27,6 +27,24 @@ first?.value; // => "28.6"
 escapes before splitting a value, and keeps the practice- and laboratory-assigned patient IDs
 distinct. Each warning carries a **stable code** you can branch on:
 
+### More than one message in a stream
+
+A message runs from its `H` header to its `L` terminator, so a stream can carry several back to
+back — and each header declares the delimiters for the records that follow it. If a later header
+declares a **different** set, those records are read with the new set and you get an
+`ASTM_RECORD_DELIMITERS_REDECLARED` warning pointing at that header; records already read keep the
+set they were read with. A header that simply restates the delimiters already in use is normal and
+warns nothing. If a later header's declaration is unusable, the delimiters already in force are kept
+and you get `ASTM_RECORD_UNREADABLE_REDECLARATION` — no set is ever guessed and no record is dropped.
+
+Read each header's own set from `header.delimiters`; `msg.delimiters` is the first header's.
+
+> **Accessors are scoped to the whole stream, not to a message.** On a stream carrying several
+> messages, `patient(msg)` returns the **first** `P` record in the stream and `results(msg)` returns
+> **every** `R` record in it, so pairing the two across a multi-message stream can attribute one
+> patient's results to another. Walk `msg.records` in order and split on the `H` records when a stream
+> may carry more than one message.
+
 ```ts
 import { parseAstmRecords, WARNING_CODES } from "@cosyte/astm";
 
