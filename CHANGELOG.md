@@ -60,6 +60,90 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 
 ### Fixed
 
+- **`parseAstmRecords` now reads the delimiters from every `H` record, not only the first, so a
+  stream carrying more than one message no longer silently loses fields** (`ASTM-SECOND-HEADER-COLLAPSE`;
+  shipped `0.0.1` through `0.0.3`, `PRE-EXISTING`, not a regression). This is the same silent field
+  collapse as `ASTM-MIXED-DELIMITER-EMIT` one layer over, on the **parse** side, which is why #21 did
+  not narrow it: #21 fixed what we write, and a stream arriving with two headers is mis-read on the
+  way **in**, before any of that runs.
+
+  A message runs `H` … `L`, so one stream may carry several back to back and each header declares the
+  delimiters for the records that follow it. Delimiters were read only from `records[0]` and applied
+  to the whole stream, so every record after a redeclaring header **collapsed into a single field,
+  with zero warnings**, and `{ strict: true }` accepted it. Measured by execution on `dc09a3a` before
+  the fix: in a two-message stream whose second header declared `*~:#`, the second result — value
+  `99.9`, units `mmol/L`, abnormal flag `H`, status `F` — came back with `value`, `units`, `flag` and
+  `resultStatus` **all absent** and `status` reading `unspecified`. On the analyzer↔LIS path that is a
+  lost result with no signal to the caller.
+
+  **The decision, and its grounding.** Delimiters are now scoped **forward from each header**: a later
+  `H` governs itself and the records after it, until the next `H`. The asymmetry with the emit bug is
+  real — on emit the library was corrupting its own output, so re-encoding was unambiguously safe,
+  whereas on parse the bytes are the sender's and a second `H` is legal. What settles it is that
+  forward scoping is the **only** reading that never reinterprets bytes already consumed: records
+  before a redeclaration keep the set they were read with, so the two sets never disagree about the
+  same bytes. "First header wins forever" is the collapse itself; "last header wins retroactively"
+  would require re-reading records already delivered.
+
+  **Evidence, labelled.** The message unit is `H` … `L` — _verified primary_: LIS02-A2 §2 makes the
+  message a **bounded unit**, one record type opening it and another closing it, which is why a second
+  `H` begins a new message rather than corrupting the current one. Read directly in CLSI's own free
+  sample of the document. (Stated in our own words on purpose. We may read and cite the standard but
+  never reproduce its prose, and `CHANGELOG.md` ships inside the npm tarball — an earlier draft of
+  this entry quoted the clause verbatim and was caught in review.) That a header may follow a
+  terminator to start another message — _verified secondary_, two independent restatements of the
+  terminator clause (Roche cobas b 121 ASTM interface description; Genaux, _Introduction to ASTM
+  Message Formats_, 2024).
+  That a header's delimiters govern "the message" — _verified secondary_ (Genaux; Stratford Software
+  interface spec), which leans per-message but **does not address a redeclaration that changes the
+  set**. **We could not reach the normative text on that specific question**: LIS02-A2 §5.4
+  (Delimiters) and §6.2 (Delimiter Definition) are precisely the clauses withheld from the free
+  sample, and E1394-97 and LIS01-A2 stayed paywalled. So the forward-scoping rule is recorded as a
+  **reasoned choice, not a citation** — no clause number is claimed for it, and we do not assert the
+  standard is silent either, because that would need the same evidence.
+
+  The OSS reference corpus cannot ground this one and is reported as a negative result rather than
+  dressed up: `kxepal/python-astm` and `senaite.astm` both hardcode `|\^&` as module constants, never
+  read the header's declaration at all, and neither tracks `H` … `L` boundaries — so differential
+  testing against them is uninformative here.
+
+  **Behaviour.** A redeclaration that **changes** the set is honored and raises
+  `ASTM_RECORD_DELIMITERS_REDECLARED`. A header that merely **restates** the set in force is a no-op
+  and raises nothing — several messages in one delimiter set is an ordinary shape, and warning on it
+  would be noise. A later header whose declaration is **unusable** (too short, or a field separator
+  that also names another role) keeps the set already in force and raises
+  `ASTM_RECORD_UNREADABLE_REDECLARATION`; a set is never guessed and no record is dropped. The same
+  condition on the _first_ header remains the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal — there is no
+  earlier set to fall back to, and that is pinned by a test so it cannot be softened by accident.
+
+  **Surface.** Two new stable warning codes (`ASTM_RECORD_DELIMITERS_REDECLARED`,
+  `ASTM_RECORD_UNREADABLE_REDECLARATION`) with `delimitersRedeclared` / `unreadableRedeclaration`
+  factories, both **safety-critical** by the profile gate's default-deny rule, so no profile can quiet
+  them (asserted). `HeaderRecord.delimiters` now reports the set **that** header put into force rather
+  than always the first header's; `AstmMessage.delimiters` is unchanged and stays the first header's.
+  The sites that _stated_ the old single-header rule were swept — the `parseAstmRecords` JSDoc, the
+  module header, `HeaderRecord`/`AstmMessage` type docs, `readDelimiters` (whose doc comment said the
+  caller escalates an unusable declaration to the fatal, true only of the first header now), and
+  `docs-content/quickstart.md` — because on #21 the refuter's first pass was refused for exactly the
+  opposite failure: correct code shipped behind documentation that steered consumers the wrong way.
+  The `readDelimiters` comment also said it returns `{ ok: false }` when it has always returned
+  `undefined`; that was already wrong before this slice and is corrected in the same paragraph.
+
+  **Deliberately left for their own slices** (both recorded with this item, both **emit**-side, and
+  both turning on questions this one does not answer): a delimiter declaration **longer than three
+  characters** still loses its extra bytes on emit — what a fourth declaration byte even means is
+  unresolved by the same withheld clauses — and `serializeAstmRecords(msg, d)` still does **not
+  validate a caller-supplied `d`**, so a malformed set emits a stream this library's own parser then
+  rejects or mis-reads, with no typed error. Neither is touched here; folding an emit-side change into
+  a parse-side fix would have widened the diff without answering either question.
+
+  **Strict-mode boundary, disclosed as a sample and not a census.** Measured base-build vs head-build
+  over 216,699 synthetic streams (the 11 repo fixtures, 464 single-header streams, and multi-header
+  pairs across a sampled sweep of delimiter sets): **394 moved accepted→rejected, 0 the other way.**
+  All 11 fixtures and all 464 single-header streams were **unchanged**, in strict mode and in their
+  lenient warning lists — which matches the code path, since the new warnings can only be raised at an
+  `H` record that is not `records[0]`.
+
 - **`serializeAstmRecords` no longer emits a mixed-delimiter stream that silently loses fields on the
   next read** (`ASTM-MIXED-DELIMITER-EMIT`; shipped since `0.0.1`, `PRE-EXISTING`, not a regression).
   Emit normalized the header to the canonical `H|\^&` set but re-emitted `M` (manufacturer) and `S`
@@ -107,7 +191,8 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   Three `PRE-EXISTING` neighbours were found while grading this and are deliberately **not** fixed
   here, to keep the slice the size of its item: `parseAstmRecords` reads delimiters only from the
   first header, so a **second `H` mid-stream that redeclares them** still yields the same silent
-  field collapse (parse-side, not emit-side — the emitter faithfully reproduces what parse modeled);
+  field collapse (parse-side, not emit-side — the emitter faithfully reproduces what parse modeled)
+  — **since fixed, see the parse-side entry above**;
   a delimiter declaration longer than three characters silently loses its extra bytes on emit; and
   `serializeAstmRecords(msg, d)` does not validate a caller-supplied `d`, so a malformed set (a
   multi-char delimiter, an empty escape, a `field`/`escape` collision) emits a stream this library's

@@ -51,7 +51,16 @@ interface RecordBase {
  */
 export interface HeaderRecord extends RecordBase {
   readonly type: "H";
-  /** The four delimiters resolved from this header. */
+  /**
+   * The four delimiters **this** header put into force — the set its own fields, and every record
+   * after it, were read with.
+   *
+   * A stream may carry several messages (`H` … `L`) and each header declares its own set, so on a
+   * multi-header stream these can differ between headers; {@link AstmMessage.delimiters} is the
+   * first header's. When a later header cannot declare a usable set, the set already in force is
+   * kept and reported here (with an `ASTM_RECORD_UNREADABLE_REDECLARATION` warning) rather than a
+   * guessed one.
+   */
   readonly delimiters: Delimiters;
   /**
    * The header's exact wire text (terminator excluded), kept as **provenance**: the
@@ -429,8 +438,17 @@ export interface AstmMessageClassification {
  * ```
  */
 export interface AstmMessage {
+  /** The **first** header in the stream. A multi-header stream's later headers are in {@link AstmMessage.records}. */
   readonly header: HeaderRecord;
   readonly records: readonly AstmRecord[];
+  /**
+   * The delimiters the **first** header declared.
+   *
+   * A stream may carry several messages (`H` … `L`), and a later header may declare a different set,
+   * which is honored from that header onward. So this is not necessarily the set every record was
+   * read with — each header reports its own on {@link HeaderRecord.delimiters}, and a change is
+   * flagged `ASTM_RECORD_DELIMITERS_REDECLARED`.
+   */
   readonly delimiters: Delimiters;
   /**
    * The host-query classification of this message — whether it is a request (`Q`
