@@ -60,6 +60,95 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 
 ### Fixed
 
+- **Emit no longer writes a stream it cannot read back** (`ASTM-EMIT-RESIDUALS`; both gaps shipped
+  `0.0.1` through `0.0.3`, `PRE-EXISTING`, neither a regression). Two residual emit-side holes, both
+  recorded and deliberately deferred by `ASTM-MIXED-DELIMITER-EMIT` (#21) and again by
+  `ASTM-SECOND-HEADER-COLLAPSE` (#22) because each turned on a question those slices did not answer.
+  Both were reproduced by **executing** the shipped code before anything was changed, and re-verified
+  the same way after; neither was half-fixed by the two earlier slices.
+
+  **1. A delimiter declaration longer than three characters lost its extra bytes.** Three characters
+  of a header's declaration carry a role — repeat, component, escape, by position — and the reader
+  ignores any beyond them rather than refusing the stream. Emit regenerated the declaration from the
+  three roles alone, so a header that arrived as `H|\^&#` went back out as `H|\^&`, with no warning
+  and no way for a caller to notice. Measured before the fix: `serializeAstmRecords(msg, msg.delimiters)`
+  on `H|\^&#|||SENDER^SYS|||||||P|1` returned a header short of its `#` and a round-trip that was not
+  byte-exact.
+
+  The surplus is now carried through from the modeled declaration field. Of the three available
+  dispositions — preserve, refuse, report — **preserve** was chosen. Refusing would reject a stream
+  the parser reads without complaint, on a published package, over bytes it has already decided are
+  inert. Reporting is not available at all: emit returns a bare string and has no warning channel, so
+  a warning could only be ignored while the truncated stream still shipped, which is the same reason
+  #21 chose re-encoding. Preserving costs nothing and is the only one of the three that makes the
+  round-trip byte-exact. What the surplus _means_ remains unresolved — the clauses that would settle
+  it are not in the freely published material and were not read, so no clause is cited here in either
+  direction — but carrying bytes through unread is a strictly smaller claim than deleting them, and it
+  stays coherent with a reader that now scopes delimiters forward from every header: the re-read
+  declaration resolves to the same four roles either way. This lands on the **default** canonical
+  path too, not only when a set is passed explicitly — normalizing a message replaces the four
+  delimiter roles, and the surplus holds none of them — so a caller who was relying on emit to strip
+  those bytes will find it no longer does.
+
+  The surplus is dropped in exactly the two cases where it could not be read back as surplus — the
+  header is being transcoded into a different delimiter set, so the surplus belonged to the
+  declaration being replaced; or the surplus is not inert on the wire, meaning it contains the field
+  separator or **any control character**. The control rule is deliberately wider than the record
+  layer alone needs. A `CR`/`LF` would end the record and shift every data field along, but this text
+  also reaches the **frame** layer through `serializeFramedAstm`, where `STX`, `ETX` and `ETB` are
+  structural: a surplus carrying one of those truncated the frame body, and re-reading the framed
+  stream then dropped the **entire header record** — its sender, its receiver, its control ID —
+  behind nothing but an `ASTM_FRAME_BAD_CHECKSUM`. Rather than enumerate the bytes each layer happens
+  to reserve, and re-derive that list whenever a layer is added, no control character is carried at
+  all. Two things that rule does **not** do, said here rather than left to be found: it is keyed on
+  the character while the frame layer's structure is keyed on the low byte (`charCodeAt(i) & 0xff`),
+  so a non-control character truncating onto `STX`/`ETX`/`ETB` still breaks framing — loudly, with a
+  typed error or an unknown-record-type warning, never silently; and refusing a control character in
+  a _surplus_ does not mean one cannot be a _delimiter role_, since only `CR`/`LF` are refused
+  there. Those are
+  structural losses; dropping inert bytes is not.
+
+  **2. A caller-supplied delimiter set was never validated.** `serializeAstmRecords(msg, d)` and its
+  three siblings took `d` on trust. Measured before the fix, across six malformed sets: a
+  multi-character field separator, an empty escape character, a `field`/`escape` collision and a `CR`
+  separator each emitted a stream `parseAstmRecords` then **threw** on; a `repeat`/`component`
+  collision and a `component`/`escape` collision each emitted one it **re-read with a different field
+  tree and zero warnings**. An empty escape additionally garbled the values themselves — `28.6` went
+  out as `2E8E.E6`. On the analyzer-to-LIS path a field tree that changes under a re-read is a lost
+  result or a lost specimen identifier, and the caller had no signal either way.
+
+  `d` is now checked before any bytes are written, on all four public emit entry points
+  (`serializeAstmRecords`, `serializeAstmRecord`, `serializeField`, `encodeComponent`): each separator
+  exactly one character, none a `CR`/`LF`, no two the same character. A failing set is an
+  `AstmSerializeError` with the new code `ASTM_EMIT_INVALID_DELIMITERS` — including a set that omits a
+  member or holds a non-string, which the types forbid but a JavaScript caller can still pass, and
+  which previously surfaced as a raw `TypeError` from inside the serializer.
+
+  **The three rules are necessary, not sufficient, and the docs say so rather than implying a
+  guarantee.** A set can satisfy all three and still emit a stream that reads back wrong: a separator
+  equal to a record's type letter (`field` of `R`) makes the type letter itself get escaped away, and
+  the record re-reads as unsupported with its result lost. That corruption is unchanged by this slice
+  — it reproduces byte-identically before it — and is recorded as a known defect rather than fixed
+  here, because the rule that would catch it has to be derived rather than guessed. **A typed error rather than a
+  warning, and the house rule from #21 is why**: with no warning channel on a `string` return, refusing
+  at the call is the only disposition that reaches the caller at all. The counter-argument was weighed
+  and is real — `@cosyte/astm` is published, and refusing rejects input previously accepted. It is
+  accepted deliberately, because the input turned away is exactly the input that was being corrupted,
+  and because the three rules are not stylistic: each names a case where the emitted bytes provably do
+  not read back as the records that produced them. The narrowing has one consequence worth stating
+  plainly: the **reader** tolerates a header declaring, say, the same character for `repeat` and
+  `component`, so `serializeAstmRecords(msg, msg.delimiters)` on such a message now throws where it
+  previously returned bytes that read back wrong. The canonical default is untouched, and so is every
+  well-formed set. The error names the role at fault and never echoes the offending characters, since
+  a value failing the one-character rule can be arbitrary caller text and the message reaches logs.
+
+  The invariant both halves are held against is the one #21 and #22 established: **a round-trip never
+  silently loses a field, in either direction.** The property is asserted by round-tripping through the
+  real parser, not by inspecting the serializer.
+
+  `AstmSerializeError.code` widens from a single string literal to a two-member union, exported as the
+  new `AstmSerializeErrorCode` type. `ASTM_EMIT_UNENCODABLE_VALUE` is unchanged.
+
 - **`parseAstmRecords` now reads the delimiters from every `H` record, not only the first, so a
   stream carrying more than one message no longer silently loses fields** (`ASTM-SECOND-HEADER-COLLAPSE`;
   shipped `0.0.1` through `0.0.3`, `PRE-EXISTING`, not a regression). This is the same silent field

@@ -32,7 +32,9 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 - **Emit.** `serializeAstmRecords` and `buildAstmMessage` emit canonical `H|\^&` records with embedded
   delimiters re-escaped and nothing clinical fabricated; `composeAstmFrames` and `serializeFramedAstm`
   frame them with computed checksums, frame numbers, and the 240-byte split. Both layers round-trip by
-  construction.
+  construction, and a delimiter set that fails any of the three conditions readback requires — one
+  character per separator, no `CR`/`LF`, no two the same — is a typed error rather than bytes written
+  and lost.
 - **Vendor profiles.** `defineAstmProfile()` builds a provenance-backed profile whose tolerances
   downgrade _expected_, non-safety-critical deviations to a `PROFILE_QUIRK_APPLIED` warning without
   ever altering a value, behind a definition-time safety gate that refuses to tolerate any result
