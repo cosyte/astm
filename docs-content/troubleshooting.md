@@ -31,6 +31,30 @@ Only **Tier-3 fatal** conditions (`FATAL_CODES`) throw in lenient mode — these
 cannot recover into a structured result. In `{ strict: true }` mode, any tolerated deviation throws
 too. Catch and inspect the error's code to tell the two apart.
 
+## An accessor threw `AstmAmbiguousStreamError`
+
+The parse succeeded; an accessor refused to answer. `patient()`, `results()`, `orders()`,
+`comments()` and `query()` read the **whole stream**, so they cannot answer for a stream that does
+not determine one answer, and refusing is the point: the alternative is one patient's results
+attributed to another. Two codes:
+
+- **`ASTM_AMBIGUOUS_MULTI_MESSAGE`** — the stream carries more than one `H` … `L` message. Read each
+  message's own records instead:
+
+  ```ts
+  for (const m of messages(msg)) {
+    m.patient;
+    m.results;
+  }
+  ```
+
+- **`ASTM_AMBIGUOUS_MULTI_PATIENT`** — from `patient()` only: one message carries several `P`
+  records, so "the patient" is not determined. Read `messages(msg)[n].patients` for all of them.
+
+The error carries `code`, a value-free `position` pointing at where the ambiguity became visible, and
+`messageCount` / `patientCount`. It never carries an identifier or a value, so it is safe to log.
+`commentsFor()` never throws this: the parent record you hand it already names the message.
+
 ## Warning messages and logs
 
 Warning `message` fields are safe to log — they **never contain PHI**. Never log the raw payload

@@ -142,11 +142,15 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   There is no version of this where the old behaviour is safe to keep, and no warning strong
   enough to substitute for refusing to answer, because the wrong answer was already being used.
 
-  **Single-message streams are unaffected** and continue to behave exactly as before, including
-  a message that carries no `P` at all: `patient()` still answers `undefined` for a result-only
-  upload, which is an ordinary shape and not an error. `commentsFor()` is unchanged and works on
-  any stream, single- or multi-message, because the parent record it is handed already names the
-  message.
+  **Which callers are affected, stated exactly.** A stream that is one message carrying at most one
+  `P` is **unchanged**, and so is a result-only message with no `P` at all: `patient()` still answers
+  `undefined` there, which is an ordinary shape and not an error. But `ASTM_AMBIGUOUS_MULTI_PATIENT`
+  **does reach single-message callers** — a lone message carrying several patients used to answer
+  with the first of them and now refuses — so "single-message streams are unaffected" would be false
+  and is not claimed. That second break is the same wrong-patient guess as the first, one level down,
+  and it is disclosed on the README and in the docs for the same reason the first one is.
+  `commentsFor()` is unchanged and works on any stream, single- or multi-message, because the parent
+  record it is handed already names the message.
 
   **Migrating** is mechanical: replace `results(msg)` and `patient(msg)` with a walk over
   `messages(msg)`, reading each message's own `patient` and `results`. Where a caller genuinely

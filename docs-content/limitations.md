@@ -51,6 +51,13 @@ These are **non-goals**, not missing features — naming them so nothing over-tr
 - **No interpretation of `M` / `S` records.** Vendor-defined manufacturer / scientific records
   (QC, calibration, maintenance) are surfaced **verbatim** on `record.rawLine` and never parsed into
   clinical fields — a QC value must not read as a patient result.
+- **No within-message patient scoping.** A message carrying **several** `P` records is not resolved
+  into per-patient groups: `messages(msg)[n].patient` is `undefined` there and `patients` carries all
+  of them, and `patient()` refuses rather than answering with the first. Deciding which `P` a given
+  `R` files against would mean asserting a record hierarchy this project cannot ground — the clauses
+  that define it are not in the freely available text — and guessing it is the wrong-patient failure
+  by another route. Messages carrying several patients are real, chiefly on the download direction,
+  so treat this as a boundary to handle rather than a case that will not arise.
 - **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
   does **not** decide whether a value is "critical" or act on a correction/cancel.
 - **No proof that an arbitrary delimiter set round-trips.** Emit checks the three conditions readback

@@ -59,7 +59,10 @@ that part is a reasoned choice rather than a citation. Within-message patient sc
 unmodeled because the clauses that would ground it are paywalled; multi-patient messages are real, so
 that is a deferral with a known shape rather than a claim the case does not arise.
 
-Single-message streams are unaffected and behave exactly as before, including a message carrying no
-`P` at all: `patient()` still answers `undefined` for a result-only upload, which is an ordinary
-shape and not an error. `commentsFor()` is unchanged and works on any stream, because the parent
-record it is handed already names the message.
+Which callers are affected, stated exactly: a stream that is one message carrying at most one `P` is
+unchanged, and so is a result-only message with no `P` at all, where `patient()` still answers
+`undefined` because that is an ordinary shape and not an error. But `ASTM_AMBIGUOUS_MULTI_PATIENT`
+does reach single-message callers -- a lone message carrying several patients used to answer with the
+first of them and now refuses -- so "single-message streams are unaffected" would be false and is not
+claimed here. `commentsFor()` is unchanged and works on any stream, because the parent record it is
+handed already names the message.

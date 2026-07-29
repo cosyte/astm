@@ -65,9 +65,11 @@ stream it yields exactly one entry.
 > `orders()`, `comments()`, and `query()` read the whole stream, so on a multi-message stream they
 > throw `AstmAmbiguousStreamError` (`ASTM_AMBIGUOUS_MULTI_MESSAGE`) instead of answering across
 > patients. `patient()` also throws (`ASTM_AMBIGUOUS_MULTI_PATIENT`) when a single message carries
-> more than one `P`, because "the first `P`" is a guess about whose result it is. Single-message
-> streams are unaffected. `commentsFor()` works on any stream: the parent record you hand it already
-> names the message.
+> more than one `P`, because "the first `P`" is a guess about whose result it is. **That second one
+> reaches single-message callers**: a lone message carrying several patients used to answer with the
+> first of them, and now refuses. A stream that is one message with at most one patient is unchanged,
+> as is a result-only message with no `P`, which still answers `undefined`. `commentsFor()` works on
+> any stream: the parent record you hand it already names the message.
 
 ```ts
 import { parseAstmRecords, WARNING_CODES } from "@cosyte/astm";

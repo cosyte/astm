@@ -177,7 +177,13 @@ export interface AstmStreamMessage {
   readonly orders: readonly OrderRecord[];
   /** Every `C` (comment) record in this message, in wire order. */
   readonly comments: readonly CommentRecord[];
-  /** Every `Q` (request-information) record in this message, in wire order. */
+  /**
+   * Every `Q` (request-information) record in this message, in wire order.
+   *
+   * For this message's host-query classification, call `classifyMessage(m.records)`. The
+   * `classification` on the parsed model is folded over the **whole stream**, so it is not
+   * per-message and is not mirrored here; deriving it from a message's own records is.
+   */
   readonly queries: readonly QueryRecord[];
 }
 
