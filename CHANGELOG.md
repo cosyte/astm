@@ -85,11 +85,23 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   it are not in the freely published material and were not read, so no clause is cited here in either
   direction — but carrying bytes through unread is a strictly smaller claim than deleting them, and it
   stays coherent with a reader that now scopes delimiters forward from every header: the re-read
-  declaration resolves to the same four roles either way. The surplus is dropped in exactly the two
-  cases where it could not be read back as surplus — the header is being transcoded into a different
-  delimiter set, so the surplus belonged to the declaration being replaced; or the surplus contains
-  the field separator or a record terminator, which would end the declaration field or the record
-  early and shift every data field along. Those are structural losses; dropping inert bytes is not.
+  declaration resolves to the same four roles either way. This lands on the **default** canonical
+  path too, not only when a set is passed explicitly — normalizing a message replaces the four
+  delimiter roles, and the surplus holds none of them — so a caller who was relying on emit to strip
+  those bytes will find it no longer does.
+
+  The surplus is dropped in exactly the two cases where it could not be read back as surplus — the
+  header is being transcoded into a different delimiter set, so the surplus belonged to the
+  declaration being replaced; or the surplus is not inert on the wire, meaning it contains the field
+  separator or **any control character**. The control rule is deliberately wider than the record
+  layer alone needs. A `CR`/`LF` would end the record and shift every data field along, but this text
+  also reaches the **frame** layer through `serializeFramedAstm`, where `STX`, `ETX` and `ETB` are
+  structural: a surplus carrying one of those truncated the frame body, and re-reading the framed
+  stream then dropped the **entire header record** — its sender, its receiver, its control ID —
+  behind nothing but an `ASTM_FRAME_BAD_CHECKSUM`. Rather than enumerate the bytes each layer happens
+  to reserve, and re-derive that list whenever a layer is added, no control character is carried at
+  all; none of them can be a delimiter role either, so the rule costs nothing real. Those are
+  structural losses; dropping inert bytes is not.
 
   **2. A caller-supplied delimiter set was never validated.** `serializeAstmRecords(msg, d)` and its
   three siblings took `d` on trust. Measured before the fix, across six malformed sets: a
@@ -103,7 +115,16 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   `d` is now checked before any bytes are written, on all four public emit entry points
   (`serializeAstmRecords`, `serializeAstmRecord`, `serializeField`, `encodeComponent`): each separator
   exactly one character, none a `CR`/`LF`, no two the same character. A failing set is an
-  `AstmSerializeError` with the new code `ASTM_EMIT_INVALID_DELIMITERS`. **A typed error rather than a
+  `AstmSerializeError` with the new code `ASTM_EMIT_INVALID_DELIMITERS` — including a set that omits a
+  member or holds a non-string, which the types forbid but a JavaScript caller can still pass, and
+  which previously surfaced as a raw `TypeError` from inside the serializer.
+
+  **The three rules are necessary, not sufficient, and the docs say so rather than implying a
+  guarantee.** A set can satisfy all three and still emit a stream that reads back wrong: a separator
+  equal to a record's type letter (`field` of `R`) makes the type letter itself get escaped away, and
+  the record re-reads as unsupported with its result lost. That corruption is unchanged by this slice
+  — it reproduces byte-identically before it — and is recorded as a known defect rather than fixed
+  here, because the rule that would catch it has to be derived rather than guessed. **A typed error rather than a
   warning, and the house rule from #21 is why**: with no warning channel on a `string` return, refusing
   at the call is the only disposition that reaches the caller at all. The counter-argument was weighed
   and is real — `@cosyte/astm` is published, and refusing rejects input previously accepted. It is

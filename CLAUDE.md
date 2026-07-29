@@ -256,6 +256,25 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    Whether the reader should warn (and under which code) is the open question; it is **parse**-side,
    `PRE-EXISTING`, and was deliberately not folded into the emit slice that surfaced it.
    Found while grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
+3. **A delimiter that collides with a record's type letter corrupts the record, and the emit-side
+   delimiter check does not catch it.** Emitting with `field: "R"` escapes the `R` record's own type
+   letter away (it is just another leaf to `encodeLeaf`), so the line goes out as `&F&R1R…` and
+   re-reads as an **unsupported** record — one result in, zero out of `results()`. It passes all
+   three emit rules (one char each, no `CR`/`LF`, all distinct), which is why those rules are
+   documented as **necessary, not sufficient** rather than as a readback guarantee.
+   `PRE-EXISTING` — reproduces byte-identically on `7253098`, before any of `ASTM-EMIT-RESIDUALS`.
+   Not fixed there deliberately: the rule that would catch it has to be _derived_ (it is not simply
+   "no delimiter may be a type letter" — the real condition is that a record's type letter must
+   survive emit unescaped), and deriving it inside a slice about two other gaps is how a fix outgrows
+   the thing it fixes. Found by the `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
+4. **Any raw control character in a _value_ survives record emit and then breaks the frame layer.**
+   Emit rejects `CR`/`LF` in a component and nothing else, so a value carrying `STX`/`ETX`/`ETB`
+   passes `serializeAstmRecord`, truncates the frame body in `composeAstmFrames`, and makes
+   `parseFramedAstm` drop the whole record behind an `ASTM_FRAME_BAD_CHECKSUM`. A warning does fire
+   and no value is mis-_read_ — a record is refused, not garbled — which is why this is not a
+   stop-the-line. `PRE-EXISTING`; the surplus half of this was closed by `ASTM-EMIT-RESIDUALS`
+   (`declarationResidual` drops any control character), the **value** half was not. Found by the
+   `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
 
 Items 2 and 3 of this list — the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d` — were recorded with

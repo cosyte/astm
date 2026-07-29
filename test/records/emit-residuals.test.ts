@@ -20,9 +20,11 @@ import {
   CANONICAL_DELIMITERS,
   encodeComponent,
   parseAstmRecords,
+  parseFramedAstm,
   serializeAstmRecord,
   serializeAstmRecords,
   serializeField,
+  serializeFramedAstm,
   type AstmMessage,
   type Delimiters,
 } from "../../src/index.js";
@@ -101,6 +103,36 @@ describe("a delimiter declaration longer than three characters", () => {
     const raw = "H|\\^&|||SENDER\rL|1|N\r";
     expect(serializeAstmRecords(parseAstmRecords(raw))).toBe(raw);
   });
+
+  it("keeps the surplus on the default canonical path too, not only when a set is passed", () => {
+    const raw = "H|\\^&#|||SENDER\rL|1|N\r";
+    expect(serializeAstmRecords(parseAstmRecords(raw))).toBe(raw);
+  });
+
+  it("drops a surplus carrying any control character, because the frame layer reserves them", () => {
+    // Only CR/LF are structural to the record layer, but this text also reaches the frame
+    // layer through serializeFramedAstm, where STX/ETX/ETB bound a frame. A surplus
+    // carrying one truncates the frame body and costs the whole header record on re-read.
+    // NUL, STX, ETX, US, ETB, DEL — named by code so no raw control byte enters this file.
+    for (const code of [0x00, 0x02, 0x03, 0x17, 0x1f, 0x7f]) {
+      const control = String.fromCharCode(code);
+      const msg = parseAstmRecords(`H|\\^&${control}|||SENDER\rL|1|N\r`);
+      expect(def(serializeAstmRecords(msg, msg.delimiters).split("\r")[0])).toBe("H|\\^&|||SENDER");
+    }
+  });
+
+  it("survives the frame layer for every printable surplus, and never loses a record", () => {
+    for (let code = 0x20; code < 0x7f; code += 1) {
+      const surplus = String.fromCharCode(code);
+      // The field separator inside the surplus is a separate, already-covered case.
+      if (surplus === "|") continue;
+      const raw = `H|\\^&${surplus}|||LAB\rP|1||PID-1\rR|1|^^^687|28.6|U/L||N||F\rL|1|N\r`;
+      const msg = parseAstmRecords(raw);
+      const { message, frameWarnings } = parseFramedAstm(serializeFramedAstm(msg));
+      expect(message.records.map((r) => r.type).join("")).toBe("HPRL");
+      expect(frameWarnings).toEqual([]);
+    }
+  });
 });
 
 describe("a delimiter set emit cannot reverse", () => {
@@ -140,6 +172,28 @@ describe("a delimiter set emit cannot reverse", () => {
       }
     });
   }
+
+  it("refuses a set with a missing or non-string member as the same typed error", () => {
+    // The types forbid these, but a JavaScript caller can pass them and used to get a
+    // bare TypeError out of the serializer's internals instead of the documented error.
+    const missingEscape = { field: "|", repeat: "\\", component: "^" } as unknown as Delimiters;
+    const nonString = {
+      field: "|",
+      repeat: "\\",
+      component: "^",
+      escape: 38,
+    } as unknown as Delimiters;
+
+    for (const d of [missingEscape, nonString]) {
+      try {
+        serializeAstmRecords(base, d);
+        expect.unreachable("expected a typed emit error");
+      } catch (err) {
+        expect(err).toBeInstanceOf(AstmSerializeError);
+        expect((err as AstmSerializeError).code).toBe("ASTM_EMIT_INVALID_DELIMITERS");
+      }
+    }
+  });
 
   it("never echoes the offending characters into the error message", () => {
     // A caller-supplied separator that fails the one-character rule can be arbitrary

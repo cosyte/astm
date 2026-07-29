@@ -22,9 +22,12 @@ value.**
   thrown error at an integration boundary.
 - **Conservative emit.** The serializer always produces spec-clean output — canonical `H|\^&`
   delimiters, every embedded delimiter re-escaped, every checksum and frame number computed, never
-  faked. Emit returns a plain string and has no warning channel, so anything it cannot write
-  reversibly is a typed error at the call: a value carrying a `CR`/`LF` no escape can encode, and a
-  delimiter set the resulting stream could not be read back with.
+  faked — though a header declaration carrying characters beyond the three that hold a delimiter role
+  keeps them rather than being truncated, since deleting bytes is the larger claim. Emit returns a
+  plain string and has no warning channel, so what it cannot write reversibly is a typed error at the
+  call: a value carrying a `CR`/`LF` no escape can encode, and a delimiter set that fails one of the
+  three conditions readback requires. Those conditions are necessary, not sufficient — see the
+  non-goals below.
 - **Fail-safe on ambiguity.** A missing unit, an unrecognized abnormal flag, a corrected/cancelled
   result, a bad checksum, an unparseable range — each surfaces as a typed warning or error. The
   library refuses to guess a value into existence.
@@ -50,6 +53,11 @@ These are **non-goals**, not missing features — naming them so nothing over-tr
   clinical fields — a QC value must not read as a patient result.
 - **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
   does **not** decide whether a value is "critical" or act on a correction/cancel.
+- **No proof that an arbitrary delimiter set round-trips.** Emit checks the three conditions readback
+  requires and refuses a set that fails one, but passing them is not a guarantee: a separator that
+  collides with a record's type letter still produces a stream that reads back wrong. If you emit
+  against a set of your own choosing rather than the canonical one, verify the round-trip on your own
+  traffic.
 - **No vendor-proprietary quirks absent from public specs.** The profile engine fully supports named
   vendor profiles, but a named per-vendor built-in ships **only** when a public, vendor-attributed
   quirk document grounds it. Inspection of the public reference corpus found the record layer
