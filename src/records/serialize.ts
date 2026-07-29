@@ -12,15 +12,19 @@
  * records — the same components, the same typed accessors, and the canonical delimiter
  * set (a non-canonical source is normalized to `H|\^&` by default).
  *
- * **What is emitted from the raw line rather than from the model.** `H`, `M` and `S` are
- * emitted from their preserved `rawLine`, not from the decoded `AstmField.repeats` tree,
- * so an edit to their modeled `fields` is **not** reflected on emit. `M`/`S` go out
- * byte-for-byte, neither re-escaped nor re-delimited, so a non-canonical `M`/`S` row keeps
- * its original delimiters and does not come back as separate fields. `H`'s data portion is
- * re-tokenized from the raw line and re-emitted against the canonical set, because the
- * escape character appears literally in the delimiter-definition field and defeats the
- * generic escape-aware split. Every other record type is emitted from the decoded tree
- * with each leaf re-escaped.
+ * **One delimiter set for the whole stream.** Every record — including `H`, `M` and `S` —
+ * is emitted against the delimiters being emitted with, and the header declares that same
+ * set. `M` and `S` carry vendor free-form data and are reproduced **byte-for-byte** from
+ * their preserved `rawLine` whenever a reader using those delimiters would recover exactly
+ * the fields they model, which is the case for any stream already in the emit delimiter
+ * set. When it is not — the record arrived under one delimiter set and is being emitted
+ * under another — the record is re-encoded from its decoded tree instead, so its fields
+ * survive as fields rather than collapsing into one on the next read.
+ *
+ * **Emit follows the model.** Every record type, `H` included, is emitted from its decoded
+ * `AstmField.repeats` tree, so an edit to a record's `fields` is reflected on emit. The one
+ * part of a record that is never taken from the model is the header's delimiter
+ * declaration: it always states the delimiters actually in use.
  *
  * **Never break framing.** A component leaf that contains a record terminator
  * (`CR`/`LF`) cannot be escaped by the ASTM escape codec (only the four declared
@@ -31,7 +35,14 @@
 
 import { CANONICAL_DELIMITERS, type Delimiters } from "../common/delimiters.js";
 import { tokenizeRecord } from "./tokenize.js";
-import type { AstmField, AstmMessage, AstmRecord, HeaderRecord } from "./types.js";
+import type {
+  AstmField,
+  AstmMessage,
+  AstmRecord,
+  HeaderRecord,
+  ManufacturerRecord,
+  ScientificRecord,
+} from "./types.js";
 
 /**
  * Thrown by the record/frame emit side when a value cannot be serialized into a
@@ -120,10 +131,11 @@ function encodeField(
  * terminator). Emits with the given delimiters, defaulting to the canonical set.
  *
  * The header (`H`) is special-cased: its delimiter-definition field is emitted as
- * the **literal** canonical declaration (`\^&`), never escaped — escaping it would
- * corrupt the very declaration a reader depends on. Manufacturer (`M`) and
- * scientific (`S`) records are surfaced **byte-identically** from their preserved
- * `rawLine` — verbatim in, verbatim out.
+ * the **literal** declaration of `d`, never escaped — escaping it would corrupt the
+ * very declaration a reader depends on. Manufacturer (`M`) and scientific (`S`)
+ * records are reproduced **byte-identically** from their preserved `rawLine` when
+ * they are already in `d`, and re-encoded from their fields when they are not, so
+ * their fields never collapse into one on the next read.
  *
  * @param record - The record to serialize.
  * @param d - The delimiters to emit against; defaults to `H|\^&`.
@@ -140,8 +152,7 @@ export function serializeAstmRecord(
   record: AstmRecord,
   d: Delimiters = CANONICAL_DELIMITERS,
 ): string {
-  // M / S records are surfaced verbatim on the wire — re-emit their exact bytes.
-  if (record.type === "M" || record.type === "S") return record.rawLine;
+  if (record.type === "M" || record.type === "S") return serializeVerbatimRecord(record, d);
 
   if (record.type === "H") return serializeHeader(record, d);
 
@@ -149,23 +160,80 @@ export function serializeAstmRecord(
 }
 
 /**
+ * Serialize an `M` (manufacturer) or `S` (scientific) record — the two vendor
+ * free-form types the parser surfaces byte-for-byte.
+ *
+ * These records are re-emitted **verbatim from `rawLine` when, and only when, a
+ * reader using the emit delimiters would recover exactly the fields the record
+ * models**. When it would not — the record arrived under one delimiter set and
+ * is being emitted under another — the record is re-encoded from its decoded
+ * field tree instead, like every other record type.
+ *
+ * The choice being made here, and why. A blanket verbatim re-emit produced a
+ * **mixed-delimiter stream**: the header declared one delimiter set while the
+ * `M`/`S` rows still carried another, so re-parsing the output silently
+ * collapsed every field of those rows into one, with no warning. On the
+ * analyzer-to-LIS path a collapsed field is a lost result or a lost
+ * patient/specimen identifier, and the caller had no signal. The two candidate
+ * fixes were to re-encode the disagreeing records, or to refuse/warn on a
+ * message whose records disagree. Re-encoding is chosen because (1) it is what
+ * the serializer already promises — one spec-clean stream in the declared
+ * delimiter set, and a mixed-delimiter stream is not spec-clean; (2) emit
+ * returns a string and has no warning channel, so a warning could only be
+ * ignored while the corrupt stream still shipped, and a refusal would reject
+ * messages this library successfully parsed; and (3) the guard above means bytes
+ * change for exactly the streams that were being corrupted and for no others.
+ * The invariant that must hold either way is that a round-trip never silently
+ * loses a field, in either direction.
+ */
+function serializeVerbatimRecord(
+  record: ManufacturerRecord | ScientificRecord,
+  d: Delimiters,
+): string {
+  if (recoversVerbatim(record, d)) return record.rawLine;
+  return record.fields.map((f) => encodeField(f.repeats, d, record.recordIndex)).join(d.field);
+}
+
+/**
+ * Whether re-tokenizing `record.rawLine` with the emit delimiters recovers the
+ * exact field tree the record already models. True whenever the record's own
+ * delimiters agree with the emit set (the ordinary case, where the raw bytes are
+ * reproduced untouched), and true as well when the line simply contains no
+ * delimiter either set would split on.
+ */
+function recoversVerbatim(record: ManufacturerRecord | ScientificRecord, d: Delimiters): boolean {
+  return sameFieldTree(tokenizeRecord(record.rawLine, d), record.fields);
+}
+
+/** Structural equality over two tokenized field trees, compared on decoded values. */
+function sameFieldTree(a: readonly AstmField[], b: readonly AstmField[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((fieldA, i) => {
+    const fieldB = b[i];
+    if (fieldB === undefined) return false;
+    if (fieldA.repeats.length !== fieldB.repeats.length) return false;
+    return fieldA.repeats.every((repA, r) => {
+      const repB = fieldB.repeats[r];
+      if (repB === undefined || repA.length !== repB.length) return false;
+      return repA.every((comp, c) => comp === repB[c]);
+    });
+  });
+}
+
+/**
  * Serialize an `H` (header) record. The delimiter declaration is emitted as the
- * **literal** canonical set (`\^&`), never escaped. The header's data fields
- * (field 3 onward) are reconstructed from {@link HeaderRecord.rawLine} rather than
- * its tokenized {@link HeaderRecord.fields} — the escape character appearing
- * literally in the delimiter-definition field defeats the generic escape-aware
- * split, so the raw header is the reliable source. They are re-tokenized with the
- * header's own declared delimiters and re-emitted against the canonical set.
+ * **literal** declaration of the delimiters being emitted against, never escaped
+ * and never taken from the model — a header that declares one delimiter set
+ * while the records around it use another is the exact corruption this module
+ * refuses to produce. Every data field (field 3 onward) is emitted from the
+ * header's tokenized {@link HeaderRecord.fields}, so an edit to the model is
+ * reflected on emit, like every other record type.
  */
 function serializeHeader(header: HeaderRecord, d: Delimiters): string {
   const head = "H" + d.field + d.repeat + d.component + d.escape;
-  const src = header.delimiters;
-  // The delimiter-definition field runs from index 2 to the next field separator; the header's data
-  // portion begins one byte past it. No trailing separator ⇒ a bare `H|\^&` with no data fields.
-  const defEnd = header.rawLine.indexOf(src.field, 2);
-  if (defEnd === -1) return head;
-  const dataPortion = header.rawLine.slice(defEnd + 1);
-  const dataFields = tokenizeRecord(dataPortion, src);
+  // fields[0] is the type letter and fields[1] is the delimiter declaration, both regenerated
+  // above; the ASTM data fields start at fields[2]. No data fields ⇒ a bare `H|\^&`.
+  const dataFields = header.fields.slice(2);
   const rest = dataFields
     .map((f) => d.field + encodeField(f.repeats, d, header.recordIndex))
     .join("");
@@ -178,10 +246,10 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
  *
  * Emit is **conservative**: the canonical `H|\^&` delimiters, every embedded
  * delimiter re-escaped, each record closed with a `CR`. A message parsed with
- * non-canonical delimiters is **normalized** to the canonical set on emit. Two things
- * are not normalized: an explicitly passed `d`, and `M`/`S` records, which are
- * re-emitted byte-for-byte from `rawLine` and so keep whatever delimiters they arrived
- * with.
+ * non-canonical delimiters is **normalized** to the canonical set on emit — every
+ * record, `M` and `S` included, so the emitted stream is in one delimiter set and
+ * re-parsing it recovers every field. Passing `d` explicitly emits against that set
+ * instead, and the header declares it.
  *
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
  * @param d - The delimiters to emit against; defaults to the canonical `H|\^&` set.

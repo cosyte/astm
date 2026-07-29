@@ -126,7 +126,18 @@ That means the two copies can drift; the upstream file is the source of truth.
   delimiters). The header's delimiter declaration is emitted **literally** (never escaped) and its data
   fields are reconstructed from `HeaderRecord.rawLine` (new additive field — the escape char living
   inside the `\^&` definition defeats the generic escape-aware tokenizer, so the raw header is the
-  reliable source); `M`/`S` are re-emitted **byte-identically** from `rawLine`. **Frame emit:**
+  reliable source); `M`/`S` are re-emitted **byte-identically** from `rawLine`.
+  **▶ BOTH OF THOSE LAST TWO CLAUSES WERE FIXED 2026-07-29 (`ASTM-MIXED-DELIMITER-EMIT`) — read
+  `CHANGELOG.md` `[Unreleased]` before touching `serialize.ts`.** Emitting `M`/`S` verbatim while
+  normalizing the header produced a **mixed-delimiter, non-conformant stream**, and re-parsing it
+  **silently collapsed every field of those rows into one, with zero warnings** — shipped since
+  `0.0.1`. `M`/`S` now go out verbatim **only when a reader using the emit delimiters would recover
+  exactly the fields the record models**, and are re-encoded from the decoded tree otherwise; the
+  header is emitted from `HeaderRecord.fields` (so a model edit is no longer silently dropped), and a
+  header-aware `tokenizeHeader` builds those fields correctly at parse time instead of merging the
+  whole record into one field. `rawLine` is still carried on `H`/`M`/`S` as provenance. The chosen
+  semantics — re-encode rather than refuse/warn — and the reasoning are recorded at the site.
+  **Frame emit:**
   `composeAstmFrames(records, opts?)` frames reassembled record bytes into `<STX> FN text <ETB|ETX> CS
 <CR><LF>` — the modulo-256 checksum and the `0`–`7` frame number are **computed, never faked**;
   frame numbers run continuously (start `1`, roll over `7 → 0`); a record over **240** bytes is split

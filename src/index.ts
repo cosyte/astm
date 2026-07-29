@@ -34,9 +34,10 @@
  * {@link buildAstmMessage} constructs records from typed caller input, emitting only
  * the values the caller supplied; {@link serializeAstmRecords} writes them out with the
  * canonical `H|\^&` delimiters by default, re-escaping every embedded delimiter in a
- * decoded component leaf (`H`, `M` and `S` are emitted from their preserved
- * `rawLine` rather than from the decoded tree, so an edit to their modeled `fields` is
- * not reflected on emit); {@link composeAstmFrames} wraps them into frames whose
+ * decoded component leaf (every record type is emitted from its decoded `fields`, except that
+ * `M`/`S` bytes pass through untouched when they already read correctly under the emit set, so
+ * an edit to the model is reflected on emit and the whole stream goes out in the one
+ * delimiter set the header declares); {@link composeAstmFrames} wraps them into frames whose
  * modulo-256 checksum is
  * computed rather than accepted; and {@link serializeFramedAstm} composes the last two.
  * The protocol layer has no emit inverse by design: {@link ltpReduce} returns the actions
@@ -82,7 +83,7 @@ export type {
 } from "./records/build.js";
 export { results, patient, orders, comments, commentsFor, query } from "./records/extractors.js";
 export { classifyMessage } from "./records/host-query.js";
-export { fieldScalar, tokenizeRecord } from "./records/tokenize.js";
+export { fieldScalar, tokenizeHeader, tokenizeRecord } from "./records/tokenize.js";
 export {
   interpretAbnormalFlag,
   interpretResultStatus,

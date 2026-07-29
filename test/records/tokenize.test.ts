@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { CANONICAL_DELIMITERS, fieldScalar, tokenizeRecord } from "../../src/index.js";
+import {
+  CANONICAL_DELIMITERS,
+  fieldScalar,
+  tokenizeHeader,
+  tokenizeRecord,
+} from "../../src/index.js";
 
 const D = CANONICAL_DELIMITERS;
 
@@ -47,5 +52,40 @@ describe("fieldScalar", () => {
     expect(fieldScalar(fields[2])).toBeUndefined(); // empty field
     expect(fieldScalar(fields[3])).toBe("value");
     expect(fieldScalar(undefined)).toBeUndefined();
+  });
+});
+
+describe("tokenizeHeader", () => {
+  // The header's own escape char sits LITERALLY inside the delimiter declaration. Fed to the
+  // generic escape-aware split it reads as an unterminated escape, which swallows the rest of
+  // the record into one field and loses every header data field.
+  it("keeps the delimiter declaration opaque and still splits the data fields", () => {
+    const fields = tokenizeHeader("H|\\^&|||analyzer^cobas^1|addr", D);
+    expect(fields.map((f) => f.raw)).toEqual(["H", "\\^&", "", "", "analyzer^cobas^1", "addr"]);
+    // The declaration is structural, not data: one verbatim component, never escape-decoded.
+    expect(fields[1]?.components).toEqual(["\\^&"]);
+    expect(fields[4]?.components).toEqual(["analyzer", "cobas", "1"]);
+  });
+
+  it("returns just the type letter and the declaration for a bare header", () => {
+    expect(tokenizeHeader("H|\\^&", D).map((f) => f.raw)).toEqual(["H", "\\^&"]);
+  });
+
+  it("reads a non-canonical declaration and splits on that set", () => {
+    const d = { field: "#", repeat: "~", component: "*", escape: "\\" };
+    expect(tokenizeHeader("H#~*\\###SYNTH-LAB", d).map((f) => f.raw)).toEqual([
+      "H",
+      "~*\\",
+      "",
+      "",
+      "SYNTH-LAB",
+    ]);
+  });
+
+  it("reports an unrecognized escape at its WHOLE-RECORD field index", () => {
+    const seen: number[] = [];
+    tokenizeHeader("H|\\^&|||a&Z&b", D, (i) => seen.push(i));
+    // The data portion's field 2 is the whole record's field index 4 (1-based field 5).
+    expect(seen).toEqual([4]);
   });
 });
