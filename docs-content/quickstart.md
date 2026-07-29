@@ -183,8 +183,11 @@ Pass a second argument to emit against a different set — `serializeAstmRecords
 puts a message back out in the delimiters it arrived under, and the header declares that set. Only
 three characters of a header's declaration carry a role (repeat, component, escape); a declaration
 that carries more keeps the surplus on emit rather than losing it, so `H|\^&#` comes back as
-`H|\^&#`. That holds on the default canonical path too: normalizing replaces the four roles, it does
-not delete the surplus.
+`H|\^&#`. That holds on the default canonical path too: normalizing replaces the four roles, and the
+surplus holds none of them. It does **not** hold when a message is emitted into a _different_
+delimiter set than the one it arrived under — there the surplus belonged to the declaration being
+replaced and is dropped, along with any surplus carrying the field separator or a control
+character.
 
 The set you pass is checked before any bytes are written. Each separator must be exactly one
 character, none may be a `CR`/`LF`, and no two may be the same character — otherwise the stream

@@ -275,6 +275,17 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    stop-the-line. `PRE-EXISTING`; the surplus half of this was closed by `ASTM-EMIT-RESIDUALS`
    (`declarationResidual` drops any control character), the **value** half was not. Found by the
    `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
+5. **The frame encoder truncates every character to its low byte, so a non-control character can
+   become a frame control byte.** `src/frames/encode.ts` writes `input.charCodeAt(i) & 0xff`, which
+   means `U+0102`/`U+0103`/`U+0117` land on the wire as `STX`/`ETX`/`ETB` and `U+010D` as `CR`.
+   Framing then breaks: `parseFramedAstm` throws `ASTM_RECORD_NO_HEADER`, or a field is displaced into
+   an `unsupported` record. It fails **loudly** in every case measured — a typed error or a warning,
+   never a silent mis-read — which is why it is not a stop-the-line. `PRE-EXISTING`: it reproduces on
+   base through a _value_, which no emit-side guard touches. Note this is also the limit of
+   `ASTM-EMIT-RESIDUALS`'s control-character rule for the header's surplus, which is keyed on the
+   character class and therefore cannot see a truncation. **The fix is a byte-level encoder decision
+   (refuse a non-Latin-1 code point? encode UTF-8?) and belongs in its own slice.** Found by the
+   `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
 
 Items 2 and 3 of this list — the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d` — were recorded with

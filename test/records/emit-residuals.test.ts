@@ -183,8 +183,10 @@ describe("a delimiter set emit cannot reverse", () => {
       component: "^",
       escape: 38,
     } as unknown as Delimiters;
+    // `null` does not take the default parameter the way `undefined` does.
+    const nullSet = null as unknown as Delimiters;
 
-    for (const d of [missingEscape, nonString]) {
+    for (const d of [missingEscape, nonString, nullSet]) {
       try {
         serializeAstmRecords(base, d);
         expect.unreachable("expected a typed emit error");

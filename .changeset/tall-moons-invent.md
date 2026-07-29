@@ -18,7 +18,10 @@ being replaced), or when they contain the field separator or any control charact
 is wider than the record layer alone needs, because this text also reaches the frame layer through
 `serializeFramedAstm`, where `STX`/`ETX`/`ETB` are structural: a surplus carrying one truncated the
 frame and dropped the entire header record — sender, receiver, control ID — behind nothing but a
-checksum warning.
+checksum warning. The rule is keyed on the character while the frame layer's structure is keyed on
+the low byte, so it does not catch a non-control character that truncates onto one of those; that
+case fails loudly rather than silently, and the truncation itself is a separate frame-layer defect
+that predates this change.
 
 **A delimiter set passed to `serializeAstmRecords`, `serializeAstmRecord`, `serializeField` or
 `encodeComponent` is now checked before any bytes are written.** Each of the four separators must be

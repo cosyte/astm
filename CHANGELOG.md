@@ -100,7 +100,12 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   stream then dropped the **entire header record** — its sender, its receiver, its control ID —
   behind nothing but an `ASTM_FRAME_BAD_CHECKSUM`. Rather than enumerate the bytes each layer happens
   to reserve, and re-derive that list whenever a layer is added, no control character is carried at
-  all; none of them can be a delimiter role either, so the rule costs nothing real. Those are
+  all. Two things that rule does **not** do, said here rather than left to be found: it is keyed on
+  the character while the frame layer's structure is keyed on the low byte (`charCodeAt(i) & 0xff`),
+  so a non-control character truncating onto `STX`/`ETX`/`ETB` still breaks framing — loudly, with a
+  typed error or an unknown-record-type warning, never silently; and refusing a control character in
+  a _surplus_ does not mean one cannot be a _delimiter role_, since only `CR`/`LF` are refused
+  there. Those are
   structural losses; dropping inert bytes is not.
 
   **2. A caller-supplied delimiter set was never validated.** `serializeAstmRecords(msg, d)` and its

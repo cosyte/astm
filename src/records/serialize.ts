@@ -109,8 +109,10 @@ export class AstmSerializeError extends Error {
  *
  * - `ASTM_EMIT_UNENCODABLE_VALUE` — a component holds a record terminator
  *   (`CR`/`LF`), which the escape codec has no mnemonic for.
- * - `ASTM_EMIT_INVALID_DELIMITERS` — the delimiter set to emit against cannot
- *   carry the record structure back out again (see {@link serializeAstmRecords}).
+ * - `ASTM_EMIT_INVALID_DELIMITERS` — the delimiter set to emit against failed one
+ *   of the three conditions readback requires (see {@link serializeAstmRecords}).
+ *   Those conditions are necessary rather than sufficient, so this code means a
+ *   set was rejected, not that every unreversible set is.
  *
  * @example
  * ```ts
@@ -189,11 +191,17 @@ function assertEmittableDelimiters(d: Delimiters, recordIndex?: number): void {
     );
   };
 
+  // A caller reaching this from JavaScript can pass `null` where the types demand a
+  // set, and `null` does not take the default parameter the way `undefined` does.
+  // Checked first so that case is the documented typed error too.
+  if (typeof d !== "object" || d === null) {
+    invalid("a delimiter set is required");
+  }
+
   for (const role of DELIMITER_ROLES) {
-    // A caller reaching this from JavaScript can omit a member or pass a non-string
-    // entirely, and the types do not stop them. Checked before `.length` so that
-    // case is the same typed error as any other unusable set, rather than a
-    // `TypeError` from inside the serializer.
+    // The same caller can omit a member or pass a non-string. Checked before
+    // `.length` so that case is the same typed error as any other unusable set,
+    // rather than a `TypeError` from inside the serializer.
     const char: unknown = d[role];
     if (typeof char !== "string" || char.length !== 1) {
       invalid(`the ${role} delimiter must be exactly one character`);
@@ -228,8 +236,9 @@ function assertEmittableDelimiters(d: Delimiters, recordIndex?: number): void {
  * @param recordIndex - The enclosing record's index, for error context.
  * @returns The escaped component text.
  * @throws {@link AstmSerializeError} for a `CR`/`LF` in the leaf
- *   (`ASTM_EMIT_UNENCODABLE_VALUE`) or an unusable delimiter set
- *   (`ASTM_EMIT_INVALID_DELIMITERS`).
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or for a delimiter set failing one of the
+ *   three conditions readback requires (`ASTM_EMIT_INVALID_DELIMITERS`) — which
+ *   are necessary, not sufficient, so a set can pass them and still not reverse.
  * @example
  * ```ts
  * import { encodeComponent, CANONICAL_DELIMITERS } from "@cosyte/astm";
@@ -292,8 +301,9 @@ function encodeField(
  * @param d - The delimiters to emit against; defaults to `H|\^&`.
  * @returns The record's wire text, terminator excluded.
  * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`
- *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` cannot be emitted reversibly
- *   (`ASTM_EMIT_INVALID_DELIMITERS`).
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` fails one of the three conditions
+ *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`) — necessary conditions, not
+ *   sufficient ones, so a set can pass them and still not reverse.
  * @example
  * ```ts
  * import { serializeAstmRecord, parseAstmRecords } from "@cosyte/astm";
@@ -438,11 +448,21 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
  * surplus carrying one of those truncates the frame body, and re-reading the
  * framed stream then drops the whole header record — its sender, its receiver,
  * its control ID — behind nothing but a checksum warning. Rather than enumerate
- * the control bytes each layer happens to reserve, and re-derive that list every
- * time a layer is added, no control character is ever carried. None of them can
- * be a delimiter role either (a delimiter set is refused for a `CR`/`LF`), so the
- * rule costs nothing real: what it turns away is unprintable bytes in a
- * declaration whose meaning is already unresolved.
+ * the bytes each layer happens to reserve, and re-derive that list every time a
+ * layer is added, no control character is carried at all. The cost is bytes that
+ * were unprintable inside a declaration whose meaning is already unresolved.
+ *
+ * **What this rule does not reach**, stated rather than left to be discovered.
+ * It is keyed on the *character*, while the frame layer's structure is keyed on
+ * the low byte: `src/frames/encode.ts` writes `charCodeAt(i) & 0xff`, so a
+ * non-control character whose code point truncates onto `STX`/`ETX`/`ETB` —
+ * `U+0102`, `U+0103`, `U+0117` — passes this guard and still breaks framing. It
+ * fails loudly when it does (a typed parse error, or an unknown-record-type
+ * warning), never silently, so the property this module holds is intact; the
+ * truncation itself is a frame-layer defect that predates this rule and is
+ * recorded separately. Nor does refusing a control character *here* imply one
+ * cannot be a **delimiter role**: only `CR`/`LF` are refused as delimiters, so a
+ * set declaring `STX` as its component separator is still accepted.
  *
  * Losing a field is a structural loss; dropping inert bytes is not.
  *
@@ -488,8 +508,9 @@ function declarationResidual(header: HeaderRecord, d: Delimiters): string {
  * @param d - The delimiters to emit against; defaults to the canonical `H|\^&` set.
  * @returns The serialized record stream (`CR` after every record).
  * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`
- *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` cannot be emitted reversibly
- *   (`ASTM_EMIT_INVALID_DELIMITERS`).
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` fails one of the three conditions
+ *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`) — necessary conditions, not
+ *   sufficient ones, so a set can pass them and still not reverse.
  * @example
  * ```ts
  * import { parseAstmRecords, serializeAstmRecords } from "@cosyte/astm";
@@ -517,8 +538,9 @@ export function serializeAstmRecords(
  * @param d - The delimiters to emit against; defaults to `H|\^&`.
  * @returns The escaped field text.
  * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`
- *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` cannot be emitted reversibly
- *   (`ASTM_EMIT_INVALID_DELIMITERS`).
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` fails one of the three conditions
+ *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`) — necessary conditions, not
+ *   sufficient ones, so a set can pass them and still not reverse.
  * @example
  * ```ts
  * import { serializeField, tokenizeRecord, CANONICAL_DELIMITERS } from "@cosyte/astm";
