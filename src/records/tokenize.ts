@@ -38,6 +38,55 @@ export function tokenizeRecord(
   return rawFields.map((raw, fieldIndex) => toField(raw, d, () => onUnknownEscape?.(fieldIndex)));
 }
 
+/**
+ * Tokenize an `H` (header) record into its fields.
+ *
+ * A header cannot go through {@link tokenizeRecord}: its second field is the
+ * **delimiter declaration**, which carries the escape character *literally*
+ * rather than as an escape sequence. The generic escape-aware split treats that
+ * lone escape character as the opening of an unterminated escape and swallows
+ * the whole remainder of the record into one field, so every data field after
+ * the declaration is lost. This tokenizer instead takes the declaration verbatim
+ * as one opaque field and applies the ordinary escape-aware tokenizer to the
+ * data portion that follows it.
+ *
+ * `fields[0]` is the type-letter field and `fields[1]` is the delimiter
+ * declaration (verbatim, never escape-decoded); the header's ASTM data fields
+ * follow from `fields[2]`.
+ *
+ * @param record - The raw `H` record text (terminator already stripped).
+ * @param d - The delimiters declared by this header.
+ * @param onUnknownEscape - Called with the 0-based whole-record field index for
+ *   each unrecognized escape sequence in the data portion.
+ * @returns The header's fields.
+ * @example
+ * ```ts
+ * import { tokenizeHeader, CANONICAL_DELIMITERS } from "@cosyte/astm";
+ * const fields = tokenizeHeader("H|\\^&|||sender", CANONICAL_DELIMITERS);
+ * fields[1].raw; // "\\^&"
+ * fields[4].raw; // "sender"
+ * ```
+ */
+export function tokenizeHeader(
+  record: string,
+  d: Delimiters,
+  onUnknownEscape?: (fieldIndex: number) => void,
+): AstmField[] {
+  // The delimiter-definition field runs from index 2 to the next field separator.
+  const defEnd = record.indexOf(d.field, 2);
+  const definition = defEnd === -1 ? record.slice(2) : record.slice(2, defEnd);
+  const head = [opaqueField(record.slice(0, Math.min(1, record.length))), opaqueField(definition)];
+  if (defEnd === -1) return head;
+  // Data fields start at whole-record index 2, so shift the tokenizer's local index by 2.
+  const data = tokenizeRecord(record.slice(defEnd + 1), d, (i) => onUnknownEscape?.(i + 2));
+  return [...head, ...data];
+}
+
+/** A field whose text is structural, not data: surfaced verbatim as one component, never decoded. */
+function opaqueField(raw: string): AstmField {
+  return { raw, components: [raw], repeats: [[raw]] };
+}
+
 /** Build one {@link AstmField} from its raw wire text: split into repeats → components, then decode. */
 function toField(raw: string, d: Delimiters, onUnknownEscape: () => void): AstmField {
   const rawRepeats = splitEscapeAware(raw, d.repeat, d.escape);

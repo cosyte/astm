@@ -60,6 +60,59 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 
 ### Fixed
 
+- **`serializeAstmRecords` no longer emits a mixed-delimiter stream that silently loses fields on the
+  next read** (`ASTM-MIXED-DELIMITER-EMIT`; shipped since `0.0.1`, `PRE-EXISTING`, not a regression).
+  Emit normalized the header to the canonical `H|\^&` set but re-emitted `M` (manufacturer) and `S`
+  (scientific) records byte-for-byte from `rawLine`. For a message that arrived under a vendor
+  delimiter set the output was therefore **non-conformant**: a canonical header above `M`/`S` rows
+  still written in the original delimiters. Re-parsing that output **collapsed every field of those
+  rows into one, with zero warnings** — on the analyzer↔LIS path, a lost result or a lost
+  patient/specimen identifier with no signal to the caller. Verified by execution before and after,
+  not by inspection: a five-field `M` row round-tripped to one field.
+
+  **The semantics chosen, and why.** The two candidates were to re-encode every record to the
+  delimiters the header declares, or to refuse/warn on a message whose records disagree.
+  **Re-encoding was chosen.** It is what the serializer already promises — one spec-clean stream in
+  the declared set — and a mixed-delimiter stream is not spec-clean. Emit returns a `string` and has
+  no warning channel, so a warning could only have been ignored while the corrupt stream still
+  shipped, and a refusal would have rejected messages this library successfully parsed, a harder
+  break on a published package. The invariant that had to hold either way is that **a round-trip
+  never silently loses a field, in either direction**; it is now pinned by a property over arbitrary
+  declared delimiter sets, which fails against the old code. `M`/`S` are reproduced byte-for-byte
+  **only when a reader using the emit delimiters would recover exactly the fields the record models**,
+  so bytes change for exactly the streams that were being corrupted and for no others. The reasoning
+  is recorded at the site in `src/records/serialize.ts`.
+
+- **Editing a modeled `H` field and re-serializing no longer silently keeps the original value**
+  (`PRE-EXISTING`, found in the same pass). The header was emitted by re-tokenizing its preserved
+  `rawLine`, so the model was bypassed on emit. It is now emitted from `HeaderRecord.fields` like
+  every other record type. The delimiter declaration itself is still never taken from the model — it
+  always states the delimiters actually being emitted with, because a declaration that disagrees with
+  the records around it is the very corruption above.
+
+- **`HeaderRecord.fields` now holds the header's real fields.** The generic escape-aware tokenizer
+  reads the escape character sitting _literally_ inside the delimiter declaration as an unterminated
+  escape and swallows the remainder of the record, so a canonical header modeled as **two** fields
+  (`H` and everything else merged) instead of one per field. A header-aware `tokenizeHeader` takes the
+  declaration verbatim as one opaque field and tokenizes the data portion normally; it is exported
+  alongside `tokenizeRecord`. This is what made emitting the header from its model possible.
+
+  **A `strict` consumer will observe one side effect, stated rather than left to be discovered.**
+  The old tokenizer read the declaration's literal escape char as an unterminated escape and raised a
+  spurious `ASTM_UNKNOWN_ESCAPE_SEQUENCE` on some headers, which `{ strict: true }` rejected. Those
+  warnings are gone, so a few messages that previously threw now parse. Measured over ~40,000
+  differential messages: 1,176 moved from rejected to accepted, **0** moved the other way, and every
+  warning delta is confined to `recordIndex 0` — no warning on any other record is added or dropped.
+
+  Three `PRE-EXISTING` neighbours were found while grading this and are deliberately **not** fixed
+  here, to keep the slice the size of its item: `parseAstmRecords` reads delimiters only from the
+  first header, so a **second `H` mid-stream that redeclares them** still yields the same silent
+  field collapse (parse-side, not emit-side — the emitter faithfully reproduces what parse modeled);
+  a delimiter declaration longer than three characters silently loses its extra bytes on emit; and
+  `serializeAstmRecords(msg, d)` does not validate a caller-supplied `d`, so a malformed set (a
+  multi-char delimiter, an empty escape, a `field`/`escape` collision) emits a stream this library's
+  own parser then rejects or mis-reads, with no typed error.
+
 - **The type documentation shipped in `dist/index.d.ts` no longer understates the library.** The
   entry-point module documentation ended by calling serialize and build deferred, on a tree that exports
   `serializeAstmRecords`, `buildAstmMessage`, `composeAstmFrames` and `serializeFramedAstm`, and the

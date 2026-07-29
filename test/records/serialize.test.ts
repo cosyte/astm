@@ -54,7 +54,7 @@ describe("serializeAstmRecord", () => {
     expect(out).toContain("H|\\^&|||analyzer^cobas^1|||||host||P");
   });
 
-  it("surfaces M/S records byte-identically from their rawLine", () => {
+  it("reproduces an M record byte-identically when it is already in the emit delimiters", () => {
     const msg = parseAstmRecords("H|\\^&\rM|1|QC^LEVEL2^LOT-88|4.21^mmol/L^ACCEPT\rL|1\r");
     const m = def(msg.records.find((r) => r.type === "M"));
     expect(serializeAstmRecord(m)).toBe("M|1|QC^LEVEL2^LOT-88|4.21^mmol/L^ACCEPT");
@@ -96,5 +96,75 @@ describe("serializeAstmRecords", () => {
   it("accepts a bare record list as well as a message", () => {
     const msg = parseAstmRecords("H|\\^&\rL|1\r");
     expect(serializeAstmRecords(msg.records)).toBe(serializeAstmRecords(msg));
+  });
+});
+
+describe("serializeAstmRecords — one delimiter set for the whole stream", () => {
+  // The regression this locks: a non-canonical message carrying M/S emitted a MIXED-delimiter
+  // stream (canonical header, original-delimiter M/S rows), and re-parsing it silently collapsed
+  // every field of those rows into one with no warning. On the analyzer/LIS path that is a lost
+  // result or a lost specimen identifier with no signal to the caller.
+  const raw =
+    "H#~*\\###SYNTH-LAB\rP#1#PRAC-1#LAB-1\rM#1#QC*LEVEL2*LOT-88#4.21*mmol/L*ACCEPT\rS#1#CALIB*SLOPE*0.998\rL#1\r";
+
+  it("normalizes M/S to the declared delimiters instead of leaving them mixed", () => {
+    const out = serializeAstmRecords(parseAstmRecords(raw));
+    expect(out.startsWith("H|\\^&")).toBe(true);
+    // No byte of the source delimiter set survives anywhere in the emitted stream.
+    for (const sourceDelimiter of ["#", "~", "*"]) expect(out).not.toContain(sourceDelimiter);
+    expect(out).toContain("M|1|QC^LEVEL2^LOT-88|4.21^mmol/L^ACCEPT");
+    expect(out).toContain("S|1|CALIB^SLOPE^0.998");
+  });
+
+  it("re-parses the emitted stream with EVERY M/S field intact — no silent collapse", () => {
+    const before = parseAstmRecords(raw);
+    const after = parseAstmRecords(serializeAstmRecords(before));
+    for (const type of ["M", "S"] as const) {
+      const src = def(before.records.find((r) => r.type === type));
+      const rt = def(after.records.find((r) => r.type === type));
+      expect(rt.fields.length).toBe(src.fields.length);
+      // Compared on decoded component values, not raw bytes — the delimiters legitimately change.
+      expect(rt.fields.map((f) => f.repeats)).toStrictEqual(src.fields.map((f) => f.repeats));
+    }
+  });
+
+  it("still reproduces an already-canonical M byte-for-byte", () => {
+    const canonical = "H|\\^&\rM|1|QC^LEVEL2^LOT-88|4.21^mmol/L^ACCEPT\rL|1\r";
+    expect(serializeAstmRecords(parseAstmRecords(canonical))).toBe(canonical);
+  });
+
+  it("re-encodes a canonical M when an explicit non-canonical set is emitted against", () => {
+    const msg = parseAstmRecords("H|\\^&\rM|1|QC^LEVEL2\rL|1\r");
+    const out = serializeAstmRecords(msg, {
+      field: "#",
+      repeat: "~",
+      component: "*",
+      escape: "\\",
+    });
+    expect(out).toContain("M#1#QC*LEVEL2");
+    // The header declares the set the M row is actually written in.
+    expect(out.startsWith("H#~*\\")).toBe(true);
+    expect(parseAstmRecords(out).records[1]?.fields.length).toBe(3);
+  });
+});
+
+describe("serializeAstmRecord — the header follows the model", () => {
+  it("reflects an edit to a modeled header field", () => {
+    const msg = parseAstmRecords("H|\\^&|||analyzer^cobas^1|||||host||P\rL|1\r");
+    const header = def(msg.records[0]);
+    const edited = {
+      ...header,
+      fields: header.fields.map((f, i) =>
+        i === 4 ? { raw: "analyzer2", components: ["analyzer2"], repeats: [["analyzer2"]] } : f,
+      ),
+    };
+    const out = serializeAstmRecord(edited);
+    expect(out).toContain("|analyzer2|");
+    expect(out).not.toContain("cobas");
+  });
+
+  it("always declares the delimiters it emits with, never a set taken from the model", () => {
+    const msg = parseAstmRecords("H#~*\\###SYNTH-LAB\rL#1\r");
+    expect(serializeAstmRecord(def(msg.records[0]))).toBe("H|\\^&|||SYNTH-LAB");
   });
 });

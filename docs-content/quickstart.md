@@ -154,6 +154,13 @@ const raw = "H|\\^&\rP|1|PRAC|LAB\rR|1|^^^687|28.6|U/L||N||F\rL|1\r";
 serializeAstmRecords(parseAstmRecords(raw)); // => "H|\\^&\rP|1|PRAC|LAB\rR|1|^^^687|28.6|U/L||N||F\rL|1\r"
 ```
 
+Canonical means canonical for the **whole** stream. A message that arrived under a vendor delimiter
+set comes back with every record in the canonical set, including the free-form `M` and `S` rows — the
+header can never declare one set while the rows below it use another, because re-reading that stream
+would collapse those rows' fields into one. `M`/`S` bytes are reproduced exactly as they arrived
+whenever they are already in the delimiters being emitted, so a canonical message is unchanged
+byte-for-byte; only the delimiters between values ever change, never the values.
+
 `buildAstmMessage` constructs a spec-clean stream from typed input — and **never
 fabricates**. It emits only the values you supply; an omitted field stays empty,
 never a defaulted clinical value. A result whose status you did not set reads back

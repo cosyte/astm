@@ -37,7 +37,7 @@ import { classifyMessage } from "./host-query.js";
 import { applyAstmProfileToWarnings } from "../profiles/apply.js";
 import { getDefaultAstmProfile } from "../profiles/registry.js";
 import type { AstmProfile } from "../profiles/types.js";
-import { fieldScalar, tokenizeRecord } from "./tokenize.js";
+import { fieldScalar, tokenizeHeader, tokenizeRecord } from "./tokenize.js";
 import type {
   AstmField,
   AstmMessage,
@@ -220,11 +220,18 @@ function buildRecord(
   warnings: AstmRecordWarning[],
 ): AstmRecord {
   const rawType = line.charAt(0);
-  const fields = tokenizeRecord(line, d, (fieldIndex) => {
+  const onUnknownEscape = (fieldIndex: number): void => {
     warnings.push(
       unknownEscapeSequence({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
     );
-  });
+  };
+  // The header needs its own tokenizer: the escape char sits literally inside the delimiter
+  // declaration, and the generic escape-aware split reads it as an unterminated escape and
+  // merges every following field into it.
+  const fields =
+    rawType === "H"
+      ? tokenizeHeader(line, d, onUnknownEscape)
+      : tokenizeRecord(line, d, onUnknownEscape);
 
   switch (rawType) {
     case "H":

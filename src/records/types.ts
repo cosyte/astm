@@ -54,11 +54,13 @@ export interface HeaderRecord extends RecordBase {
   /** The four delimiters resolved from this header. */
   readonly delimiters: Delimiters;
   /**
-   * The header's exact wire text (terminator excluded), preserved because the
-   * escape character appears **literally** inside the delimiter-definition field
-   * (`\^&`), which the generic escape-aware tokenizer cannot split cleanly. The
-   * delimiters are read from this raw text (never from {@link RecordBase.fields}),
-   * and the serializer reconstructs the header's data fields from it.
+   * The header's exact wire text (terminator excluded), kept as **provenance**: the
+   * delimiters are read from this raw text, never from {@link RecordBase.fields}.
+   *
+   * It is **not** what the serializer emits from. To change a header field, edit
+   * {@link RecordBase.fields} — `fields[0]` is the type letter, `fields[1]` is the
+   * delimiter declaration, and the header's ASTM data fields follow from `fields[2]`.
+   * Editing this string instead has no effect on emit.
    */
   readonly rawLine: string;
 }
@@ -303,7 +305,16 @@ export interface QueryRecord extends RecordBase {
  */
 export interface ManufacturerRecord extends RecordBase {
   readonly type: "M";
-  /** The record's exact wire text (terminator excluded), preserved byte-for-byte for round-trip. */
+  /**
+   * The record's exact wire text (terminator excluded), preserved byte-for-byte.
+   *
+   * Emit reproduces these bytes exactly whenever a reader using the delimiters being
+   * emitted against would recover the fields this record models — always the case when
+   * the record is already in those delimiters, and also when it carries no delimiter
+   * either set would split on. Otherwise the record is re-encoded from
+   * {@link RecordBase.fields}, so the row can never go out in delimiters the header does
+   * not declare. To change a value, edit `fields`; editing this string has no effect on emit.
+   */
   readonly rawLine: string;
 }
 
@@ -314,7 +325,16 @@ export interface ManufacturerRecord extends RecordBase {
  */
 export interface ScientificRecord extends RecordBase {
   readonly type: "S";
-  /** The record's exact wire text (terminator excluded), preserved byte-for-byte for round-trip. */
+  /**
+   * The record's exact wire text (terminator excluded), preserved byte-for-byte.
+   *
+   * Emit reproduces these bytes exactly whenever a reader using the delimiters being
+   * emitted against would recover the fields this record models — always the case when
+   * the record is already in those delimiters, and also when it carries no delimiter
+   * either set would split on. Otherwise the record is re-encoded from
+   * {@link RecordBase.fields}, so the row can never go out in delimiters the header does
+   * not declare. To change a value, edit `fields`; editing this string has no effect on emit.
+   */
   readonly rawLine: string;
 }
 
