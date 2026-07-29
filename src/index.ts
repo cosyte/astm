@@ -68,6 +68,7 @@ export {
   encodeComponent,
   AstmSerializeError,
 } from "./records/serialize.js";
+export type { AstmSerializeErrorCode } from "./records/serialize.js";
 export { buildAstmMessage } from "./records/build.js";
 export type {
   AstmRecordInput,

@@ -137,6 +137,15 @@ That means the two copies can drift; the upstream file is the source of truth.
   header-aware `tokenizeHeader` builds those fields correctly at parse time instead of merging the
   whole record into one field. `rawLine` is still carried on `H`/`M`/`S` as provenance. The chosen
   semantics — re-encode rather than refuse/warn — and the reasoning are recorded at the site.
+  **▶ TWO MORE EMIT GAPS WERE CLOSED 2026-07-29 (`ASTM-EMIT-RESIDUALS`), the two #21 and #22 both
+  deferred.** A delimiter declaration longer than the three characters that carry a role now **keeps
+  its surplus** on emit instead of silently truncating `H|\^&#` to `H|\^&`; and a caller-supplied
+  delimiter set is **validated before any bytes are written** — one character each, no `CR`/`LF`, all
+  four distinct — with a failing set now a typed `AstmSerializeError` carrying the new
+  `ASTM_EMIT_INVALID_DELIMITERS` code (`AstmSerializeError.code` is now a union, exported as
+  `AstmSerializeErrorCode`). A typed error rather than a warning **because emit returns a bare
+  `string`**: the same house rule that drove #21's choice, applied to a case where re-encoding is not
+  available. This is stricter than the reader — see known defect 2 below.
   **Frame emit:**
   `composeAstmFrames(records, opts?)` frames reassembled record bytes into `<STX> FN text <ETB|ETX> CS
 <CR><LF>` — the modulo-256 checksum and the `0`–`7` frame number are **computed, never faked**;
@@ -237,17 +246,22 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    **not** folded into that slice: it is `PRE-EXISTING` and needs its own design (a grouping API is a
    public-surface addition, not a bug fix). A consumer caveat is in `docs-content/quickstart.md`;
    **this is the highest-severity open item in this repo and should come before further parser work.**
-2. **A delimiter declaration longer than 3 chars silently loses its extra bytes on emit.** What a
-   fourth declaration byte even means is unresolved by the same withheld LIS02-A2 clauses (§5.4/§6.2).
-   Emit-side.
-3. **`serializeAstmRecords(msg, d)` does not validate a caller-supplied `d`.** A malformed set (a
-   multi-char delimiter, an empty escape, a `field`/`escape` collision) emits a stream this library's
-   own parser then rejects or mis-reads, with **no typed error**; an empty escape garbles values
-   before that. Emit-side.
+2. **The parser reads delimiter declarations it cannot reverse, and says nothing.** `readDelimiters`
+   checks only that the field separator differs from the other three, so a header declaring `H|^^&`
+   (repeat === component) or `H|\&&` (component === escape) parses with **zero warnings** — and the
+   resulting set cannot carry a field tree back out, because the boundary between two roles sharing a
+   character is unrecoverable. Emit **now refuses** such a set
+   (`ASTM_EMIT_INVALID_DELIMITERS`, `ASTM-EMIT-RESIDUALS`), which is what makes the hole visible from
+   the outside: `serializeAstmRecords(msg, msg.delimiters)` throws on a message that parsed clean.
+   Whether the reader should warn (and under which code) is the open question; it is **parse**-side,
+   `PRE-EXISTING`, and was deliberately not folded into the emit slice that surfaced it.
+   Found while grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
 
-Items 2 and 3 were recorded with `ASTM-MIXED-DELIMITER-EMIT` (#21) and left again by
-`ASTM-SECOND-HEADER-COLLAPSE` (#22) — both are **emit**-side and neither falls inside a parse-side
-slice naturally.
+Items 2 and 3 of this list — the `>3`-char declaration losing its surplus on emit, and
+`serializeAstmRecords(msg, d)` not validating a caller-supplied `d` — were recorded with
+`ASTM-MIXED-DELIMITER-EMIT` (#21), left again by `ASTM-SECOND-HEADER-COLLAPSE` (#22), and **both
+closed by `ASTM-EMIT-RESIDUALS`** — read `CHANGELOG.md` `[Unreleased]` for the dispositions chosen
+(preserve the surplus; refuse an unusable set with a typed error) and why.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 

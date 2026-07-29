@@ -179,6 +179,21 @@ would collapse those rows' fields into one. `M`/`S` bytes are reproduced exactly
 whenever they are already in the delimiters being emitted, so a canonical message is unchanged
 byte-for-byte; only the delimiters between values ever change, never the values.
 
+Pass a second argument to emit against a different set — `serializeAstmRecords(msg, msg.delimiters)`
+puts a message back out in the delimiters it arrived under, and the header declares that set. Only
+three characters of a header's declaration carry a role (repeat, component, escape); a declaration
+that carries more keeps the surplus on emit rather than losing it, so `H|\^&#` comes back as
+`H|\^&#`.
+
+The set you pass is checked before any bytes are written. Each separator must be exactly one
+character, none may be a `CR`/`LF`, and no two may be the same character — otherwise the stream
+could not be read back as the records that produced it, and emit returns a plain string with no
+channel to warn you. A set that fails is an `AstmSerializeError` with code
+`ASTM_EMIT_INVALID_DELIMITERS`. This is stricter than the reader, which tolerates a few
+declarations it cannot reverse, so a message that parsed can still be refused when you ask for it
+back in its own set — the alternative was output that read back with a different field tree and
+said nothing.
+
 `buildAstmMessage` constructs a spec-clean stream from typed input — and **never
 fabricates**. It emits only the values you supply; an omitted field stays empty,
 never a defaulted clinical value. A result whose status you did not set reads back

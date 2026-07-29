@@ -22,7 +22,9 @@ value.**
   thrown error at an integration boundary.
 - **Conservative emit.** The serializer always produces spec-clean output — canonical `H|\^&`
   delimiters, every embedded delimiter re-escaped, every checksum and frame number computed, never
-  faked.
+  faked. Emit returns a plain string and has no warning channel, so anything it cannot write
+  reversibly is a typed error at the call: a value carrying a `CR`/`LF` no escape can encode, and a
+  delimiter set the resulting stream could not be read back with.
 - **Fail-safe on ambiguity.** A missing unit, an unrecognized abnormal flag, a corrected/cancelled
   result, a bad checksum, an unparseable range — each surfaces as a typed warning or error. The
   library refuses to guess a value into existence.

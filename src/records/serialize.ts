@@ -24,13 +24,24 @@
  * **Emit follows the model.** Every record type, `H` included, is emitted from its decoded
  * `AstmField.repeats` tree, so an edit to a record's `fields` is reflected on emit. The one
  * part of a record that is never taken from the model is the header's delimiter
- * declaration: it always states the delimiters actually in use.
+ * declaration, and only in the three positions that carry a role: those always state the
+ * repeat, component and escape characters actually in use, whatever the model says. Any
+ * further characters the declaration carried — a reader assigns them no role — come from
+ * the model like everything else, so a header that arrived as `H|\^&#` goes back out as
+ * `H|\^&#` rather than losing the `#`.
  *
  * **Never break framing.** A component leaf that contains a record terminator
  * (`CR`/`LF`) cannot be escaped by the ASTM escape codec (only the four declared
  * delimiters have mnemonics), so emitting it would silently corrupt the wire.
  * The serializer refuses: an embedded `CR`/`LF` is a typed {@link AstmSerializeError},
  * never emitted raw.
+ *
+ * **Never emit an unreadable stream.** The delimiter set to emit against is checked
+ * before any bytes are written, and a set that cannot carry the record structure back
+ * out — a separator that is not exactly one character, a `CR`/`LF` separator, or two
+ * roles sharing a character — is a typed {@link AstmSerializeError}
+ * (`ASTM_EMIT_INVALID_DELIMITERS`) rather than output this library's own parser would
+ * reject or silently re-read with a different field tree.
  */
 
 import { CANONICAL_DELIMITERS, type Delimiters } from "../common/delimiters.js";
@@ -63,17 +74,112 @@ import type {
  * ```
  */
 export class AstmSerializeError extends Error {
-  /** Stable discriminant; `ASTM_EMIT_UNENCODABLE_VALUE` for a `CR`/`LF` in a value. */
-  public readonly code: "ASTM_EMIT_UNENCODABLE_VALUE";
+  /**
+   * Stable discriminant. `ASTM_EMIT_UNENCODABLE_VALUE` for a `CR`/`LF` in a value;
+   * `ASTM_EMIT_INVALID_DELIMITERS` for a delimiter set that cannot be emitted
+   * reversibly.
+   */
+  public readonly code: AstmSerializeErrorCode;
   /** 0-based ordinal of the record within the message, when known. */
   public readonly recordIndex?: number;
   /** @internal */
-  public constructor(message: string, recordIndex?: number) {
+  public constructor(
+    message: string,
+    recordIndex?: number,
+    code: AstmSerializeErrorCode = "ASTM_EMIT_UNENCODABLE_VALUE",
+  ) {
     super(message);
     this.name = "AstmSerializeError";
-    this.code = "ASTM_EMIT_UNENCODABLE_VALUE";
+    this.code = code;
     if (recordIndex !== undefined) this.recordIndex = recordIndex;
   }
+}
+
+/**
+ * The reasons emit refuses rather than writing a stream that cannot be read back.
+ *
+ * - `ASTM_EMIT_UNENCODABLE_VALUE` — a component holds a record terminator
+ *   (`CR`/`LF`), which the escape codec has no mnemonic for.
+ * - `ASTM_EMIT_INVALID_DELIMITERS` — the delimiter set to emit against cannot
+ *   carry the record structure back out again (see {@link serializeAstmRecords}).
+ *
+ * @example
+ * ```ts
+ * import type { AstmSerializeErrorCode } from "@cosyte/astm";
+ * const code: AstmSerializeErrorCode = "ASTM_EMIT_INVALID_DELIMITERS";
+ * ```
+ */
+export type AstmSerializeErrorCode = "ASTM_EMIT_UNENCODABLE_VALUE" | "ASTM_EMIT_INVALID_DELIMITERS";
+
+/**
+ * The three conditions a delimiter set must meet for emit to be reversible, in
+ * the order they are checked. Each is a way the emitted bytes would otherwise
+ * fail to read back as the records that produced them.
+ */
+const DELIMITER_ROLES = ["field", "repeat", "component", "escape"] as const;
+
+/**
+ * Refuse a delimiter set that cannot round-trip, before any bytes are written.
+ *
+ * **Why this refuses instead of warning.** Emit returns a bare `string` and has
+ * no warning channel, so a warning here could only ever be ignored while the
+ * unreadable stream still shipped. The three rules below are not style: each one
+ * names a case where the emitted bytes provably do not read back as the records
+ * that produced them, and every one of them was silent before — two of the six
+ * shapes measured emitted a stream this library's own parser then re-read with a
+ * **different** field tree and **no** warning at all, and the rest emitted a
+ * stream it rejected outright. Refusing at the call is the only disposition that
+ * reaches the caller.
+ *
+ * 1. **Each delimiter is exactly one character.** The reader takes each role from
+ *    a single position in the header's declaration, so a multi-character
+ *    separator is written but can never be read; an empty one matches everywhere
+ *    and shreds the values themselves.
+ * 2. **No delimiter is a record terminator.** A `CR`/`LF` separator ends the
+ *    record instead of dividing it, truncating the stream.
+ * 3. **The four are mutually distinct.** Two roles sharing a character makes the
+ *    boundary between them unrecoverable — a two-repeat field emitted with
+ *    `repeat` equal to `component` reads back as one repeat of two components,
+ *    losing structure with nothing to signal it.
+ *
+ * This is stricter than what the **parser** tolerates: a header may declare a set
+ * where, say, `repeat` and `component` are the same character, and that stream
+ * parses. Emitting against such a set is what cannot be undone, so a caller who
+ * passes one through — `serializeAstmRecords(msg, msg.delimiters)` on such a
+ * stream — now gets a typed error where it previously got silently lossy bytes.
+ * That is a deliberate narrowing on a published package: the input it turns away
+ * is exactly the input it was corrupting.
+ *
+ * The error never echoes the offending characters. A caller-supplied "delimiter"
+ * that fails rule 1 can be arbitrary text, so quoting it back into a message
+ * risks putting data into a log; naming the role is enough to fix the call.
+ */
+function assertEmittableDelimiters(d: Delimiters, recordIndex?: number): void {
+  const invalid = (reason: string): never => {
+    throw new AstmSerializeError(
+      `Cannot emit against these delimiters: ${reason}.`,
+      recordIndex,
+      "ASTM_EMIT_INVALID_DELIMITERS",
+    );
+  };
+
+  for (const role of DELIMITER_ROLES) {
+    const char = d[role];
+    if (char.length !== 1) {
+      invalid(`the ${role} delimiter must be exactly one character`);
+    }
+    if (char === "\r" || char === "\n") {
+      invalid(`the ${role} delimiter must not be a record terminator (CR/LF)`);
+    }
+  }
+
+  DELIMITER_ROLES.forEach((a, i) => {
+    for (const b of DELIMITER_ROLES.slice(i + 1)) {
+      if (d[a] === d[b]) {
+        invalid(`the ${a} and ${b} delimiters must not be the same character`);
+      }
+    }
+  });
 }
 
 /**
@@ -84,12 +190,16 @@ export class AstmSerializeError extends Error {
  * mnemonics.
  *
  * A `CR`/`LF` in the leaf has no escape mnemonic and would break framing, so it
- * is rejected with an {@link AstmSerializeError} rather than emitted raw.
+ * is rejected with an {@link AstmSerializeError} rather than emitted raw, as is a
+ * delimiter set the result could not be read back with.
  *
  * @param leaf - One already-decoded component string.
  * @param d - The delimiters to emit against (canonical for spec-clean output).
  * @param recordIndex - The enclosing record's index, for error context.
  * @returns The escaped component text.
+ * @throws {@link AstmSerializeError} for a `CR`/`LF` in the leaf
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`) or an unusable delimiter set
+ *   (`ASTM_EMIT_INVALID_DELIMITERS`).
  * @example
  * ```ts
  * import { encodeComponent, CANONICAL_DELIMITERS } from "@cosyte/astm";
@@ -97,6 +207,16 @@ export class AstmSerializeError extends Error {
  * ```
  */
 export function encodeComponent(leaf: string, d: Delimiters, recordIndex?: number): string {
+  assertEmittableDelimiters(d, recordIndex);
+  return encodeLeaf(leaf, d, recordIndex);
+}
+
+/**
+ * The escape encoder proper, for callers that have already checked `d`. Kept
+ * separate so the delimiter check runs once per public call rather than once per
+ * component leaf.
+ */
+function encodeLeaf(leaf: string, d: Delimiters, recordIndex?: number): string {
   if (leaf.includes("\r") || leaf.includes("\n")) {
     throw new AstmSerializeError(
       "A value contains a record terminator (CR/LF), which cannot be escaped without breaking framing.",
@@ -122,7 +242,7 @@ function encodeField(
   recordIndex?: number,
 ): string {
   return repeats
-    .map((rep) => rep.map((c) => encodeComponent(c, d, recordIndex)).join(d.component))
+    .map((rep) => rep.map((c) => encodeLeaf(c, d, recordIndex)).join(d.component))
     .join(d.repeat);
 }
 
@@ -132,15 +252,18 @@ function encodeField(
  *
  * The header (`H`) is special-cased: its delimiter-definition field is emitted as
  * the **literal** declaration of `d`, never escaped — escaping it would corrupt the
- * very declaration a reader depends on. Manufacturer (`M`) and scientific (`S`)
- * records are reproduced **byte-identically** from their preserved `rawLine` when
- * they are already in `d`, and re-encoded from their fields when they are not, so
- * their fields never collapse into one on the next read.
+ * very declaration a reader depends on — followed by any characters the modeled
+ * declaration carried beyond the three a reader takes its roles from. Manufacturer
+ * (`M`) and scientific (`S`) records are reproduced **byte-identically** from their
+ * preserved `rawLine` when they are already in `d`, and re-encoded from their fields
+ * when they are not, so their fields never collapse into one on the next read.
  *
  * @param record - The record to serialize.
  * @param d - The delimiters to emit against; defaults to `H|\^&`.
  * @returns The record's wire text, terminator excluded.
- * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`.
+ * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` cannot be emitted reversibly
+ *   (`ASTM_EMIT_INVALID_DELIMITERS`).
  * @example
  * ```ts
  * import { serializeAstmRecord, parseAstmRecords } from "@cosyte/astm";
@@ -152,6 +275,12 @@ export function serializeAstmRecord(
   record: AstmRecord,
   d: Delimiters = CANONICAL_DELIMITERS,
 ): string {
+  assertEmittableDelimiters(d, record.recordIndex);
+  return serializeRecordChecked(record, d);
+}
+
+/** {@link serializeAstmRecord} for callers that have already checked `d`. */
+function serializeRecordChecked(record: AstmRecord, d: Delimiters): string {
   if (record.type === "M" || record.type === "S") return serializeVerbatimRecord(record, d);
 
   if (record.type === "H") return serializeHeader(record, d);
@@ -221,16 +350,19 @@ function sameFieldTree(a: readonly AstmField[], b: readonly AstmField[]): boolea
 }
 
 /**
- * Serialize an `H` (header) record. The delimiter declaration is emitted as the
- * **literal** declaration of the delimiters being emitted against, never escaped
- * and never taken from the model — a header that declares one delimiter set
- * while the records around it use another is the exact corruption this module
- * refuses to produce. Every data field (field 3 onward) is emitted from the
- * header's tokenized {@link HeaderRecord.fields}, so an edit to the model is
- * reflected on emit, like every other record type.
+ * Serialize an `H` (header) record. The three delimiter roles the declaration
+ * carries are emitted as the **literal** declaration of the delimiters being
+ * emitted against, never escaped and never taken from the model — a header that
+ * declares one delimiter set while the records around it use another is the exact
+ * corruption this module refuses to produce. Every data field (field 3 onward) is
+ * emitted from the header's tokenized {@link HeaderRecord.fields}, so an edit to
+ * the model is reflected on emit, like every other record type.
+ *
+ * Anything the declaration carried **beyond** those three characters is carried
+ * through — see {@link declarationResidual}.
  */
 function serializeHeader(header: HeaderRecord, d: Delimiters): string {
-  const head = "H" + d.field + d.repeat + d.component + d.escape;
+  const head = "H" + d.field + d.repeat + d.component + d.escape + declarationResidual(header, d);
   // fields[0] is the type letter and fields[1] is the delimiter declaration, both regenerated
   // above; the ASTM data fields start at fields[2]. No data fields ⇒ a bare `H|\^&`.
   const dataFields = header.fields.slice(2);
@@ -238,6 +370,50 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
     .map((f) => d.field + encodeField(f.repeats, d, header.recordIndex))
     .join("");
   return head + rest;
+}
+
+/**
+ * The bytes a header's delimiter declaration carries past the three it is read
+ * for — `#` in a declaration of `\^&#` — and whether they can be re-emitted.
+ *
+ * Only three characters of the declaration have a role: repeat, component and
+ * escape, taken by position. A vendor may still declare more, and the reader
+ * ignores the surplus rather than refusing the stream. Emit used to regenerate
+ * the declaration from the three roles alone, so those surplus bytes were
+ * **dropped with no signal** and a header that arrived as `H|\^&#` went back out
+ * as `H|\^&`.
+ *
+ * The disposition chosen here is to **preserve** them, not to refuse and not to
+ * report. Refusing would reject a stream the parser reads without complaint, on
+ * a published package, over bytes it has already decided are inert; reporting is
+ * not available at all, because emit returns a bare string with no warning
+ * channel. Preserving costs nothing and is the only one of the three that makes
+ * the round-trip byte-exact. What the surplus *means* remains unresolved — the
+ * clauses that would settle it are not in the freely published material and were
+ * not read — but carrying bytes through unread is a strictly smaller claim than
+ * deleting them, and it keeps emit aligned with a reader that scopes delimiters
+ * forward from every header: the re-read declaration resolves to the same four
+ * roles either way.
+ *
+ * They are dropped in exactly one case: when they could not be read back as
+ * surplus. That means the modeled declaration no longer begins with the three
+ * roles being emitted (the header is being transcoded into a different set, and
+ * the surplus belonged to the old declaration), or the surplus contains the
+ * field delimiter or a record terminator, which would end the declaration field
+ * or the record early and shift every data field along. Both are structural
+ * losses; dropping inert bytes is not.
+ *
+ * The surplus is read from `fields[1]`, the tokenized declaration, because
+ * `fields` is the emit source for every record type — `rawLine` is provenance
+ * and editing it has no effect on emit.
+ */
+function declarationResidual(header: HeaderRecord, d: Delimiters): string {
+  const declaration = header.fields[1]?.raw ?? "";
+  const roles = d.repeat + d.component + d.escape;
+  if (!declaration.startsWith(roles)) return "";
+  const residual = declaration.slice(roles.length);
+  if (residual.includes(d.field) || residual.includes("\r") || residual.includes("\n")) return "";
+  return residual;
 }
 
 /**
@@ -251,10 +427,21 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
  * re-parsing it recovers every field. Passing `d` explicitly emits against that set
  * instead, and the header declares it.
  *
+ * **`d` is checked before anything is written.** Each of the four separators must be
+ * exactly one character, none may be a record terminator, and no two may share a
+ * character — otherwise the emitted bytes cannot be read back as the records that
+ * produced them, and emit has no warning channel with which to say so. A set that
+ * fails is an {@link AstmSerializeError} with code `ASTM_EMIT_INVALID_DELIMITERS`.
+ * This is stricter than the parser, which reads some sets it cannot reverse, so
+ * `serializeAstmRecords(msg, msg.delimiters)` can refuse a message that parsed —
+ * in exactly the cases where it used to emit a stream that read back wrong.
+ *
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
  * @param d - The delimiters to emit against; defaults to the canonical `H|\^&` set.
  * @returns The serialized record stream (`CR` after every record).
- * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`.
+ * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` cannot be emitted reversibly
+ *   (`ASTM_EMIT_INVALID_DELIMITERS`).
  * @example
  * ```ts
  * import { parseAstmRecords, serializeAstmRecords } from "@cosyte/astm";
@@ -266,10 +453,11 @@ export function serializeAstmRecords(
   input: AstmMessage | readonly AstmRecord[],
   d: Delimiters = CANONICAL_DELIMITERS,
 ): string {
+  assertEmittableDelimiters(d);
   const records: readonly AstmRecord[] = Array.isArray(input)
     ? (input as readonly AstmRecord[])
     : (input as AstmMessage).records;
-  return records.map((r) => serializeAstmRecord(r, d) + "\r").join("");
+  return records.map((r) => serializeRecordChecked(r, d) + "\r").join("");
 }
 
 /**
@@ -280,6 +468,9 @@ export function serializeAstmRecords(
  * @param field - The field to serialize.
  * @param d - The delimiters to emit against; defaults to `H|\^&`.
  * @returns The escaped field text.
+ * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` cannot be emitted reversibly
+ *   (`ASTM_EMIT_INVALID_DELIMITERS`).
  * @example
  * ```ts
  * import { serializeField, tokenizeRecord, CANONICAL_DELIMITERS } from "@cosyte/astm";
@@ -288,5 +479,6 @@ export function serializeAstmRecords(
  * ```
  */
 export function serializeField(field: AstmField, d: Delimiters = CANONICAL_DELIMITERS): string {
+  assertEmittableDelimiters(d);
   return encodeField(field.repeats, d);
 }
