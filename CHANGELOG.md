@@ -11,6 +11,61 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Added
 
+- **`messages()` — read a stream as the sequence of messages it actually is**
+  (`ASTM-PATIENT-RESULT-MISATTRIBUTION`). A parsed model has always been a whole record
+  **stream**, and a stream may carry several messages back to back: a message runs from an `H`
+  header to its `L` terminator. `messages(msg)` splits the stream into them and returns a
+  readonly array of `AstmStreamMessage`, each carrying only its own records:
+
+  ```ts
+  for (const m of messages(parseAstmRecords(raw))) {
+    m.patient; // the P for THIS message
+    m.results; // the Rs for THIS message
+  }
+  ```
+
+  Each entry carries `index`, `header`, `delimiters`, `records`, `patient`, `patients`,
+  `results`, `orders`, `comments`, and `queries`. It never throws, and a single-message stream
+  yields exactly one entry whose `records` are the whole stream, so it is safe to reach for
+  unconditionally.
+
+  **A message opens at every `H`** and runs to the record before the next one. That is
+  deliberately the _same_ boundary the parser already uses to scope delimiters, so message
+  boundaries and delimiter scope cannot disagree; `m.delimiters` is the set that message's
+  records were actually read with. The `L` terminator closes a message but opens no scope, so
+  records between an `L` and the next `H` stay with the message their header opened rather than
+  being dropped. Grouping is **total**: every record lands in exactly one message, none
+  duplicated and none lost, which is asserted directly.
+
+  **Evidence, labelled.** The message unit is `H` … `L` — _verified primary_: CLSI LIS02-A2 §2 is
+  definitional about the unit itself, bounding a message by the `H` record at one end and the `L`
+  record at the other. Read directly in CLSI's own free sample, and stated here in our own words
+  on purpose: we may read and cite the standard but never reproduce its prose, and this file ships
+  inside the npm tarball. That clause is the whole of what is claimed from the standard here, and
+  it does **not** settle which record _opens_ a new scope partway through a stream. So treating a
+  second `H` as the start of the next message is recorded as a **reasoned choice, not a citation**
+  — no clause number is claimed for it, and we do not assert the standard is silent either. It is
+  chosen to agree with the delimiter scoping this parser already enforces, and because it drops no
+  record. **The OSS corpus was checked rather than dismissed**, and unlike for delimiter questions
+  it is informative here — but only negatively: neither commonly-cited reference implementation
+  models the message unit at all. One dispatches records to per-type callbacks one at a time with
+  no carried state, leaving the association to the integrator; the other merges every message of a
+  transport session into a single envelope of flat per-record-type buckets, from which the
+  association cannot be recovered at all. A flat model is the incumbent shape, and this entry is
+  what it costs.
+
+  **`patient` is answered only when the message determines one.** It is the single `P` when the
+  message carries exactly one, and `undefined` when it carries none **or** several;
+  `patients.length` distinguishes those two, and there is no third meaning. A message carrying
+  several patients is not answered with the first one, because that is the guess this release
+  exists to remove. Within-message record hierarchy (which `P` a given `R` files against when a
+  message carries several) is **not** modeled: the clauses that would ground it (the
+  message-level structure diagram, and the `P` sequence-number rule) are withheld from the free
+  sample and paywalled, so the layer declines rather than inventing a rule. Multi-patient
+  messages are real — at least one openly-published vendor interface grammar makes the patient
+  group repeatable on the download direction — so this is a deferral with a known shape, not a
+  claim that the case does not arise, and not a claim that the standard is silent about it.
+
 - **`pnpm check:no-internal-refs` + a `no-internal-refs` CI job** (`PUBLIC-SURFACE-HYGIENE`,
   founder directive 2026-07-27). Internal only; no change to the published package surface. `astm` was
   the last parser with no gate on this rule at all, which is why the class had regrown. The script is
@@ -57,6 +112,47 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   not caught; bare `§` section citations are deliberately unruled; and `dist/` is build output this
   script cannot read, so it gates dist's source, not dist. Fourteen `P\d+` lines and the falsehoods
   below were found by hand, not by a rule.
+
+### Changed
+
+- **BREAKING: `patient()`, `results()`, `orders()`, `comments()`, and `query()` now throw on a
+  stream they cannot answer for, instead of answering across patients**
+  (`ASTM-PATIENT-RESULT-MISATTRIBUTION`; shipped `0.0.1` through `0.0.3`).
+
+  **The defect.** These accessors read the whole stream. On a stream carrying more than one
+  message, `patient()` answered with the **first** `P` in the stream while `results()` answered
+  with **every** `R` in it, so pairing them — which is exactly what this package's one-line north
+  star does — attributed one patient's results to another. It needed no delimiter redeclaration
+  and no unusual delimiters: an ordinary two-message stream in one canonical set reproduced it,
+  with **zero** warnings, and `strict` mode raised no objection either. On an analyzer-to-LIS
+  path that is a result filed against the wrong patient. Nothing was mis-_read_ — every `P` and
+  every `R` was correct in `records` — but there was no way to ask which belonged together.
+
+  **The change.** Those five accessors now throw `AstmAmbiguousStreamError` with code
+  `ASTM_AMBIGUOUS_MULTI_MESSAGE` when the stream carries more than one message. `patient()` also
+  throws `ASTM_AMBIGUOUS_MULTI_PATIENT` when the single message it is reading carries more than
+  one `P`, which is the same harm one level down: "the first `P`" is a guess about whose result
+  it is. The error carries a stable code, a value-free position, and the two counts; never an
+  identifier and never a value.
+
+  **Why the break is the fix, not a cost of it.** The callers this breaks are exactly the
+  population that is being silently corrupted today. A caller who now gets an exception is
+  strictly better off than one who quietly received another patient's results: the failure is
+  loud, immediate, positioned, and correctable, where before it was invisible at every layer.
+  There is no version of this where the old behaviour is safe to keep, and no warning strong
+  enough to substitute for refusing to answer, because the wrong answer was already being used.
+
+  **Single-message streams are unaffected** and continue to behave exactly as before, including
+  a message that carries no `P` at all: `patient()` still answers `undefined` for a result-only
+  upload, which is an ordinary shape and not an error. `commentsFor()` is unchanged and works on
+  any stream, single- or multi-message, because the parent record it is handed already names the
+  message.
+
+  **Migrating** is mechanical: replace `results(msg)` and `patient(msg)` with a walk over
+  `messages(msg)`, reading each message's own `patient` and `results`. Where a caller genuinely
+  wants every result in a stream regardless of who they belong to, that is
+  `messages(msg).flatMap((m) => m.results)` — written out, so it is a choice rather than a
+  default.
 
 ### Fixed
 

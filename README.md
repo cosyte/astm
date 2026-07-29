@@ -135,6 +135,26 @@ produce a confident wrong value: an embedded escaped delimiter reads as one comp
 record type is surfaced (never dropped), and a missing unit is flagged (never defaulted). A
 `{ strict: true }` mode escalates every tolerated deviation to a thrown error.
 
+### Several messages in one stream
+
+A message runs from its `H` header to its `L` terminator, so a stream can carry several. `messages()`
+splits a parsed stream into them, and each entry carries only its own records — so a patient is only
+ever paired with the results that message actually carried:
+
+```ts
+import { parseAstmRecords, messages } from "@cosyte/astm";
+
+for (const m of messages(parseAstmRecords(raw))) {
+  m.patient?.practiceAssignedId; // the P for THIS message
+  m.results; // the Rs for THIS message
+  m.delimiters; // the set THIS message's records were read with
+}
+```
+
+The flat accessors above (`patient`, `results`, `orders`, `comments`, `query`) read the whole stream,
+so they **throw** `AstmAmbiguousStreamError` on a stream they cannot answer for rather than answering
+across patients. Single-message streams behave exactly as before.
+
 ## Map local codes to LOINC (LIVD, bring-your-own)
 
 An analyzer sends a proprietary local test code in the Universal Test ID; a standard LOINC is mapped

@@ -235,17 +235,30 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
 
 ## Known defects live on `main` (recorded here so they survive independently of any backlog)
 
-1. **🩺 `patient()` and `results()` are scoped to the STREAM, not to a message — a wrong-patient path.**
-   On a stream carrying several messages, `patient(msg)` returns the **first** `P` record in the whole
-   stream while `results(msg)` returns **every** `R` record in it, so pairing the two — which is
-   exactly what `README.md`'s north-star one-liner does — can attribute one patient's results to
-   another. Reproduces with an **ordinary same-delimiter two-message stream**; no redeclaration
-   needed, and **zero warnings**. Nothing is mis-_read_ (every `P` and `R` is correct in
-   `msg.records`), and there is no message- or patient-scoped grouping API. Found by the
-   `conformance-refuter` while grading `ASTM-SECOND-HEADER-COLLAPSE` 2026-07-29 and deliberately
-   **not** folded into that slice: it is `PRE-EXISTING` and needs its own design (a grouping API is a
-   public-surface addition, not a bug fix). A consumer caveat is in `docs-content/quickstart.md`;
-   **this is the highest-severity open item in this repo and should come before further parser work.**
+1. **CLOSED 2026-07-29 by `ASTM-PATIENT-RESULT-MISATTRIBUTION`** — was: `patient()` and `results()`
+   scoped to the STREAM, not to a message, a wrong-patient path. On a stream carrying several
+   messages `patient(msg)` returned the **first** `P` in the whole stream while `results(msg)`
+   returned **every** `R` in it, so pairing the two — exactly what `README.md`'s north-star one-liner
+   does — attributed one patient's results to another, reproducing on an **ordinary same-delimiter
+   two-message stream** with **zero** warnings and no `strict` objection. Found by the
+   `conformance-refuter` grading `ASTM-SECOND-HEADER-COLLAPSE` and correctly not folded into it: the
+   fix is a public-surface **addition**, not a bug fix.
+   **▶ THE FIX IS DELIBERATELY BREAKING — read `CHANGELOG.md` `[Unreleased]` before touching
+   `extractors.ts`.** `messages(msg)` splits a parsed stream into its `H` … `L` messages, each
+   carrying only its own records; `patient`, `results`, `orders`, `comments` and `query` now throw
+   `AstmAmbiguousStreamError` (`ASTM_AMBIGUOUS_MULTI_MESSAGE`) on a multi-message stream rather than
+   answering across patients, and `patient()` also throws `ASTM_AMBIGUOUS_MULTI_PATIENT` on a single
+   message carrying several `P` records — the same guess one level down. The break is the fix: the
+   callers it breaks are the population that was being silently corrupted. Single-message streams are
+   unaffected; `commentsFor()` is unchanged because its parent record already names the message.
+   **Still open, deliberately deferred to its own slice: within-message patient scoping** — which `P`
+   an `R` files against when one message carries several. The clauses that would ground it (the
+   message-level structure diagram and the `P` sequence-number rule) are withheld from CLSI's free
+   sample and paywalled, so the layer declines rather than inventing a rule: `patient` is `undefined`
+   and `patients` carries all of them. **Multi-patient messages are real** — an openly-published
+   vendor interface grammar makes the patient group repeatable on the **download** direction, which
+   is precisely the direction the OSS test corpora do not cover — so this is a deferral with a known
+   shape, not a claim the case does not arise. Do not close it by guessing a hierarchy.
 2. **The parser reads delimiter declarations it cannot reverse, and says nothing.** `readDelimiters`
    checks only that the field separator differs from the other three, so a header declaring `H|^^&`
    (repeat === component) or `H|\&&` (component === escape) parses with **zero warnings** — and the

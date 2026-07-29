@@ -39,11 +39,35 @@ and you get `ASTM_RECORD_UNREADABLE_REDECLARATION` — no set is ever guessed an
 
 Read each header's own set from `header.delimiters`; `msg.delimiters` is the first header's.
 
-> **Accessors are scoped to the whole stream, not to a message.** On a stream carrying several
-> messages, `patient(msg)` returns the **first** `P` record in the stream and `results(msg)` returns
-> **every** `R` record in it, so pairing the two across a multi-message stream can attribute one
-> patient's results to another. Walk `msg.records` in order and split on the `H` records when a stream
-> may carry more than one message.
+### Reading a stream that carries several messages
+
+Use `messages()`. It splits a parsed stream into the messages it actually contains, so a patient and
+a result are only ever paired inside the message that carried both:
+
+```ts runnable
+import { parseAstmRecords, messages } from "@cosyte/astm";
+
+const two =
+  "H|\\^&\rP|1|PRAC-1\rR|1|^^^687|10.0|U/L||N||F\rL|1|N\r" +
+  "H|\\^&\rP|1|PRAC-2\rR|1|^^^688|99.9|U/L||H||F\rL|1|N\r";
+
+const pairs = messages(parseAstmRecords(two)).map(
+  (m) => `${m.patient?.practiceAssignedId}:${m.results[0]?.value}`,
+);
+pairs.join(" "); // => "PRAC-1:10.0 PRAC-2:99.9"
+```
+
+Each entry carries its own `header`, `delimiters`, `records`, `patient`, `patients`, `results`,
+`orders`, `comments`, and `queries`. `messages()` never throws, and on an ordinary single-message
+stream it yields exactly one entry.
+
+> **The flat accessors refuse a stream they cannot answer for.** `patient()`, `results()`,
+> `orders()`, `comments()`, and `query()` read the whole stream, so on a multi-message stream they
+> throw `AstmAmbiguousStreamError` (`ASTM_AMBIGUOUS_MULTI_MESSAGE`) instead of answering across
+> patients. `patient()` also throws (`ASTM_AMBIGUOUS_MULTI_PATIENT`) when a single message carries
+> more than one `P`, because "the first `P`" is a guess about whose result it is. Single-message
+> streams are unaffected. `commentsFor()` works on any stream: the parent record you hand it already
+> names the message.
 
 ```ts
 import { parseAstmRecords, WARNING_CODES } from "@cosyte/astm";
