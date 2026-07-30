@@ -11,7 +11,7 @@ import {
 } from "../src/index.js";
 
 /**
- * The warning/fatal code surface is part of the public contract — a rename or
+ * The warning/fatal code surface is part of the public contract: a rename or
  * removal is a breaking change. These snapshots turn any such change into a
  * reviewable diff (a deliberate tripwire), and assert the tiers stay disjoint.
  */

@@ -5,9 +5,9 @@
  * spec's component order is LOINC-slot / test-name / coding-scheme / local-code.
  * In the field the way real analyzers emit it:
  *
- * - **component 1** is a LOINC slot — *almost always empty*; a few vendors place
+ * - **component 1** is a LOINC slot: *almost always empty*; a few vendors place
  *   an inline LOINC when one exists;
- * - **component 4** is the vendor/local code — the identifier that is actually
+ * - **component 4** is the vendor/local code: the identifier that is actually
  *   present, and therefore the **primary** identifier here.
  *
  * Following the sibling parsers' conservative posture, this module is a
@@ -18,11 +18,11 @@
 
 /** Where a Universal Test ID's usable identifier came from. */
 export type UniversalTestIdProvenance =
-  /** Component 1 (the LOINC slot) is populated — a candidate LOINC, recognized not validated. */
+  /** Component 1 (the LOINC slot) is populated: a candidate LOINC, recognized not validated. */
   | "inline-loinc-candidate"
   /** Component 4 (the vendor/local code) carries the identifier. */
   | "local-code"
-  /** Only the test name (component 2) is present — no code. */
+  /** Only the test name (component 2) is present: no code. */
   | "name-only"
   /** Nothing usable in the field. */
   | "empty";
@@ -42,13 +42,13 @@ export type UniversalTestIdProvenance =
 export interface UniversalTestId {
   /** The field's components, verbatim and in order. */
   readonly components: readonly string[];
-  /** Component 1 when populated — a *candidate* LOINC (provenance only, never validated). */
+  /** Component 1 when populated: a *candidate* LOINC (provenance only, never validated). */
   readonly loincCandidate?: string;
-  /** Component 2 — the test / battery name, when present. */
+  /** Component 2: the test / battery name, when present. */
   readonly testName?: string;
-  /** Component 3 — the coding-scheme selector, when present. */
+  /** Component 3: the coding-scheme selector, when present. */
   readonly codingScheme?: string;
-  /** Component 4 — the vendor/local code: the primary identifier when no inline LOINC is given. */
+  /** Component 4, the vendor/local code: the primary identifier when no inline LOINC is given. */
   readonly localCode?: string;
   /** Where the primary identifier came from. */
   readonly provenance: UniversalTestIdProvenance;
@@ -94,7 +94,7 @@ export function recognizeUniversalTestId(components: readonly string[]): Univers
 /**
  * The primary code to key a result on: the inline LOINC candidate when a vendor
  * supplied one, otherwise the local (vendor) code. Returns `undefined` when the
- * field carries no code at all (name-only or empty) — never a guess.
+ * field carries no code at all (name-only or empty): never a guess.
  *
  * @param u - A recognized Universal Test ID.
  * @returns The primary code, or `undefined`.

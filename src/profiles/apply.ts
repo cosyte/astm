@@ -4,7 +4,7 @@
  * plus the transport-override accessor the framing detector consumes.
  *
  * A profile **never touches an extracted value**. The warning transform operates
- * purely at the warning layer — downgrading a deviation it *expects* into a
+ * purely at the warning layer: downgrading a deviation it *expects* into a
  * `PROFILE_QUIRK_APPLIED` warning (flagged `expected`, carrying the original
  * `toleratedCode`) while leaving every un-expected warning untouched. Because the
  * transform only ever rewrites a warning object (never a record, field, or value),
@@ -19,7 +19,7 @@ import type { AstmProfile, AstmQuirkTolerance } from "./types.js";
 
 /**
  * Does `tolerance` apply to `warning`? The codes must match, and every structural
- * key present in the tolerance's `match` must equal the warning's position — a
+ * key present in the tolerance's `match` must equal the warning's position: a
  * tolerance with no `match` applies to every warning of its code. Matching is on
  * PHI-free structural identifiers only (record-type letter, 1-based field index).
  *
@@ -74,7 +74,7 @@ export function applyAstmProfile(
  * Apply a profile across a whole warning list, returning a NEW array (the input is
  * never mutated). Returned unchanged (same reference contents, a shallow copy) when
  * `profile` is `undefined`, so the no-profile path pays only a copy. Every tolerated
- * warning is re-badged; every other warning passes through by identity — nothing is
+ * warning is re-badged; every other warning passes through by identity, nothing is
  * dropped, reordered, or reallocated beyond the re-badge.
  *
  * @param warnings - The accumulated record warnings.
@@ -95,7 +95,7 @@ export function applyAstmProfileToWarnings(
 }
 
 /**
- * The profile's transport override, if any — the value a consumer feeds to
+ * The profile's transport override, if any: the value a consumer feeds to
  * `detectFraming(bytes, { override })` to force framed/raw and bypass leading-byte
  * auto-detection. `undefined` means "let detection decide."
  *

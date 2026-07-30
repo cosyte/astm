@@ -9,7 +9,7 @@
  * order flow, so this module makes the distinction **explicit**:
  *
  * **The `Q` record dominates.** Any message carrying a `Q` (request-information)
- * record is classified `host-query` — a request — and is **never** treated as a
+ * record is classified `host-query`, a request, and is **never** treated as a
  * result set, even if a result record is also present (an anomaly, which the
  * parser flags separately with `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`). This is the
  * whole point: a `Q`-bearing message can never silently read as a result upload.
@@ -18,7 +18,7 @@
 import type { AstmMessageClassification, AstmRecord } from "./types.js";
 
 /**
- * Classify a record stream by the host-query flow. Pure and total — it only reads
+ * Classify a record stream by the host-query flow. Pure and total: it only reads
  * the record type letters, never a field value.
  *
  * `Q` dominates: a message with any `Q` record is a `host-query` request even when

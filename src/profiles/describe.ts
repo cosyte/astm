@@ -20,7 +20,7 @@ export function buildDescribe(p: AstmProfile): string {
     lines.push(`  description: ${p.description}`);
   }
   // `describe()` is only ever attached by the factory, which always fills `lineage`
-  // with at least the profile's own name — so it is non-empty here.
+  // with at least the profile's own name, so it is non-empty here.
   lines.push(`  lineage: ${p.lineage.join(" → ")}`);
   if (p.transport !== undefined) {
     lines.push(`  transport: forces ${p.transport} framing (detection override)`);

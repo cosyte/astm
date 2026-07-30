@@ -8,7 +8,7 @@ sidebar_position: 1
 
 Parse an ASTM/CLSI-LIS02 record stream and read a result in a few lines. `@cosyte/astm` is **lenient
 by default** (Postel's Law): real-world, vendor-quirky input parses into an immutable message plus a
-list of tolerance **warnings**, rather than throwing — and it never hands you a confident wrong value.
+list of tolerance **warnings**, rather than throwing, and it never hands you a confident wrong value.
 
 ## Parse a result upload
 
@@ -30,12 +30,12 @@ distinct. Each warning carries a **stable code** you can branch on:
 ### More than one message in a stream
 
 A message runs from its `H` header to its `L` terminator, so a stream can carry several back to
-back — and each header declares the delimiters for the records that follow it. If a later header
+back, and each header declares the delimiters for the records that follow it. If a later header
 declares a **different** set, those records are read with the new set and you get an
 `ASTM_RECORD_DELIMITERS_REDECLARED` warning pointing at that header; records already read keep the
 set they were read with. A header that simply restates the delimiters already in use is normal and
 warns nothing. If a later header's declaration is unusable, the delimiters already in force are kept
-and you get `ASTM_RECORD_UNREADABLE_REDECLARATION` — no set is ever guessed and no record is dropped.
+and you get `ASTM_RECORD_UNREADABLE_REDECLARATION`: no set is ever guessed and no record is dropped.
 
 Read each header's own set from `header.delimiters`; `msg.delimiters` is the first header's.
 
@@ -84,10 +84,10 @@ for (const w of warnings) {
 ```
 
 > **About runnable examples.** The first block above is tagged ` ```ts runnable `: the docs
-> build extracts it, runs it against the package, and asserts the `// =>` result — so a documented
+> build extracts it, runs it against the package, and asserts the `// =>` result, so a documented
 > example can never silently drift from the code.
 
-## Read a result safely — status, flag, range
+## Read a result safely: status, flag, range
 
 A result carries the raw fields **and** a modeled, fail-safe view alongside them. The rule is _never
 a confident wrong value_: a corrected or cancelled result never reads as active-final, an unrecognized
@@ -105,27 +105,27 @@ r?.status.meaning; // => "correction"
 ```
 
 The `status` object is **always present** (an absent status field is typed `unspecified`, never
-assumed `final`), so `status.isActiveFinal` is a reliable boolean — `true` only for a plain `F`:
+assumed `final`), so `status.isActiveFinal` is a reliable boolean, `true` only for a plain `F`:
 
 ```ts
 import { parseAstmRecords, results } from "@cosyte/astm";
 
 const r = results(parseAstmRecords(raw))[0];
 
-r?.status.isActiveFinal; // false — a correction is not active-final
-r?.status.supersedes; // true — this value replaces a prior one
+r?.status.isActiveFinal; // false, a correction is not active-final
+r?.status.supersedes; // true, this value replaces a prior one
 r?.flag?.meaning; // "above-normal" (HL7 Table 0078); an unknown flag → "undefined", never "normal"
 r?.range?.kind; // "closed" (low "10", high "40"); an unparseable range → "unparsed", no invented bound
 ```
 
 > Units are vendor **free text**, never UCUM. A _numeric_ result value with no units raises an
-> `ASTM_RECORD_UNITS_ABSENT` warning — a missing unit is flagged, never defaulted, guessed, or
+> `ASTM_RECORD_UNITS_ABSENT` warning: a missing unit is flagged, never defaulted, guessed, or
 > converted. The reference-range delimiter is `[OSS-derived]`; anything that
 > does not match `low-high` / `<high` / `>low` is surfaced verbatim.
 
 ## Tell a query apart from a result upload
 
-A `Q` (request-information) record means the message is a **host-query request**, not a result set —
+A `Q` (request-information) record means the message is a **host-query request**, not a result set,
 so it must never be read as one. `parseAstmRecords` classifies every message up front; gate on
 `classification.isHostQueryRequest` before treating records as results.
 
@@ -140,19 +140,19 @@ msg.classification.kind; // => "host-query"
 ```
 
 The `Q` **dominates**: even a message that (anomalously) carries both a `Q` and an `R` is classified
-`host-query` and flagged — a query is never silently read as a result upload. The `Q` record's range
+`host-query` and flagged, a query is never silently read as a result upload. The `Q` record's range
 IDs, the `ALL` keyword, and the request-information status codes are surfaced **verbatim** and flagged
 `[OSS-derived]` (their exact structure is paywalled), never guessed.
 
 `M` (manufacturer) and `S` (scientific) records carry vendor-defined QC / calibration / maintenance
 data. They are surfaced **verbatim** on `record.rawLine` and **never** interpreted into clinical
-fields — a QC value must not be read as a patient result.
+fields: a QC value must not be read as a patient result.
 
 ## Decode a framed byte stream
 
 The record examples above assume **de-framed** record bytes. When you receive a raw ASTM byte stream
-straight off a serial line or socket, it arrives wrapped in **E1381/CLSI-LIS01 frames** —
-`<STX> FN text <ETB|ETX> CS <CR><LF>` — with a modulo-256 checksum and a frame number. `decodeAstmFrames`
+straight off a serial line or socket, it arrives wrapped in **E1381/CLSI-LIS01 frames**
+(`<STX> FN text <ETB|ETX> CS <CR><LF>`) with a modulo-256 checksum and a frame number. `decodeAstmFrames`
 verifies each checksum, tracks the frame-number sequence, and reassembles multi-frame records; a
 bad-checksum frame is surfaced **flagged untrusted and never merged**, and a sequence gap is **never
 silently bridged**.
@@ -167,7 +167,7 @@ const { frames } = decodeAstmFrames(bytes);
 frames[0]?.checksum.valid; // => true
 ```
 
-`parseFramedAstm` composes the two layers at the edge — decode the frames, then parse the trusted,
+`parseFramedAstm` composes the two layers at the edge: decode the frames, then parse the trusted,
 reassembled records into a message in one call. Only frames the framing layer vouched for reach the
 record parser, so a corrupted frame can never become a confident wrong value:
 
@@ -176,20 +176,20 @@ import { parseFramedAstm, results } from "@cosyte/astm";
 
 const { message, frames, frameWarnings } = parseFramedAstm(framedBytes);
 
-frameWarnings; // bad checksum / sequence gap / unterminated / oversize — each with a frame number + offset
+frameWarnings; // bad checksum / sequence gap / unterminated / oversize, each with a frame number + offset
 results(message)[0]?.value; // parsed from the reassembled, checksum-verified record bytes
 ```
 
 > A checksum mismatch is a **warning** in the default lenient mode (the frame is kept for audit,
 > flagged `trusted: false`, and excluded from `records`) and a thrown `AstmFrameStrictError` under
-> `{ strict: true }`. The checksum is emitted uppercase but **accepted lowercase** — a real-vendor
+> `{ strict: true }`. The checksum is emitted uppercase but **accepted lowercase**: a real-vendor
 > quirk. Frame warnings carry only a **frame number + byte offset**, never the record bytes.
 
 ## Serialize and build (emit)
 
 Emit is the conservative inverse of parse. `serializeAstmRecords` turns a parsed
-message back into a spec-clean, `CR`-terminated stream — always the **canonical**
-`H|\^&` delimiters, every embedded delimiter re-escaped — so it round-trips:
+message back into a spec-clean, `CR`-terminated stream: always the **canonical**
+`H|\^&` delimiters, every embedded delimiter re-escaped, so it round-trips:
 
 ```ts runnable
 import { parseAstmRecords, serializeAstmRecords } from "@cosyte/astm";
@@ -199,37 +199,37 @@ serializeAstmRecords(parseAstmRecords(raw)); // => "H|\\^&\rP|1|PRAC|LAB\rR|1|^^
 ```
 
 Canonical means canonical for the **whole** stream. A message that arrived under a vendor delimiter
-set comes back with every record in the canonical set, including the free-form `M` and `S` rows — the
+set comes back with every record in the canonical set, including the free-form `M` and `S` rows: the
 header can never declare one set while the rows below it use another, because re-reading that stream
 would collapse those rows' fields into one. `M`/`S` bytes are reproduced exactly as they arrived
 whenever they are already in the delimiters being emitted, so a canonical message is unchanged
 byte-for-byte; only the delimiters between values ever change, never the values.
 
-Pass a second argument to emit against a different set — `serializeAstmRecords(msg, msg.delimiters)`
+Pass a second argument to emit against a different set: `serializeAstmRecords(msg, msg.delimiters)`
 puts a message back out in the delimiters it arrived under, and the header declares that set. Only
 three characters of a header's declaration carry a role (repeat, component, escape); a declaration
 that carries more keeps the surplus on emit rather than losing it, so `H|\^&#` comes back as
 `H|\^&#`. That holds on the default canonical path too: normalizing replaces the four roles, and the
 surplus holds none of them. It does **not** hold when a message is emitted into a _different_
-delimiter set than the one it arrived under — there the surplus belonged to the declaration being
+delimiter set than the one it arrived under: there the surplus belonged to the declaration being
 replaced and is dropped, along with any surplus carrying the field separator or a control
 character.
 
 The set you pass is checked before any bytes are written. Each separator must be exactly one
-character, none may be a `CR`/`LF`, and no two may be the same character — otherwise the stream
+character, none may be a `CR`/`LF`, and no two may be the same character: otherwise the stream
 could not be read back as the records that produced it, and emit returns a plain string with no
 channel to warn you. A set that fails is an `AstmSerializeError` with code
 `ASTM_EMIT_INVALID_DELIMITERS`. This is stricter than the reader, which tolerates a few
 declarations it cannot reverse, so a message that parsed can still be refused when you ask for it
-back in its own set — the alternative was output that read back with a different field tree and
+back in its own set: the alternative was output that read back with a different field tree and
 said nothing.
 
 Those three conditions are what readback **requires**, not a proof that it works. A set can pass all
-three and still read back wrong — a separator that collides with a record's type letter is the known
+three and still read back wrong: a separator that collides with a record's type letter is the known
 case. If you emit against a set of your own rather than the canonical one, check the round-trip on
 your own traffic.
 
-`buildAstmMessage` constructs a spec-clean stream from typed input — and **never
+`buildAstmMessage` constructs a spec-clean stream from typed input, and **never
 fabricates**. It emits only the values you supply; an omitted field stays empty,
 never a defaulted clinical value. A result whose status you did not set reads back
 as `unspecified`, never `final`:
@@ -245,7 +245,7 @@ results(parseAstmRecords(raw))[0]?.status.meaning; // => "unspecified"
 ```
 
 Every value is escape-encoded on emit, so an embedded delimiter can never break
-framing — a titre `1^40` is emitted as `1&S&40` and reads back as one component. A
+framing: a titre `1^40` is emitted as `1&S&40` and reads back as one component. A
 value carrying a `CR`/`LF` (which no escape can encode) is refused with a typed
 `AstmSerializeError` rather than a corrupted wire.
 
@@ -253,7 +253,7 @@ value carrying a `CR`/`LF` (which no escape can encode) is refused with a typed
 
 `composeAstmFrames` is the inverse of `decodeAstmFrames`: it wraps reassembled
 record bytes into `<STX> FN text <ETB|ETX> CS <CR><LF>` frames, **computing** each
-modulo-256 checksum and frame number and splitting any record over 240 bytes —
+modulo-256 checksum and frame number and splitting any record over 240 bytes:
 never faking either. `serializeFramedAstm` composes both emit layers at the edge:
 
 ```ts runnable
@@ -269,9 +269,9 @@ results(parseFramedAstm(bytes).message)[0]?.value; // => "28.6"
 
 An analyzer transmits a proprietary **local** test code in the Universal Test ID; a
 standard **LOINC** is mapped downstream. Supply your own IICC LIVD catalog and
-`applyLivd` annotates the message — **additively**. It never touches the raw code or
+`applyLivd` annotates the message: **additively**. It never touches the raw code or
 value, and it **never guesses a LOINC**: an unmapped or ambiguous code is surfaced as
-such (a wrong LOINC would mis-identify the test). No terminology data is bundled — you
+such (a wrong LOINC would mis-identify the test). No terminology data is bundled: you
 bring the catalog.
 
 ```ts runnable
@@ -284,7 +284,7 @@ applyLivd(msg, catalog).annotations[0]?.mapping.status; // => "mapped"
 ```
 
 A code the catalog does not hold stays verbatim and is reported `unmapped` with a
-value-free `ASTM_LIVD_UNMAPPED_CODE` warning — never a fabricated LOINC:
+value-free `ASTM_LIVD_UNMAPPED_CODE` warning, never a fabricated LOINC:
 
 ```ts runnable
 import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
@@ -297,5 +297,5 @@ applyLivd(msg, catalog).annotations[0]?.mapping.status; // => "unmapped"
 
 ## Next
 
-- [Core Concepts](./concepts-archetype) — the parser archetype and the tolerance model.
-- **API Reference** — every export, generated from source.
+- [Core Concepts](./concepts-archetype): the parser archetype and the tolerance model.
+- **API Reference**: every export, generated from source.

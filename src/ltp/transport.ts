@@ -5,15 +5,15 @@
  * (RS-232) always uses full E1381 framing. Over **TCP it varies within a single
  * vendor**: the Roche cobas 4800 and iNTERFACEWARE Iguana retain the full
  * `ENQ`/`ACK` + `STX`/checksum framing over TCP (**framed-TCP**), while the cobas
- * b121 drops all low-level framing — "TCP itself ensures correctness" — and streams
+ * b121 drops all low-level framing, "TCP itself ensures correctness", and streams
  * de-framed record bytes directly (**raw-TCP**). A reader must handle both and must
  * not assume the handshake is present.
  *
  * {@link detectFraming} decides which it is from the stream's leading byte: `STX`
  * or `ENQ` ⇒ framed (feed it to the frame codec + {@link ltpReduce}); a bare record
  * letter ⇒ raw (feed it straight to `parseAstmRecords`). Anything else is
- * **ambiguous**, and the fail-safe is to **default to framed** and warn — never to
- * guess silently into data loss — with an explicit override for a profile that
+ * **ambiguous**, and the fail-safe is to **default to framed** and warn, never to
+ * guess silently into data loss, with an explicit override for a profile that
  * knows better.
  */
 
@@ -24,7 +24,7 @@ import { ltpAmbiguousTransport, type AstmLtpWarning } from "./warnings.js";
 /**
  * The transport framing of an ASTM byte stream: `"framed"` (E1381 `STX`/checksum
  * frames, the serial and framed-TCP realities) or `"raw"` (framing dropped,
- * de-framed record bytes streamed directly — the raw-TCP reality).
+ * de-framed record bytes streamed directly, the raw-TCP reality).
  */
 export type AstmFraming = "framed" | "raw";
 
@@ -34,7 +34,7 @@ export type AstmFraming = "framed" | "raw";
 export interface DetectFramingOptions {
   /**
    * A profile-supplied override. When set, detection is bypassed entirely and this
-   * value is returned with no warning — the way a vendor profile forces raw for
+   * value is returned with no warning: the way a vendor profile forces raw for
    * a cobas b121 or framed for a cobas 4800 regardless of the leading byte.
    */
   readonly override?: AstmFraming;
@@ -93,7 +93,7 @@ export function detectFraming(
     return { framing: "raw", defaulted: false, warnings: [] };
   }
 
-  // Unrecognizable (or empty): default to framed — the safer assumption, since treating a framed
+  // Unrecognizable (or empty): default to framed, the safer assumption, since treating a framed
   // stream as raw would feed control/checksum bytes to the record parser and corrupt fields.
   return { framing: "framed", defaulted: true, warnings: [ltpAmbiguousTransport()] };
 }

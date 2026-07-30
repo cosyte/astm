@@ -2,7 +2,7 @@
  * Test-only frame encoder. The real spec-clean encoder is Phase 7; this helper
  * exists so the Phase 5 decoder tests can build well-formed (and deliberately
  * malformed) `<STX> FN text <ETB|ETX> CS <CR><LF>` frames from synthetic record
- * text. All content here is synthetic — plain `H`/`O`/`R`/`L` record bytes with no
+ * text. All content here is synthetic: plain `H`/`O`/`R`/`L` record bytes with no
  * patient identifiers.
  */
 
@@ -12,7 +12,7 @@ const ETB = 0x17;
 const CR = 0x0d;
 const LF = 0x0a;
 
-/** Assert a value is defined and return it — the lint-clean alternative to a `!` assertion in tests. */
+/** Assert a value is defined and return it: the lint-clean alternative to a `!` assertion in tests. */
 export function def<T>(value: T | undefined): T {
   if (value === undefined) throw new Error("expected a defined value");
   return value;

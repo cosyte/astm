@@ -1,10 +1,10 @@
 # scripts/phi-allow-list.txt
 #
-# PHI-scan allow-list — the positive declaration that a fixture's identifiers
+# PHI-scan allow-list: the positive declaration that a fixture's identifiers
 # are synthetic. `scripts/phi-scan.ts` reads this file; any realistic-PHI-shaped
 # token NOT covered here is a hit. Byte-strict wire formats cannot carry an
 # inline `# synthetic: true` header (the header segment must be the first bytes),
-# so this allow-list is the synthetic-fixture declaration mechanism — the same
+# so this allow-list is the synthetic-fixture declaration mechanism, the same
 # approach every sibling `@cosyte/*` parser uses.
 #
 # Format: `<TAG> <value>` per line. `#` comments and blank lines are ignored.
@@ -20,7 +20,7 @@
 # later phase's practice/lab-ID detector.
 #
 # To add a new synthetic fixture: reuse the tokens below, or append new ones here
-# and commit. Adding a token is a reviewed, intentional act — never silent.
+# and commit. Adding a token is a reviewed, intentional act: never silent.
 
 # --- Reserved / test email domains (RFC 2606 / 6761) ---
 EMAILDOMAIN example.com
@@ -28,7 +28,7 @@ EMAILDOMAIN example.org
 EMAILDOMAIN example.net
 EMAILDOMAIN example.test
 
-# --- Synthetic person-name tokens (P field 6 — Last^First^Middle; P field 7 — mother's maiden) ---
+# --- Synthetic person-name tokens (P field 6, Last^First^Middle; P field 7, mother's maiden) ---
 # All fully synthetic; used only in test/fixtures/*.astm.
 NAME DOE
 NAME JANE
@@ -40,7 +40,7 @@ NAME KING
 # --- Synthetic dates of birth (P field 8, YYYYMMDD[HHMMSS]) ---
 DOB 20200101
 DOB 19850612
-# Deliberately truncated (7-digit) synthetic DOB — the partial-timestamp fixture.
+# Deliberately truncated (7-digit) synthetic DOB: the partial-timestamp fixture.
 DOB 2020010
 
 # --- Synthetic ids: SSN / MRN / member-id shapes (reserved for a later phase's detector) ---

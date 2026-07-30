@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { primaryCode, recognizeUniversalTestId } from "../../src/index.js";
 
-describe("recognizeUniversalTestId — structural recognizer, verbatim, no lookup", () => {
+describe("recognizeUniversalTestId: structural recognizer, verbatim, no lookup", () => {
   it("reads the local code (component 4) as the primary identifier", () => {
     const u = recognizeUniversalTestId(["", "", "", "687"]);
     expect(u.localCode).toBe("687");

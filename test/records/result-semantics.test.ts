@@ -15,7 +15,7 @@ import {
  * fast-check properties in `../property/result-semantics.property.test.ts`.
  */
 
-describe("interpretAbnormalFlag — HL7 Table 0078", () => {
+describe("interpretAbnormalFlag: HL7 Table 0078", () => {
   const cases: ReadonlyArray<readonly [AbnormalFlagCode, string]> = [
     ["L", "below-normal"],
     ["H", "above-normal"],
@@ -67,7 +67,7 @@ describe("interpretAbnormalFlag — HL7 Table 0078", () => {
   });
 });
 
-describe("interpretResultStatus — F/C/P/R/S/I/X", () => {
+describe("interpretResultStatus: F/C/P/R/S/I/X", () => {
   const cases: ReadonlyArray<readonly [ResultStatusCode, string]> = [
     ["F", "final"],
     ["C", "correction"],
@@ -125,7 +125,7 @@ describe("interpretResultStatus — F/C/P/R/S/I/X", () => {
   });
 });
 
-describe("parseReferenceRange — bounds surfaced verbatim, never fabricated", () => {
+describe("parseReferenceRange: bounds surfaced verbatim, never fabricated", () => {
   it("parses a closed range", () => {
     const r = parseReferenceRange("3.5-5.0");
     expect(r.kind).toBe("closed");

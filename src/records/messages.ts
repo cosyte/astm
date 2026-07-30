@@ -1,11 +1,11 @@
 /**
- * Message grouping — the safe replacement for the stream-scoped extractors.
+ * Message grouping: the safe replacement for the stream-scoped extractors.
  *
  * A parsed {@link AstmMessage} models a whole **record stream**, and a stream may carry
  * several messages back to back: a message runs from an `H` header to its `L` terminator.
  * The flat extractors in `./extractors.js` read the whole stream, so on a multi-message
  * stream `patient(msg)` answered with the first `P` in the stream while `results(msg)`
- * answered with every `R` in it — pairing the two, which is exactly what the package's
+ * answered with every `R` in it: pairing the two, which is exactly what the package's
  * one-line north star does, attributed one patient's results to another. It needed no
  * redeclaration and no unusual delimiters, and it warned about nothing.
  *
@@ -26,20 +26,20 @@
  * about the unit itself: a message is bounded by the `H` record at one end and the `L`
  * record at the other. That clause is in CLSI's free sample and is the whole of what is
  * claimed from the standard here. It does **not** settle which record *opens* a new scope
- * partway through a stream, so treating a second `H` as the start of the next message —
- * rather than, say, requiring an intervening `L` — is a reasoned choice, not a citation. It
+ * partway through a stream, so treating a second `H` as the start of the next message
+ * (rather than, say, requiring an intervening `L`) is a reasoned choice, not a citation. It
  * is made this way because it is the boundary this parser already enforces for delimiters,
  * and because it never drops a record.
  *
- * **What is deliberately not modeled.** ASTM's within-message record hierarchy — which `P`
- * a given `R` files against when one message carries several patients — is not modeled
+ * **What is deliberately not modeled.** ASTM's within-message record hierarchy, which `P`
+ * a given `R` files against when one message carries several patients, is not modeled
  * here. The clauses that would ground it (the message-level structure diagram, and the `P`
  * sequence-number rule) are withheld from the free sample and are paywalled, so rather than
  * guess a scoping rule this layer refuses to answer: a message carrying more than one `P`
  * leaves {@link AstmStreamMessage.patient} `undefined` and surfaces all of them on
- * {@link AstmStreamMessage.patients}. Multi-patient messages are real — at least one
+ * {@link AstmStreamMessage.patients}. Multi-patient messages are real, at least one
  * openly-published vendor interface grammar makes the patient group repeatable on the
- * download direction — so this is a deferral with a known shape, not a claim that the case
+ * download direction, so this is a deferral with a known shape, not a claim that the case
  * does not arise, and not a claim that the standard is silent about it.
  *
  * **The OSS corpus was checked and offers no prior art.** It is informative here, unlike
@@ -87,12 +87,12 @@ export const AMBIGUOUS_CODES = {
   ASTM_AMBIGUOUS_MULTI_PATIENT: "ASTM_AMBIGUOUS_MULTI_PATIENT",
 } as const;
 
-/** A value from {@link AMBIGUOUS_CODES} — the discriminant on {@link AstmAmbiguousStreamError}. */
+/** A value from {@link AMBIGUOUS_CODES}: the discriminant on {@link AstmAmbiguousStreamError}. */
 export type AmbiguousCode = (typeof AMBIGUOUS_CODES)[keyof typeof AMBIGUOUS_CODES];
 
 /**
  * Thrown by a flat extractor when the stream it was handed does not determine a single
- * answer — either because it carries several messages, or because its one message carries
+ * answer: either because it carries several messages, or because its one message carries
  * several patients.
  *
  * The throw **is** the fix. A caller who gets this error is strictly better off than one
@@ -116,7 +116,7 @@ export type AmbiguousCode = (typeof AMBIGUOUS_CODES)[keyof typeof AMBIGUOUS_CODE
  * ```
  */
 export class AstmAmbiguousStreamError extends Error {
-  /** The stable discriminant — see {@link AMBIGUOUS_CODES}. */
+  /** The stable discriminant: see {@link AMBIGUOUS_CODES}. */
   public readonly code: AmbiguousCode;
   /** Where the ambiguity became visible: the second header, or the second `P`. Value-free. */
   public readonly position: AstmPosition;
@@ -153,7 +153,7 @@ export interface AstmStreamMessage {
   /** This message's header record. */
   readonly header: HeaderRecord;
   /**
-   * The delimiter set in force for this message — the header's own resolved set, which is
+   * The delimiter set in force for this message: the header's own resolved set, which is
    * the set its records were actually read with. When a later header's declaration was
    * unusable, this is the set that stayed in force, never a guessed one.
    */
@@ -161,7 +161,7 @@ export interface AstmStreamMessage {
   /** Every record of this message in wire order, the header first. */
   readonly records: readonly AstmRecord[];
   /**
-   * This message's patient — but **only when the message determines one**: the single `P`
+   * This message's patient, but **only when the message determines one**: the single `P`
    * when it carries exactly one, and `undefined` when it carries none **or** several.
    * `patients.length` distinguishes those two cases; there is no third meaning.
    *
@@ -243,7 +243,7 @@ export function messages(msg: AstmMessage): readonly AstmStreamMessage[] {
 /**
  * How many `H` … `L` messages a stream carries, and where the second one starts.
  *
- * Counts `H` records directly rather than materializing the groups — the flat extractors
+ * Counts `H` records directly rather than materializing the groups: the flat extractors
  * call this on every invocation, and the answer is the same by construction.
  *
  * @internal
@@ -282,7 +282,7 @@ export function assertSingleMessage(msg: AstmMessage, accessor: string): void {
 /**
  * Guard for {@link patient}: refuse to answer for a message carrying more than one `P`.
  *
- * The same harm as the multi-message case, one level down — "the first `P`" is a guess
+ * The same harm as the multi-message case, one level down: "the first `P`" is a guess
  * about which patient a result files against, and this parser does not guess.
  *
  * @internal

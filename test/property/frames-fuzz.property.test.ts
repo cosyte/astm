@@ -1,9 +1,9 @@
 /**
- * REQUIRED byte-level FUZZ layer for the E1381 frame codec — the same bar as
+ * REQUIRED byte-level FUZZ layer for the E1381 frame codec: the same bar as
  * `dicom` Part 10 and `mllp` framing.
  *
  * The hard guarantee: feeding **arbitrary / truncated / mixed / control-char-laden**
- * bytes into {@link decodeAstmFrames} must never crash, hang, or OOM — it degrades
+ * bytes into {@link decodeAstmFrames} must never crash, hang, or OOM, it degrades
  * to a typed error or a value-free warning. In lenient mode the only sanctioned
  * throw is the shared `EMPTY_INPUT` fatal (reachable only on a zero-length stream,
  * which these arbitraries never produce), so a lenient decode of non-empty bytes
@@ -12,7 +12,7 @@
  *
  * The final block is the **non-vacuity** proof: an arbitrary that always embeds a
  * well-formed frame drives the decoder through its deep paths (checksum verify,
- * reassembly, sequencing) — so the fuzzer is exercising the codec, not just the
+ * reassembly, sequencing), so the fuzzer is exercising the codec, not just the
  * "no STX ⇒ skip everything" fast path.
  */
 
@@ -42,7 +42,7 @@ function randomBytes(): fc.Arbitrary<Uint8Array> {
   return fc.uint8Array({ minLength: 1, maxLength: 512 });
 }
 
-/** Arbitrary bytes biased toward frame-control chars, digits, and hex — near-miss frames. */
+/** Arbitrary bytes biased toward frame-control chars, digits, and hex: near-miss frames. */
 function controlLadenBytes(): fc.Arbitrary<Uint8Array> {
   const byte = fc.oneof(
     fc.constantFrom(...CONTROL_BYTES),
@@ -68,7 +68,7 @@ function wellFormedFrameBytes(): fc.Arbitrary<number[]> {
     );
 }
 
-/** A stream that interleaves valid frames with arbitrary noise — the deep-path fuzz. */
+/** A stream that interleaves valid frames with arbitrary noise: the deep-path fuzz. */
 function framesWithNoise(): fc.Arbitrary<Uint8Array> {
   return fc
     .array(
@@ -129,7 +129,7 @@ describe("fuzz: arbitrary bytes never crash the frame decoder (lenient)", () => 
   });
 
   it("truncation at every prefix length of a real multi-frame stream never crashes", () => {
-    // A valid two-frame record, then decode every truncated prefix — the classic frame/checksum
+    // A valid two-frame record, then decode every truncated prefix: the classic frame/checksum
     // truncation stressor that must always degrade to a warning, never throw (lenient).
     const record = "R|1|^^^687|28.6|U/L||N||F\r";
     const full = Uint8Array.from([
@@ -177,14 +177,14 @@ describe("fuzz: strict mode only ever throws a sanctioned typed error", () => {
   });
 });
 
-describe("fuzz is non-vacuous — the decoder actually engages", () => {
+describe("fuzz is non-vacuous: the decoder actually engages", () => {
   it("a stream that always contains a well-formed frame yields at least one decoded frame", () => {
     fc.assert(
       fc.property(
         wellFormedFrameBytes(),
         fc.array(fc.integer({ min: 0, max: 255 }), { maxLength: 30 }),
         (goodFrame, noise) => {
-          // Leading noise (no STX collisions matter — decoder resyncs at the next STX).
+          // Leading noise (no STX collisions matter, decoder resyncs at the next STX).
           const bytes = Uint8Array.from([...noise.filter((b) => b !== 0x02), ...goodFrame]);
           const { frames } = decodeAstmFrames(bytes);
           expect(frames.length).toBeGreaterThanOrEqual(1);

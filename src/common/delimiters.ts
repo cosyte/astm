@@ -3,7 +3,7 @@
  *
  * ASTM/CLSI-LIS02 messages are **self-describing**: every `H` (header) record
  * declares the four delimiters it uses, in the bytes immediately after the `H`.
- * A parser MUST read them from the record and MUST NOT hardcode them — a vendor
+ * A parser MUST read them from the record and MUST NOT hardcode them: a vendor
  * is free to declare non-standard delimiters and a conformant reader follows.
  *
  * The canonical declaration is `H|\^&`:
@@ -36,19 +36,19 @@
  * ```
  */
 export interface Delimiters {
-  /** Field separator — the char immediately after `H` in the header. */
+  /** Field separator: the char immediately after `H` in the header. */
   readonly field: string;
-  /** Repeat (repetition) separator — ASTM `\` by default. */
+  /** Repeat (repetition) separator: ASTM `\` by default. */
   readonly repeat: string;
-  /** Component separator — ASTM `^` by default. */
+  /** Component separator: ASTM `^` by default. */
   readonly component: string;
-  /** Escape character — ASTM `&` by default (introduces `&F&`/`&S&`/`&R&`/`&E&`). */
+  /** Escape character: ASTM `&` by default (introduces `&F&`/`&S&`/`&R&`/`&E&`). */
   readonly escape: string;
 }
 
 /**
  * The canonical ASTM delimiter set (`H|\^&`). Used only as documentation and as
- * a comparison baseline for the non-standard-delimiter warning — never as a
+ * a comparison baseline for the non-standard-delimiter warning: never as a
  * parse-time default (delimiters are always read from the header).
  *
  * @example
@@ -73,14 +73,14 @@ export type DelimiterReadResult =
  * Read the four delimiters from a header record's raw text (a single `H`
  * record, its terminator already stripped).
  *
- * Returns `undefined` when the record cannot declare all four delimiters — it is
+ * Returns `undefined` when the record cannot declare all four delimiters: it is
  * shorter than `H` + a field separator + a 3-char delimiter definition, or the
  * field separator it names also appears among the other three.
  *
  * What the caller does with that depends on **which** header it is. On the first
  * header it is the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal, because there is no
- * earlier set to fall back to. On any later header — a stream may carry several
- * messages, each declaring its own set — the delimiters already in force are kept
+ * earlier set to fall back to. On any later header (a stream may carry several
+ * messages, each declaring its own set) the delimiters already in force are kept
  * and an `ASTM_RECORD_UNREADABLE_REDECLARATION` warning is raised instead; a set is
  * never guessed and no record is dropped.
  *
@@ -112,7 +112,7 @@ export function readDelimiters(headerRecord: string): Delimiters | undefined {
   const escape = definition.charAt(2);
 
   // A field separator that also appears among the other three delimiters is not a coherent
-  // declaration — the four roles must be distinguishable. Refuse rather than mis-split.
+  // declaration: the four roles must be distinguishable. Refuse rather than mis-split.
   if (field === repeat || field === component || field === escape) return undefined;
 
   return { field, repeat, component, escape };

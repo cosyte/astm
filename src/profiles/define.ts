@@ -1,10 +1,10 @@
 /**
- * `defineAstmProfile()` — the public factory for building immutable
+ * `defineAstmProfile()`: the public factory for building immutable
  * {@link AstmProfile} objects with the safety rules enforced and `describe()`
  * attached. Mirrors the sibling `@cosyte/hl7` `defineProfile()` / `@cosyte/ccda`
  * `defineCcdaProfile()` shape (name / lineage / `extends`-merge / `describe`) while
- * modelling ASTM quirks — a tolerated warning code with provenance, plus the
- * optional raw-vs-framed transport override — rather than HL7 v2 Z-segments or
+ * modelling ASTM quirks (a tolerated warning code with provenance, plus the
+ * optional raw-vs-framed transport override) rather than HL7 v2 Z-segments or
  * C-CDA template deviations.
  *
  * Zero runtime deps. No `any`; immutability at the return boundary via
@@ -31,7 +31,7 @@ import {
 /**
  * Build a frozen {@link AstmProfile} from a validated options object. Throws
  * {@link AstmProfileDefinitionError} on a bad name, an unknown option key, an
- * invalid `transport`, or an invalid `tolerate` entry — including the **safety
+ * invalid `transport`, or an invalid `tolerate` entry, including the **safety
  * rule**: a profile may never tolerate a safety-critical warning code (default-deny
  * across all three registries).
  *
@@ -76,7 +76,7 @@ export function defineAstmProfile(opts: DefineAstmProfileOptions): AstmProfile {
   const provenance = mergeProvenance(parents, opts.provenance);
   const description = mergeDescription(parents, opts.description);
 
-  // Post-merge re-validation — a safety-critical code inherited from a hand-crafted
+  // Post-merge re-validation: a safety-critical code inherited from a hand-crafted
   // parent is refused here.
   validateTolerations(tolerate, opts.name);
 

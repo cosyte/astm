@@ -7,7 +7,7 @@
  * last-wins (child, else the last parent that carries a value).
  *
  * Zero runtime deps. Post-merge safety re-validation (a tolerated code must not be
- * safety-critical) is the CALLER's responsibility — these helpers are pure reducers.
+ * safety-critical) is the CALLER's responsibility: these helpers are pure reducers.
  *
  * @internal
  */

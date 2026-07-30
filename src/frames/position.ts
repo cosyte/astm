@@ -2,7 +2,7 @@
  * Positional context for frame-codec warnings and errors.
  *
  * **PHI discipline (the whole point).** A frame deviation is located by **frame
- * number + byte offset** and nothing else — never the record text a frame
+ * number + byte offset** and nothing else: never the record text a frame
  * carries. A frame warning or error may be logged verbatim without ever leaking a
  * result value, a patient identifier, or any other field the reassembled record
  * bytes contain.

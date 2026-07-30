@@ -14,7 +14,7 @@ import { parseAstmRecords, results, WARNING_CODES } from "../../src/index.js";
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 const fixture = (name: string): string => readFileSync(join(FIXTURES, name), "latin1");
 
-describe("parseAstmRecords — modeled result semantics", () => {
+describe("parseAstmRecords: modeled result semantics", () => {
   const msg = parseAstmRecords(fixture("tier2-result-semantics.astm"));
   const r = results(msg);
 
@@ -80,7 +80,7 @@ describe("parseAstmRecords — modeled result semantics", () => {
 
   it("preserves a component-delimited reference range verbatim, never truncating a bound", () => {
     // A field-6 value carrying an unescaped component delimiter (`3.5^5.0`) must surface the FULL
-    // field text and read as unparsed + warn — never truncate to the first component ("3.5").
+    // field text and read as unparsed + warn: never truncate to the first component ("3.5").
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^900|4.2|U/L|3.5^5.0|N||F\rL|1\r");
     const rec = results(msg)[0];
     expect(rec?.referenceRange).toBe("3.5^5.0"); // full field, not "3.5"
@@ -109,7 +109,7 @@ describe("parseAstmRecords — modeled result semantics", () => {
     expect(rec?.status.isActiveFinal).toBe(false);
   });
 
-  it("every warning is value-free — code + position only", () => {
+  it("every warning is value-free: code + position only", () => {
     for (const w of msg.warnings) {
       expect(typeof w.code).toBe("string");
       expect(typeof w.position.recordIndex).toBe("number");
@@ -119,7 +119,7 @@ describe("parseAstmRecords — modeled result semantics", () => {
   });
 });
 
-describe("parseAstmRecords — spec-clean Tier-1 result stays warning-free", () => {
+describe("parseAstmRecords: spec-clean Tier-1 result stays warning-free", () => {
   it("a canonical H/P/O/R/L message models cleanly with no semantics warnings", () => {
     const msg = parseAstmRecords(fixture("tier1-result.astm"));
     const semanticsCodes = new Set<string>([

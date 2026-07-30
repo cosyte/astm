@@ -4,7 +4,7 @@
  * It assumes **already-de-framed** record bytes; {@link parseFramedAstm} composes
  * the E1381/LIS01 framing layer with this one. It reads the four delimiters from each
  * `H` record, tokenizes every record escape-aware, and builds the immutable
- * {@link AstmMessage} — lenient by default: vendor quirks become typed warnings, and
+ * {@link AstmMessage}, lenient by default: vendor quirks become typed warnings, and
  * only three unrecoverable structural conditions are fatal.
  */
 
@@ -88,7 +88,7 @@ export class AstmStrictError extends Error {
  *
  * The stream is a sequence of records separated by `CR` (with `LF`/`CRLF`
  * tolerated); the first record must be an `H` header, which declares the
- * delimiters. Lenient by default — set `strict` to reject any tolerated deviation.
+ * delimiters. Lenient by default: set `strict` to reject any tolerated deviation.
  *
  * **Several messages in one stream.** A message runs `H` … `L`, so a stream may carry
  * more than one, and each `H` declares the delimiters for the records that follow it.
@@ -97,7 +97,7 @@ export class AstmStrictError extends Error {
  * they were read with, so a redeclaration never reinterprets earlier bytes. A header
  * that merely restates the set in force is a no-op and warns nothing. A later header
  * that cannot declare a usable set keeps the delimiters already in force and warns
- * `ASTM_RECORD_UNREADABLE_REDECLARATION` — a set is never guessed, and no record is
+ * `ASTM_RECORD_UNREADABLE_REDECLARATION`: a set is never guessed, and no record is
  * dropped. Per-header sets are on each {@link HeaderRecord.delimiters};
  * {@link AstmMessage.delimiters} is the first header's.
  *
@@ -154,7 +154,7 @@ export function parseAstmRecords(
     warnings.push(nonStandardDelimiters({ recordIndex: 0, recordType: "H" }));
   }
 
-  // Delimiters are scoped to a *message*, and a message runs `H` … `L` — so one stream may carry
+  // Delimiters are scoped to a *message*, and a message runs `H` … `L`, so one stream may carry
   // several messages back to back, each header declaring its own set. The active set is therefore
   // re-read at every `H` and governs that header and the records that follow it. Reading the whole
   // stream with the FIRST header's set is what silently merged every field of a redeclared message
@@ -175,7 +175,7 @@ export function parseAstmRecords(
   const records = attachComments(built, warnings);
 
   // Host-query classification. `Q` dominates so a query is never read as a result set; a message that
-  // carries BOTH a Q and an R is contradictory — classified host-query (still a request) and warned,
+  // carries BOTH a Q and an R is contradictory: classified host-query (still a request) and warned,
   // never silently treated as a result upload.
   const classification = classifyMessage(records);
   if (classification.hasQuery && classification.hasResults) {
@@ -183,14 +183,14 @@ export function parseAstmRecords(
   }
 
   // ── Phase 8: vendor profile tolerance. The profile transform runs LAST, over the
-  // fully-accumulated warnings — it only ever re-badges a warning it *expects* to a
+  // fully-accumulated warnings: it only ever re-badges a warning it *expects* to a
   // PROFILE_QUIRK_APPLIED (values, records, and delimiters are already built and are
   // never touched). A safety-critical deviation can never be tolerated (enforced at
   // defineAstmProfile time), so the transform can only quiet benign structural noise.
   const profile = resolveProfile(options);
   const finalWarnings = applyAstmProfileToWarnings(warnings, profile);
 
-  // Strict mode escalates only the deviations that were NOT expected by a profile —
+  // Strict mode escalates only the deviations that were NOT expected by a profile:
   // an expected PROFILE_QUIRK_APPLIED is known and benign, so it is recorded, not thrown.
   if (options.strict === true) {
     const escalating = finalWarnings.filter((w) => w.expected !== true);
@@ -230,13 +230,13 @@ function resolveProfile(options: AstmParseOptions): AstmProfile | undefined {
 /**
  * Resolve the delimiter set a **subsequent** `H` record puts into force.
  *
- * Three outcomes, all fail-safe — a set is never guessed and no record is ever dropped:
+ * Three outcomes, all fail-safe, a set is never guessed and no record is ever dropped:
  *
  * - **Unusable declaration** (too short, or the field separator also names one of the other three):
  *   keep the set already in force and warn. The identical condition on the *first* header is the
  *   `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal, because there is no earlier set to fall back to.
  * - **Same set restated**: a no-op. A stream carrying several messages in one delimiter set is
- *   ordinary, so this warns nothing — warning would be pure noise on a conformant shape.
+ *   ordinary, so this warns nothing: warning would be pure noise on a conformant shape.
  * - **Different set**: adopt it, and warn. This is the only case where a reader still using the old
  *   set would start merging fields, so it is the only case worth a signal.
  */
@@ -320,7 +320,7 @@ function buildRecord(
     case "Q":
       return buildQuery(recordIndex, fields, warnings);
     // `M` (manufacturer) and `S` (scientific) are vendor-defined free-form data surfaced VERBATIM and
-    // NEVER interpreted into typed clinical fields — the exact wire line is preserved for round-trip.
+    // NEVER interpreted into typed clinical fields: the exact wire line is preserved for round-trip.
     case "M":
       return { type: "M", recordIndex, fields, rawLine: line } satisfies ManufacturerRecord;
     case "S":
@@ -363,7 +363,7 @@ function buildPatient(
     recordIndex,
     fields,
     ...definedString("seq", fieldScalar(astmField(fields, 2))),
-    // The three patient identifiers stay DISTINCT — practice-assigned (3), laboratory-assigned (4),
+    // The three patient identifiers stay DISTINCT: practice-assigned (3), laboratory-assigned (4),
     // and a third ID (5) never collapse into one; conflating them is the primary misfiling path.
     ...definedString("practiceAssignedId", fieldScalar(astmField(fields, 3))),
     ...definedString("laboratoryAssignedId", fieldScalar(astmField(fields, 4))),
@@ -389,7 +389,7 @@ function buildOrder(recordIndex: number, fields: readonly AstmField[]): OrderRec
       : {}),
     // Priority (6), action code (~12), and report type (~26) are surfaced verbatim. The `~` field
     // indices and the code sets are `[OSS-derived]` (paywalled), so they are never mapped to a
-    // guessed meaning — see the JSDoc on `OrderRecord`.
+    // guessed meaning: see the JSDoc on `OrderRecord`.
     ...definedString("priority", fieldScalar(astmField(fields, 6))),
     ...definedString("actionCode", fieldScalar(astmField(fields, 12))),
     ...definedString("reportType", fieldScalar(astmField(fields, 26))),
@@ -397,7 +397,7 @@ function buildOrder(recordIndex: number, fields: readonly AstmField[]): OrderRec
 }
 
 /**
- * Whether a field carries any content at all — used to decide a Universal Test ID is present. The
+ * Whether a field carries any content at all: used to decide a Universal Test ID is present. The
  * scalar check is wrong here: a UTID's code lives in component 4 while component 1 (the LOINC slot)
  * is normally empty, so `fieldScalar` (first non-empty component) would miss `^^^687`.
  */
@@ -427,13 +427,13 @@ function buildResult(
     warnings,
   );
 
-  // A value field with more than one component carried an *unescaped* component delimiter — an
+  // A value field with more than one component carried an *unescaped* component delimiter: an
   // ambiguity. Fail-safe: surface BOTH the full raw value (so nothing is truncated) AND the split,
   // and WARN. Never resolve it silently to a single (wrong, truncated) value.
   const ambiguous = valueField !== undefined && valueField.components.length > 1;
   const valueComponents = ambiguous ? valueField.components : undefined;
   // The primary `value` is the decoded scalar for the ordinary single-component case, but the FULL
-  // raw field text when ambiguous — so `results(msg)[0].value` is never a truncated component.
+  // raw field text when ambiguous, so `results(msg)[0].value` is never a truncated component.
   const value = ambiguous ? valueField.raw : fieldScalar(valueField);
   if (ambiguous) {
     warnings.push(ambiguousValueSplit({ recordIndex, recordType: "R", fieldIndex: 4 }));
@@ -449,7 +449,7 @@ function buildResult(
   const statusRaw = fieldScalar(astmField(fields, 9));
 
   // Units: a *numeric* value with no units is the hazard (a bare magnitude is meaningless). Warn only
-  // then — a qualitative result (e.g. "POSITIVE") legitimately has no units. Never default or guess.
+  // then: a qualitative result (e.g. "POSITIVE") legitimately has no units. Never default or guess.
   if (units === undefined && value !== undefined && isNumericValue(value)) {
     warnings.push(unitsAbsent({ recordIndex, recordType: "R", fieldIndex: 5 }));
   }
@@ -523,7 +523,7 @@ function buildComment(recordIndex: number, fields: readonly AstmField[]): Commen
  * Build a `Q` (Request Information) record. The field *positions* are the public ASTM E1394 layout
  * (3 = starting range ID, 4 = ending range ID, 5 = Universal Test ID, 13 = request-info status); the
  * starting/ending range component structure, the `ALL` universal-query keyword, and the status code
- * set are all `[OSS-derived / paywalled]` — surfaced **verbatim** and **never interpreted or guessed**.
+ * set are all `[OSS-derived / paywalled]`, surfaced **verbatim** and **never interpreted or guessed**.
  * A present request-information status is flagged uninterpreted (the code set is paywalled).
  */
 function buildQuery(
@@ -536,8 +536,8 @@ function buildQuery(
   const utidRaw = fieldRaw(utidField);
   const queriesAllTests = utidRaw !== undefined && utidRaw.trim().toUpperCase() === "ALL";
 
-  // Surfaced from the FULL field text (fieldRaw, not fieldScalar) so it is literally verbatim — never
-  // escape-decoded and never truncated to the first component — and so the uninterpreted-status warning
+  // Surfaced from the FULL field text (fieldRaw, not fieldScalar) so it is literally verbatim: never
+  // escape-decoded and never truncated to the first component, and so the uninterpreted-status warning
   // fires on ANY non-empty field-13 (matching the range-ID fields above). The status code set is
   // paywalled, so the value is passed through untouched, never interpreted.
   const requestInformationStatus = fieldRaw(astmField(fields, 13));
@@ -563,9 +563,9 @@ function buildQuery(
 }
 
 /**
- * Attach every `C` (comment) record to its parent by position — the immediately-preceding
+ * Attach every `C` (comment) record to its parent by position: the immediately-preceding
  * `H`/`P`/`O`/`R` record; consecutive comments share that parent. **Fail-safe:** a comment with no
- * valid preceding parent is an **orphan** — it is attached to the message root (`attachedToRoot:
+ * valid preceding parent is an **orphan**, it is attached to the message root (`attachedToRoot:
  * true`) with an `ASTM_RECORD_ORPHAN_COMMENT` warning, **never dropped**. Returns a new array; the
  * non-comment records pass through unchanged.
  *
@@ -624,7 +624,7 @@ function parseDateField(
 }
 
 /**
- * Whether a result value is purely numeric (optional comparator + sign + digits) — the case where a
+ * Whether a result value is purely numeric (optional comparator + sign + digits): the case where a
  * missing unit is a genuine hazard. A qualitative value (letters, e.g. `POSITIVE`) is excluded, so it
  * does not trip the units-absent warning.
  */

@@ -14,16 +14,16 @@ import {
   query,
 } from "../../src/index.js";
 
-/** Assert a value is defined and return it — the lint-clean alternative to a `!` assertion. */
+/** Assert a value is defined and return it: the lint-clean alternative to a `!` assertion. */
 function def<T>(value: T | undefined): T {
   if (value === undefined) throw new Error("expected a defined value");
   return value;
 }
 
-describe("buildAstmMessage — structure", () => {
+describe("buildAstmMessage: structure", () => {
   it("emits a canonical header, the body, and an auto L terminator", () => {
     const raw = buildAstmMessage({ records: [{ type: "R", value: "5.0" }] });
-    // R | seq | (empty UTID) | value — the value sits at field 4.
+    // R | seq | (empty UTID) | value: the value sits at field 4.
     expect(raw).toBe("H|\\^&\rR|1||5.0\rL|1\r");
     const msg = parseAstmRecords(raw);
     expect(msg.records.map((r) => r.type)).toEqual(["H", "R", "L"]);
@@ -54,8 +54,8 @@ describe("buildAstmMessage — structure", () => {
   });
 });
 
-describe("buildAstmMessage — never fabricate", () => {
-  it("leaves an unsupplied result status/flag/units empty — never a defaulted clinical value", () => {
+describe("buildAstmMessage: never fabricate", () => {
+  it("leaves an unsupplied result status/flag/units empty: never a defaulted clinical value", () => {
     const raw = buildAstmMessage({
       records: [{ type: "R", universalTestId: ["", "", "", "687"], value: "5.0" }],
     });
@@ -68,7 +68,7 @@ describe("buildAstmMessage — never fabricate", () => {
     expect(r.abnormalFlags).toBeUndefined();
   });
 
-  it("keeps the three patient identifiers distinct — none defaults from another", () => {
+  it("keeps the three patient identifiers distinct: none defaults from another", () => {
     const raw = buildAstmMessage({
       records: [{ type: "P", practiceAssignedId: "PRAC-1", laboratoryAssignedId: "LAB-9" }],
     });
@@ -85,7 +85,7 @@ describe("buildAstmMessage — never fabricate", () => {
   });
 });
 
-describe("buildAstmMessage — round-trip fidelity by construction", () => {
+describe("buildAstmMessage: round-trip fidelity by construction", () => {
   it("build → parse reproduces every supplied field", () => {
     const raw = buildAstmMessage({
       records: [

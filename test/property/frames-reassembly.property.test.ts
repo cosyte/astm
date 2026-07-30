@@ -3,7 +3,7 @@
  * **reassembling an N-frame record equals the single-frame form.** For arbitrary
  * record text, framing it whole (one `ETX` frame) and framing it split across many
  * `ETB`…`ETX` frames (each ≤ 240 bytes, correctly sequenced) must decode to
- * byte-identical reassembled record bytes — and a correctly-sequenced,
+ * byte-identical reassembled record bytes, and a correctly-sequenced,
  * correctly-checksummed multi-frame stream must decode with **zero** warnings.
  */
 

@@ -19,12 +19,12 @@ import {
 
 /**
  * Phase-3 coverage: patient/order identity depth, the `C` comment record attached
- * by position, and partial-timestamp hardening — the misfiling-prevention slice.
+ * by position, and partial-timestamp hardening, the misfiling-prevention slice.
  */
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 const fixture = (name: string): string => readFileSync(join(FIXTURES, name), "latin1");
 
-describe("parseAstmRecords — full patient identity (Tier-1)", () => {
+describe("parseAstmRecords: full patient identity (Tier-1)", () => {
   const msg = parseAstmRecords(fixture("tier1-identity-comments.astm"));
 
   it("keeps the three patient identifiers DISTINCT and never collapses them", () => {
@@ -51,7 +51,7 @@ describe("parseAstmRecords — full patient identity (Tier-1)", () => {
   });
 });
 
-describe("parseAstmRecords — full order identity (Tier-1)", () => {
+describe("parseAstmRecords: full order identity (Tier-1)", () => {
   const msg = parseAstmRecords(fixture("tier1-identity-comments.astm"));
 
   it("surfaces priority (6), action code (~12), and report type (~26) verbatim", () => {
@@ -68,13 +68,13 @@ describe("parseAstmRecords — full order identity (Tier-1)", () => {
   });
 });
 
-describe("parseAstmRecords — comments attached by position (Tier-1)", () => {
+describe("parseAstmRecords: comments attached by position (Tier-1)", () => {
   const msg = parseAstmRecords(fixture("tier1-identity-comments.astm"));
 
   it("attaches each comment to its immediately-preceding H/P/O/R parent", () => {
     const cs = comments(msg);
     expect(cs).toHaveLength(3);
-    // C after P attaches to the P; C after each R attaches to that R — never floated.
+    // C after P attaches to the P; C after each R attaches to that R, never floated.
     const p = patient(msg);
     const [r1, r2] = results(msg);
     expect(cs[0]?.parentIndex).toBe(p?.recordIndex);
@@ -94,14 +94,14 @@ describe("parseAstmRecords — comments attached by position (Tier-1)", () => {
     const [onPatient, onResult] = comments(msg);
     expect(onPatient?.source).toBe("I");
     expect(onPatient?.text).toBe("DEMOGRAPHICS VERIFIED");
-    expect(onPatient?.commentType).toBe("G"); // surfaced raw — not mapped to a guessed meaning
+    expect(onPatient?.commentType).toBe("G"); // surfaced raw: not mapped to a guessed meaning
     expect(onResult?.commentType).toBe("I"); // the one OSS-confirmed value (instrument)
   });
 });
 
-describe("parseAstmRecords — comment text is component-capable", () => {
+describe("parseAstmRecords: comment text is component-capable", () => {
   it("surfaces the full text and the component split, without truncation or a warning", () => {
-    // A real transcript shape: C|1|I|111^? QC|I — a structured, component-bearing comment.
+    // A real transcript shape: C|1|I|111^? QC|I: a structured, component-bearing comment.
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^700|5|U/L||||F\rC|1|I|111^? QC|I\rL|1\r");
     const [c] = comments(msg);
     expect(c?.text).toBe("111^? QC"); // full field, never truncated to "111"
@@ -113,7 +113,7 @@ describe("parseAstmRecords — comment text is component-capable", () => {
   });
 });
 
-describe("attachComments — the orphan fail-safe", () => {
+describe("attachComments: the orphan fail-safe", () => {
   it("attaches an orphan C (no preceding H/P/O/R) to the root and warns, never dropping it", () => {
     const warnings: AstmRecordWarning[] = [];
     const orphan: CommentRecord = {
@@ -155,7 +155,7 @@ describe("attachComments — the orphan fail-safe", () => {
   });
 });
 
-describe("parseAstmRecords — partial-timestamp hardening (Tier-2)", () => {
+describe("parseAstmRecords: partial-timestamp hardening (Tier-2)", () => {
   const msg = parseAstmRecords(fixture("tier2-partial-timestamp.astm"));
 
   it("preserves a truncated DOB, never zero-fills a fabricated time, and warns", () => {
@@ -192,7 +192,7 @@ describe("parseAstmRecords — partial-timestamp hardening (Tier-2)", () => {
     ).toBe(true);
   });
 
-  it("every warning is value-free — code + position only, no timestamp digits", () => {
+  it("every warning is value-free: code + position only, no timestamp digits", () => {
     for (const w of msg.warnings) {
       expect(typeof w.position.recordIndex).toBe("number");
       expect(w.message).not.toMatch(/2020010|2024040110150|ROE|RICHARD/u);

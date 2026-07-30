@@ -7,7 +7,7 @@ import { comments, parseAstmRecords, patient, parseAstmDate } from "../../src/in
  * Phase-3 headline safety properties, over arbitrary input:
  *
  *   1. A comment always attaches to the immediately-preceding `H`/`P`/`O`/`R`
- *      record — never a later one, never a floated one (there is always the
+ *      record: never a later one, never a floated one (there is always the
  *      header, so a parsed comment is never an orphan).
  *   2. The practice-, laboratory-, and third patient IDs never cross-contaminate:
  *      each modeled field equals exactly the wire field at its own position.
@@ -75,7 +75,7 @@ describe("partial timestamp property", () => {
           expect(digits.length).toBeLessThan(4);
           return;
         }
-        // Every populated component is literally the digits at its own slice — never invented.
+        // Every populated component is literally the digits at its own slice: never invented.
         expect(d.year).toBe(Number(digits.slice(0, 4)));
         if (d.month !== undefined) expect(d.month).toBe(Number(digits.slice(4, 6)));
         if (d.day !== undefined) expect(d.day).toBe(Number(digits.slice(6, 8)));

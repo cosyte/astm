@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Dual ESM/CJS smoke of the BUILT package — the release-shape gate. Import the ESM entry and require
+// Dual ESM/CJS smoke of the BUILT package: the release-shape gate. Import the ESM entry and require
 // the CJS entry from `dist/`, exercise a real parse through each, and assert the same result. This
 // catches a broken dual build (a bad `exports` map, an ESM-only construct leaking into CJS, a missing
 // entry) that a source-only test suite would not. Run after `build`; it consumes `dist/`, not `src/`.
@@ -13,7 +13,7 @@ const EXPECTED = "28.6";
 
 function assert(cond, msg) {
   if (!cond) {
-    console.error(`smoke: FAIL — ${msg}`);
+    console.error(`smoke: FAIL, ${msg}`);
     process.exit(1);
   }
 }
@@ -41,4 +41,4 @@ assert(
   `CJS parse produced ${cjsResult?.value}, expected ${EXPECTED}`,
 );
 
-console.log(`smoke: ok — ESM + CJS both parse a result to ${EXPECTED}`);
+console.log(`smoke: ok, ESM + CJS both parse a result to ${EXPECTED}`);

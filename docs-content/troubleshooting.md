@@ -10,7 +10,7 @@ Common symptoms when integrating `@cosyte/astm`, and how to read what the parser
 
 ## The parse "succeeded" but the result looks wrong
 
-`@cosyte/astm` is lenient — it recovers from vendor quirks rather than throwing. That means a surprising
+`@cosyte/astm` is lenient: it recovers from vendor quirks rather than throwing. That means a surprising
 result usually comes with an explanation in `warnings`. Inspect them first:
 
 ```ts
@@ -27,7 +27,7 @@ instead.
 
 ## A parse threw
 
-Only **Tier-3 fatal** conditions (`FATAL_CODES`) throw in lenient mode — these mark input the parser
+Only **Tier-3 fatal** conditions (`FATAL_CODES`) throw in lenient mode: these mark input the parser
 cannot recover into a structured result. In `{ strict: true }` mode, any tolerated deviation throws
 too. Catch and inspect the error's code to tell the two apart.
 
@@ -38,7 +38,7 @@ The parse succeeded; an accessor refused to answer. `patient()`, `results()`, `o
 not determine one answer, and refusing is the point: the alternative is one patient's results
 attributed to another. Two codes:
 
-- **`ASTM_AMBIGUOUS_MULTI_MESSAGE`** — the stream carries more than one `H` … `L` message. Read each
+- **`ASTM_AMBIGUOUS_MULTI_MESSAGE`**: the stream carries more than one `H` … `L` message. Read each
   message's own records instead:
 
   ```ts
@@ -48,7 +48,7 @@ attributed to another. Two codes:
   }
   ```
 
-- **`ASTM_AMBIGUOUS_MULTI_PATIENT`** — from `patient()` only: one message carries several `P`
+- **`ASTM_AMBIGUOUS_MULTI_PATIENT`** (from `patient()` only): one message carries several `P`
   records, so "the patient" is not determined. Read `messages(msg)[n].patients` for all of them.
 
 The error carries `code`, a value-free `position` pointing at where the ambiguity became visible, and
@@ -57,31 +57,31 @@ The error carries `code`, a value-free `position` pointing at where the ambiguit
 
 ## Warning messages and logs
 
-Warning `message` fields are safe to log — they **never contain PHI**. Never log the raw payload
+Warning `message` fields are safe to log: they **never contain PHI**. Never log the raw payload
 itself; it may carry protected health information.
 
 ## A value came back without units, or a flag as "undefined"
 
 That is the fail-safe design, not a bug. A numeric result with no units raises
-`ASTM_RECORD_UNITS_ABSENT` and the unit is left empty — never defaulted or guessed. An abnormal flag
+`ASTM_RECORD_UNITS_ABSENT` and the unit is left empty: never defaulted or guessed. An abnormal flag
 the parser does not recognize is surfaced as `"undefined"`, never coerced to `"normal"`. An
 unparseable reference range is surfaced verbatim with no invented bound. In every case the library
-refuses to hand you a confident wrong value — inspect the warning and decide.
+refuses to hand you a confident wrong value: inspect the warning and decide.
 
 ## A framed stream lost a frame, or a checksum is wrong
 
 The frame layer validates every modulo-256 checksum and tracks the frame-number sequence. A
 bad-checksum frame is flagged `trusted: false` and **never merged** into a record (a warning in
 lenient mode, a thrown `AstmFrameStrictError` in strict); a sequence gap is warned and **never
-silently bridged**. Read `frameWarnings` from `parseFramedAstm` — each carries a frame number and byte
+silently bridged**. Read `frameWarnings` from `parseFramedAstm`: each carries a frame number and byte
 offset, never the record bytes.
 
 ## Known limitations
 
 `@cosyte/astm` is feature-complete across both layers, but its promise is deliberately narrow. See
-[What it does — and does not do](./limitations) for the full, honest boundary — no live I/O, units are
+[What it does, and does not do](./limitations) for the full, honest boundary: no live I/O, units are
 verbatim free text (not UCUM), no bundled terminology dictionary (LIVD is bring-your-own), and `M`/`S`
 records are surfaced verbatim, never interpreted.
 
-The **API Reference** always reflects exactly what this release ships — treat it as the source of
+The **API Reference** always reflects exactly what this release ships: treat it as the source of
 truth over any prose above.

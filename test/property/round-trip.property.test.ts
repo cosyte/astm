@@ -4,14 +4,14 @@
  * parser owns the **format-specific arbitraries** below.
  *
  * Active:
- *   - **lenient-mode** — arbitrary / hostile bytes never throw outside the fatal
+ *   - **lenient-mode**: arbitrary / hostile bytes never throw outside the fatal
  *     set, and every recovered warning carries a registered code + position;
- *   - **immutability** — the parsed model rejects mutation (frozen) and never
+ *   - **immutability**: the parsed model rejects mutation (frozen) and never
  *     changes previously-read state; and
- *   - **round-trip** (P7) — `serialize` is the conservative inverse of `parse`:
+ *   - **round-trip** (P7), `serialize` is the conservative inverse of `parse`:
  *     for any spec-shaped message, `serialize(parse(serialize(x))) === serialize(x)`
  *     (serialization is idempotent, so re-parsing an emitted stream yields the same
- *     canonical form — embedded delimiters re-escaped, delimiters normalized).
+ *     canonical form, embedded delimiters re-escaped, delimiters normalized).
  */
 
 import { describe, expect, it } from "vitest";
@@ -54,7 +54,7 @@ function specShapedInput(): fc.Arbitrary<string> {
 }
 
 /**
- * Hostile / quirky input — arbitrary bytes, header-less streams, and spec-shaped
+ * Hostile / quirky input: arbitrary bytes, header-less streams, and spec-shaped
  * records mixed together. The lenient parser must recover every one into a
  * warning or an *allowed* fatal, never an unclassified throw.
  */
@@ -63,7 +63,7 @@ function hostileInput(): fc.Arbitrary<string> {
 }
 
 describe("astm conformance (archetype invariants)", () => {
-  it("is lenient — arbitrary input never throws a non-fatal, and every warning has a known code", () => {
+  it("is lenient: arbitrary input never throws a non-fatal, and every warning has a known code", () => {
     lenientNeverThrowsProperty({
       arbitrary: hostileInput(),
       parse: (raw: string) => parseAstmRecords(raw),
@@ -77,17 +77,17 @@ describe("astm conformance (archetype invariants)", () => {
     });
   });
 
-  it("is immutable — the parsed model rejects mutation and preserves prior state", () => {
+  it("is immutable: the parsed model rejects mutation and preserves prior state", () => {
     immutabilityProperty({
       arbitrary: specShapedInput(),
       parse: (raw: string) => parseAstmRecords(raw),
-      // The frozen records array must reject a push (throws) — a valid frozen response.
+      // The frozen records array must reject a push (throws): a valid frozen response.
       mutate: (m) => (m.records as unknown[]).push({ type: "L" }),
       getSnapshot: (m) => m.records.map((r) => r.type),
     });
   });
 
-  it("round-trips — the serializer is the conservative inverse of the parser", () => {
+  it("round-trips: the serializer is the conservative inverse of the parser", () => {
     roundTripProperty<AstmMessage>({
       // The parser's own arbitrary: a spec-shaped message, parsed into the model.
       arbitrary: specShapedInput().map((raw) => parseAstmRecords(raw)),
@@ -108,7 +108,7 @@ describe("astm conformance (archetype invariants)", () => {
 const DELIMITER_POOL = ["|", "\\", "^", "&", "#", "~", "*", "!", "@", "$", "%"] as const;
 const VALUE_POOL = [...["A", "B", "X", "Y", "0", "1", "9", ".", "-"], ...DELIMITER_POOL];
 
-/** Any coherent four-delimiter declaration, canonical or not — all four roles distinct. */
+/** Any coherent four-delimiter declaration, canonical or not: all four roles distinct. */
 function delimiterSet(): fc.Arbitrary<Delimiters> {
   return fc
     .uniqueArray(fc.constantFrom(...DELIMITER_POOL), { minLength: 4, maxLength: 4 })
@@ -151,7 +151,7 @@ function arbitraryDelimiterMessage(): fc.Arbitrary<string> {
   });
 }
 
-/** The decoded value tree of a record — what a reader actually recovers, delimiters aside. */
+/** The decoded value tree of a record: what a reader actually recovers, delimiters aside. */
 function valueTree(
   record: { readonly fields: readonly { readonly repeats: readonly (readonly string[])[] }[] },
   from = 0,
@@ -159,10 +159,10 @@ function valueTree(
   return record.fields.slice(from).map((f) => f.repeats.map((r) => [...r]));
 }
 
-describe("emit is single-delimiter-set — a round-trip never silently loses a field", () => {
+describe("emit is single-delimiter-set: a round-trip never silently loses a field", () => {
   // The defect this pins: `M`/`S` were re-emitted byte-for-byte while the header was
   // normalized, so the output declared one delimiter set and those rows used another.
-  // Re-parsing collapsed every field of an `M`/`S` row into one, with ZERO warnings — on the
+  // Re-parsing collapsed every field of an `M`/`S` row into one, with ZERO warnings: on the
   // analyzer/LIS path, a silently lost result or specimen identifier.
   it("recovers every field of every record after serialize -> parse, for any declared set", () => {
     fc.assert(

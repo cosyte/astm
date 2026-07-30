@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * `@cosyte/astm` PHI scanner — the CI / pre-commit half of the PHI commit-gate.
+ * `@cosyte/astm` PHI scanner: the CI / pre-commit half of the PHI commit-gate.
  *
  * Pure Node. Zero runtime deps. `git` is the only subprocess, always via
  * `execFileSync` with array args (never shell-form). Walks the synthetic test
@@ -9,7 +9,7 @@
  * accident.
  *
  * ===========================================================================
- * ██  STARTER — READ BEFORE YOU RELY ON THIS  ███████████████████████████████
+ * ██  STARTER: READ BEFORE YOU RELY ON THIS  ███████████████████████████████
  * ===========================================================================
  *
  *   This file is the SHARED MACHINERY only. As shipped it detects EXACTLY TWO
@@ -20,7 +20,7 @@
  *
  *   That is a FLOOR, not a gate. It does NOT understand ASTM. It will NOT
  *   catch a patient name, a date of birth, an MRN / member id, an address, or a
- *   phone number sitting in a structured ASTM field — the PHI that a real
+ *   phone number sitting in a structured ASTM field: the PHI that a real
  *   ASTM message actually carries.
  *
  *   ⚠  A scanner that silently ships SSN/email-only detection is a FALSE-
@@ -31,7 +31,7 @@
  *      TODO section inside `scanTarget` below.
  *
  *   Worked examples of structured, format-aware detection live in the sibling
- *   parsers — read one before you start:
+ *   parsers, read one before you start:
  *       ../hl7/scripts/phi-scan.ts     (segment → field → component aware)
  *       ../x12/scripts/phi-scan.ts     (ISA-delimited NM1 / DMG / PER aware)
  *       ../dicom/scripts/phi-scan.ts   (binary tag-aware)
@@ -39,7 +39,7 @@
  *       ../ncpdp/scripts/phi-scan.ts   (fixed-field aware)
  *
  *   The mechanism for declaring genuinely-synthetic identifiers is the
- *   allow-list (`scripts/phi-allow-list.txt`) — a positive declaration that a
+ *   allow-list (`scripts/phi-allow-list.txt`): a positive declaration that a
  *   fixture's identifiers are fake. Byte-strict formats cannot carry an inline
  *   `# synthetic: true` header, so the allow-list is the proven substitute
  *   (same approach every sibling uses). A whole-file bypass needs
@@ -69,7 +69,7 @@ const ALLOW_LIST_PATH = join(REPO_ROOT, "scripts", "phi-allow-list.txt");
 const OVERRIDE_LOG_PATH = join(REPO_ROOT, "phi-scan-overrides.md");
 
 // Roots walked in "all" mode. test/fixtures gets the full scan; src gets the
-// same conservative shape pass because it is hand-written code, not data —
+// same conservative shape pass because it is hand-written code, not data:
 // JSDoc `@example` snippets must not carry real PHI either.
 const FIXTURE_ROOT = join(REPO_ROOT, "test", "fixtures");
 const SRC_ROOT = join(REPO_ROOT, "src");
@@ -87,18 +87,18 @@ interface Hit {
 
 interface AllowList {
   /**
-   * Uppercase synthetic person-name tokens. UNUSED by the starter floor — the
+   * Uppercase synthetic person-name tokens. UNUSED by the starter floor: the
    * structured name detector you add in the TODO section consumes these.
    */
   names: Set<string>;
   /**
    * Synthetic dates of birth (raw, format-normalized as you choose). UNUSED by
-   * the starter floor — your structured DOB detector consumes these.
+   * the starter floor: your structured DOB detector consumes these.
    */
   dobs: Set<string>;
   /**
    * Synthetic id values (SSN / MRN / member-id shapes). UNUSED by the starter
-   * floor — your structured id detector consumes these.
+   * floor: your structured id detector consumes these.
    */
   ids: Set<string>;
   /** Allowed email domains (anything else is a hit). Used by the starter floor. */
@@ -160,7 +160,7 @@ function parseArgs(argv: string[]): Args {
   }
 
   // An `--allow-fixture` path is a *subtractive* acknowledgement on a broader
-  // scan, never a scan target on its own — so it also seeds the positional path
+  // scan, never a scan target on its own, so it also seeds the positional path
   // set. That makes `--allow-fixture X` mean "scan X, but allow it" (proving the
   // override gate actually subtracts a scanned target) instead of a silent no-op.
   const scanPaths = paths.length > 0 ? paths : [...allowFixtures];
@@ -275,7 +275,7 @@ function gitIgnored(paths: string[]): Set<string> {
   const ignored = new Set<string>();
   if (paths.length === 0) return ignored;
   try {
-    // SECURITY: array-form execFileSync, no shell. Default (Buffer) encoding —
+    // SECURITY: array-form execFileSync, no shell. Default (Buffer) encoding:
     // `encoding: "buffer"` with `input` is rejected by Node.
     const out = execFileSync("git", ["check-ignore", "--stdin", "-z"], {
       input: paths.map(normalizePath).join("\0"),
@@ -285,7 +285,7 @@ function gitIgnored(paths: string[]): Set<string> {
       if (p.length > 0) ignored.add(p);
     }
   } catch {
-    // `git check-ignore` exits 1 when nothing matches — treat as none ignored.
+    // `git check-ignore` exits 1 when nothing matches: treat as none ignored.
   }
   return ignored;
 }
@@ -339,7 +339,7 @@ function buildTargetsForStaged(): Target[] {
 }
 
 // ---------------------------------------------------------------------------
-// Cross-cutting shape checks — the format-agnostic FLOOR
+// Cross-cutting shape checks: the format-agnostic FLOOR
 // ---------------------------------------------------------------------------
 
 function scanCommonShapes(path: string, content: string, allow: AllowList, hits: Hit[]): void {
@@ -357,20 +357,20 @@ function scanCommonShapes(path: string, content: string, allow: AllowList, hits:
 }
 
 // ---------------------------------------------------------------------------
-// ASTM-specific structured detection — the P (patient) record loci
+// ASTM-specific structured detection: the P (patient) record loci
 // ---------------------------------------------------------------------------
 //
 // The P record concentrates ASTM's PHI: the patient name (field 6,
 // `Last^First^Middle`), the mother's maiden name (field 7, a surname), and the
 // birthdate (field 8, `YYYYMMDDHHMMSS`). This detector parses the record the way
-// the library does — reading the four delimiters from the H record rather than
-// assuming them — and flags any name token or DOB that is NOT positively declared
+// the library does: reading the four delimiters from the H record rather than
+// assuming them, and flags any name token or DOB that is NOT positively declared
 // synthetic in the allow-list.
 //
 // This is a targeted extension of the floor toward the highest-value loci; a
 // full field-level sweep (practice/lab IDs, address, phone, C free text) is a
 // later phase. Coded, non-PHI fields (sex, order codes) are deliberately not
-// treated as names — parsing the format avoids that false-confidence trap.
+// treated as names: parsing the format avoids that false-confidence trap.
 
 interface AstmDelims {
   field: string;
@@ -399,7 +399,7 @@ function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hi
     if (record.charAt(0) !== "P") continue;
     const fields = record.split(d.field);
 
-    // Field 6 — patient name (Last^First^Middle). Field 7 — mother's maiden name (a surname).
+    // Field 6: patient name (Last^First^Middle). Field 7: mother's maiden name (a surname).
     // Each non-empty component of either is a name token that must be declared synthetic.
     for (const [idx, locus] of [
       [5, "P-6 (name)"],
@@ -420,7 +420,7 @@ function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hi
       }
     }
 
-    // Field 8 — birthdate. A digit run that is not an allow-listed synthetic DOB is a hit.
+    // Field 8: birthdate. A digit run that is not an allow-listed synthetic DOB is a hit.
     const dob = (fields[7] ?? "").trim();
     if (/^\d{4,}$/.test(dob) && !allow.dobs.has(dob)) {
       hits.push({
@@ -455,11 +455,11 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
   // maiden + DOB), delimiter-aware.
   //
   //   This is a TARGETED extension, not a full field-level sweep. It flags the
-  //   highest-value PHI in an ASTM stream — the patient name, mother's maiden
-  //   name, and birthdate — but does NOT yet cover practice/lab IDs, address,
+  //   highest-value PHI in an ASTM stream: the patient name, mother's maiden
+  //   name, and birthdate, but does NOT yet cover practice/lab IDs, address,
   //   phone, or `C`-record free text. Those loci are a later phase; until then,
   //   treat a green `pnpm phi-scan` as "no SSN/email shapes and no undeclared
-  //   patient name / maiden name / DOB" — NOT as a complete "no PHI" guarantee.
+  //   patient name / maiden name / DOB": NOT as a complete "no PHI" guarantee.
   //   Keep fixtures synthetic and declare their identifiers in
   //   scripts/phi-allow-list.txt.
   scanAstmPatientLoci(target.path, text, allow, hits);
@@ -471,7 +471,7 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
 
 function report(hits: Hit[]): void {
   if (hits.length === 0) {
-    process.stdout.write("[phi-scan] OK — no hits\n");
+    process.stdout.write("[phi-scan] OK: no hits\n");
     return;
   }
   const byPath = new Map<string, Hit[]>();

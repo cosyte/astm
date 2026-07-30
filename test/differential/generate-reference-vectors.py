@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Generate the differential reference vectors from python-astm — firsthand, not by hand.
+# Generate the differential reference vectors from python-astm: firsthand, not by hand.
 #
 # python-astm is the BSD-licensed reference ASTM/CLSI-LIS02 codec by Alexander Shorin
 # (https://github.com/kxepal/python-astm). This script imports it and captures its output for a
@@ -7,7 +7,7 @@
 # (`differential.test.ts`) then asserts `@cosyte/astm` agrees with those captured vectors on the
 # paths both implementations share, and documents where we are deliberately stricter.
 #
-# We do NOT vendor python-astm into this repo — we capture its outputs once, firsthand, and pin the
+# We do NOT vendor python-astm into this repo: we capture its outputs once, firsthand, and pin the
 # reference commit below so the vectors are reproducible. Regenerate with:
 #
 #     git clone https://github.com/kxepal/python-astm && cd python-astm
@@ -65,7 +65,7 @@ checksums = [
 # --- Corpus 2: record field/component split on escape-free, non-header records ----------------------
 # Both codecs split on |, \, ^. python-astm does NOT un-escape &F&/&S&/&R&/&E& (it has no escape
 # decode at all), so we restrict the AGREEMENT corpus to records with no escape sequences. The header
-# record is excluded because its `\^&` payload is a delimiter DECLARATION, not data — the two codecs
+# record is excluded because its `\^&` payload is a delimiter DECLARATION, not data: the two codecs
 # model that boundary differently by design (a documented divergence, asserted separately in TS).
 record_lines = [
     "P|1|PRAC|LAB|||Doe^John^Q||19700101|M",

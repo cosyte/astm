@@ -9,7 +9,7 @@ import {
   WARNING_CODES,
 } from "../../src/index.js";
 
-describe("warning factories — code + value-free message + position", () => {
+describe("warning factories: code + value-free message + position", () => {
   it("builds each warning with its stable code and no field value", () => {
     const pos = { recordIndex: 3, recordType: "R", fieldIndex: 4 };
     const unknown = unknownRecordType({ recordIndex: 2, recordType: "Z" });
@@ -23,7 +23,7 @@ describe("warning factories — code + value-free message + position", () => {
     expect(ambiguous.code).toBe(WARNING_CODES.ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT);
     expect(esc.position).toEqual(pos);
 
-    // Messages carry no value — only positional/structural language.
+    // Messages carry no value: only positional/structural language.
     for (const w of [unknown, nonstd, esc, ambiguous]) {
       expect(typeof w.message).toBe("string");
       expect(w.message.length).toBeGreaterThan(0);

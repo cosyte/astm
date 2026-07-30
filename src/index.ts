@@ -1,17 +1,17 @@
 /**
- * Public entry point for the `@cosyte/astm` package — the ASTM/CLSI-LIS02
+ * Public entry point for the `@cosyte/astm` package: the ASTM/CLSI-LIS02
  * **record** layer.
  *
  * The north star: hand a de-framed ASTM record stream to {@link parseAstmRecords}
- * and pull a result's value, units, and flag out in one line — lenient on parse
- * (vendor quirks become typed warnings, never silent loss), and — the whole point
- * — **never a confident wrong value**. Delimiters are read from each header,
+ * and pull a result's value, units, and flag out in one line. Parsing is lenient
+ * (vendor quirks become typed warnings, never silent loss) and, the whole point,
+ * **never returns a confident wrong value**. Delimiters are read from each header,
  * embedded escapes are decoded before a value is split, the practice- and
  * laboratory-assigned patient IDs stay distinct, and every deviation is a stable,
  * value-free warning. Result flag/status semantics, patient/order identity
  * depth + the `C` comment record + partial-timestamp hardening, and the
  * request-information (`Q`) record + host-query classification + verbatim `M`/`S`
- * records are all modeled — the **record-content layer is now feature-complete**.
+ * records are all modeled: the **record-content layer is now feature-complete**.
  *
  * A parsed model is a whole record **stream**, and a stream may carry several `H` … `L`
  * messages. {@link messages} splits it into them, so a patient and a result are only ever
@@ -22,19 +22,19 @@
  * The E1381/CLSI-LIS01 **framing** layer lives alongside the record layer and
  * shares nothing but the payload boundary: {@link decodeAstmFrames} decodes a framed
  * byte stream (`<STX> FN text <ETB|ETX> CS <CR><LF>`) into frames + reassembled
- * record bytes — verifying the modulo-256 checksum (a bad frame is surfaced
+ * record bytes: verifying the modulo-256 checksum (a bad frame is surfaced
  * untrusted, never merged), tracking frame-number sequencing (a gap is never
  * silently bridged), and reassembling the 240-byte-limited multi-frame records.
  * {@link parseFramedAstm} composes the two layers at the edge.
  *
  * The LTP **protocol** layer sits above the frame codec: {@link detectFraming}
- * auto-detects the transport reality — framed (serial / cobas 4800 / Iguana) vs raw
- * (cobas b121, framing dropped) — from the stream's leading byte, and
+ * auto-detects the transport reality from the stream's leading byte, framed
+ * (serial / cobas 4800 / Iguana) vs raw (cobas b121, framing dropped).
  * {@link ltpReduce} is a **pure, socket-free** receiver-side state machine over
  * `ENQ`/`ACK`/`NAK`/`EOT` + frame-received events. The consumer owns the wire; the
  * reducer decides. Its inviolable rule mirrors `mllp`'s ACK-failsafe: a frame the
  * codec did not vouch for is answered with `NAK`, **never** a fabricated positive
- * `ACK`, and never merged into a record — a `NAK` drives retransmit, not acceptance.
+ * `ACK`, and never merged into a record, a `NAK` drives retransmit, not acceptance.
  *
  * The **emit** half is the conservative inverse of the record and framing layers.
  * {@link buildAstmMessage} constructs records from typed caller input, emitting only
@@ -164,7 +164,7 @@ export { deepFreeze } from "./common/freeze.js";
 // ── The vendor profile system (P8): the engine + registry + tolerance transform ──
 // `defineAstmProfile` builds an immutable, provenance-backed profile with a
 // definition-time safety gate (a profile can never tolerate a safety-critical
-// deviation, and never alters an extracted value — it only re-badges an expected
+// deviation, and never alters an extracted value: it only re-badges an expected
 // warning to PROFILE_QUIRK_APPLIED and can force the raw-vs-framed transport). The
 // built-in registry ships `default` + the corpus-grounded `referenceCorpus`; named
 // vendor profiles are deferred (REAL-CORPUS) but fully supported by the engine.
@@ -196,10 +196,10 @@ export type {
 // ── The terminology layer (P9): LIVD-aware LOINC recognition (bring-your-own) ──
 // `@cosyte/astm` bundles no LOINC/SNOMED/LIVD data (roadmap §5): LOINC is © Regenstrief
 // (redistributable only with its attribution notice) and the public CDC LIVD file is
-// SARS-CoV-2-specific and carries separately-licensed SNOMED — not a general public-domain
+// SARS-CoV-2-specific and carries separately-licensed SNOMED: not a general public-domain
 // catalog. So a consumer supplies their own IICC LIVD catalog (`defineLivdCatalog`) and
 // `applyLivd` produces an additive, advisory LOINC annotation layer that never mutates the
-// raw code/value and never guesses a LOINC — an unmapped/ambiguous code surfaces as such.
+// raw code/value and never guesses a LOINC: an unmapped/ambiguous code surfaces as such.
 export {
   defineLivdCatalog,
   applyLivd,

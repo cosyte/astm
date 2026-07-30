@@ -1,6 +1,6 @@
 # @cosyte/astm
 
-> ASTM parser, serializer, and builder for Node.js and TypeScript — **lenient on parse,
+> ASTM parser, serializer, and builder for Node.js and TypeScript: **lenient on parse,
 > spec-clean on emit**.
 
 `@cosyte/astm` is a zero-dependency TypeScript toolkit that follows the cosyte parser archetype: a lenient
@@ -32,8 +32,8 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 - **Emit.** `serializeAstmRecords` and `buildAstmMessage` emit canonical `H|\^&` records with embedded
   delimiters re-escaped and nothing clinical fabricated; `composeAstmFrames` and `serializeFramedAstm`
   frame them with computed checksums, frame numbers, and the 240-byte split. Both layers round-trip by
-  construction, and a delimiter set that fails any of the three conditions readback requires — one
-  character per separator, no `CR`/`LF`, no two the same — is a typed error rather than bytes written
+  construction, and a delimiter set that fails any of the three conditions readback requires (one
+  character per separator, no `CR`/`LF`, no two the same) is a typed error rather than bytes written
   and lost.
 - **Vendor profiles.** `defineAstmProfile()` builds a provenance-backed profile whose tolerances
   downgrade _expected_, non-safety-critical deviations to a `PROFILE_QUIRK_APPLIED` warning without
@@ -69,7 +69,7 @@ A checksum mismatch, a sequence gap, an unterminated frame, and an oversize (>24
 ## Drive the transport (framed vs raw) + the LTP protocol
 
 ASTM transport is not uniform: **serial** always frames, but over **TCP it varies within a single
-vendor** — the cobas 4800 and Iguana keep the full `ENQ`/`ACK` + `STX`/checksum framing, while the
+vendor**, the cobas 4800 and Iguana keep the full `ENQ`/`ACK` + `STX`/checksum framing, while the
 cobas b121 drops it and streams de-framed record bytes directly. Detect which you have, then drive the
 pure protocol reducer with your own socket I/O.
 
@@ -85,7 +85,7 @@ import {
 // 1. Route by the stream's leading byte (STX/ENQ ⇒ framed; a bare record letter ⇒ raw).
 const { framing } = detectFraming(leadingBytes); // "framed" | "raw"  (override: { override: "raw" })
 if (framing === "raw") {
-  // cobas b121 raw-TCP: no handshake, no frames — parse the record bytes directly.
+  // cobas b121 raw-TCP: no handshake, no frames, parse the record bytes directly.
   parseAstmRecords(rawBytes);
 }
 
@@ -95,19 +95,19 @@ function onControlOrFrame(event) {
   const { state: next, actions, warnings } = ltpReduce(state, event);
   state = next;
   for (const a of actions) {
-    if (a.type === "sendAck") socket.write(Uint8Array.of(0x06)); // ACK  — only ever for a good frame
-    if (a.type === "sendNak") socket.write(Uint8Array.of(0x15)); // NAK  — bad checksum ⇒ retransmit
+    if (a.type === "sendAck") socket.write(Uint8Array.of(0x06)); // ACK, only ever for a good frame
+    if (a.type === "sendNak") socket.write(Uint8Array.of(0x15)); // NAK, bad checksum ⇒ retransmit
     if (a.type === "deliverRecord") parseAstmRecords(a.record); // a complete, trusted record
   }
-  void warnings; // ASTM_LTP_* — value-free (a code + at most a frame number)
+  void warnings; // ASTM_LTP_*, value-free (a code + at most a frame number)
 }
 // Feed events as you read them: { type: "enq" }, { type: "frame", frame: decodeAstmFrames(b).frames[0] }, …
 ```
 
 The reducer is deterministic and fully testable without a socket. Its inviolable rule: a frame the
-codec did not vouch for — bad checksum, unterminated, or out of sequence — yields `sendNak`, **never** a
+codec did not vouch for (bad checksum, unterminated, or out of sequence) yields `sendNak`, **never** a
 fabricated `sendAck`, and is **never** appended to a record. A `NAK` drives retransmit, not acceptance.
-The interactive contention/timeout/retransmit **timing** is the consumer's — this layer models the
+The interactive contention/timeout/retransmit **timing** is the consumer's: this layer models the
 state transitions, not the wall-clock timers.
 
 ## Install
@@ -130,7 +130,7 @@ patient(msg)?.practiceAssignedId; // kept distinct from laboratoryAssignedId (th
 msg.warnings; // stable, value-free positional tolerance warnings (never throws on quirks)
 ```
 
-The parser is **lenient by default** — vendor quirks become warnings, not failures — and refuses to
+The parser is **lenient by default** (vendor quirks become warnings, not failures) and refuses to
 produce a confident wrong value: an embedded escaped delimiter reads as one component, an unknown
 record type is surfaced (never dropped), and a missing unit is flagged (never defaulted). A
 `{ strict: true }` mode escalates every tolerated deviation to a thrown error.
@@ -138,7 +138,7 @@ record type is surfaced (never dropped), and a missing unit is flagged (never de
 ### Several messages in one stream
 
 A message runs from its `H` header to its `L` terminator, so a stream can carry several. `messages()`
-splits a parsed stream into them, and each entry carries only its own records — so a patient is only
+splits a parsed stream into them, and each entry carries only its own records, so a patient is only
 ever paired with the results that message actually carried:
 
 ```ts
@@ -168,7 +168,7 @@ already names the message.
 ## Map local codes to LOINC (LIVD, bring-your-own)
 
 An analyzer sends a proprietary local test code in the Universal Test ID; a standard LOINC is mapped
-downstream. Supply your own IICC LIVD ("LOINC to Vendor IVD") catalog and annotate a message — the
+downstream. Supply your own IICC LIVD ("LOINC to Vendor IVD") catalog and annotate a message, the
 mapping is **additive and advisory**: it never touches the raw code or value, and an unmapped or
 ambiguous code is surfaced as such, **never a guessed LOINC**.
 
@@ -187,31 +187,31 @@ warnings; // ASTM_LIVD_UNMAPPED_CODE / ASTM_LIVD_AMBIGUOUS_MAPPING (value-free) 
 
 **No LOINC / SNOMED / LIVD dictionary is bundled.** LOINC is © Regenstrief (redistributable only with
 its attribution notice) and the public CDC LIVD file is SARS-CoV-2-specific and carries
-separately-licensed SNOMED CT — so the package ships no terminology data and you bring the catalog (and
+separately-licensed SNOMED CT, so the package ships no terminology data and you bring the catalog (and
 its license obligations).
 
 > **Scope your catalog to the source device fleet.** The ASTM Universal Test ID carries no manufacturer
 > to disambiguate against, so the catalog keys on the vendor transmission code alone. Two different
-> instruments that reuse the same code for different analytes would both match — supply a catalog built
+> instruments that reuse the same code for different analytes would both match: supply a catalog built
 > for the analyzers you actually receive from. (Conflicting entries _within_ one catalog are caught and
 > surfaced as `ambiguous`, never resolved to a guess.)
 
 ## The cosyte parser archetype
 
-- **Postel's Law** — liberal parser (lenient default + warnings), conservative serializer (always
+- **Postel's Law**: liberal parser (lenient default + warnings), conservative serializer (always
   spec-clean), so quirks don't propagate downstream on round-trip.
-- **Tiered tolerance** — Tier 0/1 silent, Tier 2 warning + recovery (escalates in strict mode),
+- **Tiered tolerance**: Tier 0/1 silent, Tier 2 warning + recovery (escalates in strict mode),
   Tier 3 fatal always.
-- **Stable warning codes** — warnings carry stable string codes + positional context; consumers
+- **Stable warning codes**: warnings carry stable string codes + positional context; consumers
   branch on `w.code`, so renaming a code is a breaking change.
-- **Zero runtime dependencies** — Node stdlib only (healthcare integrations vet every dependency).
-- **Dual ESM + CJS** — built with `tsup`, validated with `attw`.
-- **Immutability** — parsed models are immutable; mutation is via explicit methods.
-- **Profile system** — a `defineAstmProfile()` API for vendor quirks, with built-in profiles authored
+- **Zero runtime dependencies**: Node stdlib only (healthcare integrations vet every dependency).
+- **Dual ESM + CJS**: built with `tsup`, validated with `attw`.
+- **Immutability**: parsed models are immutable; mutation is via explicit methods.
+- **Profile system**: a `defineAstmProfile()` API for vendor quirks, with built-in profiles authored
   through the same public API. A profile only ever downgrades an _expected_, non-safety-critical warning
   to `PROFILE_QUIRK_APPLIED` (it never alters a value) and may force the raw-vs-framed transport; a
   default-deny safety gate refuses to tolerate any safety-critical deviation at definition time.
-- **Terminology recognizer, not a dictionary** — LIVD-aware LOINC recognition is bring-your-own
+- **Terminology recognizer, not a dictionary.** LIVD-aware LOINC recognition is bring-your-own
   (`applyLivd` over a consumer-supplied catalog): additive, advisory, and never a guessed LOINC. No
   LOINC / SNOMED / LIVD data is bundled.
 

@@ -4,7 +4,7 @@ import { parseAstmRecords, parseFramedAstm, results } from "../../src/index.js";
 
 import { frame, stream } from "./_frame-builder.js";
 
-describe("parseFramedAstm — composing the framing and record layers at the edge", () => {
+describe("parseFramedAstm: composing the framing and record layers at the edge", () => {
   it("decodes frames and parses the reassembled records into an AstmMessage", () => {
     const bytes = stream(
       frame("H|\\^&\r", { fn: 1, kind: "ETX" }),

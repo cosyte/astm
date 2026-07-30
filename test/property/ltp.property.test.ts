@@ -1,15 +1,15 @@
 /**
  * Property-based conformance for the LTP protocol reducer's headline claims:
  *
- * 1. **The reducer never emits `ACK` after a bad-checksum (untrusted) frame** — the
+ * 1. **The reducer never emits `ACK` after a bad-checksum (untrusted) frame**: the
  *    ACK-failsafe. For any reachable transfer state and any untrusted frame, the
  *    only control action is `sendNak`, the record set does not grow, and the
  *    sequence counter does not advance.
- * 2. **A full `ENQ → frames → EOT` session reassembles the right records** — for any
+ * 2. **A full `ENQ → frames → EOT` session reassembles the right records**: for any
  *    list of records framed with a continuous frame-number sequence, folding
  *    `[enq, ...frames, eot]` through the reducer yields exactly the source record
  *    bytes (byte-for-byte), in order.
- * 3. **A raw-TCP stream yields the same records as its framed twin** — concatenating
+ * 3. **A raw-TCP stream yields the same records as its framed twin**: concatenating
  *    the reducer's reassembled records equals the raw (de-framed) byte stream a
  *    cobas-b121-style peer would have sent, which `detectFraming` classifies as raw.
  */

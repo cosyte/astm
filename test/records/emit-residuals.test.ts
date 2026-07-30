@@ -1,12 +1,12 @@
 /**
- * Two emit-side gaps that both broke the same invariant — a round-trip never
- * silently loses a field — and that both had to be reproduced by executing the
+ * Two emit-side gaps that both broke the same invariant, a round-trip never
+ * silently loses a field, and that both had to be reproduced by executing the
  * shipped code rather than by reading it.
  *
  * 1. A delimiter declaration longer than the three characters a reader takes its
  *    roles from lost the surplus on emit: `H|\^&#` went out as `H|\^&`.
  * 2. A caller-supplied delimiter set was never checked, so emit would write a
- *    stream this library's own parser then rejected outright or — worse — re-read
+ *    stream this library's own parser then rejected outright or, worse, re-read
  *    with a different field tree and no warning at all.
  *
  * These tests assert the fixed behaviour by round-tripping through the real
@@ -29,7 +29,7 @@ import {
   type Delimiters,
 } from "../../src/index.js";
 
-/** Assert a value is defined and return it — the lint-clean alternative to a `!` assertion. */
+/** Assert a value is defined and return it: the lint-clean alternative to a `!` assertion. */
 function def<T>(value: T | undefined): T {
   if (value === undefined) throw new Error("expected a defined value");
   return value;
@@ -42,7 +42,7 @@ function bodyTree(msg: AstmMessage): string {
   );
 }
 
-/** The header's ASTM data fields — everything after the type letter and the declaration. */
+/** The header's ASTM data fields: everything after the type letter and the declaration. */
 function headerData(msg: AstmMessage): string {
   return JSON.stringify(msg.header.fields.slice(2).map((f) => f.repeats));
 }
@@ -73,7 +73,7 @@ describe("a delimiter declaration longer than three characters", () => {
 
   it("drops the surplus when the header is transcoded into a different delimiter set", () => {
     // The surplus belonged to the declaration being replaced; it cannot be read back as
-    // surplus of the new one. Dropping inert bytes is not a lost field — the data fields
+    // surplus of the new one. Dropping inert bytes is not a lost field: the data fields
     // and every other record must still survive intact.
     const msg = parseAstmRecords("H|\\^&#|||SENDER\rP|1||PID-1\rL|1|N\r");
     const alt: Delimiters = { field: "!", repeat: "~", component: "*", escape: "%" };
@@ -113,7 +113,7 @@ describe("a delimiter declaration longer than three characters", () => {
     // Only CR/LF are structural to the record layer, but this text also reaches the frame
     // layer through serializeFramedAstm, where STX/ETX/ETB bound a frame. A surplus
     // carrying one truncates the frame body and costs the whole header record on re-read.
-    // NUL, STX, ETX, US, ETB, DEL — named by code so no raw control byte enters this file.
+    // NUL, STX, ETX, US, ETB, DEL: named by code so no raw control byte enters this file.
     for (const code of [0x00, 0x02, 0x03, 0x17, 0x1f, 0x7f]) {
       const control = String.fromCharCode(code);
       const msg = parseAstmRecords(`H|\\^&${control}|||SENDER\rL|1|N\r`);
@@ -249,7 +249,7 @@ describe("a delimiter set emit cannot reverse", () => {
     expect(msg.delimiters.repeat).toBe(msg.delimiters.component);
 
     expect(() => serializeAstmRecords(msg, msg.delimiters)).toThrow(AstmSerializeError);
-    // The canonical default is unaffected — the message still emits spec-clean.
+    // The canonical default is unaffected: the message still emits spec-clean.
     expect(() => serializeAstmRecords(msg)).not.toThrow();
   });
 });

@@ -103,7 +103,7 @@ function toField(raw: string, d: Delimiters, onUnknownEscape: () => void): AstmF
 /**
  * The primary scalar of a field: its first repeat's first component, decoded.
  * Returns `undefined` for a truly empty field so callers can distinguish
- * "absent" from a value — never defaulting a missing value.
+ * "absent" from a value: never defaulting a missing value.
  *
  * @example
  * ```ts

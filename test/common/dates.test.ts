@@ -9,7 +9,7 @@ function parsed(raw: string): AstmDate {
   return d;
 }
 
-describe("parseAstmDate — precision-preserving, no timezone", () => {
+describe("parseAstmDate: precision-preserving, no timezone", () => {
   it("parses a full YYYYMMDDHHMMSS at second precision", () => {
     const d = parseAstmDate("20240315093045");
     expect(d).toMatchObject({
@@ -70,12 +70,12 @@ describe("parseAstmDate — precision-preserving, no timezone", () => {
     ]) {
       expect(parseAstmDate(clean)?.truncated).toBeUndefined();
     }
-    // >14 digits (fractional seconds) is extra precision, not truncation — not flagged.
+    // >14 digits (fractional seconds) is extra precision, not truncation: not flagged.
     expect(parseAstmDate("20240315093045678")?.truncated).toBeUndefined();
   });
 });
 
-describe("astmDateToLocalISO — no Z, no offset (never assumes UTC)", () => {
+describe("astmDateToLocalISO: no Z, no offset (never assumes UTC)", () => {
   it("renders each precision without a timezone marker", () => {
     expect(astmDateToLocalISO(parsed("2024"))).toBe("2024");
     expect(astmDateToLocalISO(parsed("202403"))).toBe("2024-03");

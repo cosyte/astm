@@ -6,13 +6,13 @@
  *
  * - **Never fabricate.** A builder emits **only** the values the caller supplied.
  *   An unsupplied field is left **empty**, never filled with a default clinical
- *   value — no defaulted result status, abnormal flag, units, value, or patient
+ *   value: no defaulted result status, abnormal flag, units, value, or patient
  *   identifier. (Leaving a field empty is not a guess; inventing an `F` status or
  *   an `N` flag would be.) A consumer that parses a built result whose status the
  *   caller omitted reads `status.meaning === "unspecified"`, never `"final"`.
  * - **Compute, don't guess, the structure.** The record type letters, the
  *   delimiter declaration (canonical `H|\^&`), the message terminator (`L`), and
- *   the per-record sequence counters are **structural** — computed by the builder,
+ *   the per-record sequence counters are **structural**: computed by the builder,
  *   not clinical values. The caller may override any sequence number.
  *
  * Every value is escape-encoded on emit (via the serializer), so an embedded
@@ -30,24 +30,24 @@ export interface PatientNameInput {
   readonly middle?: string;
 }
 
-/** Input for a `P` (patient) record. The three IDs stay distinct — none defaults from another. */
+/** Input for a `P` (patient) record. The three IDs stay distinct: none defaults from another. */
 export interface PatientInput {
   readonly type: "P";
   /** Structural sequence number; auto-computed when omitted. */
   readonly seq?: string;
-  /** Field 3 — practice-assigned patient ID. */
+  /** Field 3: practice-assigned patient ID. */
   readonly practiceAssignedId?: string;
-  /** Field 4 — laboratory-assigned patient ID. */
+  /** Field 4: laboratory-assigned patient ID. */
   readonly laboratoryAssignedId?: string;
-  /** Field 5 — a third patient identifier. */
+  /** Field 5: a third patient identifier. */
   readonly patientIdThree?: string;
-  /** Field 6 — patient name (`Last^First^Middle`). */
+  /** Field 6: patient name (`Last^First^Middle`). */
   readonly name?: PatientNameInput;
-  /** Field 7 — mother's maiden name. */
+  /** Field 7: mother's maiden name. */
   readonly mothersMaidenName?: string;
-  /** Field 8 — birthdate (`YYYYMMDDHHMMSS`), emitted verbatim, never reformatted. */
+  /** Field 8: birthdate (`YYYYMMDDHHMMSS`), emitted verbatim, never reformatted. */
   readonly birthDate?: string;
-  /** Field 9 — sex, emitted verbatim (never defaulted). */
+  /** Field 9: sex, emitted verbatim (never defaulted). */
   readonly sex?: string;
 }
 
@@ -55,17 +55,17 @@ export interface PatientInput {
 export interface OrderInput {
   readonly type: "O";
   readonly seq?: string;
-  /** Field 3 — specimen / accession ID. */
+  /** Field 3: specimen / accession ID. */
   readonly specimenId?: string;
-  /** Field 4 — instrument specimen ID. */
+  /** Field 4: instrument specimen ID. */
   readonly instrumentSpecimenId?: string;
-  /** Field 5 — Universal Test ID components (verbatim, in order; e.g. `["", "", "", "687"]`). */
+  /** Field 5: Universal Test ID components (verbatim, in order; e.g. `["", "", "", "687"]`). */
   readonly universalTestId?: readonly string[];
-  /** Field 6 — priority, emitted verbatim. */
+  /** Field 6: priority, emitted verbatim. */
   readonly priority?: string;
-  /** Field 12 — action code, emitted verbatim. */
+  /** Field 12: action code, emitted verbatim. */
   readonly actionCode?: string;
-  /** Field 26 — report type, emitted verbatim. */
+  /** Field 26: report type, emitted verbatim. */
   readonly reportType?: string;
 }
 
@@ -73,25 +73,25 @@ export interface OrderInput {
 export interface ResultInput {
   readonly type: "R";
   readonly seq?: string;
-  /** Field 3 — Universal Test ID components (verbatim). */
+  /** Field 3: Universal Test ID components (verbatim). */
   readonly universalTestId?: readonly string[];
-  /** Field 4 — the measured value, emitted verbatim (never defaulted). */
+  /** Field 4: the measured value, emitted verbatim (never defaulted). */
   readonly value?: string;
-  /** Field 5 — units (vendor free text; never defaulted, guessed, or converted). */
+  /** Field 5: units (vendor free text; never defaulted, guessed, or converted). */
   readonly units?: string;
-  /** Field 6 — reference range, emitted verbatim. */
+  /** Field 6: reference range, emitted verbatim. */
   readonly referenceRange?: string;
-  /** Field 7 — abnormal flags, emitted verbatim (never defaulted to `N`). */
+  /** Field 7: abnormal flags, emitted verbatim (never defaulted to `N`). */
   readonly abnormalFlags?: string;
-  /** Field 9 — result status, emitted verbatim (never defaulted to `F`). */
+  /** Field 9: result status, emitted verbatim (never defaulted to `F`). */
   readonly resultStatus?: string;
-  /** Field 11 — operator. */
+  /** Field 11: operator. */
   readonly operator?: string;
-  /** Field 12 — test-started timestamp (`YYYYMMDDHHMMSS`), verbatim. */
+  /** Field 12: test-started timestamp (`YYYYMMDDHHMMSS`), verbatim. */
   readonly startedAt?: string;
-  /** Field 13 — test-completed timestamp, verbatim. */
+  /** Field 13: test-completed timestamp, verbatim. */
   readonly completedAt?: string;
-  /** Field 14 — instrument identifier. */
+  /** Field 14: instrument identifier. */
   readonly instrument?: string;
 }
 
@@ -99,13 +99,13 @@ export interface ResultInput {
 export interface CommentInput {
   readonly type: "C";
   readonly seq?: string;
-  /** Field 3 — comment source. */
+  /** Field 3: comment source. */
   readonly source?: string;
-  /** Field 4 — comment text (a single component). Use {@link CommentInput.textComponents} for a structured comment. */
+  /** Field 4: comment text (a single component). Use {@link CommentInput.textComponents} for a structured comment. */
   readonly text?: string;
-  /** Field 4 — comment text as explicit components (takes precedence over `text` when set). */
+  /** Field 4: comment text as explicit components (takes precedence over `text` when set). */
   readonly textComponents?: readonly string[];
-  /** Field 5 — comment type code, emitted verbatim. */
+  /** Field 5: comment type code, emitted verbatim. */
   readonly commentType?: string;
 }
 
@@ -113,20 +113,20 @@ export interface CommentInput {
 export interface QueryInput {
   readonly type: "Q";
   readonly seq?: string;
-  /** Field 3 — starting range ID, emitted verbatim. */
+  /** Field 3: starting range ID, emitted verbatim. */
   readonly startingRangeId?: string;
-  /** Field 4 — ending range ID, emitted verbatim. */
+  /** Field 4: ending range ID, emitted verbatim. */
   readonly endingRangeId?: string;
-  /** Field 5 — Universal Test ID components; ignored when {@link QueryInput.queriesAllTests} is set. */
+  /** Field 5: Universal Test ID components; ignored when {@link QueryInput.queriesAllTests} is set. */
   readonly universalTestId?: readonly string[];
-  /** Field 5 — emit the literal `ALL` universal-query keyword instead of a Universal Test ID. */
+  /** Field 5: emit the literal `ALL` universal-query keyword instead of a Universal Test ID. */
   readonly queriesAllTests?: boolean;
-  /** Field 13 — request-information status, emitted verbatim. */
+  /** Field 13: request-information status, emitted verbatim. */
   readonly requestInformationStatus?: string;
 }
 
 /**
- * Input for an `M` (manufacturer) or `S` (scientific) record — vendor-defined
+ * Input for an `M` (manufacturer) or `S` (scientific) record: vendor-defined
  * free-form data. Emitted verbatim from the caller's fields; never interpreted.
  */
 export interface VerbatimInput {
@@ -157,7 +157,7 @@ export interface MessageInput {
   /** The body records, in order. `H` and `L` are supplied by the builder. */
   readonly records: readonly AstmRecordInput[];
   /**
-   * Field 3 of the auto-appended `L` (terminator) record — the termination code
+   * Field 3 of the auto-appended `L` (terminator) record: the termination code
    * (e.g. `N` normal). Omitted by default (not defaulted to a value the caller
    * did not choose); the `L` seq is always emitted.
    */
@@ -168,7 +168,7 @@ export interface MessageInput {
 function line(fields: readonly (readonly string[])[]): string {
   const d = CANONICAL_DELIMITERS;
   const encoded = fields.map((comps) => comps.map((c) => encodeComponent(c, d)).join(d.component));
-  // Trim trailing empty fields — an absent trailing field and an empty one are equivalent on parse.
+  // Trim trailing empty fields: an absent trailing field and an empty one are equivalent on parse.
   let end = encoded.length;
   while (end > 0 && encoded[end - 1] === "") end -= 1;
   return encoded.slice(0, end).join(d.field);
@@ -246,7 +246,7 @@ function buildQueryLine(input: QueryInput, seq: string): string {
 
 function buildVerbatimLine(input: VerbatimInput, seq: string): string {
   // M / S records are surfaced VERBATIM by the parser, so the builder emits the caller's field text
-  // byte-for-byte (never escaped — the caller owns the exact bytes). A CR/LF is still refused: it
+  // byte-for-byte (never escaped, the caller owns the exact bytes). A CR/LF is still refused: it
   // cannot be represented inside a record and would break framing.
   return [input.type, seq, ...input.fields.map(guardWireSafe)].join(CANONICAL_DELIMITERS.field);
 }
@@ -274,7 +274,7 @@ function padGaps(fields: string[][]): string[][] {
  * The builder emits the canonical `H|\^&` header (plus any header fields), then
  * every body record with each supplied field at its correct 1-based position and
  * every value escape-encoded, then an `L` terminator. **Nothing clinical is
- * defaulted** — an unsupplied field is empty, never a guessed value — and the
+ * defaulted** (an unsupplied field is empty, never a guessed value) and the
  * structural pieces (delimiters, record types, sequence counters, terminator) are
  * computed. The result parses back to an equal message: build → parse fidelity by
  * construction.
@@ -294,10 +294,10 @@ function padGaps(fields: string[][]): string[][] {
 export function buildAstmMessage(input: MessageInput): string {
   const lines: string[] = [];
 
-  // Header: the canonical delimiter declaration is emitted LITERALLY (never escaped — escaping the
+  // Header: the canonical delimiter declaration is emitted LITERALLY (never escaped, escaping the
   // very declaration a reader depends on would corrupt it); any extra header fields are escaped.
   const d = CANONICAL_DELIMITERS;
-  // Header data fields (sender name / version etc.) are emitted verbatim — they legitimately carry
+  // Header data fields (sender name / version etc.) are emitted verbatim: they legitimately carry
   // component structure (`analyzer^cobas^1`); only a framing-breaking CR/LF is refused.
   const headerFields = input.header?.fields ?? [];
   const headerRest = headerFields.map((v) => d.field + guardWireSafe(v)).join("");
@@ -334,7 +334,7 @@ export function buildAstmMessage(input: MessageInput): string {
         lines.push(buildVerbatimLine(rec, nextSeq(rec.type)));
         break;
       default: {
-        // Exhaustiveness — an unrecognized record type is a structural error, not a guess.
+        // Exhaustiveness: an unrecognized record type is a structural error, not a guess.
         const bad = rec as { type?: unknown };
         throw new TypeError(`Unknown ASTM record type to build: ${String(bad.type)}`);
       }
