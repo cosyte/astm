@@ -2,7 +2,7 @@
  * Property: **messages in one stream do not interfere.**
  *
  * A message runs `H` … `L` and each header declares the delimiters for the records that follow it,
- * so concatenating two messages must not change how either one reads — whatever delimiter sets they
+ * so concatenating two messages must not change how either one reads: whatever delimiter sets they
  * declare. This is the invariant the forward-scoping decision rests on: a redeclaration governs the
  * records after it and never reinterprets bytes already consumed, so `parse(a + b)` must agree
  * record-for-record with `parse(a)` followed by `parse(b)`.
@@ -10,7 +10,7 @@
  * The counterexample this pins shipped from `0.0.1` through `0.0.3`: with the whole stream read
  * under the first header's set, every record of `b` collapsed into one field.
  *
- * All generated content is synthetic — values are drawn from a fixed alphabet, never real data.
+ * All generated content is synthetic: values are drawn from a fixed alphabet, never real data.
  */
 
 import { describe, expect, it } from "vitest";
@@ -20,7 +20,7 @@ import { parseAstmRecords, type AstmMessage } from "../../src/index.js";
 
 /**
  * Candidate delimiter characters. Disjoint from {@link VALUE_CHARS}, so a generated value can never
- * accidentally contain a delimiter and force an escape — this property is about scoping, not escaping.
+ * accidentally contain a delimiter and force an escape: this property is about scoping, not escaping.
  */
 const DELIM_CHARS = "|\\^&*~:#@!%+=";
 const VALUE_CHARS = "ABCXYZ0123456789.-/";

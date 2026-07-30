@@ -15,7 +15,7 @@ import {
   results,
 } from "../../src/index.js";
 
-/** Assert a value is defined and return it — the lint-clean alternative to a `!` assertion. */
+/** Assert a value is defined and return it: the lint-clean alternative to a `!` assertion. */
 function def<T>(value: T | undefined): T {
   if (value === undefined) throw new Error("expected a defined value");
   return value;
@@ -31,7 +31,7 @@ describe("encodeComponent", () => {
     expect(encodeComponent("28.6", CANONICAL_DELIMITERS)).toBe("28.6");
   });
 
-  it("refuses a CR/LF in a value — it cannot be escaped and would break framing", () => {
+  it("refuses a CR/LF in a value: it cannot be escaped and would break framing", () => {
     expect(() => encodeComponent("line1\rline2", CANONICAL_DELIMITERS)).toThrow(AstmSerializeError);
     expect(() => encodeComponent("line1\nline2", CANONICAL_DELIMITERS)).toThrow(AstmSerializeError);
     try {
@@ -99,7 +99,7 @@ describe("serializeAstmRecords", () => {
   });
 });
 
-describe("serializeAstmRecords — one delimiter set for the whole stream", () => {
+describe("serializeAstmRecords: one delimiter set for the whole stream", () => {
   // The regression this locks: a non-canonical message carrying M/S emitted a MIXED-delimiter
   // stream (canonical header, original-delimiter M/S rows), and re-parsing it silently collapsed
   // every field of those rows into one with no warning. On the analyzer/LIS path that is a lost
@@ -116,14 +116,14 @@ describe("serializeAstmRecords — one delimiter set for the whole stream", () =
     expect(out).toContain("S|1|CALIB^SLOPE^0.998");
   });
 
-  it("re-parses the emitted stream with EVERY M/S field intact — no silent collapse", () => {
+  it("re-parses the emitted stream with EVERY M/S field intact: no silent collapse", () => {
     const before = parseAstmRecords(raw);
     const after = parseAstmRecords(serializeAstmRecords(before));
     for (const type of ["M", "S"] as const) {
       const src = def(before.records.find((r) => r.type === type));
       const rt = def(after.records.find((r) => r.type === type));
       expect(rt.fields.length).toBe(src.fields.length);
-      // Compared on decoded component values, not raw bytes — the delimiters legitimately change.
+      // Compared on decoded component values, not raw bytes: the delimiters legitimately change.
       expect(rt.fields.map((f) => f.repeats)).toStrictEqual(src.fields.map((f) => f.repeats));
     }
   });
@@ -148,7 +148,7 @@ describe("serializeAstmRecords — one delimiter set for the whole stream", () =
   });
 });
 
-describe("serializeAstmRecord — the header follows the model", () => {
+describe("serializeAstmRecord: the header follows the model", () => {
   it("reflects an edit to a modeled header field", () => {
     const msg = parseAstmRecords("H|\\^&|||analyzer^cobas^1|||||host||P\rL|1\r");
     const header = def(msg.records[0]);

@@ -1,6 +1,6 @@
 /**
  * Unit tests for the frame-layer emit side (`src/frames/encode.ts`):
- * {@link composeAstmFrames} — the exact inverse of {@link decodeAstmFrames}.
+ * {@link composeAstmFrames}, the exact inverse of {@link decodeAstmFrames}.
  */
 
 import { describe, expect, it } from "vitest";
@@ -19,7 +19,7 @@ import { def } from "./_frame-builder.js";
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
 const dec = (b: Uint8Array): string => new TextDecoder().decode(b);
 
-describe("composeAstmFrames — round-trip against the decoder", () => {
+describe("composeAstmFrames: round-trip against the decoder", () => {
   it("frames a single record that the decoder verifies and reassembles exactly", () => {
     const rec = "L|1\r";
     const bytes = composeAstmFrames([rec]);
@@ -61,7 +61,7 @@ describe("composeAstmFrames — round-trip against the decoder", () => {
   });
 });
 
-describe("composeAstmFrames — structural refusal (never an empty frame)", () => {
+describe("composeAstmFrames: structural refusal (never an empty frame)", () => {
   it("throws on an empty record list", () => {
     expect(() => composeAstmFrames([])).toThrow(AstmFrameEncodeError);
   });
@@ -77,7 +77,7 @@ describe("composeAstmFrames — structural refusal (never an empty frame)", () =
   });
 });
 
-describe("serializeFramedAstm — the two emit layers composed", () => {
+describe("serializeFramedAstm: the two emit layers composed", () => {
   it("serializes + frames a message that parseFramedAstm decodes back to an equal message", () => {
     const raw = "H|\\^&\rP|1|PRAC|LAB\rO|1|ACC\rR|1|^^^687|28.6|U/L|10-40|N||F\rL|1|N\r";
     const msg = parseAstmRecords(raw);

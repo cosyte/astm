@@ -6,7 +6,7 @@ import type { LivdEntry } from "../../src/index.js";
 
 /**
  * The Phase-9 headline safety properties, over arbitrary vendor codes and catalogs.
- * The whole layer exists to hold these — a wrong LOINC mis-identifies a test:
+ * The whole layer exists to hold these, a wrong LOINC mis-identifies a test:
  *
  *   1. NEVER-FABRICATE: any LOINC in an annotation was either on the wire
  *      (inline slot) or present in the catalog for that exact code. The layer
@@ -47,7 +47,7 @@ describe("LIVD safety properties", () => {
           for (const c of m.candidates) expect(held.has(c)).toBe(true);
           expect(m.candidates.length).toBeGreaterThan(1);
         }
-        // unmapped / no-code carry no LOINC field at all — structurally impossible to leak one.
+        // unmapped / no-code carry no LOINC field at all: structurally impossible to leak one.
       }),
     );
   });

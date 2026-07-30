@@ -2,7 +2,7 @@
  * The frame-layer **emit** side: {@link composeAstmFrames}.
  *
  * The exact inverse of {@link decodeAstmFrames}. Given the reassembled record
- * byte-strings (one entry per complete record — the same shape `decodeAstmFrames`
+ * byte-strings (one entry per complete record, the same shape `decodeAstmFrames`
  * *produces*), it wraps each into one or more `<STX> FN text <ETB|ETX> CS <CR><LF>`
  * frames, so `decodeAstmFrames(composeAstmFrames(records)).records` reproduces the
  * input records exactly.
@@ -14,7 +14,7 @@
  * - the **frame number** `0`–`7`, starting at `1` and rolling over `7 → 0 → 1`,
  *   continuous across every frame in the stream (as the decoder's sequence check
  *   expects);
- * - the **240-byte text split** — a record longer than 240 bytes is split across
+ * - the **240-byte text split**: a record longer than 240 bytes is split across
  *   frames closed by `ETB` (intermediate) with a final `ETX`; the seven framing
  *   control bytes are never counted toward the 240.
  *
@@ -37,7 +37,7 @@ import {
 
 /**
  * Thrown by {@link composeAstmFrames} when the input cannot be framed into a
- * spec-clean stream — an empty record list, or a record with no bytes (a frame
+ * spec-clean stream: an empty record list, or a record with no bytes (a frame
  * must carry a record; an empty one is a structural error, never an empty frame).
  * Carries a stable code + the offending record index, never record bytes.
  *
@@ -69,7 +69,7 @@ export class AstmFrameEncodeError extends Error {
 export interface ComposeFramesOptions {
   /**
    * The frame number to start the sequence at (`0`–`7`). Defaults to
-   * {@link FIRST_FRAME_NUMBER} (`1`) — the ASTM convention.
+   * {@link FIRST_FRAME_NUMBER} (`1`): the ASTM convention.
    */
   readonly startFrameNumber?: number;
 }
@@ -93,7 +93,7 @@ function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): n
 }
 
 /**
- * Frame reassembled record bytes into a spec-clean ASTM/CLSI-LIS01 byte stream —
+ * Frame reassembled record bytes into a spec-clean ASTM/CLSI-LIS01 byte stream:
  * the inverse of {@link decodeAstmFrames}.
  *
  * Each record is split at 240 text bytes into `ETB`-closed intermediate frames
@@ -119,7 +119,7 @@ export function composeAstmFrames(
   options: ComposeFramesOptions = {},
 ): Uint8Array {
   if (records.length === 0) {
-    throw new AstmFrameEncodeError("Cannot frame an empty record list — nothing to transmit.");
+    throw new AstmFrameEncodeError("Cannot frame an empty record list: nothing to transmit.");
   }
 
   const out: number[] = [];
@@ -129,7 +129,7 @@ export function composeAstmFrames(
     const bytes = toBytes(record);
     if (bytes.length === 0) {
       throw new AstmFrameEncodeError(
-        "Cannot frame an empty record — a frame must carry record bytes.",
+        "Cannot frame an empty record: a frame must carry record bytes.",
         recordIndex,
       );
     }

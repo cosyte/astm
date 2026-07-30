@@ -48,18 +48,18 @@ describe("Tier-3 golden round-trip (all synthetic fixtures)", () => {
     const original = parseAstmRecords(raw);
     const expected = projection(original);
 
-    it(`${name} — record emit reproduces the decoded field tree`, () => {
+    it(`${name}: record emit reproduces the decoded field tree`, () => {
       const reparsed = parseAstmRecords(serializeAstmRecords(original));
       expect(projection(reparsed)).toEqual(expected);
     });
 
-    it(`${name} — record emit is idempotent`, () => {
+    it(`${name}: record emit is idempotent`, () => {
       const once = serializeAstmRecords(original);
       const twice = serializeAstmRecords(parseAstmRecords(once));
       expect(twice).toBe(once);
     });
 
-    it(`${name} — framed emit round-trips through the codec with no frame warnings`, () => {
+    it(`${name}: framed emit round-trips through the codec with no frame warnings`, () => {
       const framed = serializeFramedAstm(original);
       const rt = parseFramedAstm(framed);
       expect(rt.frameWarnings).toEqual([]);

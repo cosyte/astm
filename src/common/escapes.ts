@@ -1,5 +1,5 @@
 /**
- * The ASTM escape codec — the fix for a documented silent-misread class.
+ * The ASTM escape codec: the fix for a documented silent-misread class.
  *
  * ASTM escapes an embedded delimiter with the escape character on both sides of
  * a single mnemonic letter (the InterSystems mnemonics, cross-verified against
@@ -13,12 +13,12 @@
  * ```
  *
  * **Why this is a requirement, not a nicety.** A result value can legitimately
- * contain a component delimiter — e.g. a titre written `1^40`. On the wire that
+ * contain a component delimiter: e.g. a titre written `1^40`. On the wire that
  * is escaped as `1&S&40`. A parser that splits a field into components on the
  * raw component delimiter and *never decodes the escape* is safe here (the
  * escape body `&S&` contains no literal `^`), but a parser that **decodes first
  * and splits second** turns `1&S&40` into `1^40` and then mis-splits it into two
- * components — the silent misread `python-astm` / `Chistousov` exhibit. The
+ * components: the silent misread `python-astm` / `Chistousov` exhibit. The
  * correct order, implemented here, is **escape-aware split, then decode each
  * leaf**: the escape sequence survives the split intact and only then decodes to
  * a single literal, so `1&S&40` reads as exactly one component.
@@ -72,14 +72,14 @@ export function decodeEscapes(leaf: string, d: Delimiters, onUnknown?: UnknownEs
     // Look for the closing escape char. An escape body is the single char between them.
     const close = leaf.indexOf(esc, i + 1);
     if (close === -1) {
-      // A lone, unterminated escape char — preserve the remainder verbatim and stop.
+      // A lone, unterminated escape char: preserve the remainder verbatim and stop.
       out += leaf.slice(i);
       break;
     }
     const body = leaf.slice(i + 1, close);
     const replacement = escapeBody(body, d);
     if (replacement === undefined) {
-      // Unrecognized escape — preserve the whole `&…&` verbatim, surface it, never guess.
+      // Unrecognized escape: preserve the whole `&…&` verbatim, surface it, never guess.
       out += esc + body + esc;
       onUnknown?.();
     } else {
@@ -109,7 +109,7 @@ function escapeBody(body: string, d: Delimiters): string | undefined {
 /**
  * Split `text` on `delimiter`, treating any escape sequence (`escape …
  * escape`) as an opaque atom so a delimiter that appears *inside* an escape body
- * never causes a split. Returns the raw (still-encoded) segments — decoding is
+ * never causes a split. Returns the raw (still-encoded) segments: decoding is
  * the caller's next step, per the escape-aware-split-then-decode contract.
  *
  * For the four canonical mnemonics this is belt-and-suspenders (their bodies are

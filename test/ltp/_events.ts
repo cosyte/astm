@@ -3,7 +3,7 @@
  * codec-vouched {@link AstmFrame}s (by round-tripping through the frame builder and
  * `decodeAstmFrames`, so `trusted`/`checksum` are the codec's genuine verdict, not a
  * hand-set flag) and fold an event list through the reducer. All content is
- * synthetic — plain record bytes with no patient identifiers.
+ * synthetic: plain record bytes with no patient identifiers.
  */
 
 import { decodeAstmFrames, ltpInitialState, ltpReduce } from "../../src/index.js";

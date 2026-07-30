@@ -6,7 +6,7 @@
  * `AstmParseError` is thrown directly and consumers narrow via the `code`
  * discriminant. {@link FatalCode} is **closed**: these three are all of it. The frame
  * codec reuses `EMPTY_INPUT` (an empty stream is fatal in both its lenient and strict
- * modes) but does not widen the union — its own thrown errors are separate types with
+ * modes) but does not widen the union, its own thrown errors are separate types with
  * their own discriminants: {@link AstmFrameEncodeError} carries
  * `ASTM_FRAME_EMPTY_RECORD`, and {@link AstmFrameStrictError} carries the rejected
  * warnings rather than a `code`. So narrowing an `AstmParseError` on `code` will only
@@ -33,16 +33,16 @@ import type { AstmPosition } from "./position.js";
  * ```
  */
 export const FATAL_CODES = {
-  /** Input was empty or whitespace-only — there is nothing to parse. Shared across layers. */
+  /** Input was empty or whitespace-only: there is nothing to parse. Shared across layers. */
   EMPTY_INPUT: "EMPTY_INPUT",
-  /** The first record is not an `H` (header) record — an ASTM message must lead with `H`. */
+  /** The first record is not an `H` (header) record: an ASTM message must lead with `H`. */
   ASTM_RECORD_NO_HEADER: "ASTM_RECORD_NO_HEADER",
   /** The `H` record is too short to declare the four delimiters (field/repeat/component/escape). */
   ASTM_RECORD_UNDECLARED_DELIMITERS: "ASTM_RECORD_UNDECLARED_DELIMITERS",
 } as const;
 
 /**
- * A value from {@link FATAL_CODES} — the type carried by a thrown {@link AstmParseError}.
+ * A value from {@link FATAL_CODES}: the type carried by a thrown {@link AstmParseError}.
  */
 export type FatalCode = (typeof FATAL_CODES)[keyof typeof FATAL_CODES];
 

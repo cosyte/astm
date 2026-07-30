@@ -11,7 +11,7 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Added
 
-- **`messages()` — read a stream as the sequence of messages it actually is**
+- **`messages()`: read a stream as the sequence of messages it actually is**
   (`ASTM-PATIENT-RESULT-MISATTRIBUTION`). A parsed model has always been a whole record
   **stream**, and a stream may carry several messages back to back: a message runs from an `H`
   header to its `L` terminator. `messages(msg)` splits the stream into them and returns a
@@ -37,17 +37,17 @@ this file is maintained by hand (Changesets handles the version bump and publish
   being dropped. Grouping is **total**: every record lands in exactly one message, none
   duplicated and none lost, which is asserted directly.
 
-  **Evidence, labelled.** The message unit is `H` … `L` — _verified primary_: CLSI LIS02-A2 §2 is
+  **Evidence, labelled.** The message unit is `H` … `L`, _verified primary_: CLSI LIS02-A2 §2 is
   definitional about the unit itself, bounding a message by the `H` record at one end and the `L`
   record at the other. Read directly in CLSI's own free sample, and stated here in our own words
   on purpose: we may read and cite the standard but never reproduce its prose, and this file ships
   inside the npm tarball. That clause is the whole of what is claimed from the standard here, and
   it does **not** settle which record _opens_ a new scope partway through a stream. So treating a
-  second `H` as the start of the next message is recorded as a **reasoned choice, not a citation**
-  — no clause number is claimed for it, and we do not assert the standard is silent either. It is
+  second `H` as the start of the next message is recorded as a **reasoned choice, not a citation**:
+  no clause number is claimed for it, and we do not assert the standard is silent either. It is
   chosen to agree with the delimiter scoping this parser already enforces, and because it drops no
   record. **The OSS corpus was checked rather than dismissed**, and unlike for delimiter questions
-  it is informative here — but only negatively: neither commonly-cited reference implementation
+  it is informative here, but only negatively: neither commonly-cited reference implementation
   models the message unit at all. One dispatches records to per-type callbacks one at a time with
   no carried state, leaving the association to the integrator; the other merges every message of a
   transport session into a single envelope of flat per-record-type buckets, from which the
@@ -62,8 +62,8 @@ this file is maintained by hand (Changesets handles the version bump and publish
   message carries several) is **not** modeled: the clauses that would ground it (the
   message-level structure diagram, and the `P` sequence-number rule) are withheld from the free
   sample and paywalled, so the layer declines rather than inventing a rule. Multi-patient
-  messages are real — at least one openly-published vendor interface grammar makes the patient
-  group repeatable on the download direction — so this is a deferral with a known shape, not a
+  messages are real, at least one openly-published vendor interface grammar makes the patient
+  group repeatable on the download direction, so this is a deferral with a known shape, not a
   claim that the case does not arise, and not a claim that the standard is silent about it.
 
 - **`pnpm check:no-internal-refs` + a `no-internal-refs` CI job** (`PUBLIC-SURFACE-HYGIENE`,
@@ -103,7 +103,7 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   produces output identical to a tool that read it and found it clean. This is not theoretical: the
   development container interposes a `grep` with `-I` forced, which drops such input without a word.
   An interposed shell function is also `unset` rather than assumed absent. Both directions are
-  proven — an `-I`-forcing `grep` ahead of it on `PATH` makes the gate refuse, and an exported `grep`
+  proven: an `-I`-forcing `grep` ahead of it on `PATH` makes the gate refuse, and an exported `grep`
   function is neutralised. The companion `-G` (basic-regex) hazard needs no separate guard: every
   positive self-test uses alternation, so a BRE-forced `grep` fails them and refuses.
 
@@ -115,18 +115,51 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 
 ### Changed
 
+- **The em dash (U+2014) is gone from every tracked file, and a CI gate keeps it out**
+  (`EMDASH-CONFORMANCE`). The brand rule bans the character outright across every cosyte surface
+  and names commit messages explicitly; this package was the last one it had not reached, and the
+  only one where it did not arrive on a clean tree. **1,129 occurrences across 108 of the 142
+  tracked files** were rewritten with a comma, a colon, or a period. The sweep and the gate are one
+  change on purpose: a sweep with no gate grows back, and a gate with no sweep reds CI on arrival.
+
+  **What a consumer can observe.** The npm `description` no longer carries the character. The pages
+  published to docs.cosyte.com are rewritten, including the title of the limitations page, now
+  `What it does, and does not do`. Warning and error `message` text is repunctuated, and a
+  consumer's log prints that text. **No warning or fatal code changed**: codes are the stable
+  contract, and the snapshot tests that pin them are untouched. No runtime behaviour changed; the
+  parser, the frame codec, the LTP reducer, and the emit path are not part of this change.
+
+  **Two findings worth carrying, because neither is visible from a diff.** First, an em dash can be
+  a semantic **value**: `docs-content/architecture.md`'s layer table used a bare dash in the
+  **Standard** column to mean _this layer is governed by no standard_, and a bulk rewrite turned it
+  into a stray colon, so the cell read "unstated" rather than "none" on the page whose job is honest
+  disclosure. Nothing in CI could have caught that; it is now the explicit word `None`. Second, rewriting the
+  separator in the warning registries as a colon turned `test/records/multi-header-delimiters.test.ts`
+  red: that fixture declares `:` as its **component** delimiter, and the test asserts that no warning
+  message contains one of its delimiter characters. All 22 registry messages separate with a comma
+  now. The invariant that assertion really pins is that a warning message is a **constant carrying no
+  field data**, which is what makes it value-free; a comma is not safer than a colon in principle,
+  because ASTM delimiters self-declare and any character can be one. The existing test caught this,
+  not a reviewer.
+
+  **Where the rewrite needed a rewrite, not a substitution.** Where the character had bracketed an
+  aside that itself contains commas, replacing both ends with commas turns the aside into an
+  indistinguishable list item, and several sentences went false that way. Those now use
+  **parentheses**, which is the fourth option the rule always allowed and the one a mechanical
+  substitution never reaches for.
+
 - **BREAKING: `patient()`, `results()`, `orders()`, `comments()`, and `query()` now throw on a
   stream they cannot answer for, instead of answering across patients**
   (`ASTM-PATIENT-RESULT-MISATTRIBUTION`; shipped `0.0.1` through `0.0.3`).
 
   **The defect.** These accessors read the whole stream. On a stream carrying more than one
   message, `patient()` answered with the **first** `P` in the stream while `results()` answered
-  with **every** `R` in it, so pairing them — which is exactly what this package's one-line north
-  star does — attributed one patient's results to another. It needed no delimiter redeclaration
+  with **every** `R` in it, so pairing them, which is exactly what this package's one-line north
+  star does, attributed one patient's results to another. It needed no delimiter redeclaration
   and no unusual delimiters: an ordinary two-message stream in one canonical set reproduced it,
   with **zero** warnings, and `strict` mode raised no objection either. On an analyzer-to-LIS
-  path that is a result filed against the wrong patient. Nothing was mis-_read_ — every `P` and
-  every `R` was correct in `records` — but there was no way to ask which belonged together.
+  path that is a result filed against the wrong patient. Nothing was mis-_read_, every `P` and
+  every `R` was correct in `records`, but there was no way to ask which belonged together.
 
   **The change.** Those five accessors now throw `AstmAmbiguousStreamError` with code
   `ASTM_AMBIGUOUS_MULTI_MESSAGE` when the stream carries more than one message. `patient()` also
@@ -145,8 +178,8 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   **Which callers are affected, stated exactly.** A stream that is one message carrying at most one
   `P` is **unchanged**, and so is a result-only message with no `P` at all: `patient()` still answers
   `undefined` there, which is an ordinary shape and not an error. But `ASTM_AMBIGUOUS_MULTI_PATIENT`
-  **does reach single-message callers** — a lone message carrying several patients used to answer
-  with the first of them and now refuses — so "single-message streams are unaffected" would be false
+  **does reach single-message callers**, a lone message carrying several patients used to answer
+  with the first of them and now refuses, so "single-message streams are unaffected" would be false
   and is not claimed. That second break is the same wrong-patient guess as the first, one level down,
   and it is disclosed on the README and in the docs for the same reason the first one is.
   `commentsFor()` is unchanged and works on any stream, single- or multi-message, because the parent
@@ -155,7 +188,7 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   **Migrating** is mechanical: replace `results(msg)` and `patient(msg)` with a walk over
   `messages(msg)`, reading each message's own `patient` and `results`. Where a caller genuinely
   wants every result in a stream regardless of who they belong to, that is
-  `messages(msg).flatMap((m) => m.results)` — written out, so it is a choice rather than a
+  `messages(msg).flatMap((m) => m.results)`: written out, so it is a choice rather than a
   default.
 
 ### Fixed
@@ -168,7 +201,7 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   the same way after; neither was half-fixed by the two earlier slices.
 
   **1. A delimiter declaration longer than three characters lost its extra bytes.** Three characters
-  of a header's declaration carry a role — repeat, component, escape, by position — and the reader
+  of a header's declaration carry a role (repeat, component, escape, by position) and the reader
   ignores any beyond them rather than refusing the stream. Emit regenerated the declaration from the
   three roles alone, so a header that arrived as `H|\^&#` went back out as `H|\^&`, with no warning
   and no way for a caller to notice. Measured before the fix: `serializeAstmRecords(msg, msg.delimiters)`
@@ -176,33 +209,33 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   byte-exact.
 
   The surplus is now carried through from the modeled declaration field. Of the three available
-  dispositions — preserve, refuse, report — **preserve** was chosen. Refusing would reject a stream
+  dispositions (preserve, refuse, report), **preserve** was chosen. Refusing would reject a stream
   the parser reads without complaint, on a published package, over bytes it has already decided are
   inert. Reporting is not available at all: emit returns a bare string and has no warning channel, so
   a warning could only be ignored while the truncated stream still shipped, which is the same reason
   #21 chose re-encoding. Preserving costs nothing and is the only one of the three that makes the
-  round-trip byte-exact. What the surplus _means_ remains unresolved — the clauses that would settle
+  round-trip byte-exact. What the surplus _means_ remains unresolved (the clauses that would settle
   it are not in the freely published material and were not read, so no clause is cited here in either
-  direction — but carrying bytes through unread is a strictly smaller claim than deleting them, and it
+  direction) but carrying bytes through unread is a strictly smaller claim than deleting them, and it
   stays coherent with a reader that now scopes delimiters forward from every header: the re-read
   declaration resolves to the same four roles either way. This lands on the **default** canonical
-  path too, not only when a set is passed explicitly — normalizing a message replaces the four
-  delimiter roles, and the surplus holds none of them — so a caller who was relying on emit to strip
+  path too, not only when a set is passed explicitly (normalizing a message replaces the four
+  delimiter roles, and the surplus holds none of them) so a caller who was relying on emit to strip
   those bytes will find it no longer does.
 
-  The surplus is dropped in exactly the two cases where it could not be read back as surplus — the
+  The surplus is dropped in exactly the two cases where it could not be read back as surplus: the
   header is being transcoded into a different delimiter set, so the surplus belonged to the
   declaration being replaced; or the surplus is not inert on the wire, meaning it contains the field
   separator or **any control character**. The control rule is deliberately wider than the record
   layer alone needs. A `CR`/`LF` would end the record and shift every data field along, but this text
   also reaches the **frame** layer through `serializeFramedAstm`, where `STX`, `ETX` and `ETB` are
   structural: a surplus carrying one of those truncated the frame body, and re-reading the framed
-  stream then dropped the **entire header record** — its sender, its receiver, its control ID —
+  stream then dropped the **entire header record** (its sender, its receiver, its control ID)
   behind nothing but an `ASTM_FRAME_BAD_CHECKSUM`. Rather than enumerate the bytes each layer happens
   to reserve, and re-derive that list whenever a layer is added, no control character is carried at
   all. Two things that rule does **not** do, said here rather than left to be found: it is keyed on
   the character while the frame layer's structure is keyed on the low byte (`charCodeAt(i) & 0xff`),
-  so a non-control character truncating onto `STX`/`ETX`/`ETB` still breaks framing — loudly, with a
+  so a non-control character truncating onto `STX`/`ETX`/`ETB` still breaks framing, loudly, with a
   typed error or an unknown-record-type warning, never silently; and refusing a control character in
   a _surplus_ does not mean one cannot be a _delimiter role_, since only `CR`/`LF` are refused
   there. Those are
@@ -213,26 +246,26 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   multi-character field separator, an empty escape character, a `field`/`escape` collision and a `CR`
   separator each emitted a stream `parseAstmRecords` then **threw** on; a `repeat`/`component`
   collision and a `component`/`escape` collision each emitted one it **re-read with a different field
-  tree and zero warnings**. An empty escape additionally garbled the values themselves — `28.6` went
+  tree and zero warnings**. An empty escape additionally garbled the values themselves: `28.6` went
   out as `2E8E.E6`. On the analyzer-to-LIS path a field tree that changes under a re-read is a lost
   result or a lost specimen identifier, and the caller had no signal either way.
 
   `d` is now checked before any bytes are written, on all four public emit entry points
   (`serializeAstmRecords`, `serializeAstmRecord`, `serializeField`, `encodeComponent`): each separator
   exactly one character, none a `CR`/`LF`, no two the same character. A failing set is an
-  `AstmSerializeError` with the new code `ASTM_EMIT_INVALID_DELIMITERS` — including a set that omits a
+  `AstmSerializeError` with the new code `ASTM_EMIT_INVALID_DELIMITERS`: including a set that omits a
   member or holds a non-string, which the types forbid but a JavaScript caller can still pass, and
   which previously surfaced as a raw `TypeError` from inside the serializer.
 
   **The three rules are necessary, not sufficient, and the docs say so rather than implying a
   guarantee.** A set can satisfy all three and still emit a stream that reads back wrong: a separator
   equal to a record's type letter (`field` of `R`) makes the type letter itself get escaped away, and
-  the record re-reads as unsupported with its result lost. That corruption is unchanged by this slice
-  — it reproduces byte-identically before it — and is recorded as a known defect rather than fixed
+  the record re-reads as unsupported with its result lost. That corruption is unchanged by this slice,
+  it reproduces byte-identically before it, and is recorded as a known defect rather than fixed
   here, because the rule that would catch it has to be derived rather than guessed. **A typed error rather than a
   warning, and the house rule from #21 is why**: with no warning channel on a `string` return, refusing
   at the call is the only disposition that reaches the caller at all. The counter-argument was weighed
-  and is real — `@cosyte/astm` is published, and refusing rejects input previously accepted. It is
+  and is real: `@cosyte/astm` is published, and refusing rejects input previously accepted. It is
   accepted deliberately, because the input turned away is exactly the input that was being corrupted,
   and because the three rules are not stylistic: each names a case where the emitted bytes provably do
   not read back as the records that produced them. The narrowing has one consequence worth stating
@@ -260,49 +293,49 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   delimiters for the records that follow it. Delimiters were read only from `records[0]` and applied
   to the whole stream, so every record after a redeclaring header **collapsed into a single field,
   with zero warnings**, and `{ strict: true }` accepted it. Measured by execution on `dc09a3a` before
-  the fix: in a two-message stream whose second header declared `*~:#`, the second result — value
-  `99.9`, units `mmol/L`, abnormal flag `H`, status `F` — came back with `value`, `units`, `flag` and
+  the fix: in a two-message stream whose second header declared `*~:#`, the second result, value
+  `99.9`, units `mmol/L`, abnormal flag `H`, status `F`, came back with `value`, `units`, `flag` and
   `resultStatus` **all absent** and `status` reading `unspecified`. On the analyzer↔LIS path that is a
   lost result with no signal to the caller.
 
   **The decision, and its grounding.** Delimiters are now scoped **forward from each header**: a later
   `H` governs itself and the records after it, until the next `H`. The asymmetry with the emit bug is
-  real — on emit the library was corrupting its own output, so re-encoding was unambiguously safe,
+  real: on emit the library was corrupting its own output, so re-encoding was unambiguously safe,
   whereas on parse the bytes are the sender's and a second `H` is legal. What settles it is that
   forward scoping is the **only** reading that never reinterprets bytes already consumed: records
   before a redeclaration keep the set they were read with, so the two sets never disagree about the
   same bytes. "First header wins forever" is the collapse itself; "last header wins retroactively"
   would require re-reading records already delivered.
 
-  **Evidence, labelled.** The message unit is `H` … `L` — _verified primary_: LIS02-A2 §2 makes the
+  **Evidence, labelled.** The message unit is `H` … `L`, _verified primary_: LIS02-A2 §2 makes the
   message a **bounded unit**, one record type opening it and another closing it, which is why a second
   `H` begins a new message rather than corrupting the current one. Read directly in CLSI's own free
   sample of the document. (Stated in our own words on purpose. We may read and cite the standard but
-  never reproduce its prose, and `CHANGELOG.md` ships inside the npm tarball — an earlier draft of
+  never reproduce its prose, and `CHANGELOG.md` ships inside the npm tarball: an earlier draft of
   this entry quoted the clause verbatim and was caught in review.) That a header may follow a
-  terminator to start another message — _verified secondary_, two independent restatements of the
+  terminator to start another message: _verified secondary_, two independent restatements of the
   terminator clause (Roche cobas b 121 ASTM interface description; Genaux, _Introduction to ASTM
   Message Formats_, 2024).
-  That a header's delimiters govern "the message" — _verified secondary_ (Genaux; Stratford Software
+  That a header's delimiters govern "the message": _verified secondary_ (Genaux; Stratford Software
   interface spec), which leans per-message but **does not address a redeclaration that changes the
   set**. **We could not reach the normative text on that specific question**: LIS02-A2 §5.4
   (Delimiters) and §6.2 (Delimiter Definition) are precisely the clauses withheld from the free
   sample, and E1394-97 and LIS01-A2 stayed paywalled. So the forward-scoping rule is recorded as a
-  **reasoned choice, not a citation** — no clause number is claimed for it, and we do not assert the
+  **reasoned choice, not a citation**: no clause number is claimed for it, and we do not assert the
   standard is silent either, because that would need the same evidence.
 
   The OSS reference corpus cannot ground this one and is reported as a negative result rather than
   dressed up: `kxepal/python-astm` and `senaite.astm` both hardcode `|\^&` as module constants, never
-  read the header's declaration at all, and neither tracks `H` … `L` boundaries — so differential
+  read the header's declaration at all, and neither tracks `H` … `L` boundaries, so differential
   testing against them is uninformative here.
 
   **Behaviour.** A redeclaration that **changes** the set is honored and raises
   `ASTM_RECORD_DELIMITERS_REDECLARED`. A header that merely **restates** the set in force is a no-op
-  and raises nothing — several messages in one delimiter set is an ordinary shape, and warning on it
+  and raises nothing: several messages in one delimiter set is an ordinary shape, and warning on it
   would be noise. A later header whose declaration is **unusable** (too short, or a field separator
   that also names another role) keeps the set already in force and raises
   `ASTM_RECORD_UNREADABLE_REDECLARATION`; a set is never guessed and no record is dropped. The same
-  condition on the _first_ header remains the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal — there is no
+  condition on the _first_ header remains the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal: there is no
   earlier set to fall back to, and that is pinned by a test so it cannot be softened by accident.
 
   **Surface.** Two new stable warning codes (`ASTM_RECORD_DELIMITERS_REDECLARED`,
@@ -310,18 +343,18 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   factories, both **safety-critical** by the profile gate's default-deny rule, so no profile can quiet
   them (asserted). `HeaderRecord.delimiters` now reports the set **that** header put into force rather
   than always the first header's; `AstmMessage.delimiters` is unchanged and stays the first header's.
-  The sites that _stated_ the old single-header rule were swept — the `parseAstmRecords` JSDoc, the
+  The sites that _stated_ the old single-header rule were swept, the `parseAstmRecords` JSDoc, the
   module header, `HeaderRecord`/`AstmMessage` type docs, `readDelimiters` (whose doc comment said the
   caller escalates an unusable declaration to the fatal, true only of the first header now), and
-  `docs-content/quickstart.md` — because on #21 the refuter's first pass was refused for exactly the
+  `docs-content/quickstart.md`, because on #21 the refuter's first pass was refused for exactly the
   opposite failure: correct code shipped behind documentation that steered consumers the wrong way.
   The `readDelimiters` comment also said it returns `{ ok: false }` when it has always returned
   `undefined`; that was already wrong before this slice and is corrected in the same paragraph.
 
   **Deliberately left for their own slices** (both recorded with this item, both **emit**-side, and
   both turning on questions this one does not answer): a delimiter declaration **longer than three
-  characters** still loses its extra bytes on emit — what a fourth declaration byte even means is
-  unresolved by the same withheld clauses — and `serializeAstmRecords(msg, d)` still does **not
+  characters** still loses its extra bytes on emit, what a fourth declaration byte even means is
+  unresolved by the same withheld clauses, and `serializeAstmRecords(msg, d)` still does **not
   validate a caller-supplied `d`**, so a malformed set emits a stream this library's own parser then
   rejects or mis-reads, with no typed error. Neither is touched here; folding an emit-side change into
   a parse-side fix would have widened the diff without answering either question.
@@ -330,7 +363,7 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   over 216,699 synthetic streams (the 11 repo fixtures, 464 single-header streams, and multi-header
   pairs across a sampled sweep of delimiter sets): **394 moved accepted→rejected, 0 the other way.**
   All 11 fixtures and all 464 single-header streams were **unchanged**, in strict mode and in their
-  lenient warning lists — which matches the code path, since the new warnings can only be raised at an
+  lenient warning lists, which matches the code path, since the new warnings can only be raised at an
   `H` record that is not `records[0]`.
 
 - **`serializeAstmRecords` no longer emits a mixed-delimiter stream that silently loses fields on the
@@ -339,14 +372,14 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   (scientific) records byte-for-byte from `rawLine`. For a message that arrived under a vendor
   delimiter set the output was therefore **non-conformant**: a canonical header above `M`/`S` rows
   still written in the original delimiters. Re-parsing that output **collapsed every field of those
-  rows into one, with zero warnings** — on the analyzer↔LIS path, a lost result or a lost
+  rows into one, with zero warnings**: on the analyzer↔LIS path, a lost result or a lost
   patient/specimen identifier with no signal to the caller. Verified by execution before and after,
   not by inspection: a five-field `M` row round-tripped to one field.
 
   **The semantics chosen, and why.** The two candidates were to re-encode every record to the
   delimiters the header declares, or to refuse/warn on a message whose records disagree.
-  **Re-encoding was chosen.** It is what the serializer already promises — one spec-clean stream in
-  the declared set — and a mixed-delimiter stream is not spec-clean. Emit returns a `string` and has
+  **Re-encoding was chosen.** It is what the serializer already promises, one spec-clean stream in
+  the declared set, and a mixed-delimiter stream is not spec-clean. Emit returns a `string` and has
   no warning channel, so a warning could only have been ignored while the corrupt stream still
   shipped, and a refusal would have rejected messages this library successfully parsed, a harder
   break on a published package. The invariant that had to hold either way is that **a round-trip
@@ -359,7 +392,7 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 - **Editing a modeled `H` field and re-serializing no longer silently keeps the original value**
   (`PRE-EXISTING`, found in the same pass). The header was emitted by re-tokenizing its preserved
   `rawLine`, so the model was bypassed on emit. It is now emitted from `HeaderRecord.fields` like
-  every other record type. The delimiter declaration itself is still never taken from the model — it
+  every other record type. The delimiter declaration itself is still never taken from the model: it
   always states the delimiters actually being emitted with, because a declaration that disagrees with
   the records around it is the very corruption above.
 
@@ -375,13 +408,13 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   spurious `ASTM_UNKNOWN_ESCAPE_SEQUENCE` on some headers, which `{ strict: true }` rejected. Those
   warnings are gone, so a few messages that previously threw now parse. Measured over ~40,000
   differential messages: 1,176 moved from rejected to accepted, **0** moved the other way, and every
-  warning delta is confined to `recordIndex 0` — no warning on any other record is added or dropped.
+  warning delta is confined to `recordIndex 0`, no warning on any other record is added or dropped.
 
   Three `PRE-EXISTING` neighbours were found while grading this and are deliberately **not** fixed
   here, to keep the slice the size of its item: `parseAstmRecords` reads delimiters only from the
   first header, so a **second `H` mid-stream that redeclares them** still yields the same silent
-  field collapse (parse-side, not emit-side — the emitter faithfully reproduces what parse modeled)
-  — **since fixed, see the parse-side entry above**;
+  field collapse (parse-side, not emit-side, the emitter faithfully reproduces what parse modeled),
+  **since fixed, see the parse-side entry above**;
   a delimiter declaration longer than three characters silently loses its extra bytes on emit; and
   `serializeAstmRecords(msg, d)` does not validate a caller-supplied `d`, so a malformed set (a
   multi-char delimiter, an empty escape, a `field`/`escape` collision) emits a stream this library's
@@ -482,12 +515,12 @@ ladder (`0.0.x` until first alpha).
   record stream and pull result value + units + flag in one line.
   - `parseAstmRecords(raw, opts?)` → an immutable, deeply-frozen `AstmMessage`; `results(msg)` /
     `patient(msg)` typed extractors.
-  - **Delimiter self-declaration** — the four delimiters (field / repeat / component / escape) are
+  - **Delimiter self-declaration**: the four delimiters (field / repeat / component / escape) are
     read from each `H` record, never hardcoded, with ASTM's `\`=repeat and `&`=escape mapping.
-  - **Escape codec** — `&F&`/`&S&`/`&R&`/`&E&` are decoded via escape-aware split-then-decode, so a
+  - **Escape codec**: `&F&`/`&S&`/`&R&`/`&E&` are decoded via escape-aware split-then-decode, so a
     value containing an escaped component delimiter reads as **one** component (the documented
     silent-misread class the OSS references exhibit). Re-escaping is deferred to the emit phase (P7).
-  - Modeled records: `H` (delimiter provenance), `P` (identity — practice-assigned ID and
+  - Modeled records: `H` (delimiter provenance), `P` (identity, practice-assigned ID and
     laboratory-assigned ID kept **distinct**), `O` (accession + Universal Test ID), `R` (all 14
     fields; value / units / flags / status surfaced **raw**), `L`. Unknown record types surface as
     `unsupported` records with a warning, never dropped.
@@ -496,10 +529,10 @@ ladder (`0.0.x` until first alpha).
     recognition (`[OSS-derived]` field order), the deep-freeze base, and the warning/fatal registry.
   - Fatal codes: `EMPTY_INPUT` (shared), `ASTM_RECORD_NO_HEADER`, `ASTM_RECORD_UNDECLARED_DELIMITERS`.
     Warning codes: `ASTM_RECORD_UNKNOWN_TYPE`, `ASTM_NONSTANDARD_DELIMITERS`,
-    `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT` — all carry stable code +
+    `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT`, all carry stable code +
     value-free positional context.
   - **Fail-safe on an unescaped component delimiter in a result value:** the full raw value and the
-    component split are both surfaced and an `ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT` warning fires — the
+    component split are both surfaced and an `ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT` warning fires, the
     primary `value` is never silently truncated to the first component.
   - `scripts/phi-scan.ts` extended toward the P-record loci (name + DOB, delimiter-aware); synthetic
     fixtures declared in `scripts/phi-allow-list.txt`.
@@ -507,109 +540,109 @@ ladder (`0.0.x` until first alpha).
   `AstmParseError`, `AstmStrictError`, the record/value model types, and the `WARNING_CODES` /
   `FATAL_CODES` registries.
 - **Safety-critical result semantics (ASTM-2, roadmap Phase 2).** The raw `R`-record letters that
-  Phase 1 surfaced are now modeled into fail-safe semantics, under one rule — _never a confident wrong
+  Phase 1 surfaced are now modeled into fail-safe semantics, under one rule: _never a confident wrong
   value_. The raw strings (`abnormalFlags`, `resultStatus`, `referenceRange`, `units`) still coexist
   with the modeled views; nothing is collapsed or reconciled.
   - **Abnormal flags (field 7) → HL7 Table 0078.** `interpretAbnormalFlag()` and the `flag` field on
     `ResultRecord` model the full value set: `L`/`H`, panic `LL`/`HH`, off-scale `<`/`>`, `N`, `A`/`AA`,
-    the **directional** significant-change `U` (up) / `D` (down) — _not_ units/delta — `B`/`W`, and
+    the **directional** significant-change `U` (up) / `D` (down), _not_ units/delta, `B`/`W`, and
     microbiology `S`/`R`/`I`. An **unrecognized** flag is surfaced as `meaning: "undefined"` with an
-    `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG` warning — **never dropped, never coerced to `normal`**.
+    `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG` warning, **never dropped, never coerced to `normal`**.
   - **Result status (field 9).** `interpretResultStatus()` and the always-present `status` field model
     `F`/`C`/`P`/`R`/`S`/`I`/`X`, with **`C` correction** (`supersedes: true`) and **`X` cancel**
-    (`cancelled: true`) so a superseded/cancelled result can **never** read as current — `isActiveFinal`
+    (`cancelled: true`) so a superseded/cancelled result can **never** read as current, `isActiveFinal`
     is `true` only for a plain `F`. An **absent** status is typed `unspecified` (never assumed `final`);
     an unrecognized one is `undefined` + `ASTM_RECORD_UNDEFINED_RESULT_STATUS`.
   - **Reference range (field 6).** `parseReferenceRange()` and the `range` field parse `low-high`
     (closed), `<high` (open-low), and `>low` (open-high); bounds are surfaced as **verbatim numeric
     text** (never coerced to floats). The range is read from the **full field text**, so a
-    component-delimited value (`low^high`) is preserved verbatim and read as `unparsed` — never
+    component-delimited value (`low^high`) is preserved verbatim and read as `unparsed`: never
     truncated to a single bound. An unparseable range is `kind: "unparsed"` +
-    `ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE` — **no bound is fabricated**. The exact delimiter is
+    `ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE`, **no bound is fabricated**. The exact delimiter is
     `[OSS-derived]` pending the purchased CLSI LIS02-A2 (roadmap §10 Q1).
   - **Units discipline (field 5).** A _numeric_ result value with no units raises
     `ASTM_RECORD_UNITS_ABSENT`; units are vendor free text (not UCUM) and are **never defaulted,
     guessed, or converted**.
   - New warning codes (registry extended, snapshot locked): `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG`,
     `ASTM_RECORD_UNDEFINED_RESULT_STATUS`, `ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE`,
-    `ASTM_RECORD_UNITS_ABSENT` — all value-free (code + record/field index only).
+    `ASTM_RECORD_UNITS_ABSENT`, all value-free (code + record/field index only).
 - **Patient/order identity depth, comments, and partial-timestamp hardening (ASTM-3, roadmap Phase 3).**
   The misfiling-prevention slice: model the identity that a result files against, and the context that
   qualifies it.
   - **Full patient (`P`) identity.** The **practice-assigned ID (field 3)**, the **laboratory-assigned
     ID (field 4)**, and a **third patient ID (field 5)** are modeled as **distinct** fields that never
-    collapse into one — conflating them is the primary result-misfiling path. Adds mother's maiden name
+    collapse into one: conflating them is the primary result-misfiling path. Adds mother's maiden name
     (field 7) alongside the existing name components (field 6), birthdate (field 8), and sex (field 9).
   - **Full order (`O`).** `priority` (field 6), `actionCode` (field ~12), and `reportType` (field ~26)
     are surfaced **verbatim** on top of the existing specimen/accession + Universal Test ID. The `~`
-    field indices and the code sets are `[OSS-derived]` (paywalled) — never mapped to a guessed meaning.
-  - **The `C` (comment) record.** Modeled as `source` (field 3), `text` (field 4, component-capable —
+    field indices and the code sets are `[OSS-derived]` (paywalled): never mapped to a guessed meaning.
+  - **The `C` (comment) record.** Modeled as `source` (field 3), `text` (field 4, component-capable,
     the full text is surfaced plus the component split, never truncated), and `commentType` (field 5).
     Each comment is **attached by position** to the immediately-preceding `H`/`P`/`O`/`R` parent
     (`parentIndex`); consecutive comments share that parent. **Fail-safe:** an **orphan** comment with no
     valid parent is attached to the message root (`attachedToRoot: true`) with an
-    `ASTM_RECORD_ORPHAN_COMMENT` warning — **never silently dropped**. New extractors `comments(msg)` /
+    `ASTM_RECORD_ORPHAN_COMMENT` warning, **never silently dropped**. New extractors `comments(msg)` /
     `commentsFor(msg, record)` / `orders(msg)`, and the pure `attachComments()` attachment pass.
   - **Comment-type codes are `[OSS-derived]`.** `I` (instrument) is the only value seen in the
     permissively-licensed real transcripts; `G`/`T`/`P` are defined only in the paywalled CLSI LIS02-A2
-    and are **not** interpreted — `commentType` is surfaced raw, never mapped to a guessed meaning.
+    and are **not** interpreted, `commentType` is surfaced raw, never mapped to a guessed meaning.
   - **Partial-timestamp hardening.** A `YYYYMMDDHHMMSS` value with an odd digit run that truncates a
     two-digit component (lengths 5/7/9/11/13) sets `AstmDate.truncated`, is preserved verbatim in `raw`,
-    and stops at the last **complete** component — the dangling digit is **never zero-filled into a
+    and stops at the last **complete** component: the dangling digit is **never zero-filled into a
     fabricated time**. A caller surfaces this as a value-free `ASTM_RECORD_PARTIAL_TIMESTAMP` warning
-    (P field 8, R fields 12/13). No timezone is modeled — times stay instrument-local, never assumed UTC.
+    (P field 8, R fields 12/13). No timezone is modeled: times stay instrument-local, never assumed UTC.
   - New warning codes (registry extended, snapshot locked): `ASTM_RECORD_ORPHAN_COMMENT`,
-    `ASTM_RECORD_PARTIAL_TIMESTAMP` — value-free (code + record/field index only).
+    `ASTM_RECORD_PARTIAL_TIMESTAMP`, value-free (code + record/field index only).
   - `scripts/phi-scan.ts` extended toward the mother's-maiden locus (P field 7), on top of the existing
     name (field 6) + DOB (field 8) detection; synthetic fixtures declared in `scripts/phi-allow-list.txt`.
 - **Query (`Q`) + host-query flow + `M`/`S` surfaced verbatim (ASTM-4, roadmap Phase 4).** Completes the
-  record grammar — **the record-content layer is now feature-complete.**
+  record grammar: **the record-content layer is now feature-complete.**
   - **The `Q` (Request Information) record.** Modeled at the public ASTM E1394 field positions:
     `startingRangeId` (field 3) and `endingRangeId` (field 4) surfaced as the **full verbatim field**
     (never truncated to a component), the Universal Test ID (field 5, same caret structure as `O`/`R`),
     and `requestInformationStatus` (field 13) surfaced **verbatim**. The range component structure, the
     `ALL` universal-query keyword (`queriesAllTests`), and the request-information status code set are
-    all **`[OSS-derived / paywalled]`** (roadmap §10 Q3) — surfaced, flagged, and **never interpreted or
+    all **`[OSS-derived / paywalled]`** (roadmap §10 Q3): surfaced, flagged, and **never interpreted or
     guessed**. New `query(msg)` extractor.
   - **The host-query flow.** Every message is classified up front (`msg.classification`): an `H/P/Q/L`
     **request** is `host-query`, an `R`-bearing message is `results`, an `O`-only message is `orders`,
-    else `indeterminate`. **Fail-safe:** the `Q` **dominates** — a `Q`-bearing message is a request and
+    else `indeterminate`. **Fail-safe:** the `Q` **dominates**, a `Q`-bearing message is a request and
     is **never** read as a result set, even when a result record is also present (a contradiction flagged
     with `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`). Gate on `classification.isHostQueryRequest`. Pure
     `classifyMessage(records)` exported.
   - **`M` (manufacturer) + `S` (scientific) records surfaced verbatim.** Vendor-defined free-form
     QC / calibration / maintenance data, preserved byte-for-byte on `record.rawLine` and **never**
-    interpreted into typed clinical fields — a QC value can never be read as a patient result. Round-trip
+    interpreted into typed clinical fields: a QC value can never be read as a patient result. Round-trip
     byte-identical.
   - New warning codes (registry extended, snapshot locked): `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`
     (a Q request-information status surfaced verbatim; the code set is paywalled, so it is passed through
-    uninterpreted) and `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` — both value-free (code + position only).
+    uninterpreted) and `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`, both value-free (code + position only).
   - `AstmMessage` gains a `classification` field; `AstmRecord` gains `QueryRecord` / `ManufacturerRecord`
     / `ScientificRecord` members (an unknown type letter is still an `UnsupportedRecord`, never dropped).
-- **E1381/CLSI-LIS01 frame codec (ASTM-5, roadmap Phase 5).** The **low-level framing layer** begins —
+- **E1381/CLSI-LIS01 frame codec (ASTM-5, roadmap Phase 5).** The **low-level framing layer** begins:
   a separate, independent layer from the record layer, sharing only the payload boundary. `src/frames/`
   decodes a framed byte stream into frames + reassembled record bytes; `src/common/` and `src/records/`
   are untouched.
   - `decodeAstmFrames(bytes, opts?)` → `{ records: readonly Uint8Array[]; frames: readonly AstmFrame[];
 warnings: readonly AstmFrameWarning[] }`. A frame is `<STX> FN text <ETB|ETX> CS <CR><LF>`.
   - **Modulo-256 checksum** over the bytes after `STX` up to and **including** the `ETB`/`ETX`
-    terminator, two hex chars — **verified on decode, emitted uppercase, accepted lowercase** (a real
+    terminator, two hex chars: **verified on decode, emitted uppercase, accepted lowercase** (a real
     vendor quirk). `computeChecksum` / `toChecksumHex` / `parseChecksumHex` exported.
   - **Frame-number `0`–`7` sequencing** (rolls over `7 → 0 → 1`, starts at `1`) and **multi-frame record
-    reassembly** — text is capped at **240 bytes** (the seven control bytes are **not** counted), `ETB`
+    reassembly**: text is capped at **240 bytes** (the seven control bytes are **not** counted), `ETB`
     is intermediate / `ETX` final. `parseFramedAstm(bytes, opts?)` composes the framing and record layers
     at the edge (decode → reassemble trusted records → `parseAstmRecords`).
   - **Fail-safe (byte-level, safety-critical):** a **checksum mismatch** surfaces the frame flagged
-    `trusted: false` and **never merges** it into a record (default warn in lenient / thrown in strict —
+    `trusted: false` and **never merges** it into a record (default warn in lenient / thrown in strict,
     the "checksums are routinely not validated" claim was _refuted_: we validate); a **frame-number gap**
     warns and is **never silently bridged**; an **unterminated** frame surfaces the partial bytes
     untrusted and **invents no partial record**; an **oversize** (>240) frame is flagged, never dropped.
   - New `ASTM_FRAME_*` warning registry (a **second** registry alongside `ASTM_RECORD_*`, sharing only
     the `EMPTY_INPUT` fatal; snapshot locked): `ASTM_FRAME_BAD_CHECKSUM`, `ASTM_FRAME_SEQUENCE_GAP`,
-    `ASTM_FRAME_UNTERMINATED`, `ASTM_FRAME_OVERSIZE` — every warning **value-free**, carrying a **frame
+    `ASTM_FRAME_UNTERMINATED`, `ASTM_FRAME_OVERSIZE`, every warning **value-free**, carrying a **frame
     number + byte offset** only, never the record bytes a frame holds. `{ strict: true }` throws
     `AstmFrameStrictError`.
-  - **Fuzz gate (required, part of `verify`):** a `fast-check` target over the codec — arbitrary /
+  - **Fuzz gate (required, part of `verify`):** a `fast-check` target over the codec, arbitrary /
     truncated / mixed / control-char-laden bytes never crash, hang, or OOM; they degrade to a typed
     error or a value-free warning. Plus property tests: N-frame reassembly equals the single-frame form,
     and every trusted frame's recomputed checksum matches its declared value.
@@ -617,13 +650,13 @@ warnings: readonly AstmFrameWarning[] }`. A frame is `<STX> FN text <ETB|ETX> CS
     `DecodeAstmFramesResult`, `FramedAstmResult`, `AstmFramePosition`, `AstmFrameWarning`,
     `FrameWarningCode`, `FRAME_WARNING_CODES`.
 - **Transport variants + pure LTP protocol reducer (ASTM-6, roadmap Phase 6).** The **LTP protocol
-  layer** — `src/ltp/` — sits above the frame codec: transport auto-detection plus a deterministic,
+  layer**, `src/ltp/`, sits above the frame codec: transport auto-detection plus a deterministic,
   socket-free session state machine. No live I/O: the consumer owns the wire and clock; this layer
   decides.
   - **Transport auto-detection.** `detectFraming(bytes, opts?)` → `{ framing: "framed" | "raw";
 defaulted: boolean; warnings }`. A leading `STX`/`ENQ` ⇒ **framed** (serial, and the cobas 4800 /
     iNTERFACEWARE Iguana framed-over-TCP reality); a leading bare record letter (`H`/`P`/`O`/`R`/`C`/
-    `Q`/`M`/`S`/`L`) ⇒ **raw** (the cobas b121 raw-TCP reality — framing dropped, records streamed
+    `Q`/`M`/`S`/`L`) ⇒ **raw** (the cobas b121 raw-TCP reality, framing dropped, records streamed
     directly). An unrecognizable lead **defaults to framed and warns**
     (`ASTM_LTP_AMBIGUOUS_TRANSPORT`), never guessing silently into data loss; an `override` forces the
     mode (the Phase-8 profile hook).
@@ -632,8 +665,8 @@ defaulted: boolean; warnings }`. A leading `STX`/`ENQ` ⇒ **framed** (serial, a
     codec-decoded `frame`; actions are `sendAck` / `sendNak` / `sendEot` / `deliverRecord`. It models
     the LIS01-A2 establishment → transfer → termination phases as `neutral ⇄ transfer`, reassembling
     `ETB…ETX` runs into delivered records and tracking the `0`–`7` frame sequence.
-  - **ACK-failsafe (safety-critical, borrowed from `mllp`).** A frame the codec did not vouch for — a
-    **bad checksum**, an **unterminated** frame, or one **out of sequence** — is answered with `NAK`,
+  - **ACK-failsafe (safety-critical, borrowed from `mllp`).** A frame the codec did not vouch for (a
+    **bad checksum**, an **unterminated** frame, or one **out of sequence**) is answered with `NAK`,
     **never** a fabricated positive `ACK`, and its bytes are **never** appended to a record or
     delivered. A `NAK` drives **retransmit, not acceptance** (`ASTM_LTP_FRAME_REJECTED`). A duplicate
     of the last-accepted frame is idempotently re-`ACK`ed without re-appending; a partial record open
@@ -648,33 +681,33 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
     `ltpInitialState`, `ltpReduce`, `LtpPhase`, `LtpState`, `LtpEvent`, `LtpAction`, `LtpTransition`,
     `AstmLtpWarning`, `LtpWarningCode`, `LTP_WARNING_CODES`, `ltpAmbiguousTransport`,
     `ltpUnexpectedEvent`, `ltpFrameRejected`.
-- **Spec-clean serializers + builders — both layers (ASTM-7, roadmap Phase 7).** The **emit** side: the
+- **Spec-clean serializers + builders, both layers (ASTM-7, roadmap Phase 7).** The **emit** side: the
   conservative inverse of the parser and the frame codec, so **round-trip fidelity holds by
-  construction**. Postel's Law's second half — liberal on parse, strict on emit.
+  construction**. Postel's Law's second half: liberal on parse, strict on emit.
   - **Record serializer.** `serializeAstmRecords(msg | records)` and `serializeAstmRecord(record)` emit a
     `CR`-terminated stream with the **canonical** `H|\^&` delimiters and every embedded delimiter
-    re-escaped. `encodeComponent()` is the exact inverse of the Phase-1 escape codec — the escape char is
-    encoded **first** (`&` → `&E&`), then the field / component / repeat delimiters (`&F&`/`&S&`/`&R&`) —
+    re-escaped. `encodeComponent()` is the exact inverse of the Phase-1 escape codec. The escape char is
+    encoded **first** (`&` → `&E&`), then the field / component / repeat delimiters (`&F&`/`&S&`/`&R&`),
     so a value containing a delimiter (a titre `1^40` → `1&S&40`) can never break framing and reads back
     as **one** component. A source parsed with **non-canonical** delimiters is **normalized** to the
     canonical set on emit (vendor-delimiter round-tripping is a Phase-8 profile concern). The header's
     delimiter declaration is emitted **literally** (never escaped); `M`/`S` records are re-emitted
     **byte-identically** from `rawLine`.
   - **Message builder.** `buildAstmMessage(input)` constructs a spec-clean stream from typed input under
-    the **never-fabricate** discipline: it emits **only** the values the caller supplied — an omitted
+    the **never-fabricate** discipline: it emits **only** the values the caller supplied, an omitted
     field is left empty, **never a defaulted clinical value** (an unset result status reads back as
     `unspecified`, never `final`; units / abnormal flags / patient IDs are never defaulted). The
-    **structure** — record type letters, the canonical delimiter declaration, per-record-type sequence
-    counters, the `L` terminator — is **computed, not guessed** (a sequence number may be overridden).
+    **structure** (record type letters, the canonical delimiter declaration, per-record-type sequence
+    counters, the `L` terminator) is **computed, not guessed** (a sequence number may be overridden).
   - **Frame encoder.** `composeAstmFrames(records, opts?)` is the exact inverse of `decodeAstmFrames`:
     it wraps reassembled record bytes into `<STX> FN text <ETB|ETX> CS <CR><LF>` frames with the
     modulo-256 **checksum** and the `0`–`7` **frame number** **computed** (never accepted-as-given or
     faked; emitted uppercase), numbered continuously across the stream (start `1`, roll over `7 → 0`),
     and every record over **240** text bytes **split** `ETB…ETX` (the seven control bytes never counted).
-    `serializeFramedAstm(msg | records)` composes both emit layers at the edge — the mirror of
+    `serializeFramedAstm(msg | records)` composes both emit layers at the edge: the mirror of
     `parseFramedAstm`.
-  - **Framing-integrity guards (typed errors, conservative emit).** A value carrying a `CR`/`LF` — which
-    no ASTM escape can encode — is refused with an `AstmSerializeError` (`ASTM_EMIT_UNENCODABLE_VALUE`)
+  - **Framing-integrity guards (typed errors, conservative emit).** A value carrying a `CR`/`LF`, which
+    no ASTM escape can encode, is refused with an `AstmSerializeError` (`ASTM_EMIT_UNENCODABLE_VALUE`)
     rather than emitted into a corrupted wire; an empty record or empty record list is an
     `AstmFrameEncodeError` (`ASTM_FRAME_EMPTY_RECORD`), never an empty frame.
   - **Round-trip proven.** The shared archetype `roundTripProperty` is now **live** (serialize is the
@@ -688,23 +721,23 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
     `MessageInput`, `HeaderInput`, `PatientInput`, `PatientNameInput`, `OrderInput`, `ResultInput`,
     `CommentInput`, `QueryInput`, `VerbatimInput`), `composeAstmFrames`, `AstmFrameEncodeError`,
     `ComposeFramesOptions`, `serializeFramedAstm`.
-- **Vendor profile system — engine + registry + quirk tolerance + definition-time safety gate
+- **Vendor profile system, engine + registry + quirk tolerance + definition-time safety gate
   (ASTM-8, roadmap Phase 8).** `src/profiles/` mirrors the sibling `@cosyte/hl7` `defineProfile` /
   `@cosyte/ccda` `defineCcdaProfile` shape: `name` / `lineage` / `describe()` / `extends`-merge, a
   provenance-backed built-in registry, a runtime tolerance transform, and a definition-time safety gate.
   - `defineAstmProfile(opts)` builds a frozen, immutable profile declaring the **non-safety-critical**
     warning codes a class of streams is expected to trip (each with a grounded `rationale`), plus an
-    optional `transport` override (`"framed"`/`"raw"`) — the raw-vs-framed-TCP knob a consumer feeds to
+    optional `transport` override (`"framed"`/`"raw"`): the raw-vs-framed-TCP knob a consumer feeds to
     `detectFraming(bytes, { override })` for a stream whose leading byte would auto-detect the wrong way.
   - **A profile never alters an extracted value.** The transform (`applyAstmProfileToWarnings`, run last
     in `parseAstmRecords`) only ever re-badges a warning it _expects_ to the new `PROFILE_QUIRK_APPLIED`
-    code (flagged `expected: true`, carrying the original `toleratedCode` and position) — Postel's Law
+    code (flagged `expected: true`, carrying the original `toleratedCode` and position), Postel's Law
     with a receipt: nothing is dropped, and a spec-clean message parses byte-identically with or without
     a profile.
   - **The safety gate is default-deny and total.** Only four benign, value-preserving record codes are
     tolerable (`ASTM_RECORD_UNKNOWN_TYPE`, `ASTM_NONSTANDARD_DELIMITERS`, `ASTM_UNKNOWN_ESCAPE_SEQUENCE`,
-    `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`); **every other code across all three registries — record,
-    frame (`ASTM_FRAME_*`), and LTP (`ASTM_LTP_*`) — is safety-critical and refused at definition time**
+    `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`); **every other code across all three registries (record,
+    frame `ASTM_FRAME_*`, and LTP `ASTM_LTP_*`) is safety-critical and refused at definition time**
     with an `AstmProfileDefinitionError`. A profile therefore can never make a bad checksum "ok," a
     cancelled result read "final," or quiet a wrong value / flag / status / range / units / patient or
     comment context / message-kind ambiguity. Any warning code added in a future phase is
@@ -712,7 +745,7 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
   - `parseAstmRecords(raw, { profile })` accepts an explicit profile; `{ profile: null }` opts out of
     the process-scoped default (`setDefaultAstmProfile`); an `expected` quirk does **not** escalate in
     `strict` mode. `AstmMessage` gains an additive `profile?: { name, lineage }` attribution.
-  - **Built-ins:** `astmProfiles.default` (tolerates nothing) + `astmProfiles.referenceCorpus` — a
+  - **Built-ins:** `astmProfiles.default` (tolerates nothing) + `astmProfiles.referenceCorpus`, a
     **non-vendor**, evidence-backed profile grounded firsthand in the redistributable OSS reference
     corpus (`kxepal/python-astm` `codec.py` (BSD) + `senaite.astm`, which split on raw delimiters and
     never un-escape `&F&`/`&S&`/`&R&`/`&E&`), tolerating only the resulting non-standard-escape
@@ -725,49 +758,49 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
     `resolveProfileTransport`, `profileQuirkApplied`, `SAFETY_CRITICAL_CODES`, `TOLERABLE_CODES`,
     `ALL_ASTM_WARNING_CODES`, `isSafetyCriticalCode`, and the `AstmProfile`, `DefineAstmProfileOptions`,
     `AstmQuirkTolerance`, `AstmQuirkMatch`, `AstmProfileProvenance`, `AnyAstmWarningCode` types.
-- **LIVD-aware LOINC recognition — bring-your-own catalog, zero bundled terminology data (ASTM-9,
+- **LIVD-aware LOINC recognition: bring-your-own catalog, zero bundled terminology data (ASTM-9,
   roadmap Phase 9).** The `src/terminology/` layer maps an analyzer's local test code (the Universal
   Test ID's vendor/local code on `R`/`O` records) to a standard LOINC via a **consumer-supplied** IICC
-  LIVD ("LOINC to Vendor IVD") catalog — **additive, advisory, and never a guessed LOINC** (a wrong
+  LIVD ("LOINC to Vendor IVD") catalog: **additive, advisory, and never a guessed LOINC** (a wrong
   LOINC mis-identifies a test).
   - `defineLivdCatalog(entries)` builds an immutable, frozen catalog indexed by the **Vendor Analyte
     Code** (the vendor transmission code the instrument sends), grounded firsthand on the IICC LIVD
     digital format / HL7 LIVD IG; `catalog.lookup(code)` returns `mapped` (one LOINC), `unmapped` (a
-    miss), or `ambiguous` (a code matching more than one distinct LOINC — surfaced, **never resolved**).
+    miss), or `ambiguous` (a code matching more than one distinct LOINC, surfaced, **never resolved**).
   - `applyLivd(msg, catalog)` produces a **separate** layer of per-`R`/`O` `LivdAnnotation`s and never
     mutates, alters, or drops the raw reported code/value; a catalog hit is labeled `derived: true`
     (`source: "livd"`), an inline LOINC already on the wire is surfaced `source: "wire"` (never
     overwritten by the catalog), and a miss/conflict is `unmapped`/`ambiguous` with a **value-free**
-    warning — a LOINC is **never** fabricated. `lookupLivdForRecord(record, catalog)` annotates one
+    warning, a LOINC is **never** fabricated. `lookupLivdForRecord(record, catalog)` annotates one
     record.
-  - **No LOINC / SNOMED / LIVD data is bundled** (roadmap §5). Firsthand: LOINC is © Regenstrief —
+  - **No LOINC / SNOMED / LIVD data is bundled** (roadmap §5). Firsthand: LOINC is © Regenstrief,
     redistributable only _with its attribution notice_, not public-domain; and the public CDC LIVD file
     is a **SARS-CoV-2-specific** publication that also carries separately-licensed SNOMED CT, not a
     general-analyte, public-domain catalog. The package stays a structural recognizer, not a dictionary:
     the consumer supplies the LIVD data (and owns its license obligations).
-  - New `ASTM_LIVD_*` warning registry (`ASTM_LIVD_UNMAPPED_CODE`, `ASTM_LIVD_AMBIGUOUS_MAPPING`) — a
+  - New `ASTM_LIVD_*` warning registry (`ASTM_LIVD_UNMAPPED_CODE`, `ASTM_LIVD_AMBIGUOUS_MAPPING`): a
     fourth, self-contained registry, deliberately outside the profile safety gate's universe (a LIVD
     non-mapping is a post-parse advisory, not a parse-time deviation a profile could tolerate). New
     exports: `defineLivdCatalog`, `applyLivd`, `lookupLivdForRecord`, `LIVD_WARNING_CODES`,
     `livdUnmappedCode`, `livdAmbiguousMapping`, and the `LivdCatalog`, `LivdEntry`, `LivdLookup`,
     `LivdAnnotation`, `LivdMapping`, `LivdResult`, `AstmLivdWarning`, `LivdWarningCode` types.
-- **Release hardening (ASTM-10, roadmap Phase 10 — the final phase).** Publish-readiness for the now
+- **Release hardening (ASTM-10, roadmap Phase 10, the final phase).** Publish-readiness for the now
   feature-complete parser: coverage, fuzz, firsthand differential testing, the full docs spine, and a
   proven release shape. No new runtime API.
   - **Differential conformance vs [python-astm][pa]** (BSD-3-Clause reference codec, commit
     `4170ce0c`), grounded **firsthand** in `test/differential/`: outputs captured once from the
     reference (`generate-reference-vectors.py` → `reference-vectors.json`; **no reference code
-    vendored**), then asserted against `@cosyte/astm` on three shared paths — the **modulo-256
+    vendored**), then asserted against `@cosyte/astm` on three shared paths, the **modulo-256
     checksum**, the **record field/component split** (escape-free, non-header), and a
     **cross-implementation frame decode** (python encodes + splits → our decoder verifies every
     checksum and reassembles the exact record bytes). The **deliberate divergences** are asserted on
     purpose: we un-escape `&F&`/`&S&`/`&R&`/`&E&` (python leaves them literal), we validate the frame
     checksum (python does not verify on decode), and we classify the `Q` host-query (python has no
-    model). CI needs no Python — only the captured JSON.
-  - **Per-directory ≥ 90 coverage gating extended to the whole `src/` surface** — `frames`, `ltp`,
+    model). CI needs no Python: only the captured JSON.
+  - **Per-directory ≥ 90 coverage gating extended to the whole `src/` surface**: `frames`, `ltp`,
     and `terminology` now gate per-dir alongside `common`/`records`/`profiles` (on top of the global
     gate), so the release bar holds directory by directory, not just in aggregate.
-  - **Record-tokenizer fuzz** (`test/property/records-fuzz.property.test.ts`) — the companion to the
+  - **Record-tokenizer fuzz** (`test/property/records-fuzz.property.test.ts`), the companion to the
     frame-codec fuzz: arbitrary / truncated / delimiter- and escape-laden input into
     `parseAstmRecords` never crashes, hangs, or OOMs; lenient mode only ever throws a sanctioned
     Tier-3 fatal, strict only `AstmStrictError`, and every warning carries a registered code. Both
@@ -776,9 +809,9 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
   - **Publish dry-run proven release-shaped:** `attw` all-green (per-condition ESM/CJS types), a new
     `smoke` gate (`scripts/smoke.mjs`) that imports the **built** ESM and requires the **built** CJS
     entry and parses a result through each (now wired into `verify.sh`), and an `npm publish
---dry-run` pack inspection (10 files — `dist/` + `README`/`LICENSE`/`CHANGELOG`/`package.json`,
+--dry-run` pack inspection (10 files, `dist/` + `README`/`LICENSE`/`CHANGELOG`/`package.json`,
     no `src` or tests). Zero runtime dependencies; MIT.
-  - **Full Diátaxis docs spine + honesty docs.** New `docs-content/limitations.md` (**What it does —
+  - **Full Diátaxis docs spine + honesty docs.** New `docs-content/limitations.md` (**What it does,
     and does not do**: no live I/O, units are verbatim free text not UCUM, no bundled terminology
     dictionary, `M`/`S` verbatim, the archived-standard status, and the MIT-vs-CLSI license posture)
     and `docs-content/architecture.md` (the two independent layers and their payload boundary); the
@@ -796,12 +829,12 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
 
 ### Deferred (later phases)
 
-- **Named per-vendor profiles** (cobas / Sysmex / ADVIA / Mindray / Snibe) stay `REAL-CORPUS`-gated —
+- **Named per-vendor profiles** (cobas / Sysmex / ADVIA / Mindray / Snibe) stay `REAL-CORPUS`-gated:
   the Phase-8 engine supports them (tolerate + transport override), but no public vendor-attributed
   quirk document grounds a named one. **No bundled terminology
-  dictionary** — LIVD-aware LOINC recognition is bring-your-own by design (Phase 9); the package ships
+  dictionary**: LIVD-aware LOINC recognition is bring-your-own by design (Phase 9); the package ships
   no LOINC / SNOMED / LIVD data and mapping quality is the consumer's catalog. The LTP reducer remains
-  a pure state machine — no live I/O: wiring it to a real `SerialPort`/`net.Socket` (and the
+  a pure state machine, no live I/O: wiring it to a real `SerialPort`/`net.Socket` (and the
   interactive contention/timeout/retransmit **timing**) is a thin consumer adapter, and the standard's
   exact numeric timeouts / retry counts are deferred (we model transitions, not timers).
 

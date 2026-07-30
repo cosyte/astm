@@ -1,13 +1,13 @@
 /**
  * The **additive, advisory** LIVD annotation layer. {@link applyLivd}
  * reads a parsed {@link AstmMessage} and a consumer-supplied {@link LivdCatalog}
- * and returns a **separate** layer of per-record LOINC annotations — it **never
+ * and returns a **separate** layer of per-record LOINC annotations: it **never
  * mutates, alters, or drops** the raw reported code or value. Recognition is an
  * annotation, not a rewrite: the wire stays exactly as parsed.
  *
  * **The never-fabricate rule (the safety-critical point).** A vendor code with no
  * single LIVD mapping surfaces as a typed `unmapped`/`ambiguous`/`no-code`
- * annotation — **never** a guessed LOINC. A wrong LOINC mis-identifies a test, so
+ * annotation: **never** a guessed LOINC. A wrong LOINC mis-identifies a test, so
  * the layer only ever reports a LOINC the wire itself carried (an inline LOINC
  * candidate) or one the consumer's catalog vouched for (labeled `derived`), and
  * otherwise reports nothing but the miss.
@@ -26,14 +26,14 @@ import type { AstmLivdWarning } from "./warnings.js";
  * The outcome of annotating one record's Universal Test ID against a LIVD catalog.
  * A distinct case per disposition; there is no case in which a LOINC is guessed.
  *
- * - `mapped` — the vendor/local code resolved to a single LOINC **via the catalog**
+ * - `mapped`, the vendor/local code resolved to a single LOINC **via the catalog**
  *   (labeled `derived: true`, `source: "livd"`).
- * - `inline-loinc` — the wire itself carried a LOINC in the Universal Test ID's slot
+ * - `inline-loinc`, the wire itself carried a LOINC in the Universal Test ID's slot
  *   (component 1); surfaced `source: "wire"`, **not** derived and **not** validated.
- * - `unmapped` — a vendor/local code with no catalog entry.
- * - `ambiguous` — a vendor/local code matching more than one distinct LOINC; the
+ * - `unmapped`: a vendor/local code with no catalog entry.
+ * - `ambiguous`: a vendor/local code matching more than one distinct LOINC; the
  *   candidates are surfaced but **none is chosen**.
- * - `no-code` — the record carried no usable test code at all (name-only/empty), so
+ * - `no-code`: the record carried no usable test code at all (name-only/empty), so
  *   there was nothing to map.
  */
 export type LivdMapping =
@@ -50,7 +50,7 @@ export type LivdMapping =
   | { readonly status: "no-code" };
 
 /**
- * One record's LIVD annotation — which record, the code that was looked up
+ * One record's LIVD annotation, which record, the code that was looked up
  * (verbatim), how it was recognized, and the mapping outcome. Additive: it points
  * at the record by index and never replaces it.
  *
@@ -75,7 +75,7 @@ export interface LivdAnnotation {
   readonly reportedCode?: string;
   /** How the reported code was recognized in the Universal Test ID (provenance only, never a lookup). */
   readonly provenance: UniversalTestIdProvenance;
-  /** The mapping outcome — never a guessed LOINC. */
+  /** The mapping outcome: never a guessed LOINC. */
   readonly mapping: LivdMapping;
 }
 
@@ -87,13 +87,13 @@ export interface LivdAnnotation {
 export interface LivdResult {
   /** One annotation per `R`/`O` record, in wire order. */
   readonly annotations: readonly LivdAnnotation[];
-  /** A value-free warning per `unmapped`/`ambiguous` code — never per `mapped`/`inline-loinc`/`no-code`. */
+  /** A value-free warning per `unmapped`/`ambiguous` code: never per `mapped`/`inline-loinc`/`no-code`. */
   readonly warnings: readonly AstmLivdWarning[];
 }
 
-/** Map a recognized Universal Test ID against the catalog — the pure core of the annotation. */
+/** Map a recognized Universal Test ID against the catalog: the pure core of the annotation. */
 function mapTestId(uid: UniversalTestId, catalog: LivdCatalog): LivdMapping {
-  // The wire already carries a candidate LOINC in component 1 — surface it as-is,
+  // The wire already carries a candidate LOINC in component 1: surface it as-is,
   // from the wire, never derived and never validated. It is the primary code.
   if (uid.loincCandidate !== undefined) {
     return { status: "inline-loinc", loinc: uid.loincCandidate, source: "wire" };

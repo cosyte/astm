@@ -31,7 +31,7 @@ import {
 } from "../../src/index.js";
 
 /**
- * Phase-8 coverage: the vendor-profile engine — `defineAstmProfile`, the
+ * Phase-8 coverage: the vendor-profile engine, `defineAstmProfile`, the
  * definition-time safety gate, the quirk-tolerance transform, the registry, the
  * transport override, and the built-ins. The load-bearing claims: a profile can
  * NEVER tolerate a safety-critical deviation, and a tolerated deviation is
@@ -43,11 +43,11 @@ const fixture = (name: string): string => readFileSync(join(FIXTURES, name), "la
 const ESCAPE_FIXTURE = "tier2-profile-unknown-escape.astm";
 
 afterEach(() => {
-  // Only mutable module-scoped state in the subsystem — clear it so no default bleeds.
+  // Only mutable module-scoped state in the subsystem: clear it so no default bleeds.
   setDefaultAstmProfile(null);
 });
 
-describe("defineAstmProfile — construction & shape", () => {
+describe("defineAstmProfile: construction & shape", () => {
   it("builds a frozen profile with lineage = [name] and an attached describe()", () => {
     const p = defineAstmProfile({ name: "acme", description: "Acme inbound" });
     expect(p.name).toBe("acme");
@@ -84,7 +84,7 @@ describe("defineAstmProfile — construction & shape", () => {
   });
 });
 
-describe("defineAstmProfile — extends composition", () => {
+describe("defineAstmProfile: extends composition", () => {
   it("merges lineage, tolerate (parent before self), transport, description, provenance", () => {
     const parent = defineAstmProfile({
       name: "base",
@@ -124,32 +124,32 @@ describe("defineAstmProfile — extends composition", () => {
   });
 });
 
-describe("defineAstmProfile — validation throws", () => {
+describe("defineAstmProfile: validation throws", () => {
   it("rejects missing/empty/non-string name", () => {
-    // @ts-expect-error — deliberately invalid
+    // @ts-expect-error: deliberately invalid
     expect(() => defineAstmProfile(undefined)).toThrow(AstmProfileDefinitionError);
-    // @ts-expect-error — deliberately invalid
+    // @ts-expect-error: deliberately invalid
     expect(() => defineAstmProfile({})).toThrow(AstmProfileDefinitionError);
     expect(() => defineAstmProfile({ name: "   " })).toThrow(AstmProfileDefinitionError);
   });
 
   it("rejects an unknown option key with a did-you-mean hint", () => {
     expect(() =>
-      // @ts-expect-error — deliberately invalid key close to "tolerate"
+      // @ts-expect-error: deliberately invalid key close to "tolerate"
       defineAstmProfile({ name: "x", tolerated: [] }),
     ).toThrow(/unknown option key 'tolerated'.*Did you mean 'tolerate'/su);
   });
 
   it("rejects an invalid transport value", () => {
     expect(() =>
-      // @ts-expect-error — deliberately invalid transport
+      // @ts-expect-error: deliberately invalid transport
       defineAstmProfile({ name: "x", transport: "tcp" }),
     ).toThrow(/invalid 'transport'/u);
   });
 
   it("rejects an unknown warning code", () => {
     expect(() =>
-      // @ts-expect-error — not a real code
+      // @ts-expect-error: not a real code
       defineAstmProfile({ name: "x", tolerate: [{ code: "NOPE", rationale: "r" }] }),
     ).toThrow(/unknown warning code/u);
   });
@@ -163,7 +163,7 @@ describe("defineAstmProfile — validation throws", () => {
     ).toThrow(/needs a non-empty 'rationale'/u);
   });
 
-  it("re-validates a merged tolerate set — a rogue hand-crafted parent cannot smuggle a code", () => {
+  it("re-validates a merged tolerate set: a rogue hand-crafted parent cannot smuggle a code", () => {
     const rogue = {
       name: "rogue",
       lineage: ["rogue"],
@@ -175,7 +175,7 @@ describe("defineAstmProfile — validation throws", () => {
   });
 });
 
-describe("the safety gate — a profile can never tolerate a safety-critical deviation", () => {
+describe("the safety gate: a profile can never tolerate a safety-critical deviation", () => {
   const safetyExamples: readonly string[] = [
     WARNING_CODES.ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT,
     WARNING_CODES.ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG,
@@ -199,13 +199,13 @@ describe("the safety gate — a profile can never tolerate a safety-critical dev
     expect(() =>
       defineAstmProfile({
         name: "unsafe",
-        // @ts-expect-error — the union permits the code; the gate refuses it at runtime
+        // @ts-expect-error: the union permits the code; the gate refuses it at runtime
         tolerate: [{ code, rationale: "should be refused" }],
       }),
     ).toThrow(/safety-critical/u);
   });
 
-  it("cannot make a bad checksum 'ok' — the exact roadmap example", () => {
+  it("cannot make a bad checksum 'ok': the exact roadmap example", () => {
     expect(() =>
       defineAstmProfile({
         name: "bad",
@@ -238,7 +238,7 @@ describe("the safety gate — a profile can never tolerate a safety-critical dev
   });
 });
 
-describe("the tolerance transform — downgrade, never drop or alter", () => {
+describe("the tolerance transform: downgrade, never drop or alter", () => {
   const profile = defineAstmProfile({
     name: "t",
     tolerate: [{ code: "ASTM_UNKNOWN_ESCAPE_SEQUENCE", rationale: "vendor escape" }],
@@ -400,7 +400,7 @@ describe("integration with parseAstmRecords", () => {
   });
 });
 
-describe("transport override — the raw-vs-framed knob a profile carries", () => {
+describe("transport override: the raw-vs-framed knob a profile carries", () => {
   it("forces raw framing for a stream whose leading byte would auto-detect framed", () => {
     const rawProfile = defineAstmProfile({ name: "raw-analyzer", transport: "raw" });
     // 0x02 = STX → would auto-detect "framed"; the override forces "raw" with no warning.
@@ -412,7 +412,7 @@ describe("transport override — the raw-vs-framed knob a profile carries", () =
   });
 });
 
-describe("edge branches — describe scopes, merge inheritance, match narrowing, hint", () => {
+describe("edge branches: describe scopes, merge inheritance, match narrowing, hint", () => {
   it("describe() renders a field-only scope and a record-only scope", () => {
     const fieldOnly = defineAstmProfile({
       name: "f",
@@ -457,7 +457,7 @@ describe("edge branches — describe scopes, merge inheritance, match narrowing,
   it("an unknown option key far from every known key throws with no did-you-mean hint", () => {
     let message = "";
     try {
-      // @ts-expect-error — deliberately far-from-known key
+      // @ts-expect-error: deliberately far-from-known key
       defineAstmProfile({ name: "x", zzzzzzzz: true });
     } catch (err) {
       message = (err as Error).message;

@@ -1,10 +1,10 @@
 /**
- * The **frame** warning registry (`ASTM_FRAME_*`) for the ASTM/CLSI-LIS01 codec —
+ * The **frame** warning registry (`ASTM_FRAME_*`) for the ASTM/CLSI-LIS01 codec:
  * the second of the package's two registries, alongside the record layer's
  * `ASTM_RECORD_*` (both share only the `EMPTY_INPUT` fatal).
  *
  * A frame warning is the lenient codec's record of a tolerated byte-level
- * deviation: it never crashes, never invents a value, and — critically — never
+ * deviation: it never crashes, never invents a value, and, critically, never
  * lets an untrusted frame be silently merged into a record. Every warning carries
  * a stable code plus an {@link AstmFramePosition} (frame number + byte offset) and
  * **never** the record bytes a frame carries (PHI discipline). Consumers compare
@@ -31,12 +31,12 @@ export const FRAME_WARNING_CODES = {
    * A frame's two-hex-char checksum did not match the modulo-256 sum recomputed over its bytes. The
    * frame is surfaced with `trusted: false` and its text is **never merged** into a reassembled
    * record (default **warn** in lenient mode, escalated to a thrown error in `strict`). Corruption is
-   * never silently trusted — the "checksums are routinely not validated" claim was refuted; we
+   * never silently trusted: the "checksums are routinely not validated" claim was refuted; we
    * validate.
    */
   ASTM_FRAME_BAD_CHECKSUM: "ASTM_FRAME_BAD_CHECKSUM",
   /**
-   * A frame's sequence number was not the expected next value (`1 → … → 7 → 0 → …`) — a frame was
+   * A frame's sequence number was not the expected next value (`1 → … → 7 → 0 → …`): a frame was
    * possibly dropped. The stream is **never silently concatenated across the gap** as if contiguous;
    * the in-progress record is tainted and not emitted as a clean reassembly.
    */
@@ -50,7 +50,7 @@ export const FRAME_WARNING_CODES = {
   ASTM_FRAME_UNTERMINATED: "ASTM_FRAME_UNTERMINATED",
   /**
    * A frame's record text exceeded the 240-byte limit without a split. The frame is still surfaced
-   * (and, if its checksum validates, reassembled) — the deviation is flagged, not silently dropped
+   * (and, if its checksum validates, reassembled): the deviation is flagged, not silently dropped
    * (warn in lenient, thrown in `strict`).
    */
   ASTM_FRAME_OVERSIZE: "ASTM_FRAME_OVERSIZE",
@@ -96,7 +96,7 @@ export interface AstmFrameWarning {
 export function frameBadChecksum(position: AstmFramePosition): AstmFrameWarning {
   return {
     code: FRAME_WARNING_CODES.ASTM_FRAME_BAD_CHECKSUM,
-    message: "Frame checksum mismatch — surfaced untrusted, never merged into a record.",
+    message: "Frame checksum mismatch, surfaced untrusted, never merged into a record.",
     position,
   };
 }
@@ -114,7 +114,7 @@ export function frameBadChecksum(position: AstmFramePosition): AstmFrameWarning 
 export function frameSequenceGap(position: AstmFramePosition): AstmFrameWarning {
   return {
     code: FRAME_WARNING_CODES.ASTM_FRAME_SEQUENCE_GAP,
-    message: "Frame number out of sequence — possible dropped frame, never silently bridged.",
+    message: "Frame number out of sequence, possible dropped frame, never silently bridged.",
     position,
   };
 }
@@ -132,7 +132,7 @@ export function frameSequenceGap(position: AstmFramePosition): AstmFrameWarning 
 export function frameUnterminated(position: AstmFramePosition): AstmFrameWarning {
   return {
     code: FRAME_WARNING_CODES.ASTM_FRAME_UNTERMINATED,
-    message: "Unterminated frame — partial bytes surfaced untrusted, no partial record invented.",
+    message: "Unterminated frame, partial bytes surfaced untrusted, no partial record invented.",
     position,
   };
 }
@@ -150,7 +150,7 @@ export function frameUnterminated(position: AstmFramePosition): AstmFrameWarning
 export function frameOversize(position: AstmFramePosition): AstmFrameWarning {
   return {
     code: FRAME_WARNING_CODES.ASTM_FRAME_OVERSIZE,
-    message: "Frame text exceeded the 240-byte limit without a split — flagged, never dropped.",
+    message: "Frame text exceeded the 240-byte limit without a split, flagged, never dropped.",
     position,
   };
 }

@@ -12,7 +12,7 @@ import {
  * "never a confident wrong value" invariants the whole phase exists to hold:
  *
  *   1. A `C` (correction) or `X` (cancellation) result NEVER reads as active-final.
- *   2. An abnormal flag reads as `normal` ONLY for the exact letter `N` — an
+ *   2. An abnormal flag reads as `normal` ONLY for the exact letter `N`: an
  *      unrecognized flag is never coerced to normal.
  *   3. A reference range never fabricates a bound: an `unparsed` range has no
  *      bound, and any parsed bound is literal text taken from the input.

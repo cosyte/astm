@@ -18,7 +18,7 @@ function asText(bytes: Uint8Array): string {
   return s;
 }
 
-describe("decodeAstmFrames — happy path", () => {
+describe("decodeAstmFrames: happy path", () => {
   it("decodes a single final (ETX) frame and reassembles its record bytes", () => {
     const bytes = stream(frame("R|1|^^^687|28.6|U/L\r", { fn: 1, kind: "ETX" }));
     const { records, frames, warnings } = decodeAstmFrames(bytes);
@@ -76,7 +76,7 @@ describe("decodeAstmFrames — happy path", () => {
   });
 });
 
-describe("decodeAstmFrames — multi-frame reassembly (240-split)", () => {
+describe("decodeAstmFrames: multi-frame reassembly (240-split)", () => {
   it("reassembles an ETB…ETX run into one record equal to the single-frame form", () => {
     const record = "R|1|^^^687|28.6|U/L|3.0-10.0|N||F\r";
     const single = stream(frame(record, { fn: 1, kind: "ETX" }));
@@ -112,7 +112,7 @@ describe("decodeAstmFrames — multi-frame reassembly (240-split)", () => {
   });
 });
 
-describe("decodeAstmFrames — fail-safe: bad checksum", () => {
+describe("decodeAstmFrames, fail-safe: bad checksum", () => {
   it("surfaces a bad-checksum frame untrusted and never merges it into a record", () => {
     const bytes = stream(frame("R|1|999\r", { fn: 1, forceChecksum: 0x00 }));
     const { records, frames, warnings } = decodeAstmFrames(bytes);
@@ -139,7 +139,7 @@ describe("decodeAstmFrames — fail-safe: bad checksum", () => {
     expect(warnings.map((w) => w.code)).toContain(FRAME_WARNING_CODES.ASTM_FRAME_BAD_CHECKSUM);
   });
 
-  it("carries only a frame number + byte offset in the warning — never the record text", () => {
+  it("carries only a frame number + byte offset in the warning: never the record text", () => {
     const bytes = stream(frame("R|1|SECRET-VALUE\r", { fn: 3, forceChecksum: 0x00 }));
     const { warnings } = decodeAstmFrames(bytes);
     const w = warnings.find((x) => x.code === FRAME_WARNING_CODES.ASTM_FRAME_BAD_CHECKSUM);
@@ -150,11 +150,11 @@ describe("decodeAstmFrames — fail-safe: bad checksum", () => {
   });
 });
 
-describe("decodeAstmFrames — fail-safe: sequence gap", () => {
+describe("decodeAstmFrames, fail-safe: sequence gap", () => {
   it("warns on a frame-number gap and does not bridge the record across it", () => {
     const bytes = stream(
       frame("R|1|a\r".slice(0, 4), { fn: 1, kind: "ETB" }),
-      frame("|a\r", { fn: 3, kind: "ETX" }), // expected 2 — a frame was dropped
+      frame("|a\r", { fn: 3, kind: "ETX" }), // expected 2: a frame was dropped
     );
     const { records, warnings } = decodeAstmFrames(bytes);
     expect(warnings.map((w) => w.code)).toContain(FRAME_WARNING_CODES.ASTM_FRAME_SEQUENCE_GAP);
@@ -173,7 +173,7 @@ describe("decodeAstmFrames — fail-safe: sequence gap", () => {
   });
 });
 
-describe("decodeAstmFrames — fail-safe: unterminated", () => {
+describe("decodeAstmFrames, fail-safe: unterminated", () => {
   it("warns on a frame with STX but no terminator, inventing no record", () => {
     const bytes = Uint8Array.from([0x02, 0x31, ...bytesOf("R|1|partial")]);
     const { records, frames, warnings } = decodeAstmFrames(bytes);
@@ -191,7 +191,7 @@ describe("decodeAstmFrames — fail-safe: unterminated", () => {
   });
 });
 
-describe("decodeAstmFrames — fail-safe: oversize", () => {
+describe("decodeAstmFrames, fail-safe: oversize", () => {
   it("warns when a frame's text exceeds 240 bytes", () => {
     const big = "X".repeat(250) + "\r";
     const bytes = stream(frame(big, { fn: 1, kind: "ETX" }));
@@ -210,7 +210,7 @@ describe("decodeAstmFrames — fail-safe: oversize", () => {
   });
 });
 
-describe("decodeAstmFrames — modes and empties", () => {
+describe("decodeAstmFrames: modes and empties", () => {
   it("throws EMPTY_INPUT on an empty stream (both modes)", () => {
     expect(() => decodeAstmFrames(new Uint8Array([]))).toThrowError(AstmParseError);
     try {

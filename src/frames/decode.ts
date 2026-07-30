@@ -9,7 +9,7 @@
  * **both** modes: a bad-checksum frame is surfaced flagged untrusted and **never**
  * merged into a record, and a sequence gap is **never** silently bridged.
  *
- * This is the framing layer only — it does not parse record grammar. Hand a
+ * This is the framing layer only: it does not parse record grammar. Hand a
  * reassembled record to `parseAstmRecords`, or use `parseFramedAstm` to compose
  * both layers at the edge.
  */
@@ -60,7 +60,7 @@ import type {
  * @example
  * ```ts
  * import { decodeAstmFrames } from "@cosyte/astm";
- * // One final frame carrying the record text "R|1|" — checksum "AF" over FN..ETX (mod 256).
+ * // One final frame carrying the record text "R|1|": checksum "AF" over FN..ETX (mod 256).
  * const bytes = new Uint8Array([0x02, 0x31, 0x52, 0x7c, 0x31, 0x7c, 0x03, 0x41, 0x46, 0x0d, 0x0a]);
  * const { records, frames } = decodeAstmFrames(bytes);
  * frames[0]?.frameNumber; // 1
@@ -91,7 +91,7 @@ export function decodeAstmFrames(
   let i = 0;
   while (i < n) {
     if (bytes[i] !== STX) {
-      i++; // inter-frame / transfer-control byte — not record content, skip it
+      i++; // inter-frame / transfer-control byte: not record content, skip it
       continue;
     }
 
@@ -156,7 +156,7 @@ export function decodeAstmFrames(
     };
     frames.push(frame);
 
-    // Sequence check — never bridge a gap silently. An out-of-range FN (not 0–7) is a gap by
+    // Sequence check: never bridge a gap silently. An out-of-range FN (not 0–7) is a gap by
     // definition. On a valid, in-sequence number, advance the expected counter (mod 8).
     if (frameNumber !== undefined && isFrameDigit(frameNumber) && frameNumber === expected) {
       expected = (frameNumber + 1) % FRAME_NUMBER_MODULUS;
@@ -187,7 +187,7 @@ export function decodeAstmFrames(
       recordTainted = false;
       recordOpen = false;
     } else {
-      recordOpen = true; // ETB — the record continues in a later frame
+      recordOpen = true; // ETB: the record continues in a later frame
     }
 
     // Advance past the two checksum chars and an optional CR/LF tail.
@@ -196,7 +196,7 @@ export function decodeAstmFrames(
     if (bytes[i] === LF) i++;
   }
 
-  // A record left open on an intermediate ETB with no final ETX is unterminated — no partial
+  // A record left open on an intermediate ETB with no final ETX is unterminated: no partial
   // record is invented; its frames are already surfaced.
   if (recordOpen) {
     warnings.push(frameUnterminated({ byteOffset: n }));
@@ -210,7 +210,7 @@ export function decodeAstmFrames(
 }
 
 /**
- * Freeze the decoded result so the model rejects mutation — the frame objects,
+ * Freeze the decoded result so the model rejects mutation: the frame objects,
  * their checksum sub-objects, the warnings, and the three container arrays. The
  * `Uint8Array` payloads are deliberately **not** frozen: `Object.freeze` throws on
  * a typed array that has elements, and the byte buffers are copies the caller owns.
@@ -250,7 +250,7 @@ function framePosition(
   return frameNumber !== undefined ? { frameNumber, byteOffset } : { byteOffset };
 }
 
-/** Index of the next `STX` at or after `from`, or `end` if none — bounds a partial (unterminated) frame. */
+/** Index of the next `STX` at or after `from`, or `end` if none: bounds a partial (unterminated) frame. */
 function nextStxOrEnd(bytes: Uint8Array, from: number, end: number): number {
   for (let k = from; k < end; k++) {
     if (bytes[k] === STX) return k;

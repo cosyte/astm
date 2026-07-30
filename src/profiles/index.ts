@@ -5,7 +5,7 @@
  * set, the definition-time error, and the profile types.
  *
  * The individual built-ins are reached via `astmProfiles.referenceCorpus` etc., not
- * as top-level named exports — mirrors the sibling `profiles` namespace convention
+ * as top-level named exports: mirrors the sibling `profiles` namespace convention
  * ("default" is too generic for a top-level export).
  */
 
@@ -42,7 +42,7 @@ import { referenceCorpus } from "./reference-corpus.js";
  * redistributable OSS reference corpus), each authored via the public
  * `defineAstmProfile()` API and carrying its cited provenance. Named per-vendor
  * profiles (cobas / Sysmex / …) are **deferred** pending a firsthand
- * vendor-attributed quirk document — the engine fully supports them; we do not ship
+ * vendor-attributed quirk document: the engine fully supports them; we do not ship
  * ungrounded ones.
  *
  * @example

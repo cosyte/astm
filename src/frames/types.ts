@@ -32,7 +32,7 @@ export interface FrameChecksum {
 
 /**
  * One decoded ASTM frame. `text` is the frame's record-byte payload (the bytes
- * between the frame number and the terminator, escapes untouched — this is the
+ * between the frame number and the terminator, escapes untouched, this is the
  * framing layer, not the record layer). `trusted` is the single flag a consumer
  * gates on: it is `true` only for a fully-terminated frame whose checksum
  * validated, and such frames are the only ones reassembled into `records`.
@@ -71,7 +71,7 @@ export interface AstmFrame {
  */
 export interface DecodeAstmFramesResult {
   /**
-   * The reassembled record byte-strings — one entry per complete record (a run of
+   * The reassembled record byte-strings: one entry per complete record (a run of
    * frames closed by an `ETX`), in wire order. **Only** clean reassemblies appear:
    * a record whose frames included a bad checksum, a sequence gap, or an
    * unterminated frame is **omitted** (its frames are still in {@link DecodeAstmFramesResult.frames},

@@ -2,19 +2,19 @@
  * The value model for the pure LTP protocol reducer ({@link ltpReduce}).
  *
  * The reducer models the **receiver** side of an ASTM/CLSI-LIS01 (LIS01-A2)
- * session — the host/LIS receiving an upload — because that is where the one
+ * session, the host/LIS receiving an upload, because that is where the one
  * safety decision lives: whether to `ACK` (accept) or `NAK` (reject) a frame that
  * just arrived. It is a **pure function** of the current {@link LtpState} and one
  * inbound {@link LtpEvent}, returning an {@link LtpTransition} (the next state plus
  * the actions the consumer should take and any warnings). No sockets, no timers,
- * no I/O — the consumer owns the wire and the clock; the reducer owns the logic.
+ * no I/O: the consumer owns the wire and the clock; the reducer owns the logic.
  */
 
 import type { AstmFrame } from "../frames/types.js";
 import type { AstmLtpWarning } from "./warnings.js";
 
 /**
- * The protocol phase. The line is either **neutral** (idle — awaiting an `ENQ` to
+ * The protocol phase. The line is either **neutral** (idle, awaiting an `ENQ` to
  * establish, or reset there after an `EOT`) or in **transfer** (establishment
  * accepted; frames and their per-frame `ACK`/`NAK` flow until the sender's `EOT`).
  * The classic three-phase LIS01 model (establishment → transfer → termination)
@@ -53,7 +53,7 @@ export interface LtpState {
   /** `true` when a record is mid-reassembly (an `ETB` frame was accepted, awaiting its `ETX`). */
   readonly recordOpen: boolean;
   /**
-   * The bytes accumulated so far for the in-progress record — the concatenation of
+   * The bytes accumulated so far for the in-progress record: the concatenation of
    * the `ETB` frames accepted since the last `ETX`. Empty when no record is open.
    * These bytes are **never** delivered on their own: only an `ETX` completes a
    * record, at which point they (plus the final frame's text) become one entry in
@@ -66,7 +66,7 @@ export interface LtpState {
  * An inbound protocol event the consumer feeds the reducer: one of the four LTP
  * control signals (`ENQ`/`ACK`/`NAK`/`EOT`) read off the wire, or a `frame` the
  * consumer already decoded with `decodeAstmFrames` (the reducer reuses the codec's
- * `trusted`/`checksum` verdict — it never re-derives it).
+ * `trusted`/`checksum` verdict, it never re-derives it).
  */
 export type LtpEvent =
   | { readonly type: "enq" }

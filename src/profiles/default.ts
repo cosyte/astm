@@ -1,13 +1,13 @@
 /**
  * The `default` conservative baseline profile. Tolerates **nothing** and forces no
- * transport — every deviation surfaces as its own warning, unmodified, and framing
+ * transport: every deviation surfaces as its own warning, unmodified, and framing
  * is auto-detected. It exists so "no profile" and "the default profile" are the
  * same, explicit behaviour, and so a consumer can name the baseline when composing
  * (`extends: astmProfiles.default`) without importing a special sentinel. Absence of
- * a profile means this conservative default applied — not that a stream was fully
+ * a profile means this conservative default applied: not that a stream was fully
  * understood.
  *
- * Authored through the public `defineAstmProfile()` API — zero privileged coupling;
+ * Authored through the public `defineAstmProfile()` API: zero privileged coupling;
  * it is exactly what a user would write.
  */
 
@@ -26,6 +26,6 @@ import type { AstmProfile } from "./types.js";
  */
 export const defaultProfile: AstmProfile = defineAstmProfile({
   name: "default",
-  description: "Conservative baseline — tolerates nothing; every deviation surfaces as a warning.",
+  description: "Conservative baseline: tolerates nothing; every deviation surfaces as a warning.",
   tolerate: [],
 });

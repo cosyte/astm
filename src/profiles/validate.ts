@@ -6,12 +6,12 @@
  * came from).
  *
  * The load-bearing check is {@link validateTolerations}: it refuses any `tolerate`
- * entry whose code is unknown, whose rationale is empty, or — the safety rule —
+ * entry whose code is unknown, whose rationale is empty, or, the safety rule,
  * whose code is **safety-critical** (default-deny; see `src/profiles/safety.ts`).
  * That refusal is what lets the rest of the system treat "an active profile" as
  * safe by construction: it can only ever quiet a benign, value-preserving warning.
  *
- * Zero runtime deps — inlined Levenshtein for the "did you mean?" hint.
+ * Zero runtime deps: inlined Levenshtein for the "did you mean?" hint.
  *
  * @internal
  */
@@ -153,11 +153,11 @@ export function validateTolerations(
     }
     if (isSafetyCriticalCode(t.code)) {
       throw new AstmProfileDefinitionError(
-        `Profile '${profileName}' may not tolerate '${t.code}' — it is a safety-critical warning ` +
+        `Profile '${profileName}' may not tolerate '${t.code}': it is a safety-critical warning ` +
           `code (a result value / flag / status / range / units, patient or comment context, ` +
           `message-kind ambiguity, code system, or a frame / LTP integrity warning). A profile quiets ` +
           `benign structural noise, never a deviation that could change a clinical reading or corrupt ` +
-          `the wire — it can never make a bad checksum "ok" or a cancelled result read "final."`,
+          `the wire: it can never make a bad checksum "ok" or a cancelled result read "final."`,
         profileName,
       );
     }

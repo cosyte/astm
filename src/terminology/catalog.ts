@@ -3,17 +3,17 @@
  * from an IICC LIVD ("LOINC to Vendor IVD") mapping the consumer provides.
  *
  * **Bring-your-own, by design.** `@cosyte/astm` bundles
- * **no** LOINC, SNOMED, or LIVD data — LOINC is © Regenstrief (redistributable
+ * **no** LOINC, SNOMED, or LIVD data: LOINC is © Regenstrief (redistributable
  * only with its attribution notice) and the public CDC LIVD publication is a
  * SARS-CoV-2-specific file that also carries SNOMED CT (separately licensed), not
  * a general-analyte, public-domain catalog. So the package stays a **structural
  * recognizer, not a dictionary**: it recognizes the Universal Test ID's LOINC slot
  * and surfaces vendor codes verbatim, and this module lets a consumer
- * *supply* their own LIVD file to map those codes — the terminology data, and its
+ * *supply* their own LIVD file to map those codes, the terminology data, and its
  * license obligations, are the consumer's.
  *
  * **Grounded firsthand on the IICC LIVD digital format / HL7 LIVD IG.** The
- * mapping key is the **Vendor Analyte Code** — the vendor *transmission code* the
+ * mapping key is the **Vendor Analyte Code**: the vendor *transmission code* the
  * instrument sends for an automated test, which is exactly the local code an ASTM
  * analyzer puts in the Universal Test ID (`R`/`O` field, component 4). The mapping
  * target is the **LOINC Code** (with the LOINC Long Common Name as an optional
@@ -33,7 +33,7 @@
 import { deepFreeze } from "../common/freeze.js";
 
 /**
- * One LIVD mapping row a consumer supplies — a vendor test code and the LOINC it
+ * One LIVD mapping row a consumer supplies: a vendor test code and the LOINC it
  * maps to, plus optional human-readable / provenance fields. Modeled on the IICC
  * LIVD digital format's data elements.
  *
@@ -45,20 +45,20 @@ import { deepFreeze } from "../common/freeze.js";
  */
 export interface LivdEntry {
   /**
-   * The **Vendor Analyte Code** — the vendor transmission code the instrument sends (the local code
+   * The **Vendor Analyte Code**: the vendor transmission code the instrument sends (the local code
    * in an ASTM Universal Test ID, component 4). The mapping key; compared **verbatim** (exact,
-   * case-sensitive) against the reported code — never normalized or fuzzy-matched.
+   * case-sensitive) against the reported code, never normalized or fuzzy-matched.
    */
   readonly vendorCode: string;
   /**
    * The **LOINC Code** this vendor code maps to (e.g. `"1920-8"`). Taken from the consumer's catalog
-   * as-is and **never validated, altered, or invented** — the parser does not ship a LOINC table and
+   * as-is and **never validated, altered, or invented**: the parser does not ship a LOINC table and
    * cannot check it; it only carries what the catalog says.
    */
   readonly loinc: string;
-  /** The **LOINC Long Common Name**, when the catalog supplies it — an optional human-readable label. */
+  /** The **LOINC Long Common Name**, when the catalog supplies it: an optional human-readable label. */
   readonly loincLongName?: string;
-  /** The **Vendor Analyte Name** — the vendor's human-readable analyte label, when supplied. */
+  /** The **Vendor Analyte Name**: the vendor's human-readable analyte label, when supplied. */
   readonly vendorAnalyteName?: string;
   /** The device **Manufacturer**, when the catalog scopes the mapping to a device (optional provenance). */
   readonly manufacturer?: string;
@@ -68,7 +68,7 @@ export interface LivdEntry {
 
 /**
  * The outcome of looking a vendor code up in a {@link LivdCatalog}. A distinct
- * value per safe disposition — a hit is `mapped`; a miss is `unmapped`; a code that
+ * value per safe disposition: a hit is `mapped`; a miss is `unmapped`; a code that
  * matched more than one **distinct** LOINC is `ambiguous` with the candidates
  * surfaced but **none chosen**. There is deliberately no "guessed" case.
  */
@@ -79,9 +79,9 @@ export type LivdLookup =
       readonly loinc: string;
       readonly loincLongName?: string;
     }
-  /** No entry for this code — a miss. The code stays verbatim; no LOINC is invented. */
+  /** No entry for this code: a miss. The code stays verbatim; no LOINC is invented. */
   | { readonly status: "unmapped" }
-  /** More than one distinct LOINC — surfaced for inspection, never resolved to one. */
+  /** More than one distinct LOINC: surfaced for inspection, never resolved to one. */
   | { readonly status: "ambiguous"; readonly candidates: readonly string[] };
 
 /**
@@ -95,7 +95,7 @@ export interface LivdCatalog {
   /**
    * Look a vendor code up, verbatim (exact, case-sensitive). Returns `mapped` on a
    * single-LOINC hit, `unmapped` on a miss, and `ambiguous` when the code carries
-   * more than one distinct LOINC — never a guess.
+   * more than one distinct LOINC: never a guess.
    *
    * @param vendorCode - The reported vendor/local test code.
    * @returns The lookup outcome.

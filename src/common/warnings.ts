@@ -22,21 +22,21 @@ import type { AstmPosition } from "./position.js";
  * ```
  */
 export const WARNING_CODES = {
-  /** A record's type letter is not one of the modeled types — surfaced as an unsupported record. */
+  /** A record's type letter is not one of the modeled types: surfaced as an unsupported record. */
   ASTM_RECORD_UNKNOWN_TYPE: "ASTM_RECORD_UNKNOWN_TYPE",
-  /** The header declared delimiters other than the canonical `H|\^&` — tolerated, noted. */
+  /** The header declared delimiters other than the canonical `H|\^&`: tolerated, noted. */
   ASTM_NONSTANDARD_DELIMITERS: "ASTM_NONSTANDARD_DELIMITERS",
-  /** An escape sequence body was not one of `&F&`/`&S&`/`&R&`/`&E&` — preserved verbatim. */
+  /** An escape sequence body was not one of `&F&`/`&S&`/`&R&`/`&E&`: preserved verbatim. */
   ASTM_UNKNOWN_ESCAPE_SEQUENCE: "ASTM_UNKNOWN_ESCAPE_SEQUENCE",
   /**
    * A result value field carried an *unescaped* component delimiter, so it split into more than one
-   * component. Both the full raw value and the split are surfaced and this warning fires — the
+   * component. Both the full raw value and the split are surfaced and this warning fires: the
    * ambiguity is never resolved silently into a truncated value.
    */
   ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT: "ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT",
   /**
    * A result's abnormal-flag field (`R` field 7) carried a letter outside HL7 Table 0078. The flag is
-   * surfaced as `undefined` — never dropped, and **never coerced to `normal`** (a clinical error).
+   * surfaced as `undefined`: never dropped, and **never coerced to `normal`** (a clinical error).
    */
   ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG: "ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG",
   /**
@@ -46,7 +46,7 @@ export const WARNING_CODES = {
   ASTM_RECORD_UNDEFINED_RESULT_STATUS: "ASTM_RECORD_UNDEFINED_RESULT_STATUS",
   /**
    * A result's reference-range field (`R` field 6) did not match a recognized form (`low-high`,
-   * `<high`, `>low`). The text is surfaced verbatim as `unparsed` — a bound is **never fabricated**.
+   * `<high`, `>low`). The text is surfaced verbatim as `unparsed`: a bound is **never fabricated**.
    */
   ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE: "ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE",
   /**
@@ -55,25 +55,25 @@ export const WARNING_CODES = {
    */
   ASTM_RECORD_UNITS_ABSENT: "ASTM_RECORD_UNITS_ABSENT",
   /**
-   * A `C` (comment) record had no valid preceding `H`/`P`/`O`/`R` parent — an **orphan**. The comment
+   * A `C` (comment) record had no valid preceding `H`/`P`/`O`/`R` parent: an **orphan**. The comment
    * is attached to the message root (`attachedToRoot: true`) and surfaced, **never dropped**.
    */
   ASTM_RECORD_ORPHAN_COMMENT: "ASTM_RECORD_ORPHAN_COMMENT",
   /**
    * A `YYYYMMDDHHMMSS` timestamp had an odd digit run that truncates a two-digit component in half
    * (e.g. a partial day/hour). The raw run is preserved and the structured value stops at the last
-   * **complete** component — the dangling digit is **never zero-filled into a fabricated time**.
+   * **complete** component: the dangling digit is **never zero-filled into a fabricated time**.
    */
   ASTM_RECORD_PARTIAL_TIMESTAMP: "ASTM_RECORD_PARTIAL_TIMESTAMP",
   /**
    * A `Q` (request-information) record carried a request-information status code (field 13). The code
    * *set* is `[OSS-derived / paywalled]` with no publicly-groundable enumeration, so the parser
    * interprets **none** of them: the status is surfaced verbatim and this value-free warning flags that
-   * it was passed through **uninterpreted** — never mapped to a guessed meaning.
+   * it was passed through **uninterpreted**, never mapped to a guessed meaning.
    */
   ASTM_RECORD_UNINTERPRETED_QUERY_STATUS: "ASTM_RECORD_UNINTERPRETED_QUERY_STATUS",
   /**
-   * A message carried **both** a `Q` (request) and an `R` (result) record — a contradictory shape. The
+   * A message carried **both** a `Q` (request) and an `R` (result) record: a contradictory shape. The
    * message is classified `host-query` (the `Q` **dominates**, so it is never read as a result set) and
    * this warning flags the anomaly. Positional context only; no field value.
    */
@@ -82,7 +82,7 @@ export const WARNING_CODES = {
    * A later `H` (header) record declared a **different** delimiter set from the one in force, and the
    * parser **followed it**: that header and every record after it are read with the newly-declared
    * delimiters, until the next `H`. Records already read keep the set that was in force when they were
-   * read — a redeclaration never reinterprets bytes that have already been consumed.
+   * read: a redeclaration never reinterprets bytes that have already been consumed.
    *
    * A stream carrying several messages back to back is ordinary, and a header that simply **repeats**
    * the delimiters already in force is a no-op that warns nothing. This code fires only when the set
@@ -91,13 +91,13 @@ export const WARNING_CODES = {
    */
   ASTM_RECORD_DELIMITERS_REDECLARED: "ASTM_RECORD_DELIMITERS_REDECLARED",
   /**
-   * A later `H` (header) record could not declare a usable delimiter set — it was too short, or the
+   * A later `H` (header) record could not declare a usable delimiter set: it was too short, or the
    * field separator it named also appeared among the other three, leaving the four roles
    * indistinguishable. The delimiters **already in force are kept** and every record is still surfaced;
    * a set is never guessed and no record is dropped.
    *
    * The same condition on the *first* header is unrecoverable and remains the
-   * `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal — there is no earlier set to fall back to.
+   * `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal: there is no earlier set to fall back to.
    */
   ASTM_RECORD_UNREADABLE_REDECLARATION: "ASTM_RECORD_UNREADABLE_REDECLARATION",
   /**
@@ -105,7 +105,7 @@ export const WARNING_CODES = {
    * (see `src/profiles/`). The original warning is **never dropped**: its code moves to
    * {@link AstmRecordWarning.toleratedCode}, the warning is re-badged `PROFILE_QUIRK_APPLIED` with
    * `expected: true` and the tolerating profile named, so a consumer can filter known, grounded noise
-   * while the fact of the deviation — and where it was — survives. A profile can only ever reach this
+   * while the fact of the deviation, and where it was, survives. A profile can only ever reach this
    * path for a **non-safety-critical** code (enforced at profile-definition time); a safety-critical
    * deviation (a result value, flag, status, patient identifier, code system, or a frame-integrity
    * warning) can **never** be tolerated, so it can never be re-badged here.
@@ -143,14 +143,14 @@ export interface AstmRecordWarning {
    * `true` when an active vendor {@link AstmProfile} *expected* this deviation and re-badged it as a
    * {@link WARNING_CODES.PROFILE_QUIRK_APPLIED}. An `expected` warning does **not** escalate to a
    * thrown `AstmStrictError` in strict mode (the whole point of the profile is that this deviation is
-   * known and benign) — it is still recorded, so nothing is hidden. Absent on an untolerated warning.
+   * known and benign): it is still recorded, so nothing is hidden. Absent on an untolerated warning.
    */
   readonly expected?: boolean;
   /** The name of the {@link AstmProfile} that tolerated this warning, when `expected`. */
   readonly profile?: string;
   /**
    * When `code` is {@link WARNING_CODES.PROFILE_QUIRK_APPLIED}, the original warning code the profile
-   * tolerated — so a consumer can still see *which* deviation was re-badged as expected.
+   * tolerated, so a consumer can still see *which* deviation was re-badged as expected.
    */
   readonly toleratedCode?: WarningCode;
 }
@@ -168,7 +168,7 @@ export interface AstmRecordWarning {
 export function unknownRecordType(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE,
-    message: "Unrecognized record type — surfaced verbatim as an unsupported record.",
+    message: "Unrecognized record type, surfaced verbatim as an unsupported record.",
     position,
   };
 }
@@ -186,7 +186,7 @@ export function unknownRecordType(position: AstmPosition): AstmRecordWarning {
 export function nonStandardDelimiters(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
-    message: "Header declared non-canonical delimiters — read from the header and honored.",
+    message: "Header declared non-canonical delimiters, read from the header and honored.",
     position,
   };
 }
@@ -194,7 +194,7 @@ export function nonStandardDelimiters(position: AstmPosition): AstmRecordWarning
 /**
  * Build an `ASTM_RECORD_DELIMITERS_REDECLARED` warning. Emitted when a later `H`
  * record declares a delimiter set different from the one in force; the new set is
- * honored from that header onward. Positional context only — never the delimiters
+ * honored from that header onward. Positional context only: never the delimiters
  * themselves.
  *
  * @example
@@ -207,7 +207,7 @@ export function delimitersRedeclared(position: AstmPosition): AstmRecordWarning 
   return {
     code: WARNING_CODES.ASTM_RECORD_DELIMITERS_REDECLARED,
     message:
-      "A later header declared different delimiters — honored from that header onward; earlier records keep the set they were read with.",
+      "A later header declared different delimiters, honored from that header onward; earlier records keep the set they were read with.",
     position,
   };
 }
@@ -227,7 +227,7 @@ export function unreadableRedeclaration(position: AstmPosition): AstmRecordWarni
   return {
     code: WARNING_CODES.ASTM_RECORD_UNREADABLE_REDECLARATION,
     message:
-      "A later header could not declare a usable delimiter set — the delimiters already in force were kept.",
+      "A later header could not declare a usable delimiter set, the delimiters already in force were kept.",
     position,
   };
 }
@@ -253,7 +253,7 @@ export function unknownEscapeSequence(position: AstmPosition): AstmRecordWarning
 
 /**
  * Build an `ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT` warning. Emitted when a result
- * value field split on an unescaped component delimiter — the full raw value and
+ * value field split on an unescaped component delimiter: the full raw value and
  * the split are both surfaced, never a silent truncation.
  *
  * @example
@@ -266,7 +266,7 @@ export function ambiguousValueSplit(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT,
     message:
-      "Result value contained an unescaped component delimiter — full raw value and split both surfaced.",
+      "Result value contained an unescaped component delimiter, full raw value and split both surfaced.",
     position,
   };
 }
@@ -284,7 +284,7 @@ export function ambiguousValueSplit(position: AstmPosition): AstmRecordWarning {
 export function undefinedAbnormalFlag(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG,
-    message: "Abnormal flag is not in HL7 Table 0078 — surfaced as undefined, never as normal.",
+    message: "Abnormal flag is not in HL7 Table 0078, surfaced as undefined, never as normal.",
     position,
   };
 }
@@ -302,7 +302,7 @@ export function undefinedAbnormalFlag(position: AstmPosition): AstmRecordWarning
 export function undefinedResultStatus(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_UNDEFINED_RESULT_STATUS,
-    message: "Result status is not a recognized status letter — surfaced as undefined.",
+    message: "Result status is not a recognized status letter, surfaced as undefined.",
     position,
   };
 }
@@ -321,7 +321,7 @@ export function unparseableReferenceRange(position: AstmPosition): AstmRecordWar
   return {
     code: WARNING_CODES.ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE,
     message:
-      "Reference range did not match a recognized form — surfaced verbatim, no bound invented.",
+      "Reference range did not match a recognized form, surfaced verbatim, no bound invented.",
     position,
   };
 }
@@ -339,7 +339,7 @@ export function unparseableReferenceRange(position: AstmPosition): AstmRecordWar
 export function unitsAbsent(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_UNITS_ABSENT,
-    message: "Numeric result value carried no units — never defaulted, guessed, or converted.",
+    message: "Numeric result value carried no units, never defaulted, guessed, or converted.",
     position,
   };
 }
@@ -358,7 +358,7 @@ export function unitsAbsent(position: AstmPosition): AstmRecordWarning {
 export function orphanComment(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_ORPHAN_COMMENT,
-    message: "Comment had no valid preceding parent — attached to the message root, never dropped.",
+    message: "Comment had no valid preceding parent, attached to the message root, never dropped.",
     position,
   };
 }
@@ -377,7 +377,7 @@ export function orphanComment(position: AstmPosition): AstmRecordWarning {
 export function partialTimestamp(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_PARTIAL_TIMESTAMP,
-    message: "Timestamp digit run truncates a component — preserved verbatim, never zero-filled.",
+    message: "Timestamp digit run truncates a component, preserved verbatim, never zero-filled.",
     position,
   };
 }
@@ -397,7 +397,7 @@ export function uninterpretedQueryStatus(position: AstmPosition): AstmRecordWarn
   return {
     code: WARNING_CODES.ASTM_RECORD_UNINTERPRETED_QUERY_STATUS,
     message:
-      "Query request-information status surfaced verbatim — code set paywalled, never interpreted.",
+      "Query request-information status surfaced verbatim, code set paywalled, never interpreted.",
     position,
   };
 }
@@ -418,13 +418,13 @@ export function ambiguousMessageKind(position: AstmPosition): AstmRecordWarning 
   return {
     code: WARNING_CODES.ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND,
     message:
-      "Message carried both a Q (request) and an R (result) record — classified host-query; Q dominates.",
+      "Message carried both a Q (request) and an R (result) record, classified host-query; Q dominates.",
     position,
   };
 }
 
 /**
- * Build a `PROFILE_QUIRK_APPLIED` warning — the downgraded form an active vendor profile produces from
+ * Build a `PROFILE_QUIRK_APPLIED` warning: the downgraded form an active vendor profile produces from
  * a deviation it *expects*. The original warning is **not dropped**: its `code` moves to
  * `toleratedCode`, the warning is re-badged `PROFILE_QUIRK_APPLIED`, `expected` is set, and the
  * tolerating profile is named. The original `position` and `message` are preserved (both PHI-free by

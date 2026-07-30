@@ -4,7 +4,7 @@
  *
  * The regression under test shipped from `0.0.1` through `0.0.3`: the parser read delimiters
  * **only** from the first header, so every record after a header that redeclared them merged into
- * a single field — a lost result, with **zero** warnings, and accepted by `strict` mode. The
+ * a single field, a lost result, with **zero** warnings, and accepted by `strict` mode. The
  * fixtures below are synthetic; the patient/specimen identifiers and values are invented.
  *
  * Grounding for the chosen semantics (per-message, forward-scoped) is recorded on
@@ -27,7 +27,7 @@ import {
 
 /**
  * These fixtures are multi-message streams, so the flat `results()` refuses them
- * (`ASTM_AMBIGUOUS_MULTI_MESSAGE` — a stream-wide answer would span patients). The
+ * (`ASTM_AMBIGUOUS_MULTI_MESSAGE`, a stream-wide answer would span patients). The
  * delimiter question under test is per-message anyway, so each assertion below reads the
  * message it means through `messages()`.
  */
@@ -130,7 +130,7 @@ describe("a later header that restates the set already in force", () => {
     "H|\\^&|||sender\rP|1||LAB-1\rL|1|N\r" +
     "H|\\^&|||sender2\rP|1||LAB-2\rR|1|^^^688|99.9|mmol/L||H||F\rL|1|N\r";
 
-  it("is a silent no-op — several messages in one delimiter set is an ordinary shape", () => {
+  it("is a silent no-op: several messages in one delimiter set is an ordinary shape", () => {
     expect(codes(raw)).toEqual([]);
   });
 
@@ -154,7 +154,7 @@ describe("a later header that cannot declare a usable set", () => {
   });
 
   it("keeps the set in force when the field separator also names another role", () => {
-    // `H*~*#` — the field separator `*` reappears as the component separator, so the four roles
+    // `H*~*#`: the field separator `*` reappears as the component separator, so the four roles
     // are indistinguishable and the declaration is refused rather than mis-split.
     const raw = "H|\\^&|||sender\rL|1|N\rH*~*#***s2\rR|1|^^^688|99.9|mmol/L||H||F\rL|1|N\r";
     expect(codes(raw)).toEqual([WARNING_CODES.ASTM_RECORD_UNREADABLE_REDECLARATION]);

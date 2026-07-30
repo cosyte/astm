@@ -66,7 +66,7 @@ describe("a profile never changes a message's parse (property)", () => {
       fc.property(MESSAGE, (raw) => {
         const bare = parseAstmRecords(raw);
         const withProfile = parseAstmRecords(raw, { profile: MAXIMAL });
-        // Same number of warnings — re-badged, never dropped or added.
+        // Same number of warnings: re-badged, never dropped or added.
         expect(withProfile.warnings).toHaveLength(bare.warnings.length);
         for (const w of withProfile.warnings) {
           if (w.code === WARNING_CODES.PROFILE_QUIRK_APPLIED) {
@@ -74,13 +74,13 @@ describe("a profile never changes a message's parse (property)", () => {
             const tolerated = w.toleratedCode;
             expect(tolerated).toBeDefined();
             if (tolerated !== undefined) {
-              // The re-badged code must be one the profile tolerated — tolerable, never critical.
+              // The re-badged code must be one the profile tolerated: tolerable, never critical.
               expect(TOLERABLE_CODES.has(tolerated)).toBe(true);
               expect(SAFETY_CRITICAL_CODES.has(tolerated)).toBe(false);
             }
           }
         }
-        // A genuine safety-critical deviation is NEVER re-badged — it survives verbatim
+        // A genuine safety-critical deviation is NEVER re-badged: it survives verbatim
         // (by identity). Exclude the PROFILE_QUIRK_APPLIED marker itself, which is
         // "critical" by set membership but only ever appears as a re-badge of a *benign*
         // original, so it has no counterpart in the bare parse.

@@ -2,7 +2,7 @@
  * The **terminology** layer: LIVD-aware LOINC recognition, bring-your-own
  * (no bundled dictionary). Recognize the Universal Test ID's LOINC slot and surface
  * vendor codes verbatim; map vendor codes → LOINC from a
- * **consumer-supplied** IICC LIVD catalog here — additive, advisory, and never a
+ * **consumer-supplied** IICC LIVD catalog here, additive, advisory, and never a
  * guessed LOINC.
  */
 

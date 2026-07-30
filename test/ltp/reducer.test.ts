@@ -28,7 +28,7 @@ function established(): LtpState {
   return step.state;
 }
 
-describe("LTP reducer — establishment & termination", () => {
+describe("LTP reducer: establishment & termination", () => {
   it("neutral + ENQ → sendAck, enters transfer, expects frame 1", () => {
     const step = ltpReduce(ltpInitialState(), { type: "enq" });
     expect(actionTypes(step.actions)).toEqual(["sendAck"]);
@@ -51,7 +51,7 @@ describe("LTP reducer — establishment & termination", () => {
   });
 });
 
-describe("LTP reducer — frame acceptance", () => {
+describe("LTP reducer: frame acceptance", () => {
   it("a trusted, in-sequence ETX frame is ACKed, delivered, and recorded", () => {
     const step = ltpReduce(established(), frameEvent("R|1|", { fn: 1, kind: "ETX" }));
     expect(actionTypes(step.actions)).toEqual(["sendAck", "deliverRecord"]);
@@ -87,7 +87,7 @@ describe("LTP reducer — frame acceptance", () => {
   });
 });
 
-describe("LTP reducer — the ACK-failsafe (never fabricate a positive ACK)", () => {
+describe("LTP reducer: the ACK-failsafe (never fabricate a positive ACK)", () => {
   it("a bad-checksum frame is NAKed, never ACKed, never appended", () => {
     const state = established();
     const bad = frameOf("R|9|", { fn: 1, kind: "ETX", forceChecksum: 0x00 });
@@ -96,7 +96,7 @@ describe("LTP reducer — the ACK-failsafe (never fabricate a positive ACK)", ()
     expect(actionTypes(step.actions)).toEqual(["sendNak"]);
     expect(actionTypes(step.actions)).not.toContain("sendAck");
     expect(step.state.records).toHaveLength(0);
-    expect(step.state.expectedFrame).toBe(1); // not advanced — awaiting the retransmit
+    expect(step.state.expectedFrame).toBe(1); // not advanced: awaiting the retransmit
     expect(step.warnings[0]?.code).toBe(LTP_WARNING_CODES.ASTM_LTP_FRAME_REJECTED);
   });
 
@@ -124,7 +124,7 @@ describe("LTP reducer — the ACK-failsafe (never fabricate a positive ACK)", ()
   });
 });
 
-describe("LTP reducer — sequencing", () => {
+describe("LTP reducer: sequencing", () => {
   it("an out-of-sequence trusted frame is NAKed, never bridged", () => {
     const state = established(); // expects frame 1
     const step = ltpReduce(state, frameEvent("R|1|", { fn: 3, kind: "ETX" }));
@@ -159,7 +159,7 @@ describe("LTP reducer — sequencing", () => {
   });
 });
 
-describe("LTP reducer — unexpected events (defensive, never acceptance)", () => {
+describe("LTP reducer: unexpected events (defensive, never acceptance)", () => {
   it("an inbound ACK at a receiver is surfaced, never read as acceptance", () => {
     const step = ltpReduce(established(), { type: "ack" });
     expect(step.actions).toHaveLength(0);
@@ -190,7 +190,7 @@ describe("LTP reducer — unexpected events (defensive, never acceptance)", () =
     expect(step.warnings[0]?.code).toBe(LTP_WARNING_CODES.ASTM_LTP_UNEXPECTED_EVENT);
   });
 
-  it("EOT mid-record discards the open partial — no partial record is delivered", () => {
+  it("EOT mid-record discards the open partial: no partial record is delivered", () => {
     let state = established();
     state = ltpReduce(state, frameEvent("H|\\^&|open", { fn: 1, kind: "ETB" })).state;
     const step = ltpReduce(state, { type: "eot" });
@@ -199,7 +199,7 @@ describe("LTP reducer — unexpected events (defensive, never acceptance)", () =
   });
 });
 
-describe("LTP reducer — immutability", () => {
+describe("LTP reducer: immutability", () => {
   it("the returned state is frozen and the prior state is untouched", () => {
     const before = established();
     const step = ltpReduce(before, frameEvent("R|1|", { fn: 1, kind: "ETX" }));

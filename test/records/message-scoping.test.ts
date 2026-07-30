@@ -13,7 +13,7 @@
  *
  * Grounding is recorded on `messages()` in `src/records/messages.ts` and in `CHANGELOG.md`:
  * LIS02-A2 §2 grounds the `H` … `L` message as the bounded unit, and the choice to let a second
- * `H` open the next message — the same boundary the parser already uses to scope delimiters — is
+ * `H` open the next message, the same boundary the parser already uses to scope delimiters, is
  * a reasoned choice with no clause claimed for it.
  */
 
@@ -49,7 +49,7 @@ const TWO_PATIENTS =
   "R|1|^^^999|999.9|U/L||H||F\r" +
   "L|1|N\r";
 
-/** One ordinary message — the shape that must keep behaving exactly as it did. */
+/** One ordinary message: the shape that must keep behaving exactly as it did. */
 const ONE_PATIENT =
   "H|\\^&|||ANALYZER^1\r" +
   "P|1|PRAC-0001|LAB-0001||SYNTHA^ALPHA\r" +
@@ -81,7 +81,7 @@ describe("the misattribution reproduction", () => {
       const e = err as AstmAmbiguousStreamError;
       expect(e.code).toBe(AMBIGUOUS_CODES.ASTM_AMBIGUOUS_MULTI_MESSAGE);
       expect(e.messageCount).toBe(2);
-      // Positioned at the SECOND header — where the ambiguity becomes visible.
+      // Positioned at the SECOND header: where the ambiguity becomes visible.
       expect(e.position).toEqual({ recordIndex: 5, recordType: "H" });
     }
   });
@@ -96,7 +96,7 @@ describe("the misattribution reproduction", () => {
     }
   });
 
-  it("carries no value in the thrown error — a stable code, a position, and counts only", () => {
+  it("carries no value in the thrown error: a stable code, a position, and counts only", () => {
     try {
       results(msg);
       expect.unreachable();
@@ -110,7 +110,7 @@ describe("the misattribution reproduction", () => {
   });
 });
 
-describe("messages() — the path that pairs a patient with the results that are actually theirs", () => {
+describe("messages(): the path that pairs a patient with the results that are actually theirs", () => {
   const msg = parseAstmRecords(TWO_PATIENTS);
   const split = messages(msg);
 
@@ -126,7 +126,7 @@ describe("messages() — the path that pairs a patient with the results that are
     expect(split[1]?.results.map((r) => r.value)).toEqual(["999.9"]);
   });
 
-  it("keeps the high result with BRAVO and away from ALPHA — the clinical point", () => {
+  it("keeps the high result with BRAVO and away from ALPHA: the clinical point", () => {
     expect(split[0]?.results.map((r) => r.abnormalFlags)).toEqual(["N"]);
     expect(split[1]?.results.map((r) => r.abnormalFlags)).toEqual(["H"]);
   });
@@ -147,12 +147,12 @@ describe("messages() — the path that pairs a patient with the results that are
     expect(split.map((m) => m.header.recordIndex)).toEqual([0, 5]);
   });
 
-  it("never throws — it is the safe path on any stream", () => {
+  it("never throws: it is the safe path on any stream", () => {
     expect(() => messages(parseAstmRecords(ONE_PATIENT))).not.toThrow();
     expect(() => messages(msg)).not.toThrow();
   });
 
-  it("returns a frozen view — the model stays immutable", () => {
+  it("returns a frozen view: the model stays immutable", () => {
     expect(Object.isFrozen(split)).toBe(true);
     expect(Object.isFrozen(split[0])).toBe(true);
     expect(Object.isFrozen(split[0]?.results)).toBe(true);
@@ -204,7 +204,7 @@ describe("a single-message stream keeps behaving exactly as before", () => {
 });
 
 describe("edge cases, decided deliberately", () => {
-  it("a message with NO patient answers `undefined`, not an error — a result-only upload is ordinary", () => {
+  it("a message with NO patient answers `undefined`, not an error: a result-only upload is ordinary", () => {
     const msg = parseAstmRecords("H|\\^&\rO|1|SPEC-0003\rR|1|^^^687|5.0|U/L||N||F\rL|1|N\r");
     expect(patient(msg)).toBeUndefined();
     const [only] = messages(msg);
@@ -257,7 +257,7 @@ describe("edge cases, decided deliberately", () => {
     expect(split.map((m) => m.patient?.practiceAssignedId)).toEqual(["PRAC-0001", "PRAC-0002"]);
   });
 
-  it("commentsFor() keeps working on a multi-message stream — its parent names the message", () => {
+  it("commentsFor() keeps working on a multi-message stream: its parent names the message", () => {
     const msg = parseAstmRecords(
       "H|\\^&\rP|1|PRAC-0001\rR|1|^^^687|1.0|U/L||N||F\rC|1|I|first|G\rL|1|N\r" +
         "H|\\^&\rP|1|PRAC-0002\rR|1|^^^687|2.0|U/L||N||F\rC|1|I|second|G\rL|1|N\r",

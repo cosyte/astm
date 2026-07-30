@@ -21,10 +21,10 @@ import type { LivdCatalog } from "../../src/index.js";
 const catalog: LivdCatalog = defineLivdCatalog([
   { vendorCode: "687", loinc: "1920-8", loincLongName: "Aspartate aminotransferase" },
   { vendorCode: "690", loinc: "1742-6", loincLongName: "Alanine aminotransferase" },
-  // Two rows agreeing on the same LOINC — a consistent duplicate, still a single hit.
+  // Two rows agreeing on the same LOINC: a consistent duplicate, still a single hit.
   { vendorCode: "700", loinc: "2345-7" },
   { vendorCode: "700", loinc: "2345-7", model: "cobas c311" },
-  // Two rows disagreeing — an ambiguous code the layer must refuse to resolve.
+  // Two rows disagreeing: an ambiguous code the layer must refuse to resolve.
   { vendorCode: "800", loinc: "2160-0" },
   { vendorCode: "800", loinc: "38483-4" },
 ]);
@@ -55,7 +55,7 @@ describe("defineLivdCatalog", () => {
     }
   });
 
-  it("returns unmapped on a miss — never a fabricated LOINC", () => {
+  it("returns unmapped on a miss: never a fabricated LOINC", () => {
     expect(catalog.lookup("999")).toEqual({ status: "unmapped" });
   });
 
@@ -64,7 +64,7 @@ describe("defineLivdCatalog", () => {
   });
 });
 
-describe("applyLivd — additive LOINC annotation", () => {
+describe("applyLivd: additive LOINC annotation", () => {
   it("maps a local vendor code via the catalog, labeled derived", () => {
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
     const { annotations, warnings } = applyLivd(msg, catalog);
@@ -93,7 +93,7 @@ describe("applyLivd — additive LOINC annotation", () => {
     expect(a?.reportedCode).toBe("1234-5");
   });
 
-  it("flags an unmapped code as unmapped + a value-free warning — no guessed LOINC", () => {
+  it("flags an unmapped code as unmapped + a value-free warning: no guessed LOINC", () => {
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^999|5|U/L||N||F\rL|1\r");
     const { annotations, warnings } = applyLivd(msg, catalog);
     expect(annotations[0]?.mapping).toEqual({ status: "unmapped" });
@@ -104,7 +104,7 @@ describe("applyLivd — additive LOINC annotation", () => {
     expect(JSON.stringify(warnings[0])).not.toContain("999");
   });
 
-  it("flags an ambiguous code as ambiguous + a warning — never one chosen", () => {
+  it("flags an ambiguous code as ambiguous + a warning: never one chosen", () => {
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^800|5|U/L||N||F\rL|1\r");
     const { annotations, warnings } = applyLivd(msg, catalog);
     expect(annotations[0]?.mapping.status).toBe("ambiguous");
@@ -116,7 +116,7 @@ describe("applyLivd — additive LOINC annotation", () => {
     const { annotations, warnings } = applyLivd(msg, catalog);
     expect(annotations[0]?.mapping).toEqual({ status: "no-code" });
     expect(annotations[0]?.reportedCode).toBeUndefined();
-    expect(warnings).toEqual([]); // no-code is not a mapping failure — nothing to warn about
+    expect(warnings).toEqual([]); // no-code is not a mapping failure: nothing to warn about
   });
 
   it("annotates O (order) records too", () => {
@@ -126,7 +126,7 @@ describe("applyLivd — additive LOINC annotation", () => {
     expect(a?.mapping).toMatchObject({ status: "mapped", loinc: "1742-6" });
   });
 
-  it("NEVER mutates the source message — the raw code and value are untouched", () => {
+  it("NEVER mutates the source message: the raw code and value are untouched", () => {
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
     const before = JSON.stringify(msg);
     applyLivd(msg, catalog);

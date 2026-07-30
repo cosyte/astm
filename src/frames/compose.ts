@@ -2,11 +2,11 @@
  * Composing the two layers at the edge: {@link parseFramedAstm}.
  *
  * The framing layer ({@link decodeAstmFrames}) and the record layer
- * (`parseAstmRecords`) share nothing but the payload boundary — a frame carries
+ * (`parseAstmRecords`) share nothing but the payload boundary: a frame carries
  * record bytes; a record knows nothing about frames. This helper joins them at the
  * one point they meet: decode a framed stream into trusted, reassembled record
  * bytes, then parse those bytes into an {@link AstmMessage}. It is deliberately
- * thin — a consumer that already holds de-framed record bytes calls
+ * thin: a consumer that already holds de-framed record bytes calls
  * `parseAstmRecords` directly, and a consumer that only wants frames calls
  * `decodeAstmFrames` directly.
  */
@@ -52,7 +52,7 @@ export interface FramedAstmResult {
  * @example
  * ```ts
  * import { parseFramedAstm } from "@cosyte/astm";
- * // A single final frame carrying "H|\^&\r" — checksum "E5" over FN..ETX (mod 256).
+ * // A single final frame carrying "H|\^&\r": checksum "E5" over FN..ETX (mod 256).
  * const bytes = new Uint8Array([
  *   0x02, 0x31, 0x48, 0x7c, 0x5c, 0x5e, 0x26, 0x0d, 0x03, 0x45, 0x35, 0x0d, 0x0a,
  * ]);
@@ -73,7 +73,7 @@ export function parseFramedAstm(
 
 /**
  * Serialize an ASTM message (or a bare record list) and frame it into a spec-clean
- * byte stream in one call — the inverse of {@link parseFramedAstm}, composing the
+ * byte stream in one call: the inverse of {@link parseFramedAstm}, composing the
  * two emit layers at the edge.
  *
  * Each record is serialized to spec-clean, `CR`-terminated wire text (canonical

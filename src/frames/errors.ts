@@ -1,5 +1,5 @@
 /**
- * The frame codec's thrown error — the `strict`-mode counterpart to its lenient
+ * The frame codec's thrown error: the `strict`-mode counterpart to its lenient
  * warnings.
  *
  * The frame layer is lenient by default (byte-level deviations become

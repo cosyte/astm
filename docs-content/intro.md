@@ -6,7 +6,7 @@ sidebar_position: 1
 
 # @cosyte/astm
 
-Parse real-world, vendor-quirky ASTM and pull fields out in one line — without reading the spec.
+Parse real-world, vendor-quirky ASTM and pull fields out in one line, without reading the spec.
 `@cosyte/astm` is a zero-dependency TypeScript toolkit following the cosyte parser archetype: a lenient
 parser, an immutable model, a spec-clean serializer, and a profile system for vendor quirks. It
 mirrors the API shape of the reference parser, `@cosyte/hl7`.
@@ -19,7 +19,7 @@ mirrors the API shape of the reference parser, `@cosyte/hl7`.
 > streams with a pure LTP transport reducer, the **spec-clean serializers + builders** round-trip both
 > layers by construction, the vendor **profile** system tolerates documented quirks without ever
 > touching a value, and **LIVD**-aware LOINC recognition maps local codes from a bring-your-own
-> catalog. Read [What this library does — and does not do](./limitations) before you rely on it: the
+> catalog. Read [What this library does, and does not do](./limitations) before you rely on it: the
 > promise is narrow and honest.
 
 ## Install
@@ -39,15 +39,15 @@ results(msg)[0]?.value; // the measured value, surfaced raw
 msg.warnings; // stable, positional tolerance warnings
 ```
 
-The parser is **lenient by default** — vendor quirks become warnings, not failures (Postel's Law) —
-and refuses to produce a confident wrong value. A `{ strict: true }` mode escalates every tolerated
+The parser is **lenient by default**. Vendor quirks become warnings, not failures (Postel's Law),
+and it refuses to produce a confident wrong value. A `{ strict: true }` mode escalates every tolerated
 deviation to a thrown error.
 
 ## Host-query vs result upload
 
 On many analyzers the host-query mode is first-class (on the Roche cobas 4800 it is mandatory): the
 instrument sends an `H/P/Q/L` **request** and the LIS answers with orders. Misreading a query as a
-result upload breaks the order flow, so a `Q`-bearing message is classified explicitly — and **never**
+result upload breaks the order flow, so a `Q`-bearing message is classified explicitly, and **never**
 read as a result set.
 
 ```ts
@@ -59,7 +59,7 @@ request.classification.kind; // => "host-query"
 request.classification.isHostQueryRequest; // => true
 ```
 
-`M` (manufacturer) and `S` (scientific) records — vendor-defined QC / calibration / maintenance data —
+`M` (manufacturer) and `S` (scientific) records, vendor-defined QC / calibration / maintenance data,
 are surfaced **verbatim** and never interpreted into clinical fields; their exact wire bytes are on
 `record.rawLine`.
 

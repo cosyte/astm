@@ -10,14 +10,14 @@
  *   coerced to `normal`**.
  * - A **result status** (field 9) is modeled so a **correction (`C`)** or a
  *   **cancellation (`X`)** can never read as an active-final result, and an
- *   **absent** status is a typed `unspecified` — **never assumed `F` (final)**.
+ *   **absent** status is a typed `unspecified`: **never assumed `F` (final)**.
  * - A **reference range** (field 6) is parsed into a low/high (or open-ended)
- *   pair; an unparseable range is surfaced **verbatim** — a bound is **never
+ *   pair; an unparseable range is surfaced **verbatim**, a bound is **never
  *   fabricated**.
  *
  * Every bound and code is surfaced verbatim; nothing is collapsed, reconciled,
  * or converted. Units are handled at the record layer (a numeric value without
- * units warns; units are never defaulted, guessed, or converted — see
+ * units warns; units are never defaulted, guessed, or converted, see
  * `./parse.ts`).
  */
 
@@ -25,7 +25,7 @@
 
 /**
  * The recognized abnormal-flag letters, from **HL7 v2.2 Table 0078** (the flag
- * *value* set — a published fact set, not CLSI prose). Read in the context of an
+ * *value* set, a published fact set, not CLSI prose). Read in the context of an
  * `R` record's field 7: here `S`/`R`/`I` are the microbiology susceptibility
  * codes and `R` is **not** the repeat delimiter.
  */
@@ -49,8 +49,8 @@ export type AbnormalFlagCode =
 
 /**
  * The modeled meaning of a recognized {@link AbnormalFlagCode}, plus the two
- * fail-safe sentinels: `undefined` (a flag was present but is not in Table 0078)
- * — which is **never** collapsed to `normal`.
+ * fail-safe sentinels: `undefined` (a flag was present but is not in Table 0078),
+ * which is **never** collapsed to `normal`.
  */
 export type AbnormalFlagMeaning =
   | "below-normal"
@@ -73,7 +73,7 @@ export type AbnormalFlagMeaning =
 
 /**
  * HL7 Table 0078 flag letter → modeled meaning. `U`/`D` are **directional**
- * significant-change flags (up / down) — *not* units or a delta magnitude — a
+ * significant-change flags (up / down), *not* units or a delta magnitude, a
  * distinction that misreads a trend if collapsed. `LL`/`HH` are panic (critical)
  * low/high; `<`/`>` are off-scale low/high; `AA` is very-abnormal.
  */
@@ -99,7 +99,7 @@ const ABNORMAL_FLAG_MEANINGS: Readonly<Record<AbnormalFlagCode, AbnormalFlagMean
 /**
  * A recognized (or explicitly *un*recognized) abnormal flag. The raw field text
  * is always preserved; `recognized` is `false` and `meaning` is `"undefined"`
- * for any letter outside Table 0078 — the flag is surfaced, never dropped, and
+ * for any letter outside Table 0078, the flag is surfaced, never dropped, and
  * **never coerced to `normal`**.
  *
  * @example
@@ -126,7 +126,7 @@ export interface AbnormalFlag {
  *
  * Leading/trailing whitespace is ignored for the lookup but the `raw` text is
  * preserved verbatim. An unrecognized flag yields `{ recognized: false, meaning:
- * "undefined" }` — surfaced, never dropped, and **never `"normal"`**.
+ * "undefined" }`, surfaced, never dropped, and **never `"normal"`**.
  *
  * @param raw - The verbatim field-7 text.
  * @returns The interpreted flag.
@@ -153,14 +153,14 @@ function isAbnormalFlagCode(value: string): value is AbnormalFlagCode {
 
 /**
  * The recognized result-status letters (`R`-record field 9). The clinically
- * load-bearing members are **`C` (correction — supersedes a previously
+ * load-bearing members are **`C` (correction, supersedes a previously
  * transmitted value)** and **`X` (cannot be done / cancelled)**.
  */
 export type ResultStatusCode = "F" | "C" | "P" | "R" | "S" | "I" | "X";
 
 /**
  * The modeled meaning of a result status, plus two fail-safe sentinels:
- * `unspecified` (the field was absent — **never assumed `final`**) and
+ * `unspecified` (the field was absent, **never assumed `final`**) and
  * `undefined` (a letter was present but is not a recognized status).
  */
 export type ResultStatusMeaning =
@@ -190,11 +190,11 @@ const RESULT_STATUS_MEANINGS: Readonly<Record<ResultStatusCode, ResultStatusMean
  *
  * - **`isActiveFinal`** is `true` **only** for a plain `F` (final). It is `false`
  *   for a correction (`C`), a cancellation (`X`), a preliminary/partial/pending
- *   result, an absent status, and an unrecognized one — so a superseded or
+ *   result, an absent status, and an unrecognized one, so a superseded or
  *   cancelled result can **never** read as current/final.
- * - **`supersedes`** is `true` for `C` — this value replaces a previously
+ * - **`supersedes`** is `true` for `C`: this value replaces a previously
  *   transmitted one.
- * - **`cancelled`** is `true` for `X` — the result cannot be done / was cancelled.
+ * - **`cancelled`** is `true` for `X`: the result cannot be done / was cancelled.
  *
  * @example
  * ```ts
@@ -213,18 +213,18 @@ export interface ResultStatus {
   readonly meaning: ResultStatusMeaning;
   /** Whether the raw text matched a recognized status letter. */
   readonly recognized: boolean;
-  /** `true` **only** for a plain `F` (final) — never for `C`, `X`, absent, or unrecognized. */
+  /** `true` **only** for a plain `F` (final): never for `C`, `X`, absent, or unrecognized. */
   readonly isActiveFinal: boolean;
-  /** `true` for `C` — this value supersedes a previously transmitted result. */
+  /** `true` for `C`: this value supersedes a previously transmitted result. */
   readonly supersedes: boolean;
-  /** `true` for `X` — the result cannot be done / was cancelled. */
+  /** `true` for `X`: the result cannot be done / was cancelled. */
   readonly cancelled: boolean;
 }
 
 /**
  * Interpret an `R`-record result-status field (field 9).
  *
- * An **absent** status (`undefined` or empty) is typed `unspecified` — **never
+ * An **absent** status (`undefined` or empty) is typed `unspecified`: **never
  * assumed `final`**. A **present but unrecognized** letter is `undefined`
  * (recognized `false`). In every non-`F` case `isActiveFinal` is `false`, so a
  * correction, a cancellation, or an unknown status can never read as current.
@@ -280,10 +280,10 @@ function isResultStatusCode(value: string): value is ResultStatusCode {
 /**
  * The shape of a parsed reference range.
  *
- * - `closed` — both a low and a high bound (`3.5-5.0`).
- * - `open-low` — an upper bound only (`<5`): everything at or below `high`.
- * - `open-high` — a lower bound only (`>10`): everything at or above `low`.
- * - `unparsed` — the text did not match a recognized form; both bounds are
+ * - `closed`: both a low and a high bound (`3.5-5.0`).
+ * - `open-low`: an upper bound only (`<5`), so everything at or below `high`.
+ * - `open-high`: a lower bound only (`>10`), so everything at or above `low`.
+ * - `unparsed`: the text did not match a recognized form; both bounds are
  *   absent and the raw text is surfaced. **A bound is never fabricated.**
  */
 export type ReferenceRangeKind = "closed" | "open-low" | "open-high" | "unparsed";
@@ -293,7 +293,7 @@ export type ReferenceRangeKind = "closed" | "open-low" | "open-high" | "unparsed
  * (never coerced to a float, never rounded, never converted) so nothing is lost
  * or fabricated.
  *
- * **`[OSS-derived]` — the exact lower/upper delimiter (`-`) and the open-ended
+ * **`[OSS-derived]`: the exact lower/upper delimiter (`-`) and the open-ended
  * `<x`/`>x` forms are taken from the permissively-licensed OSS reference parsers
  * and cross-verified vendor transcripts; they are not confirmed against the
  * purchased CLSI LIS02-A2. Anything that does not match these
@@ -330,8 +330,8 @@ const CLOSED = new RegExp(`^(${NUMBER})\\s*-\\s*(${NUMBER})$`, "u");
  * open-ended) pair.
  *
  * Recognized forms are `low-high` (closed), `<high` (open-low), and `>low`
- * (open-high). Anything else — including an ambiguous multi-dash string or a
- * bare non-numeric token — is returned as `kind: "unparsed"` with the raw text
+ * (open-high). Anything else, including an ambiguous multi-dash string or a
+ * bare non-numeric token, is returned as `kind: "unparsed"` with the raw text
  * preserved and **no bound invented**. Bounds are surfaced as verbatim text, not
  * coerced to numbers.
  *

@@ -6,9 +6,9 @@ sidebar_position: 1
 
 # Guides
 
-Task-oriented recipes — "how do I X?" — for `@cosyte/astm`. Each is a short, copy-pasteable answer to
+Task-oriented recipes ("how do I X?") for `@cosyte/astm`. Each is a short, copy-pasteable answer to
 one real integration question. For a guided first read, start with the [Quickstart](./quickstart); for
-the boundaries of what the library promises, read [What it does — and does not do](./limitations).
+the boundaries of what the library promises, read [What it does, and does not do](./limitations).
 
 ## Tell a corrected or cancelled result apart from a final one
 
@@ -25,13 +25,13 @@ const r = results(parseAstmRecords(raw))[0];
 r?.status.isActiveFinal; // => false
 ```
 
-`status.supersedes` is `true` for a correction (this value replaces a prior one) — branch on it to
+`status.supersedes` is `true` for a correction (this value replaces a prior one): branch on it to
 decide what to store, and never let a superseded value read as current.
 
 ## Fail fast at an integration boundary
 
-The parser is lenient by default. When you want a tolerated deviation to be a hard error instead —
-at the edge of your system, before bad data flows in — re-parse with `{ strict: true }`:
+The parser is lenient by default. When you want a tolerated deviation to be a hard error instead
+(at the edge of your system, before bad data flows in), re-parse with `{ strict: true }`:
 
 ```ts
 import { parseAstmRecords, AstmStrictError } from "@cosyte/astm";
@@ -48,7 +48,7 @@ try {
 ## Branch on a specific vendor quirk
 
 Every tolerated deviation is a warning with a **stable code**. Match on `WARNING_CODES` to decide
-whether to tolerate, log, or reject a specific quirk — the code is part of the public contract, so
+whether to tolerate, log, or reject a specific quirk, the code is part of the public contract, so
 this branch will not silently drift:
 
 ```ts
@@ -58,7 +58,7 @@ const { warnings } = parseAstmRecords(raw);
 
 for (const w of warnings) {
   if (w.code === WARNING_CODES.ASTM_RECORD_UNITS_ABSENT) {
-    // a numeric result arrived without units — flag it for review, never default the unit
+    // a numeric result arrived without units: flag it for review, never default the unit
   }
 }
 ```
@@ -80,7 +80,7 @@ const { framing, defaulted, warnings } = detectFraming(bytes);
 ## Map a local test code to LOINC
 
 Analyzers transmit a proprietary **local** code; LOINC is mapped downstream. Supply your own IICC LIVD
-catalog and `applyLivd` annotates the message **additively** — it never touches the raw code or value
+catalog and `applyLivd` annotates the message **additively**, it never touches the raw code or value
 and never guesses a LOINC:
 
 ```ts runnable
@@ -107,6 +107,6 @@ serializeAstmRecords(parseAstmRecords(raw)) === raw; // => true
 
 ## More
 
-- [Quickstart](./quickstart) — the one-line parse and every emit path.
-- [The two-layer architecture](./architecture) — records vs frames, and when you need each.
-- **API Reference** — every shipped export, generated from source.
+- [Quickstart](./quickstart): the one-line parse and every emit path.
+- [The two-layer architecture](./architecture): records vs frames, and when you need each.
+- **API Reference**: every shipped export, generated from source.

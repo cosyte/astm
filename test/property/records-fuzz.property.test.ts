@@ -1,16 +1,16 @@
 /**
- * REQUIRED byte-level FUZZ layer for the record tokenizer — the companion to the frame-codec fuzz
+ * REQUIRED byte-level FUZZ layer for the record tokenizer: the companion to the frame-codec fuzz
  * (`frames-fuzz.property.test.ts`), the same bar as `dicom` Part 10 and `mllp` framing.
  *
  * The hard guarantee: feeding **arbitrary / truncated / delimiter-laden / escape-laden** input into
- * {@link parseAstmRecords} must never crash, hang, or OOM — it degrades to a typed fatal or a
+ * {@link parseAstmRecords} must never crash, hang, or OOM, it degrades to a typed fatal or a
  * value-free warning. In lenient mode the only sanctioned throws are the three record-layer Tier-3
  * fatals (`EMPTY_INPUT`, `ASTM_RECORD_NO_HEADER`, `ASTM_RECORD_UNDECLARED_DELIMITERS`); every warning
- * it accumulates must carry a **registered** `WARNING_CODES` entry — never an unregistered code, and
+ * it accumulates must carry a **registered** `WARNING_CODES` entry, never an unregistered code, and
  * never a raw value.
  *
  * A well-formed header is prepended to the deep-path arbitraries so the fuzzer drives the tokenizer,
- * the escape codec, the R/P/O/C/Q field logic, and comment attachment — not just the "no header ⇒
+ * the escape codec, the R/P/O/C/Q field logic, and comment attachment: not just the "no header ⇒
  * fatal" fast path. The nightly extended run (`ASTM_FUZZ_RUNS`) scales the case count without
  * changing the assertions.
  */
@@ -89,7 +89,7 @@ describe("fuzz: arbitrary input never crashes the record parser (lenient)", () =
   it("header + arbitrary record body (deep paths) never crashes and never throws in lenient mode", () => {
     fc.assert(
       fc.property(structuralNoise(), (body) => {
-        // With a valid header, lenient parse must NEVER throw — every deviation is a warning.
+        // With a valid header, lenient parse must NEVER throw: every deviation is a warning.
         const { warnings } = parseAstmRecords(HEADER + body);
         assertWarningsWellFormed(warnings);
       }),
@@ -130,7 +130,7 @@ describe("fuzz: strict mode only ever throws a sanctioned typed error", () => {
   });
 });
 
-describe("record fuzz is non-vacuous — the tokenizer actually engages", () => {
+describe("record fuzz is non-vacuous: the tokenizer actually engages", () => {
   it("a header + a real result record always parses one result with the value preserved", () => {
     fc.assert(
       fc.property(

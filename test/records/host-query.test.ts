@@ -23,7 +23,7 @@ import {
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 const fixture = (name: string): string => readFileSync(join(FIXTURES, name), "latin1");
 
-describe("host-query flow — a Q-bearing message is a request, never a result set (Tier-1)", () => {
+describe("host-query flow: a Q-bearing message is a request, never a result set (Tier-1)", () => {
   const request = parseAstmRecords(fixture("tier1-host-query-request.astm"));
   const response = parseAstmRecords(fixture("tier1-host-query-response.astm"));
 
@@ -47,12 +47,12 @@ describe("host-query flow — a Q-bearing message is a request, never a result s
   });
 });
 
-describe("Q (Request Information) record — fields surfaced verbatim (Tier-1)", () => {
+describe("Q (Request Information) record: fields surfaced verbatim (Tier-1)", () => {
   const msg = parseAstmRecords(fixture("tier1-host-query-request.astm"));
   const [q] = query(msg);
 
   it("surfaces the starting/ending range IDs verbatim (full field, never truncated)", () => {
-    // The caret component structure is [OSS-derived]/paywalled — the FULL field text is preserved.
+    // The caret component structure is [OSS-derived]/paywalled: the FULL field text is preserved.
     expect(q?.startingRangeId).toBe("^SPEC-7");
     expect(q?.endingRangeId).toBe("^SPEC-7");
     expect(q?.seq).toBe("1");
@@ -65,7 +65,7 @@ describe("Q (Request Information) record — fields surfaced verbatim (Tier-1)",
   });
 });
 
-describe("Q record — a specific universal test ID (not ALL)", () => {
+describe("Q record: a specific universal test ID (not ALL)", () => {
   it("recognizes a caret universal test ID the same way an O/R record does", () => {
     const msg = parseAstmRecords("H|\\^&\rP|1\rQ|1|^SPEC-1|^SPEC-1|^^^687\rL|1\r");
     const [q] = query(msg);
@@ -76,13 +76,13 @@ describe("Q record — a specific universal test ID (not ALL)", () => {
   });
 });
 
-describe("Q record — request-information status is surfaced verbatim + flagged uninterpreted (Tier-2)", () => {
+describe("Q record: request-information status is surfaced verbatim + flagged uninterpreted (Tier-2)", () => {
   const msg = parseAstmRecords(fixture("tier2-host-query-status.astm"));
   const [q] = query(msg);
 
   it("surfaces the status code verbatim and never maps it to a guessed meaning", () => {
     expect(q?.requestInformationStatus).toBe("X");
-    // The record exposes the raw code only — there is no interpreted `meaning`/`status` field on a Q.
+    // The record exposes the raw code only: there is no interpreted `meaning`/`status` field on a Q.
     expect("meaning" in (q as QueryRecord)).toBe(false);
   });
 
@@ -95,7 +95,7 @@ describe("Q record — request-information status is surfaced verbatim + flagged
     expect(w?.message).not.toContain("X"); // value-free
   });
 
-  it("surfaces the WHOLE field-13 verbatim — multi-component or leading-empty — and always warns", () => {
+  it("surfaces the WHOLE field-13 verbatim, multi-component or leading-empty, and always warns", () => {
     const uninterp = WARNING_CODES.ASTM_RECORD_UNINTERPRETED_QUERY_STATUS;
     // A multi-component status is the FULL field, never truncated to the first component.
     const multi = parseAstmRecords("H|\\^&\rQ|1|^S||||||||||O^F\rL|1\r");
@@ -108,7 +108,7 @@ describe("Q record — request-information status is surfaced verbatim + flagged
   });
 });
 
-describe("M / S records — surfaced VERBATIM, never interpreted into clinical fields (Tier-2)", () => {
+describe("M / S records: surfaced VERBATIM, never interpreted into clinical fields (Tier-2)", () => {
   const raw = fixture("tier2-manufacturer-qc.astm");
   const msg = parseAstmRecords(raw);
   const m = msg.records.find((r): r is ManufacturerRecord => r.type === "M");
@@ -117,7 +117,7 @@ describe("M / S records — surfaced VERBATIM, never interpreted into clinical f
   it("preserves the M record byte-identically and interprets nothing", () => {
     expect(m).toBeDefined();
     expect(m?.rawLine).toBe("M|1|QC^LEVEL2^LOT-88^20240315|4.21^mmol/L^ACCEPT");
-    // No typed clinical accessors exist — the value/units in a QC record must NEVER be read as a result.
+    // No typed clinical accessors exist: the value/units in a QC record must NEVER be read as a result.
     for (const key of ["value", "units", "abnormalFlags", "resultStatus", "status", "flag"]) {
       expect(key in (m as object)).toBe(false);
     }
@@ -143,7 +143,7 @@ describe("M / S records — surfaced VERBATIM, never interpreted into clinical f
   });
 });
 
-describe("classifyMessage — the pure classifier and the Q-dominates fail-safe", () => {
+describe("classifyMessage: the pure classifier and the Q-dominates fail-safe", () => {
   it("classifies results, orders, and indeterminate messages", () => {
     expect(
       classifyMessage(parseAstmRecords("H|\\^&\rR|1|^^^687|5|U/L||||F\rL|1\r").records).kind,
@@ -152,7 +152,7 @@ describe("classifyMessage — the pure classifier and the Q-dominates fail-safe"
     expect(classifyMessage(parseAstmRecords("H|\\^&\rL|1\r").records).kind).toBe("indeterminate");
   });
 
-  it("a Q dominates an R — a Q-bearing message is host-query (request), never a result set, and warns", () => {
+  it("a Q dominates an R: a Q-bearing message is host-query (request), never a result set, and warns", () => {
     // A contradictory message carrying BOTH a Q and an R: Q wins so it is never read as a result upload.
     const msg = parseAstmRecords("H|\\^&\rQ|1|^SPEC-7||ALL\rR|1|^^^687|5|U/L||||F\rL|1\r");
     expect(msg.classification.kind).toBe("host-query");

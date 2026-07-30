@@ -2,16 +2,16 @@
  * The ASTM/CLSI-LIS01 modulo-256 frame checksum.
  *
  * The checksum is the sum, modulo 256, of every byte **after** the `STX` up to
- * and **including** the `ETB`/`ETX` terminator — i.e. the frame number, the record
+ * and **including** the `ETB`/`ETX` terminator: i.e. the frame number, the record
  * text, and the terminator byte. It is carried on the wire as **two hexadecimal
  * characters**. This module computes it (`computeChecksum`), formats it for emit
- * (`toChecksumHex` — always **uppercase**), and reads it back leniently
- * (`parseChecksumHex` — **accepts lowercase**), matching the real-vendor quirk that
+ * (`toChecksumHex`, always **uppercase**), and reads it back leniently
+ * (`parseChecksumHex`, **accepts lowercase**), matching the real-vendor quirk that
  * some analyzers emit a lowercase checksum.
  */
 
 /**
- * Sum bytes `[start, endInclusive]` of `bytes` modulo 256 — the ASTM frame
+ * Sum bytes `[start, endInclusive]` of `bytes` modulo 256: the ASTM frame
  * checksum span (frame number through the terminator, inclusive).
  *
  * @param bytes - The full decoded byte stream.
@@ -61,7 +61,7 @@ function hexNibble(code: number | undefined): number | undefined {
 /**
  * Read the two-hex-char checksum at `bytes[i0]`/`bytes[i1]`, **case-insensitively**
  * (a lowercase checksum is a tolerated real-vendor quirk). Returns `undefined` when
- * either position is out of range or not a hex digit — the caller then treats the
+ * either position is out of range or not a hex digit: the caller then treats the
  * frame as having no readable declared checksum, never as a match.
  *
  * @param bytes - The full decoded byte stream.

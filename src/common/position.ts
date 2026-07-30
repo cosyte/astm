@@ -3,8 +3,8 @@
  * record layer.
  *
  * **PHI discipline (the whole point).** A position identifies *where* a
- * deviation occurred — the record's ordinal index, its type letter, and the
- * 1-based field / component indices — and **never** carries a field value. A
+ * deviation occurred (the record's ordinal index, its type letter, and the
+ * 1-based field / component indices) and **never** carries a field value. A
  * warning or error may be logged verbatim without leaking a patient name, an
  * identifier, or a result value.
  */

@@ -1,13 +1,13 @@
 /**
  * The **LTP** warning registry (`ASTM_LTP_*`) for the ASTM/CLSI-LIS01 protocol
- * layer — the third of the package's registries, alongside the record layer's
+ * layer: the third of the package's registries, alongside the record layer's
  * `ASTM_RECORD_*` and the frame codec's `ASTM_FRAME_*`.
  *
  * An LTP warning is the protocol reducer's (or the transport detector's) record
  * of a tolerated session-level deviation: an ambiguous framed/raw stream, a
  * control event that arrived in a state that did not expect it, or a frame the
  * receiver had to reject (`NAK`) rather than accept. Every warning carries a
- * stable code plus, at most, a **frame number** — never the record bytes a frame
+ * stable code plus, at most, a **frame number**: never the record bytes a frame
  * carries (PHI discipline). Consumers compare `warning.code ===
  * LTP_WARNING_CODES.<CODE>`; renaming a code is a **breaking change**.
  */
@@ -25,21 +25,21 @@
 export const LTP_WARNING_CODES = {
   /**
    * The transport detector could not tell a framed stream from a raw (unframed) one from its leading
-   * byte — it was neither `STX`/`ENQ` nor a bare record letter. It **defaults to framed** and warns,
+   * byte: it was neither `STX`/`ENQ` nor a bare record letter. It **defaults to framed** and warns,
    * never guessing silently into data loss; a profile override forces the mode. (cobas b121 drops
-   * framing over TCP; cobas 4800 / Iguana retain it — both realities exist, so an unrecognizable lead
+   * framing over TCP; cobas 4800 / Iguana retain it, both realities exist, so an unrecognizable lead
    * is defaulted, not assumed.)
    */
   ASTM_LTP_AMBIGUOUS_TRANSPORT: "ASTM_LTP_AMBIGUOUS_TRANSPORT",
   /**
-   * A control event arrived in a protocol state that did not expect it — e.g. an inbound `ACK`/`NAK`
+   * A control event arrived in a protocol state that did not expect it: e.g. an inbound `ACK`/`NAK`
    * at a receiver (which sends, never receives, those), or an `ENQ` mid-transfer. The event is
    * surfaced and handled defensively (an unexpected `ACK`/`NAK` is **never** read as acceptance of
    * data); it never advances the transfer as if valid.
    */
   ASTM_LTP_UNEXPECTED_EVENT: "ASTM_LTP_UNEXPECTED_EVENT",
   /**
-   * The receiver rejected a received frame with a `NAK` instead of accepting it — because its
+   * The receiver rejected a received frame with a `NAK` instead of accepting it: because its
    * checksum failed, it was unterminated, or its frame number was out of sequence. The frame's text
    * is **never** appended to the record and the transfer does **not** advance; the receiver awaits the
    * sender's retransmit. This is the protocol-level face of the frame codec's fail-safe: a bad frame
@@ -56,7 +56,7 @@ export type LtpWarningCode = (typeof LTP_WARNING_CODES)[keyof typeof LTP_WARNING
 
 /**
  * A single LTP protocol / transport warning: a stable code, a value-free
- * human-readable message, and — for a frame-scoped deviation — the frame number
+ * human-readable message, and, for a frame-scoped deviation, the frame number
  * only. Never carries a frame's record bytes.
  *
  * @example
@@ -64,7 +64,7 @@ export type LtpWarningCode = (typeof LTP_WARNING_CODES)[keyof typeof LTP_WARNING
  * import type { AstmLtpWarning } from "@cosyte/astm";
  * const w: AstmLtpWarning = {
  *   code: "ASTM_LTP_FRAME_REJECTED",
- *   message: "Frame rejected — NAK sent, retransmit expected.",
+ *   message: "Frame rejected, NAK sent, retransmit expected.",
  *   frameNumber: 2,
  * };
  * ```
@@ -91,7 +91,7 @@ export function ltpAmbiguousTransport(): AstmLtpWarning {
   return {
     code: LTP_WARNING_CODES.ASTM_LTP_AMBIGUOUS_TRANSPORT,
     message:
-      "Leading byte was neither a frame start (STX/ENQ) nor a record letter — defaulted to framed; override with a profile to force raw.",
+      "Leading byte was neither a frame start (STX/ENQ) nor a record letter, defaulted to framed; override with a profile to force raw.",
   };
 }
 
@@ -110,7 +110,7 @@ export function ltpUnexpectedEvent(frameNumber?: number): AstmLtpWarning {
   return {
     code: LTP_WARNING_CODES.ASTM_LTP_UNEXPECTED_EVENT,
     message:
-      "Control event arrived in a state that did not expect it — handled defensively, never read as acceptance.",
+      "Control event arrived in a state that did not expect it, handled defensively, never read as acceptance.",
     ...(frameNumber !== undefined ? { frameNumber } : {}),
   };
 }
@@ -130,7 +130,7 @@ export function ltpFrameRejected(frameNumber?: number): AstmLtpWarning {
   return {
     code: LTP_WARNING_CODES.ASTM_LTP_FRAME_REJECTED,
     message:
-      "Frame rejected (bad checksum, unterminated, or out of sequence) — NAK sent, retransmit expected, never accepted.",
+      "Frame rejected (bad checksum, unterminated, or out of sequence), NAK sent, retransmit expected, never accepted.",
     ...(frameNumber !== undefined ? { frameNumber } : {}),
   };
 }

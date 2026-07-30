@@ -12,10 +12,10 @@ import {
  *
  *   1. **A Q-bearing message is always a request, never a result set.** Whenever
  *      any `Q` record is present, `classification.kind` is `host-query` and
- *      `isHostQueryRequest` is `true` — even if result records are also present
+ *      `isHostQueryRequest` is `true`: even if result records are also present
  *      (the `Q` dominates). This is the misclassification fail-safe.
  *   2. **`M`/`S` records round-trip byte-identically.** For arbitrary vendor-defined
- *      content, the parsed record's `rawLine` equals the exact wire line — nothing
+ *      content, the parsed record's `rawLine` equals the exact wire line: nothing
  *      is interpreted, lost, or altered.
  */
 

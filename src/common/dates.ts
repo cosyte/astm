@@ -1,10 +1,10 @@
 /**
- * The ASTM date/time value — `YYYYMMDDHHMMSS`, precision-preserving, no timezone.
+ * The ASTM date/time value: `YYYYMMDDHHMMSS`, precision-preserving, no timezone.
  *
  * ASTM timestamps are a run of digits, most-significant first, truncated at
  * whatever precision the instrument reports. There is **no timezone field**:
  * the value is local to the instrument and this parser never assumes UTC. A
- * date-only value (`YYYYMMDD`) is a normal, complete value at day precision —
+ * date-only value (`YYYYMMDD`) is a normal, complete value at day precision:
  * **not** an error and never zero-filled into a fake time.
  */
 
@@ -15,7 +15,7 @@ export type AstmDatePrecision = "year" | "month" | "day" | "hour" | "minute" | "
  * A parsed ASTM date/time. Immutable plain data; the populated fields extend
  * exactly as far as {@link AstmDate.precision}. Absent components are left
  * `undefined` rather than defaulted, so a consumer can tell "midnight" from
- * "no time given". No timezone is modeled — the value is instrument-local.
+ * "no time given". No timezone is modeled: the value is instrument-local.
  *
  * @example
  * ```ts
@@ -37,10 +37,10 @@ export interface AstmDate {
   /** How far the components are populated. */
   readonly precision: AstmDatePrecision;
   /**
-   * `true` when the digit run does **not** align to a whole-component boundary — an odd number of
+   * `true` when the digit run does **not** align to a whole-component boundary: an odd number of
    * digits that cuts a two-digit component (month/day/hour/minute/second) in half (lengths 5, 7, 9,
    * 11, 13). The full run is preserved in {@link AstmDate.raw} and the structured value is truncated
-   * to the last **complete** component — the dangling digit is **never zero-filled into a fabricated
+   * to the last **complete** component: the dangling digit is **never zero-filled into a fabricated
    * time**. Absent (never `false`) for a clean value. A caller surfaces this as a value-free
    * `ASTM_RECORD_PARTIAL_TIMESTAMP` warning.
    */
@@ -50,7 +50,7 @@ export interface AstmDate {
 /**
  * Parse an ASTM `YYYYMMDDHHMMSS` value, preserving whatever precision is
  * present. Returns `undefined` for a value that is not a usable timestamp (fewer
- * than four leading digits for the year, or non-digit content) — a caller keeps
+ * than four leading digits for the year, or non-digit content): a caller keeps
  * the raw field text either way, so nothing is lost. A partial value is parsed,
  * never rejected.
  *
@@ -71,7 +71,7 @@ export function parseAstmDate(raw: string): AstmDate | undefined {
   if (!/^\d{4,}$/u.test(s)) return undefined;
 
   const year = Number(s.slice(0, 4));
-  // An odd length below the full 14 digits cuts a two-digit component in half — the value is
+  // An odd length below the full 14 digits cuts a two-digit component in half: the value is
   // truncated mid-component. The raw run is preserved verbatim; the dangling digit is dropped from
   // the structured value rather than zero-filled into a fabricated time, and the flag lets a caller
   // warn. Extra digits beyond 14 (fractional seconds some vendors append) are not "truncated".
@@ -93,7 +93,7 @@ export function parseAstmDate(raw: string): AstmDate | undefined {
 
 /**
  * Render an {@link AstmDate} as an ISO-8601-*like* string truncated to its
- * precision, with **no** `Z` and **no** offset — because ASTM carries no
+ * precision, with **no** `Z` and **no** offset: because ASTM carries no
  * timezone and appending one would fabricate information. A consumer that knows
  * the instrument's zone can attach it; this function never assumes UTC.
  *
