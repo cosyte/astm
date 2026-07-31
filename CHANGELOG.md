@@ -205,6 +205,24 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   `messages(msg).flatMap((m) => m.results)`: written out, so it is a choice rather than a
   default.
 
+- **The alt text on the README's Cosyte mark now says how its two overlapping rounded squares
+  differ.** It read "a plus mark set in two overlapping rounded squares, beside the Cosyte
+  wordmark", which describes two shapes and nothing about what tells them apart. It now reads
+  "a plus mark set in two overlapping rounded squares, one solid and one outlined, beside the
+  Cosyte wordmark", which is what both tiles actually show: the rear square is filled and the
+  front one is drawn as an outline. A reader who cannot see the image was previously told there
+  were two shapes with no way to picture either.
+
+  This package was the first to carry the `<picture>` block, so it kept the wording that shipped
+  with it while the phrasing settled afterwards on the twelve surfaces that followed. The block is
+  now byte-for-byte the one the other twelve carry, copied rather than retyped, so the thirteen
+  agree by construction and not by proofreading. Nothing else about the block changed: the same two
+  tiles, the same media query, the same safe fallback to the light-ground tile.
+
+  **The front shape is very slightly taller than wide**, so "rounded squares" is a small
+  imprecision, and it is kept deliberately: it reads correctly aloud, and one wording across every
+  package is worth more than the millimetre.
+
 ### Fixed
 
 - **Emit no longer writes a stream it cannot read back** (`ASTM-EMIT-RESIDUALS`; both gaps shipped
