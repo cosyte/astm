@@ -113,6 +113,20 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   script cannot read, so it gates dist's source, not dist. Fourteen `P\d+` lines and the falsehoods
   below were found by hand, not by a rule.
 
+- **The Cosyte mark now opens the README, and follows the reader's color scheme**
+  (`ASSETS-P8`). A `<picture>` block above the H1 offers a dark-ground tile behind a
+  `prefers-color-scheme: dark` media query, with the light-ground tile as the inner `<img>`.
+  GitHub documents support for that switch; whether npm's README renderer honours it is the open
+  question this is meant to answer, and the founder will grade it by eye on the published page.
+
+  **The failure mode is safe.** If a renderer strips `<source>`, the inner `<img>` renders, so the
+  worst case is the light-ground tile on a dark page, never a missing or broken image.
+
+  This placement is **interim**. The per-package mark supersedes it once the direction is settled,
+  and the org tile is used here only because a matched light/dark pair already exists and the
+  per-package artwork has no light-ground variant yet, which would make the comparison
+  unreadable.
+
 ### Changed
 
 - **The em dash (U+2014) is gone from every tracked file, and a CI gate keeps it out**
