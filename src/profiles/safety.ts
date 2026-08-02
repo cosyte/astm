@@ -84,6 +84,23 @@
  *   either: a decoded field value is never cut back into records, the type
  *   letter is read before decoding, and the split reader counts fields, which the
  *   escape-aware tokenizer has already finished dividing before any body is decoded.
+ *
+ *   **This entry is on the list and is recorded as questionable, deliberately.**
+ *   The argument above is about the *decoded value*, and it holds. What it does not
+ *   cover is that the escape-aware split itself treats an `&X&` triple as opaque, so
+ *   where `X` is a delimiter that delimiter never became a boundary: the split the
+ *   argument says has "already finished dividing" divided one time too few, and this
+ *   code is the only report of it. Measured on the canonical set:
+ *   `R|1|^^^687|28.6&|&U/L||||F` yields a value of `28.6&|&U/L`, no units, and status
+ *   `unspecified` rather than `final`, with this as the sole warning, so a profile
+ *   tolerating it (the shipped `referenceCorpus` does) lets `{ strict: true }` accept
+ *   it. That fails part 1 of the two-clause test on the reading, not on the value.
+ *   It is **left on the list on purpose**: removing it would change behavior for
+ *   every profile naming it, and what should report a swallowed boundary instead, and
+ *   at what severity, is a question this file cannot settle on its own. Do not read
+ *   this bullet as an endorsement; read it as the open question it is, and do not
+ *   close it by narrowing the atom, which is what keeps `&F&` one token under a
+ *   delimiter set that names `F` as a delimiter.
  * - `ASTM_UNPAIRED_ESCAPE_CHARACTER`: an escape character heading no escape
  *   sequence, read as the **literal character it is** and kept byte-for-byte in the
  *   decoded value, so the value is identical with or without the profile. Note what

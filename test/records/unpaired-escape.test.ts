@@ -185,6 +185,34 @@ describe("the negative controls: what must NOT report, and must not change", () 
   });
 });
 
+describe("the boundary of what this fixed: an `&X&` atom still swallows a delimiter body", () => {
+  it("does NOT report this code, and the value, units and status still go together", () => {
+    // The scope of the fix, asserted so it cannot be restated more widely than it is. A real
+    // three-character sequence is opaque by design (that is what keeps `&F&` one token under a set
+    // naming `F` as a delimiter), so `&|&` under the canonical set is an atom and that field
+    // separator never becomes a boundary. One character away from the headline fixture.
+    const raw = stream(HEADER, "P|1||LAB-0001", "R|1|^^^687|28.6&|&U/L||||F", "L|1|N");
+    const [only] = results(parseAstmRecords(raw));
+    expect(only?.value).toBe("28.6&|&U/L");
+    expect(only?.units).toBeUndefined();
+    expect(only?.status.meaning).toBe("unspecified");
+
+    // Never silent, but the only report is a tolerable code, so a profile expecting it lets a
+    // strict parse accept the record. Recorded as a known defect, not closed here.
+    expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE]);
+    expect(unpaired(raw)).toBe(0);
+    expect(TOLERABLE_CODES.has(WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE)).toBe(true);
+  });
+
+  it("and the atom rule it comes from is exactly why it is not narrowed", () => {
+    // Narrowing the atom to exclude a delimiter body would break this, which is the guarantee the
+    // atom exists for: under a set declaring `F` as the field separator, `&F&` is one token.
+    const alt = { field: "F", repeat: "\\", component: "^", escape: "&" };
+    expect(splitEscapeAware("a&F&b", alt.field, alt.escape)).toEqual(["a&F&b"]);
+    expect(decodeEscapes("a&F&b", alt)).toBe("aFb");
+  });
+});
+
 describe("the codec's split and its decoder agree on what an escape sequence is", () => {
   it("a delimiter after an unpaired escape character still splits", () => {
     // This single assertion is the regression: under the old rule the delimiter was swallowed and

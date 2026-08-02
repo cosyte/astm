@@ -431,6 +431,15 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    The bound also killed a non-local behavior worth remembering: under the old scan two bare
    ampersands in one record paired **across** the field separator between them, so whether a field
    kept its value depended on an unrelated later field.
+   **▶ WHAT IT DID NOT CLOSE, AND THE FIRST DRAFT OF THIS ENTRY CLAIMED IT HAD.** The atom rule is
+   unchanged, so an `&X&` sequence whose body **is** a delimiter still swallows that delimiter:
+   `R|1|^^^687|28.6&|&U/L||||F` still reads `28.6&|&U/L` with no units and status `unspecified`.
+   That is **defect 11 below**, it is reported (never silent) under a tolerable code, and it must
+   not be closed by narrowing the atom, which is what keeps `&F&` one token under a set naming `F`
+   as a delimiter. The refuter caught this as prose overreach in eight places including two shipped
+   consumer surfaces and one false runtime warning message. **That is the third time on this defect
+   family that the claim, not the guard, was the defect. Scope the sentence to the character the
+   code reports; never to "the record".**
    **▶ THE MANGLED-HEADER FIXTURE NOW REPORTS TWO CODES, AND THE SECOND ONE IS INCIDENTAL.**
    `test/profiles/unknown-record-type-safety.test.ts`'s ` H|\^&|…` is not tokenized as a header, so
    its declaration is read as data and its `&` is genuinely unpaired. That is **not** a second reader
@@ -458,21 +467,44 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     warnings, and the identical record without that one byte **is** reported. **This happens INSIDE
     a run of these warnings too**, so a run is not a sweep of the records it spans: measured, a
     collapsed tail fired at records 3, 4 and 6 and **not** at record 5, whose value/units/status
-    were gone. **(b)** A set differing in the **repeat / component** role usually splits
+    were gone. **(b)** A set differing in the **repeat / component / escape** role usually splits
     into fields normally, and the damage varies. A `:`-component record under the canonical set
     keeps its value and units but loses its test identity, silently. **An ESCAPE character occurring
-    literally in a record was much worse and cost the value: that was defect 8 above, and it is
-    CLOSED. That role is off this list, the record splits normally and the character is reported.**
-    An earlier draft of this entry wrongly described the whole role group as splitting "perfectly"
-    and costing only a test identity, which is the same misdiagnosis (misattribution, not value
-    loss) that item existed to correct. Both remaining halves `PRE-EXISTING`. **Not fixed on
-    purpose:** widening the check means
+    literally in a record was much worse and cost the value: that was defect 8, and only its BARE
+    form is closed. An `&X&` whose body is a delimiter still swallows it (defect 11), so the escape
+    role stays on this list, narrowed.** An earlier draft of this entry wrongly described the whole
+    role group as splitting "perfectly" and costing only a test identity, which is the same
+    misdiagnosis (misattribution, not value loss) that item existed to correct; a later draft
+    wrongly struck the escape role off entirely. Both remaining halves `PRE-EXISTING`. **Not fixed
+    on purpose:** widening the check means
     deciding which set a record _ought_ to have had, which is the same guess the parser declines
     everywhere else. Both are **pinned** in `test/records/unseparated-fields.test.ts` under "the
     limits", and the boundary is stated on the warning code, in `README.md` and in the quickstart.
     **If you ever make one of those tests go green by widening the guard, the prose in all three
     places has to move with it.** Found by the `conformance-refuter` grading
     `ASTM-TYPE-LETTER-SECOND-READER` 2026-08-02.
+11. **🩺 `ASTM_UNKNOWN_ESCAPE_SEQUENCE` IS TOLERABLE WHILE BEING THE ONLY REPORT THAT A FIELD
+    SEPARATOR WAS SWALLOWED.** `splitEscapeAware` treats an `&X&` triple as an opaque atom, so where
+    `X` is itself a delimiter that delimiter never becomes a boundary. Measured on the canonical
+    set: `R|1|^^^687|28.6&|&U/L||||F` reads `value` = `28.6&|&U/L` with **no units and status
+    `unspecified` rather than `final`**, and the sole warning is `ASTM_UNKNOWN_ESCAPE_SEQUENCE` --
+    which is on `TOLERABLE_CODES`, and the shipped `referenceCorpus` profile tolerates it, so
+    `{ strict: true }` **accepts** the record. `PRE-EXISTING` (byte-identical on `064c078`).
+    **▶ IT IS NOT A STOP-THE-LINE, and the difference from defect 8 is the whole reason:** it always
+    warns (never `warnings: []`), and the round trip is stable rather than divergent. A warned
+    mis-read ranks below a silent one, consistently with defects 6 and 7.
+    **▶ THE ADMISSION ARGUMENT IN `src/profiles/safety.ts` IS WRONG FOR THIS CASE AND SAYS SO NOW.**
+    It reasons that the split "has already finished dividing before any body is decoded", which is
+    true and beside the point: the atom decision **is** the split, so the condition this code
+    reports is a lost field boundary, failing part 1 of the two-clause test on the _reading_ rather
+    than on the value. `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL` re-derived the allow-list and did not
+    re-read this entry against it; the entry is annotated rather than removed.
+    **▶ DO NOT CLOSE IT BY NARROWING THE ATOM.** The atom is what keeps `&F&` one token under a set
+    that names `F` as a delimiter, and `test/records/unpaired-escape.test.ts` pins that. The real
+    question is what should report it and at what severity, and that is a behavior change for every
+    consumer profile naming the code, so it wants its own slice. Pinned in
+    `test/records/unseparated-fields.test.ts` and `test/records/unpaired-escape.test.ts`. Found by
+    the `conformance-refuter` grading `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL` 2026-08-02.
 
 Two further defects once on this list (the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d`) were recorded with

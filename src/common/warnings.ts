@@ -43,12 +43,16 @@ export const WARNING_CODES = {
    * occurs in the line (unescaped). Two whole classes of the same loss are outside it: a foreign set
    * whose field separator happens to occur somewhere in the line still splits (on the wrong
    * boundaries, silently, and this can happen to one record inside a run of these warnings); and a
-   * set differing in the repeat or component role usually splits into fields normally, where a
-   * mis-split component can cost a test identity while the value survives. The escape role used to
-   * belong on that list and no longer does: an escape character heading no sequence is read as a
-   * literal and reported under {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}, so it merges
-   * no fields. Treat this code as a report that one record definitely lost its fields, never as a
-   * sweep that would have fired if any had.
+   * set differing in the repeat, component or escape role usually splits into fields normally,
+   * where a mis-split component can cost a test identity while the value survives, and where an
+   * `&X&` sequence whose body is a delimiter is an opaque atom, so that delimiter does not split
+   * and every field after it shifts. The escape role's worst case has narrowed and not
+   * disappeared: an escape character heading no sequence is now read as a literal and reported
+   * under {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} rather than merging the rest of the
+   * record, but a delimiter swallowed inside an `&X&` body is reported only by
+   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, which is tolerable. Treat this code as a
+   * report that one record definitely lost its fields, never as a sweep that would have fired if
+   * any had.
    */
   ASTM_RECORD_FIELDS_UNSEPARATED: "ASTM_RECORD_FIELDS_UNSEPARATED",
   /** The header declared delimiters other than the canonical `H|\^&`: tolerated, noted. */
@@ -58,9 +62,9 @@ export const WARNING_CODES = {
   /**
    * An escape character appeared where no escape sequence starts (an escape sequence is the escape
    * character, one body character, and the escape character again). It is read as the **literal
-   * character it is**, kept byte-for-byte in the decoded value, and every delimiter after it still
-   * splits the record normally. Nothing is dropped and no byte is invented: this flags that the
-   * sender did not write the character the spec-clean way, which is `&E&`.
+   * character it is** and kept byte-for-byte in the decoded value. Nothing is dropped and no byte is
+   * invented: this flags that the sender did not write the character the spec-clean way, which
+   * is `&E&`.
    *
    * **What it replaced is the reason it exists.** The codec used to read such a character as the
    * opening of a sequence that never closed and merge the whole remainder of the record into the
@@ -69,6 +73,12 @@ export const WARNING_CODES = {
    * `final`; one in a surname cost the patient's birth date and sex. Emit then re-escaped the merged
    * text into a spec-clean-looking line that read back as the same wrong value, so the mis-read
    * survived a round trip without ever surfacing.
+   *
+   * **This code is not a statement about the rest of the record.** It reports one character. A
+   * *different* escape character in the same record may still head a real three-character sequence,
+   * and if that sequence's body happens to be a delimiter (`&|&` under the canonical set) the atom
+   * rule means that delimiter does not split. That case is reported separately, under
+   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, and it can still cost a field boundary.
    */
   ASTM_UNPAIRED_ESCAPE_CHARACTER: "ASTM_UNPAIRED_ESCAPE_CHARACTER",
   /**
@@ -353,8 +363,8 @@ export function unpairedEscapeCharacter(position: AstmPosition): AstmRecordWarni
   return {
     code: WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
     message:
-      "An escape character headed no escape sequence, read as a literal character; " +
-      "every delimiter after it still split the record. The spec-clean form is the escaped one.",
+      "An escape character headed no escape sequence, read as the literal character it is " +
+      "rather than opening a sequence that never closes. The spec-clean form is the escaped one.",
     position,
   };
 }

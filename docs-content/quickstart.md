@@ -116,11 +116,16 @@ for (const w of warnings) {
 > line still splits, on the wrong boundaries and silently: one stray `|` inside an otherwise
 > `*`-separated result loses the value, the units and the status with **no** warning, and this can
 > happen to one record **inside** a run of these warnings, so a run does not mean every record in it
-> was checked. And a set differing in the **repeat or component** role usually splits into fields
-> normally, with the damage varying: a mis-split component can cost a test identity while the value
-> survives. Both are accepted limits: widening the check would mean deciding which set a record
-> ought to have had, which is a guess this parser does not make, so the boundary is documented
-> instead. If delimiter drift is a real risk on your feed, parse with
+> was checked. And a set differing in the **repeat, component or escape** role usually splits into
+> fields normally, with the damage varying: a mis-split component can cost a test identity while the
+> value survives, and an `&X&` sequence whose body is a delimiter is an opaque atom, so that
+> delimiter does not split and the value, units and status can go together. A bare escape character
+> is no longer in that group (it reads as a literal and raises `ASTM_UNPAIRED_ESCAPE_CHARACTER`);
+> the atom case remains, reported only by the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. All are
+> accepted limits: widening the field-separator check would mean deciding which set a record ought
+> to have had, which is a guess this parser does not make, and narrowing the escape atom would break
+> the guarantee it exists for, so the boundary is documented instead. If delimiter drift is a real
+> risk on your feed, parse with
 > `{ strict: true }`, which
 > refuses both an outright collapse and an unrecognized type letter, and treat
 > `ASTM_RECORD_UNKNOWN_TYPE` as invalidating what follows it rather than expecting this warning to

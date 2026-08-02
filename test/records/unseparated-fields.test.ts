@@ -164,14 +164,17 @@ describe("what it must never fire on", () => {
  * below still lose data and still report nothing, and each reproduces identically on the previous
  * release.
  *
- * **They are the accepted kind of limit**: repairing them would mean deciding which set a record
- * ought to have had, which is the guess the parser declines to make everywhere else.
+ * **They are the accepted kind of limit**, for two different reasons: repairing the field-separator
+ * class would mean deciding which set a record ought to have had, which is the guess the parser
+ * declines to make everywhere else, and narrowing the escape atom would break the guarantee the
+ * atom exists for.
  *
- * **One member of this list has left it.** An escape character occurring literally in a record used
- * to merge every field after it, silently, and was recorded here as an open defect rather than an
- * accepted limit precisely because it reached a wholly canonical feed and was fixable without
- * guessing any set. It is now fixed at the source, and its former fixture is kept below as the pin
- * on that, so this file cannot drift back into describing a loss the parser no longer has.
+ * **The escape role's worst case has NARROWED, and the narrowing is pinned both ways below.** A
+ * bare escape character used to merge every field after it, silently; it now reads as a literal and
+ * raises `ASTM_UNPAIRED_ESCAPE_CHARACTER`. What did **not** change is the atom rule: an `&X&`
+ * sequence whose body is a delimiter still swallows that delimiter, still costs the value, the
+ * units and the status together, and is still reported only by the tolerable
+ * `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Both are asserted, so neither half of that sentence can drift.
  *
  * They are asserted rather than merely written down, so that the documented boundary cannot quietly
  * drift into a guarantee the code does not provide. A test here going red means the scope moved,
@@ -213,15 +216,12 @@ describe("the limits: shapes that lose data and are deliberately NOT reported", 
     expect(lost?.type === "R" ? lost.value : "unreachable").toBeUndefined();
   });
 
-  it("the ESCAPE role has LEFT this list: a literal escape character no longer costs the value", () => {
+  it("a BARE escape character has left this list: it no longer costs the value", () => {
     // This case used to belong here, and it was the sharpest member of the group: a lone `&` under
     // the canonical set merged every field after it, so a nine-field result read back as four with
     // no warning at all. It is closed at the source, not by widening this check: an escape
     // character heading no `&X&` sequence is read as a literal, so the record splits normally and
     // `ASTM_UNPAIRED_ESCAPE_CHARACTER` reports the character. See `unpaired-escape.test.ts`.
-    //
-    // It is pinned here so the limits this file states stay true to what the parser does. What
-    // remains an accepted limit is the FIELD-separator class above and the component case below.
     const raw = "H|\\^&\rP|1||LAB-0001\rR|1|^^^687|28.6&|U/L||N||F\rL|1|N\r";
     expect(parseAstmRecords(raw).records[2]?.fields).toHaveLength(9);
     const [only] = results(parseAstmRecords(raw));
@@ -229,6 +229,23 @@ describe("the limits: shapes that lose data and are deliberately NOT reported", 
     expect(only?.units).toBe("U/L");
     expect(only?.status.isActiveFinal).toBe(true);
     expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
+  });
+
+  it("but an `&X&` whose body IS a delimiter still swallows it, and still costs the value", () => {
+    // The atom rule is unchanged and deliberate: it is what keeps `&F&` one token under a declared
+    // set that names `F` as a delimiter. The cost is that `&|&` under the canonical set is also an
+    // atom, so that field separator never becomes a boundary. One character apart from the fixture
+    // above, and the whole tail is gone again.
+    const raw = "H|\\^&\rP|1||LAB-0001\rR|1|^^^687|28.6&|&U/L||||F\rL|1|N\r";
+    const [only] = results(parseAstmRecords(raw));
+    expect(only?.value).toBe("28.6&|&U/L");
+    expect(only?.units).toBeUndefined();
+    expect(only?.status.isActiveFinal).toBe(false);
+
+    // Never silent, but the only report is a TOLERABLE code, so a profile expecting it lets a
+    // strict parse accept the record. That is the open half, recorded as a defect.
+    expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE]);
+    expect(TOLERABLE_CODES.has(WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE)).toBe(true);
   });
 
   it("a set differing only in the component role splits into fields normally, silently", () => {

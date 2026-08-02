@@ -30,6 +30,15 @@ profile may expect it on a feed that sends bare ampersands; untolerated, `{ stri
 real fields rather than one merged field, so a consumer reading `value`, `units`, `status`, a
 `birthDate` or a `sex` off such a record gets a different (correct) answer, and a `{ strict: true }`
 parse that used to succeed on one now throws unless a profile expects the code.
-`ASTM_UNKNOWN_ESCAPE_SEQUENCE` is unchanged for a single unrecognized body (`&Z&`); a multi-character
-body separated by delimiters is now reported as unpaired characters instead, and is still preserved
-verbatim.
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE` is unchanged for a single unrecognized body (`&Z&`). A multi-character
+body is no longer one atom: its bytes are all preserved, but a delimiter **inside** such a body now
+splits, which moves every field after it, and the report becomes one unpaired-character warning per
+loose escape character rather than one unknown-sequence warning.
+
+**Scope.** This fixes the bare escape character. The atom rule is unchanged, so an `&X&` sequence
+whose body **is** a delimiter still swallows that delimiter and still costs the value, the units and
+the status together (`R|1|^^^687|28.6&|&U/L||||F` reads `28.6&|&U/L`). That case is never silent, but
+its only report is the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so a profile expecting that code
+lets a strict parse accept it. It is recorded as a known defect and deliberately not closed here:
+narrowing the atom would break the guarantee it exists for, that `&F&` stays one token under a set
+naming `F` as a delimiter.

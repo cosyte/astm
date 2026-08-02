@@ -326,11 +326,13 @@ function buildRecord(
   //     `|` in an otherwise `*`-separated record is enough, and the value is lost just the same.
   //     This can happen to one record INSIDE a run of these warnings, so a run is not a sweep of
   //     the records it spans.
-  //   * A set differing in the REPEAT or COMPONENT role usually splits into fields normally, and
-  //     nothing here sees it. A mis-split component can cost a test identity while the value
-  //     survives. The ESCAPE role no longer merges fields at all: an escape character that heads no
-  //     sequence is read as a literal and reported (`ASTM_UNPAIRED_ESCAPE_CHARACTER`), so a record
-  //     carrying one still splits on every delimiter after it.
+  //   * A set differing in the REPEAT, COMPONENT or ESCAPE role usually splits into fields normally,
+  //     and nothing here sees it. A mis-split component can cost a test identity while the value
+  //     survives. The ESCAPE role's worst case has NARROWED, not gone: an escape character heading
+  //     no `&X&` sequence is now a literal and is reported (`ASTM_UNPAIRED_ESCAPE_CHARACTER`)
+  //     instead of merging the rest of the record, but an `&X&` whose body IS a delimiter is still
+  //     an opaque atom, so that delimiter does not split and every field after it shifts. That one
+  //     is reported only by `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, which a profile may tolerate.
   //
   // So the absence of this warning is NOT evidence that a record was read in its own set. Widening
   // it would mean deciding which set a record "should" have had, which is the same guess again.

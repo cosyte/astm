@@ -29,10 +29,19 @@
  * decoder thinks otherwise is the same class of mis-read the ordering above
  * exists to prevent. An escape character that does not sit at the head of such a
  * triple is not an escape at all: it is read as the **literal character it is**,
- * every delimiter after it is still honored, and the parse layer reports it
+ * it opens no atom, and the parse layer reports it
  * (`ASTM_UNPAIRED_ESCAPE_CHARACTER`). Both functions used to scan forward for the
  * next escape character with no bound, which meant a single unescaped `&` in a
  * value merged every field after it into that value, in silence.
+ *
+ * **The atom rule is unchanged and still costs a boundary in one case.** A triple
+ * is opaque by design, so where its body is itself a delimiter (`&|&` under the
+ * canonical set) that delimiter does not split. That is deliberate: it is what
+ * keeps `&F&` one token under a declared set that names `F` as a delimiter. Where
+ * the body is not a recognized mnemonic the parse layer reports it as
+ * `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so it is never silent, but that code is
+ * tolerable and a field boundary has still gone. Do not "fix" that by narrowing
+ * the atom: the narrowing would break the guarantee the atom exists for.
  *
  * Re-escaping (the inverse, for spec-clean emit) lives in the serializer and is
  * deliberately not implemented here.
@@ -166,10 +175,11 @@ function escapeBody(body: string, d: Delimiters): string | undefined {
  * input. A single body character is all that guarantee needs.
  *
  * An escape character that heads no sequence is **not** an escape: it is ordinary
- * text, and every delimiter after it still splits. Reading it as the opening of a
- * sequence that never closes is what used to merge the whole remainder of a record
- * into one field. Decoding the resulting leaf is what reports it, so this function
- * stays a pure split.
+ * text, and it opens no atom. Reading it as the opening of a sequence that never
+ * closes is what used to merge the whole remainder of a record into one field.
+ * Decoding the resulting leaf is what reports it, so this function stays a pure
+ * split. Note the two rules together: a delimiter after such a character does
+ * split, and a delimiter sitting inside a real three-character atom does not.
  *
  * @param text - The field or repeat string to split.
  * @param delimiter - The delimiter to split on.

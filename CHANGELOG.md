@@ -416,9 +416,22 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   the character as a literal is unconditional and the parsed value is byte-identical with the profile
   and without it. Untolerated, `{ strict: true }` refuses.
 
+  **The scope is the bare character, and only that.** The atom rule is unchanged, so an `&X&`
+  sequence whose body **is** a delimiter still swallows that delimiter and still costs the value, the
+  units and the status together: `R|1|^^^687|28.6&|&U/L||||F` reads `28.6&|&U/L` with no units and
+  status `unspecified`. It is never silent, but its only report is `ASTM_UNKNOWN_ESCAPE_SEQUENCE`,
+  which is tolerable, so a profile expecting that code lets `{ strict: true }` accept it. That case
+  is recorded as a known defect and deliberately not closed here: narrowing the atom would break the
+  guarantee it exists for, which is that `&F&` stays one token under a set naming `F` as a delimiter.
+  Both halves are pinned, so neither can drift.
+
   `ASTM_UNKNOWN_ESCAPE_SEQUENCE` is unchanged for a single unrecognized body (`&Z&`). A multi-
-  character body separated by delimiters is now reported as unpaired characters instead, and is still
-  preserved verbatim: no escape body was ever interpreted, and none is now.
+  character body is no longer treated as one atom: its bytes are all preserved, but a **delimiter
+  inside** such a body now splits, which moves every field after it, and the report becomes one
+  unpaired-character warning per loose escape character instead of one unknown-sequence warning. Over
+  an exhaustive corpus of bodies up to four characters in a result-value slot, that is 1,085 records
+  read correctly where the previous release read them wrongly, against 27 read differently in the
+  other direction.
 
   Measured red on base: 10 of the 16 new tests fail against `064c078` extracted into a clean tree;
   the 6 that pass are the negative controls, which measure behavior this change does not touch.
