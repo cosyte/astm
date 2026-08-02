@@ -44,16 +44,43 @@ export const WARNING_CODES = {
    * whose field separator happens to occur somewhere in the line still splits (on the wrong
    * boundaries, silently, and this can happen to one record inside a run of these warnings); and a
    * set differing in the repeat, component or escape role usually splits into fields normally,
-   * where a mis-split component can cost a test identity while an escape character occurring
-   * literally in a record merges every field after it and costs the value, the units and the status
-   * together. Treat this code as a report that one record definitely lost its fields, never as a
-   * sweep that would have fired if any had.
+   * where a mis-split component can cost a test identity while the value survives, and where an
+   * `&X&` sequence whose body is a delimiter is an opaque atom, so that delimiter does not split
+   * and every field after it shifts. The escape role's worst case has narrowed and not
+   * disappeared: an escape character heading no sequence is now read as a literal and reported
+   * under {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} rather than merging the rest of the
+   * record, but a delimiter swallowed inside an `&X&` body is reported only by
+   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, which is tolerable. Treat this code as a
+   * report that one record definitely lost its fields, never as a sweep that would have fired if
+   * any had.
    */
   ASTM_RECORD_FIELDS_UNSEPARATED: "ASTM_RECORD_FIELDS_UNSEPARATED",
   /** The header declared delimiters other than the canonical `H|\^&`: tolerated, noted. */
   ASTM_NONSTANDARD_DELIMITERS: "ASTM_NONSTANDARD_DELIMITERS",
   /** An escape sequence body was not one of `&F&`/`&S&`/`&R&`/`&E&`: preserved verbatim. */
   ASTM_UNKNOWN_ESCAPE_SEQUENCE: "ASTM_UNKNOWN_ESCAPE_SEQUENCE",
+  /**
+   * An escape character appeared where no escape sequence starts (an escape sequence is the escape
+   * character, one body character, and the escape character again). It is read as the **literal
+   * character it is** and kept byte-for-byte in the decoded value. Nothing is dropped and no byte is
+   * invented: this flags that the sender did not write the character the spec-clean way, which
+   * is `&E&`.
+   *
+   * **What it replaced is the reason it exists.** The codec used to read such a character as the
+   * opening of a sequence that never closed and merge the whole remainder of the record into the
+   * field it sat in, reporting nothing at all. One `&` in a result value cost the units, the
+   * abnormal flag and the status together and left the status reading `unspecified` rather than
+   * `final`; one in a surname cost the patient's birth date and sex. Emit then re-escaped the merged
+   * text into a spec-clean-looking line that read back as the same wrong value, so the mis-read
+   * survived a round trip without ever surfacing.
+   *
+   * **This code is not a statement about the rest of the record.** It reports one character. A
+   * *different* escape character in the same record may still head a real three-character sequence,
+   * and if that sequence's body happens to be a delimiter (`&|&` under the canonical set) the atom
+   * rule means that delimiter does not split. That case is reported separately, under
+   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, and it can still cost a field boundary.
+   */
+  ASTM_UNPAIRED_ESCAPE_CHARACTER: "ASTM_UNPAIRED_ESCAPE_CHARACTER",
   /**
    * A result value field carried an *unescaped* component delimiter, so it split into more than one
    * component. Both the full raw value and the split are surfaced and this warning fires: the
@@ -312,6 +339,37 @@ export function unknownEscapeSequence(position: AstmPosition): AstmRecordWarning
   return {
     code: WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
     message: "Unrecognized escape sequence preserved verbatim.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_UNPAIRED_ESCAPE_CHARACTER` warning. The character is preserved
+ * verbatim as a literal in the decoded value and opens no atom, so it does not
+ * merge the rest of the record; the warning body carries neither the character's
+ * surroundings nor any field value.
+ *
+ * **It is a statement about that one character, not about the record.** A
+ * different escape character in the same record may head a real three-character
+ * sequence, and if that sequence's body is a delimiter, that delimiter does not
+ * split. See {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}.
+ *
+ * A profile **may** tolerate this code: the value it reports is byte-identical
+ * with the warning and without it, because reading the character as a literal is
+ * the parse, not a consequence of the warning.
+ *
+ * @example
+ * ```ts
+ * import { unpairedEscapeCharacter } from "@cosyte/astm";
+ * unpairedEscapeCharacter({ recordIndex: 4, recordType: "R", fieldIndex: 4 });
+ * ```
+ */
+export function unpairedEscapeCharacter(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+    message:
+      "An escape character headed no escape sequence, read as the literal character it is " +
+      "rather than opening a sequence that never closes. The spec-clean form is the escaped one.",
     position,
   };
 }

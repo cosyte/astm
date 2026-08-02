@@ -143,6 +143,30 @@ produce a confident wrong value: an embedded escaped delimiter reads as one comp
 record type is surfaced (never dropped), and a missing unit is flagged (never defaulted). A
 `{ strict: true }` mode escalates every tolerated deviation to a thrown error.
 
+### An unescaped ampersand does not cost you the rest of the record
+
+An escape sequence is the escape character, **one** body character, and the escape character again
+(`&F&` `&S&` `&R&` `&E&`). An escape character that heads no such sequence is not an escape: it is
+read as the literal character it is, it opens no atom, and `ASTM_UNPAIRED_ESCAPE_CHARACTER` reports
+it. So `R|1|^^^687|28.6&|U/L||N||F` reads a value of `28.6&` with units `U/L` and status `final`,
+and `O&Brien` in a surname keeps the patient's birth date and sex.
+
+The parser does not decide what the sender meant by the character: it keeps the byte that arrived
+and says so. The spec-clean way to send a literal escape character is `&E&`, which is what this
+package's serializer emits, so a stream it produced never trips the code. The code is **tolerable**,
+so a vendor profile can expect it on a feed that sends bare ampersands and still parse
+`{ strict: true }`.
+
+**One escape shape still costs a field boundary, and it is a different code.** A real three-character
+sequence is opaque by design, which is what keeps `&F&` one token under a set that names `F` as a
+delimiter. So where the body is itself a delimiter (`&|&` under the canonical set) that delimiter
+does not split, and every field after it shifts: `R|1|^^^687|28.6&|&U/L||||F` reads a value of
+`28.6&|&U/L` with no units and status `unspecified`. It is never silent, but the only report is
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE`, which is **tolerable**, so a profile expecting that code (including
+the shipped `referenceCorpus`) will let a `{ strict: true }` parse accept it. Narrowing the atom to
+close this would break the guarantee the atom exists for, so it is written down rather than papered
+over.
+
 ### Several messages in one stream
 
 A message runs from its `H` header to its `L` terminator, so a stream can carry several. `messages()`
@@ -205,16 +229,17 @@ outside it:
   does not mean every record in it was checked.
 - A set differing in the **repeat, component or escape** role usually splits into fields normally,
   and the damage then varies. A mis-split component can cost a test identity while the value and
-  units survive. But an **escape** character occurring literally in a record merges every field
-  after it, which costs the value, the units and the status together, and warns nothing: an
-  ampersand inside a result value or a surname is enough.
+  units survive. The escape role's worst case has **narrowed, not gone**: a bare escape character no
+  longer merges the rest of the record (it reads as a literal and raises
+  `ASTM_UNPAIRED_ESCAPE_CHARACTER`), but an `&X&` sequence whose body is a delimiter is an opaque
+  atom, so that delimiter does not split and the value, the units and the status can still go
+  together. That one is reported only by the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`.
 
-The first of those is an accepted limit: widening the check would mean deciding which set a record
-ought to have had, which is the same guess the parser declines to make elsewhere, so it is written
-down rather than papered over. The escape case is **not** an accepted limit but a known open defect,
-and note it needs no delimiter difference at all to bite: an ampersand in a value corrupts a wholly
-canonical stream. Read the warning as "this record definitely lost its fields", never as "no other
-record did". If
+All are accepted limits, for two different reasons: widening the field-separator check would mean
+deciding which set a record ought to have had, which is the same guess the parser declines to make
+elsewhere, and narrowing the escape atom would break the guarantee it exists for. So they are
+written down rather than papered over. Read the warning as "this record definitely lost its
+fields", never as "no other record did". If
 delimiter drift is a real risk on your feed, parse with `{ strict: true }`, which refuses both an
 outright collapse and an unrecognized type letter, and treat `ASTM_RECORD_UNKNOWN_TYPE` as
 invalidating what follows it rather than expecting this warning to enumerate the damage.

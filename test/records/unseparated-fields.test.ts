@@ -160,17 +160,21 @@ describe("what it must never fire on", () => {
 
 /**
  * **The limits, pinned.** This code tests one of the four delimiter roles, the field separator, and
- * only in its total form, so its absence is not evidence that a record split correctly. Every shape
- * below loses data and reports nothing, and every one reproduces identically on the previous
+ * only in its total form, so its absence is not evidence that a record split correctly. The shapes
+ * below still lose data and still report nothing, and each reproduces identically on the previous
  * release.
  *
- * **They are not all the same kind of limit, and the difference matters.** The first three are
- * accepted: repairing them would mean deciding which set a record ought to have had, which is the
- * guess the parser declines to make everywhere else. The last, an escape character occurring
- * literally in a record, is **not** an accepted limit but a separately recorded open defect: it
- * reaches a wholly canonical feed with no delimiter set difference at all, and it is fixable without
- * guessing any set. It is pinned here because it is the sharpest member of the class the prose
- * describes, so it cannot be quietly re-read as cosmetic, not because it is meant to stay.
+ * **They are the accepted kind of limit**, for two different reasons: repairing the field-separator
+ * class would mean deciding which set a record ought to have had, which is the guess the parser
+ * declines to make everywhere else, and narrowing the escape atom would break the guarantee the
+ * atom exists for.
+ *
+ * **The escape role's worst case has NARROWED, and the narrowing is pinned both ways below.** A
+ * bare escape character used to merge every field after it, silently; it now reads as a literal and
+ * raises `ASTM_UNPAIRED_ESCAPE_CHARACTER`. What did **not** change is the atom rule: an `&X&`
+ * sequence whose body is a delimiter still swallows that delimiter, still costs the value, the
+ * units and the status together, and is still reported only by the tolerable
+ * `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Both are asserted, so neither half of that sentence can drift.
  *
  * They are asserted rather than merely written down, so that the documented boundary cannot quietly
  * drift into a guarantee the code does not provide. A test here going red means the scope moved,
@@ -212,17 +216,36 @@ describe("the limits: shapes that lose data and are deliberately NOT reported", 
     expect(lost?.type === "R" ? lost.value : "unreachable").toBeUndefined();
   });
 
-  it("an escape character occurring literally in a record costs the value, and is not reported", () => {
-    // The sharpest member of the repeat/component/escape class, and the reason that class must not
-    // be described as merely mis-splitting a component: a lone `&` under the canonical set merges
-    // every field after it, so a nine-field result reads back as four with no warning at all.
+  it("a BARE escape character has left this list: it no longer costs the value", () => {
+    // This case used to belong here, and it was the sharpest member of the group: a lone `&` under
+    // the canonical set merged every field after it, so a nine-field result read back as four with
+    // no warning at all. It is closed at the source, not by widening this check: an escape
+    // character heading no `&X&` sequence is read as a literal, so the record splits normally and
+    // `ASTM_UNPAIRED_ESCAPE_CHARACTER` reports the character. See `unpaired-escape.test.ts`.
     const raw = "H|\\^&\rP|1||LAB-0001\rR|1|^^^687|28.6&|U/L||N||F\rL|1|N\r";
-    expect(parseAstmRecords(raw).records[2]?.fields).toHaveLength(4);
+    expect(parseAstmRecords(raw).records[2]?.fields).toHaveLength(9);
     const [only] = results(parseAstmRecords(raw));
-    expect(only?.value).toBe("28.6&|U/L||N||F");
+    expect(only?.value).toBe("28.6&");
+    expect(only?.units).toBe("U/L");
+    expect(only?.status.isActiveFinal).toBe(true);
+    expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
+  });
+
+  it("but an `&X&` whose body IS a delimiter still swallows it, and still costs the value", () => {
+    // The atom rule is unchanged and deliberate: it is what keeps `&F&` one token under a declared
+    // set that names `F` as a delimiter. The cost is that `&|&` under the canonical set is also an
+    // atom, so that field separator never becomes a boundary. One character apart from the fixture
+    // above, and the whole tail is gone again.
+    const raw = "H|\\^&\rP|1||LAB-0001\rR|1|^^^687|28.6&|&U/L||||F\rL|1|N\r";
+    const [only] = results(parseAstmRecords(raw));
+    expect(only?.value).toBe("28.6&|&U/L");
     expect(only?.units).toBeUndefined();
     expect(only?.status.isActiveFinal).toBe(false);
-    expect(codes(raw)).toEqual([]);
+
+    // Never silent, but the only report is a TOLERABLE code, so a profile expecting it lets a
+    // strict parse accept the record. That is the open half, recorded as a defect.
+    expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE]);
+    expect(TOLERABLE_CODES.has(WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE)).toBe(true);
   });
 
   it("a set differing only in the component role splits into fields normally, silently", () => {

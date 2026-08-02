@@ -56,8 +56,10 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
   name: "referenceCorpus",
   description:
     "Non-standard-escape tolerance grounded firsthand in the escape-agnostic OSS reference corpus " +
-    "(python-astm / senaite). Syntactic encoding noise only: the value is preserved verbatim, never " +
-    "a safety-critical value.",
+    "(python-astm / senaite). Mostly syntactic encoding noise, with one measured exception: an " +
+    "escape sequence whose body is itself a delimiter is an opaque atom, so that delimiter does " +
+    "not split and a result can lose its units and its status. Read the values; do not rely on " +
+    "this profile leaving only cosmetic deviations behind.",
   provenance: {
     source: "kxepal/python-astm codec.py (BSD) + senaite.astm / senaite.lis2a",
     reference:
@@ -72,8 +74,10 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
       rationale:
         "The OSS reference stack (python-astm codec.py, firsthand-verified) treats '&' as literal data " +
         "and never decodes escape sequences, so streams from that ecosystem carry non-standard '&…&' " +
-        "bodies our escape-aware tokenizer flags. The body is preserved byte-for-byte in the value; " +
-        "the deviation is recognizable, syntactic, and non-clinical.",
+        "bodies our escape-aware tokenizer flags. The body is preserved byte-for-byte in the value. " +
+        "NOT always non-clinical, and this is measured rather than assumed: where the body is a " +
+        "delimiter, that delimiter never became a field boundary, so `28.6&|&U/L` reads as one " +
+        "value with no units and no final status. Tolerating this code hides that too.",
     },
   ],
 });

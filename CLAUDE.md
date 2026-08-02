@@ -90,9 +90,10 @@ That means the two copies can drift; the upstream file is the source of truth.
   transform (`applyAstmProfileToWarnings`, run last in `parseAstmRecords`) only ever re-badges a warning
   it _expects_ to `PROFILE_QUIRK_APPLIED` (flagged `expected`, carrying the original `toleratedCode`);
   a spec-clean message parses byte-identically with or without a profile, and no warning is ever
-  dropped. **The safety gate is default-deny and total** (`src/profiles/safety.ts`): three benign,
-  value-preserving record codes are tolerable (`ASTM_NONSTANDARD_DELIMITERS`,
-  `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`); **every other code
+  dropped. **The safety gate is default-deny and total** (`src/profiles/safety.ts`): a short,
+  explicitly derived list of benign, value-preserving record codes is tolerable
+  (`ASTM_NONSTANDARD_DELIMITERS`, `ASTM_UNKNOWN_ESCAPE_SEQUENCE`,
+  `ASTM_UNPAIRED_ESCAPE_CHARACTER`, `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`); **every other code
   across all three registries (record, frame `ASTM_FRAME_*`, and LTP `ASTM_LTP_*`) is
   safety-critical and refused at definition time**, so a profile can never make a bad checksum "ok,"
   a cancelled result read "final," or quiet a wrong value / flag / status / range / units / patient
@@ -401,29 +402,62 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    (refuse a non-Latin-1 code point? encode UTF-8?) and belongs in its own slice.** Found by the
    `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
 
-8. **🩺 ONE UNESCAPED `&` IN A VALUE SILENTLY SWALLOWS EVERY FOLLOWING FIELD, AND THE ROUND TRIP
-   BAKES THE MIS-READ IN. This is the sharpest thing on this list and it is a candidate
-   stop-the-line.** `splitEscapeAware` (`src/common/escapes.ts`) copies from a lone escape character
-   to end-of-record, and **there is no warning code for an unterminated escape**, so:
-   `R|1|^^^687|28.6&|U/L||N||F` reads back `value` = `28.6&|U/L||N||F` with **units gone, abnormal
-   flag gone, and status `unspecified` rather than `final`**, `warnings: []`. And
-   `P|1||LAB-0001||O&Brien^John||19800101|M` reads surname `O&Brien^John||19800101|M` with
-   **birthDate and sex gone**, `warnings: []`. A surname carrying an ampersand is not exotic.
-   Emit then **re-escapes the garble** into `28.6&E&&F&U/L&F&&F&N&F&&F&F`, so a spec-clean-looking
-   line now encodes the corrupted tree and re-parses to the same wrong value: **silent re-read
-   divergence**, the exact direction the #21/#22/#24 house invariant forbids, reached with no
-   malformed delimiter set at all. `PRE-EXISTING`: reproduces **byte-identically** on `64e018d`
-   (`0.0.8`) in a clean worktree. **Not fixed in `ASTM-TYPE-LETTER-SECOND-READER`** (out of that
-   item's scope, which was the type letter's two readers) and it wants its own slice, ahead of
-   further delimiter hardening. Found by the `conformance-refuter` grading
-   `ASTM-TYPE-LETTER-SECOND-READER` 2026-08-02.
+8. **CLOSED 2026-08-02 by `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL`. It WAS a stop-the-line, and the
+   measurement is why.** Was: `splitEscapeAware` / `decodeEscapes` (`src/common/escapes.ts`) scanned
+   forward for the next escape character with no bound, so a lone escape character opened a sequence
+   that never closed and copied to end-of-record, and **there was no warning code for the
+   condition**. `R|1|^^^687|28.6&|U/L||N||F` read back `value` = `28.6&|U/L||N||F` with **units
+   gone, abnormal flag gone, and status `unspecified` rather than `final`**, `warnings: []`;
+   `P|1||LAB-0001||O&BRIEN^JANE||19800101|F` lost **birthDate and sex**, `warnings: []`. Emit then
+   re-escaped the garble into `28.6&E&&F&U/L&F&&F&N&F&&F&F`: a spec-clean-looking line encoding the
+   corrupted tree, re-parsing to the same wrong value, byte-stable across further trips: **silent
+   re-read divergence**, with no malformed delimiter set at all. `PRE-EXISTING`, reproduced
+   byte-identically on `064c078`.
+   **▶ THE VERDICT WAS STOP-THE-LINE, AND IT IS THE UNITS THAT DECIDE IT.** The bar is a wrong dose,
+   a wrong identifier, or a value silently dropped from a lab result. A lenient consumer got `28.6`
+   out of `parseFloat(value)` and **no units at all** on a wholly canonical stream with an empty
+   warnings array: a lab number with its units silently removed is a wrong result, not a formatting
+   nit. Status `final` reading `unspecified` and the flag going missing are fail-safe on their own;
+   they are not what carried the verdict. Do not restate the verdict more broadly than that.
+   **▶ THE FIX IS A BOUND, AND IT INFERS NOTHING. Read `CHANGELOG.md` `[Unreleased]` before touching
+   `escapes.ts`.** An escape sequence is now exactly three characters (escape, **one** body
+   character, escape), all the four mnemonics ever need, and the split and the decoder share one
+   definition of it, because a split that disagrees with its decoder is the mis-read class that file
+   exists to prevent. An escape character heading no sequence is the literal character it is; the
+   value keeps the byte that arrived and nothing is invented to close a sequence the sender did not
+   open. New **tolerable** code `ASTM_UNPAIRED_ESCAPE_CHARACTER` + factory `unpairedEscapeCharacter`
+   report it. Tolerable, not safety-critical, and the reason is a property of the **parse**: reading
+   the character as a literal is unconditional, so tolerating the code changes no byte of the value.
+   The bound also killed a non-local behavior worth remembering: under the old scan two bare
+   ampersands in one record paired **across** the field separator between them, so whether a field
+   kept its value depended on an unrelated later field.
+   **▶ WHAT IT DID NOT CLOSE, AND THE FIRST DRAFT OF THIS ENTRY CLAIMED IT HAD.** The atom rule is
+   unchanged, so an `&X&` sequence whose body **is** a delimiter still swallows that delimiter:
+   `R|1|^^^687|28.6&|&U/L||||F` still reads `28.6&|&U/L` with no units and status `unspecified`.
+   That is **defect 11 below**, it is reported (never silent) under a tolerable code, and it must
+   not be closed by narrowing the atom, which is what keeps `&F&` one token under a set naming `F`
+   as a delimiter. The refuter caught this as prose overreach in eight places including two shipped
+   consumer surfaces and one false runtime warning message. **That is the third time on this defect
+   family that the claim, not the guard, was the defect. Scope the sentence to the character the
+   code reports; never to "the record".**
+   **▶ THE MANGLED-HEADER FIXTURE NOW REPORTS TWO CODES, AND THE SECOND ONE IS INCIDENTAL.**
+   `test/profiles/unknown-record-type-safety.test.ts`'s ` H|\^&|…` is not tokenized as a header, so
+   its declaration is read as data and its `&` is genuinely unpaired. That is **not** a second reader
+   of the mangled header, and nothing may start treating it as one: a mangled header whose
+   declaration carried no escape character reports only `ASTM_RECORD_UNKNOWN_TYPE`, and the merge is
+   identical either way. `MANGLED_CODES` in that file carries the note.
+   Found by the `conformance-refuter` grading `ASTM-TYPE-LETTER-SECOND-READER` 2026-08-02.
 9. **`inline-loinc-candidate` is asserted with no LOINC evidence.**
    `src/common/coding-system.ts` tags **any** non-empty first component as an inline LOINC candidate
    with no format check, so the very ordinary `R|1|Glucose|28.6|U/L||N||F` reports
    `provenance: "inline-loinc-candidate"` with `loincCandidate: "Glucose"`, and `primaryCode()`
    returns `"Glucose"`. That is a code-system provenance claim on evidence that does not support it,
    in a package whose whole discipline is never to guess a code system. `PRE-EXISTING`, untouched by
-   `ASTM-TYPE-LETTER-SECOND-READER`. Found by the `conformance-refuter` grading it, 2026-08-02.
+   `ASTM-TYPE-LETTER-SECOND-READER`. **Deferred again, explicitly, by
+   `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL`:** it is a different module and a different question (what
+   shape counts as LOINC evidence, and what `provenance` should say when nothing does), and
+   answering it inside an escape-codec slice is how a fix outgrows the thing it fixes. It still wants
+   its own slice. Found by the `conformance-refuter` grading it, 2026-08-02.
 10. **`ASTM_RECORD_FIELDS_UNSEPARATED` is deliberately PARTIAL, so its absence certifies nothing,
     and two classes of the same value loss stay silent.** The check is one test on one of the four
     delimiter roles, the **field** separator, and only in its total form (that separator occurs
@@ -436,16 +470,49 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     were gone. **(b)** A set differing in the **repeat / component / escape** role usually splits
     into fields normally, and the damage varies. A `:`-component record under the canonical set
     keeps its value and units but loses its test identity, silently. **An ESCAPE character occurring
-    literally in a record is much worse and costs the value: that is defect 8 above**, and an
-    earlier draft of this entry wrongly described the whole role group as splitting "perfectly" and
-    costing only a test identity, which is the same misdiagnosis (misattribution, not value loss)
-    this item exists to correct. Both `PRE-EXISTING`. **Not fixed on purpose:** widening the check means
+    literally in a record was much worse and cost the value: that was defect 8, and only its BARE
+    form is closed. An `&X&` whose body is a delimiter still swallows it (defect 11), so the escape
+    role stays on this list, narrowed.** An earlier draft of this entry wrongly described the whole
+    role group as splitting "perfectly" and costing only a test identity, which is the same
+    misdiagnosis (misattribution, not value loss) that item existed to correct; a later draft
+    wrongly struck the escape role off entirely. Both remaining halves `PRE-EXISTING`. **Not fixed
+    on purpose:** widening the check means
     deciding which set a record _ought_ to have had, which is the same guess the parser declines
     everywhere else. Both are **pinned** in `test/records/unseparated-fields.test.ts` under "the
     limits", and the boundary is stated on the warning code, in `README.md` and in the quickstart.
     **If you ever make one of those tests go green by widening the guard, the prose in all three
     places has to move with it.** Found by the `conformance-refuter` grading
     `ASTM-TYPE-LETTER-SECOND-READER` 2026-08-02.
+11. **🩺 `ASTM_UNKNOWN_ESCAPE_SEQUENCE` IS TOLERABLE WHILE BEING THE ONLY REPORT THAT A FIELD
+    SEPARATOR WAS SWALLOWED.** `splitEscapeAware` treats an `&X&` triple as an opaque atom, so where
+    `X` is itself a delimiter that delimiter never becomes a boundary. Measured on the canonical
+    set: `R|1|^^^687|28.6&|&U/L||||F` reads `value` = `28.6&|&U/L` with **no units and status
+    `unspecified` rather than `final`**, and the sole warning is `ASTM_UNKNOWN_ESCAPE_SEQUENCE` --
+    which is on `TOLERABLE_CODES`, and the shipped `referenceCorpus` profile tolerates it, so
+    `{ strict: true }` **accepts** the record. `PRE-EXISTING` (byte-identical on `064c078`).
+    **▶ IT IS NOT A STOP-THE-LINE, and the reason is exactly one thing: the FIRST parse of the wire
+    bytes warns.** An ingest-time consumer reading warnings is told. A warned mis-read ranks below a
+    silent one, consistently with defects 6 and 7. **Do not add "and the round trip is stable" to
+    that argument** (an earlier draft of this entry did): the round trip is stable, and stability is
+    what makes this WORSE, not better. Measured, head and base alike, the emit path launders it in
+    one hop: generation 1 warns `ASTM_UNKNOWN_ESCAPE_SEQUENCE` and reads `28.6&|&U/L`; it serializes
+    to the spec-clean `R|1|^^^687|28.6&E&&F&&E&U/L||||F`; generation 2 reads the same wrong value
+    with `warnings: []` and `{ strict: true }` **accepts** it. That is the same signature defect 8
+    was called a stop-the-line for, one re-emit away. It does not carry the verdict here only
+    because the harm needs a re-emit and a re-ingest rather than a single read. **It is why this
+    defect should be scheduled rather than parked.**
+    **▶ THE ADMISSION ARGUMENT IN `src/profiles/safety.ts` IS WRONG FOR THIS CASE AND SAYS SO NOW.**
+    It reasons that the split "has already finished dividing before any body is decoded", which is
+    true and beside the point: the atom decision **is** the split, so the condition this code
+    reports is a lost field boundary, failing part 1 of the two-clause test on the _reading_ rather
+    than on the value. `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL` re-derived the allow-list and did not
+    re-read this entry against it; the entry is annotated rather than removed.
+    **▶ DO NOT CLOSE IT BY NARROWING THE ATOM.** The atom is what keeps `&F&` one token under a set
+    that names `F` as a delimiter, and `test/records/unpaired-escape.test.ts` pins that. The real
+    question is what should report it and at what severity, and that is a behavior change for every
+    consumer profile naming the code, so it wants its own slice. Pinned in
+    `test/records/unseparated-fields.test.ts` and `test/records/unpaired-escape.test.ts`. Found by
+    the `conformance-refuter` grading `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL` 2026-08-02.
 
 Two further defects once on this list (the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d`) were recorded with

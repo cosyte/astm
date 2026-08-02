@@ -57,14 +57,14 @@
  * is one signature of a record being read in a set that is not its own. It is
  * safety-critical (it reports lost values, so it fails part 1 outright) and it is
  * on the forbidden side by construction, because that side is computed rather than
- * listed. What it required was re-reading the three survivors below against it:
+ * listed. What it required was re-reading the survivors below against it:
  * none of them is a statement about whether a record split, so none of them is now
  * hiding it. Note the code is deliberately **partial** (see its own docs): it does
  * not fire wherever a field went missing to a foreign delimiter set, only where the
  * field separator was absent outright, so it is a reader of record structure that
  * cannot be relied on as a sweep.
  *
- * **So the three that remain are recorded with the reading each one survives**, not
+ * **So the ones that remain are recorded with the reading each one survives**, not
  * merely with the value it preserves. Each was re-derived against both readers of
  * record structure above, plus the single-message / single-patient guards:
  *
@@ -84,6 +84,35 @@
  *   either: a decoded field value is never cut back into records, the type
  *   letter is read before decoding, and the split reader counts fields, which the
  *   escape-aware tokenizer has already finished dividing before any body is decoded.
+ *
+ *   **This entry is on the list and is recorded as questionable, deliberately.**
+ *   The argument above is about the *decoded value*, and it holds. What it does not
+ *   cover is that the escape-aware split itself treats an `&X&` triple as opaque, so
+ *   where `X` is a delimiter that delimiter never became a boundary: the split the
+ *   argument says has "already finished dividing" divided one time too few, and this
+ *   code is the only report of it. Measured on the canonical set:
+ *   `R|1|^^^687|28.6&|&U/L||||F` yields a value of `28.6&|&U/L`, no units, and status
+ *   `unspecified` rather than `final`, with this as the sole warning, so a profile
+ *   tolerating it (the shipped `referenceCorpus` does) lets `{ strict: true }` accept
+ *   it. That fails part 1 of the two-clause test on the reading, not on the value.
+ *   It is **left on the list on purpose**: removing it would change behavior for
+ *   every profile naming it, and what should report a swallowed boundary instead, and
+ *   at what severity, is a question this file cannot settle on its own. Do not read
+ *   this bullet as an endorsement; read it as the open question it is, and do not
+ *   close it by narrowing the atom, which is what keeps `&F&` one token under a
+ *   delimiter set that names `F` as a delimiter.
+ * - `ASTM_UNPAIRED_ESCAPE_CHARACTER`: an escape character heading no escape
+ *   sequence, read as the **literal character it is** and kept byte-for-byte in the
+ *   decoded value, so the value is identical with or without the profile. Note what
+ *   makes this admissible is a property of the *parse*, not of the warning: reading
+ *   the character as a literal is unconditional, and tolerating the code changes
+ *   nothing about how the record splits. No reader sees it, on the same grounds as
+ *   the entry above: the type letter is read before any decoding, the split reader
+ *   counts fields the escape-aware tokenizer has already finished dividing, and a
+ *   decoded value is never cut back into records. Contrast the condition it
+ *   replaced, which **would** have failed part 1: reading the same character as an
+ *   unterminated sequence merged every field after it into one, and a code reporting
+ *   that would have been a report of lost values.
  * - `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`: a request-information status carried
  *   verbatim as a leaf field on a `Q` record; the code set is paywalled and is not
  *   interpreted, profile or not. Classification reads whether a `Q` record is
@@ -145,6 +174,7 @@ export const TOLERABLE_CODES: ReadonlySet<AnyAstmWarningCode> = Object.freeze(
   new Set<AnyAstmWarningCode>([
     WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
     WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
+    WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
     WARNING_CODES.ASTM_RECORD_UNINTERPRETED_QUERY_STATUS,
   ]),
 );

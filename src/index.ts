@@ -136,6 +136,7 @@ export {
   fieldsUnseparated,
   nonStandardDelimiters,
   unknownEscapeSequence,
+  unpairedEscapeCharacter,
   ambiguousValueSplit,
   undefinedAbnormalFlag,
   undefinedResultStatus,
@@ -155,7 +156,7 @@ export type { AstmPosition } from "./common/position.js";
 export { CANONICAL_DELIMITERS, readDelimiters, isNonStandard } from "./common/delimiters.js";
 export type { Delimiters } from "./common/delimiters.js";
 export { decodeEscapes, splitEscapeAware } from "./common/escapes.js";
-export type { UnknownEscapeSink } from "./common/escapes.js";
+export type { UnknownEscapeSink, UnpairedEscapeSink } from "./common/escapes.js";
 export { parseAstmDate, astmDateToLocalISO } from "./common/dates.js";
 export type { AstmDate, AstmDatePrecision } from "./common/dates.js";
 export { recognizeUniversalTestId, primaryCode } from "./common/coding-system.js";

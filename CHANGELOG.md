@@ -378,6 +378,68 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 
 ### Fixed
 
+- **One unescaped `&` in a value no longer swallows every field after it**
+  (`ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL`; `PRE-EXISTING`, shipped `0.0.1` through `0.0.8`, not a
+  regression). The escape codec read an escape character with no closing escape character as the
+  opening of a sequence and copied from it to the end of the record, so every field after it merged
+  into the field it sat in, **and there was no warning code for the condition at all**. Measured on
+  `064c078`: `R|1|^^^687|28.6&|U/L||N||F` read back `value = "28.6&|U/L||N||F"` with `units`,
+  `abnormalFlags` and `flag` all `undefined` and `status` `unspecified` rather than `final`, on a
+  stream declaring the canonical `H|\^&`, with `warnings: []`. On the patient side
+  `P|1||LAB-0001||O&BRIEN^JANE||19800101|F` read the surname as the whole rest of the record and
+  came back with **no birth date and no sex**, again silently. A result that reads `28.6` with its
+  units gone is the harm this package exists to prevent, and an ampersand in a surname is not exotic.
+
+  **The round trip made it worse rather than surfacing it.** Emit re-escaped the merged text into
+  `R|1|^^^687|28.6&E&&F&U/L&F&&F&N&F&&F&F`: a spec-clean-looking line that re-parsed to the same
+  wrong value, with zero warnings, byte-stable across further trips. Silent re-read divergence, with
+  no malformed delimiter set anywhere in it.
+
+  **The fix is a bound, and it infers nothing.** An escape sequence is now exactly three characters
+  (the escape character, **one** body character, the escape character), which is all the four
+  mnemonics `&F&` `&S&` `&R&` `&E&` ever need, and both `splitEscapeAware` and `decodeEscapes` share
+  that one definition. An escape character that heads no such sequence is read as the **literal
+  character it is**: the value keeps the byte that arrived, it opens no atom, and nothing is
+  invented to close a sequence the sender did not open. The same fixture now
+  reads `value = "28.6&"` with `units: "U/L"` and `status.meaning: "final"`, and the patient keeps
+  their birth date and sex. Emit writes the literal character as `&E&`, so the emitted line is
+  spec-clean **and** structurally faithful, and re-parses to the same tree.
+
+  The bound also removes a non-local behavior: under the unbounded scan, whether a field kept its
+  value depended on whether some **later** field in the record happened to carry an escape character
+  too, which paired across the field separator between them. Two bare ampersands in one record now
+  cost nothing.
+
+  New warning code `ASTM_UNPAIRED_ESCAPE_CHARACTER` and exported factory `unpairedEscapeCharacter`
+  report each such character, one per occurrence, positioned on the record and field, carrying no
+  field text (PHI discipline). The code is **tolerable**: a profile may expect it, because reading
+  the character as a literal is unconditional and the parsed value is byte-identical with the profile
+  and without it. Untolerated, `{ strict: true }` refuses.
+
+  **The scope is the bare character, and only that.** The atom rule is unchanged, so an `&X&`
+  sequence whose body **is** a delimiter still swallows that delimiter and still costs the value, the
+  units and the status together: `R|1|^^^687|28.6&|&U/L||||F` reads `28.6&|&U/L` with no units and
+  status `unspecified`. It is never silent, but its only report is `ASTM_UNKNOWN_ESCAPE_SEQUENCE`,
+  which is tolerable, so a profile expecting that code lets `{ strict: true }` accept it. That case
+  is recorded as a known defect and deliberately not closed here: narrowing the atom would break the
+  guarantee it exists for, which is that `&F&` stays one token under a set naming `F` as a delimiter.
+  Both halves are pinned, so neither can drift.
+
+  `ASTM_UNKNOWN_ESCAPE_SEQUENCE` is unchanged for a single unrecognized body (`&Z&`). A multi-
+  character body is no longer treated as one atom: its bytes are all preserved, but a **delimiter
+  inside** such a body now splits, which moves every field after it, and the report becomes one
+  unpaired-character warning per loose escape character instead of one unknown-sequence warning. Over
+  an exhaustive corpus of bodies up to four characters in a result-value slot, that is 1,085 records
+  read correctly where the previous release read them wrongly, against 27 read differently in the
+  other direction.
+
+  Measured red on base: 10 of the 18 new tests fail against `064c078` extracted into a clean tree.
+  Of the 8 that pass, 6 measure behavior this change does not touch and 2 are the boundary pins on
+  what it deliberately does **not** fix.
+  `test/records/unseparated-fields.test.ts` had pinned this loss as a documented limit of
+  `ASTM_RECORD_FIELDS_UNSEPARATED`; that pin is inverted rather than deleted, and the prose stating
+  the limit moved with it in `README.md`, the quickstart and the warning code's own docs.
+
 - **Emit no longer writes a stream it cannot read back** (`ASTM-EMIT-RESIDUALS`; both gaps shipped
   `0.0.1` through `0.0.3`, `PRE-EXISTING`, neither a regression). Two residual emit-side holes, both
   recorded and deliberately deferred by `ASTM-MIXED-DELIMITER-EMIT` (#21) and again by

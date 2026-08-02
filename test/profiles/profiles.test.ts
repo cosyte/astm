@@ -230,6 +230,7 @@ describe("the safety gate: a profile can never tolerate a safety-critical deviat
         WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
         WARNING_CODES.ASTM_RECORD_UNINTERPRETED_QUERY_STATUS,
         WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
+        WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
       ].sort(),
     );
   });

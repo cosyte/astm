@@ -19,8 +19,10 @@ import type { AstmField } from "./types.js";
  *
  * @param record - The raw record text.
  * @param d - The delimiters resolved from the header.
- * @param onUnknownEscape - Called (with the 1-based field index) for each
+ * @param onUnknownEscape - Called (with the 0-based field index) for each
  *   unrecognized escape sequence encountered, so the caller can warn.
+ * @param onUnpairedEscape - Called (with the 0-based field index) for each escape
+ *   character that heads no escape sequence and was therefore read as a literal.
  * @returns The record's fields.
  * @example
  * ```ts
@@ -33,22 +35,31 @@ export function tokenizeRecord(
   record: string,
   d: Delimiters,
   onUnknownEscape?: (fieldIndex: number) => void,
+  onUnpairedEscape?: (fieldIndex: number) => void,
 ): AstmField[] {
   const rawFields = splitEscapeAware(record, d.field, d.escape);
-  return rawFields.map((raw, fieldIndex) => toField(raw, d, () => onUnknownEscape?.(fieldIndex)));
+  return rawFields.map((raw, fieldIndex) =>
+    toField(
+      raw,
+      d,
+      () => onUnknownEscape?.(fieldIndex),
+      () => onUnpairedEscape?.(fieldIndex),
+    ),
+  );
 }
 
 /**
  * Tokenize an `H` (header) record into its fields.
  *
  * A header cannot go through {@link tokenizeRecord}: its second field is the
- * **delimiter declaration**, which carries the escape character *literally*
- * rather than as an escape sequence. The generic escape-aware split treats that
- * lone escape character as the opening of an unterminated escape and swallows
- * the whole remainder of the record into one field, so every data field after
- * the declaration is lost. This tokenizer instead takes the declaration verbatim
- * as one opaque field and applies the ordinary escape-aware tokenizer to the
- * data portion that follows it.
+ * **delimiter declaration**, which carries all three non-field delimiters
+ * *literally* rather than as escape sequences. Run through the generic tokenizer
+ * the declaration would be split on its own repeat and component characters and
+ * its escape character would be decoded and reported as unpaired, so what the
+ * header declares would come back as fragments plus a spurious warning. This
+ * tokenizer instead takes the declaration verbatim as one opaque field, never
+ * decoded, and applies the ordinary escape-aware tokenizer to the data portion
+ * that follows it.
  *
  * `fields[0]` is the type-letter field and `fields[1]` is the delimiter
  * declaration (verbatim, never escape-decoded); the header's ASTM data fields
@@ -58,6 +69,9 @@ export function tokenizeRecord(
  * @param d - The delimiters declared by this header.
  * @param onUnknownEscape - Called with the 0-based whole-record field index for
  *   each unrecognized escape sequence in the data portion.
+ * @param onUnpairedEscape - Called with the 0-based whole-record field index for
+ *   each unpaired escape character in the data portion. The declaration itself is
+ *   opaque, so the escape character it names never reports here.
  * @returns The header's fields.
  * @example
  * ```ts
@@ -71,6 +85,7 @@ export function tokenizeHeader(
   record: string,
   d: Delimiters,
   onUnknownEscape?: (fieldIndex: number) => void,
+  onUnpairedEscape?: (fieldIndex: number) => void,
 ): AstmField[] {
   // The delimiter-definition field runs from index 2 to the next field separator.
   const defEnd = record.indexOf(d.field, 2);
@@ -78,7 +93,12 @@ export function tokenizeHeader(
   const head = [opaqueField(record.slice(0, Math.min(1, record.length))), opaqueField(definition)];
   if (defEnd === -1) return head;
   // Data fields start at whole-record index 2, so shift the tokenizer's local index by 2.
-  const data = tokenizeRecord(record.slice(defEnd + 1), d, (i) => onUnknownEscape?.(i + 2));
+  const data = tokenizeRecord(
+    record.slice(defEnd + 1),
+    d,
+    (i) => onUnknownEscape?.(i + 2),
+    (i) => onUnpairedEscape?.(i + 2),
+  );
   return [...head, ...data];
 }
 
@@ -88,11 +108,16 @@ function opaqueField(raw: string): AstmField {
 }
 
 /** Build one {@link AstmField} from its raw wire text: split into repeats → components, then decode. */
-function toField(raw: string, d: Delimiters, onUnknownEscape: () => void): AstmField {
+function toField(
+  raw: string,
+  d: Delimiters,
+  onUnknownEscape: () => void,
+  onUnpairedEscape: () => void,
+): AstmField {
   const rawRepeats = splitEscapeAware(raw, d.repeat, d.escape);
   const repeats = rawRepeats.map((rep) =>
     splitEscapeAware(rep, d.component, d.escape).map((comp) =>
-      decodeEscapes(comp, d, onUnknownEscape),
+      decodeEscapes(comp, d, onUnknownEscape, onUnpairedEscape),
     ),
   );
   // `splitEscapeAware` always returns at least one element, so `repeats[0]` is defined.
