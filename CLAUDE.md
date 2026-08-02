@@ -111,7 +111,14 @@ That means the two copies can drift; the upstream file is the source of truth.
   record structure**, and note the direction of the failure is safe: default-deny means a new code
   is refused until argued in, so the risk is confined to the three named above. The re-derivation
   itself is measured in `test/profiles/unknown-record-type-safety.test.ts`: each survivor is checked
-  to leave the message partition identical whether or not a profile downgrades it.
+  by reading the same logical stream with the reported condition present and absent, on both
+  structural readers. **Do not re-measure it by comparing a parse with a profile against one
+  without**, which is what an earlier draft did and what the refuter deleted: the warning transform
+  runs after the records are built, so that comparison is identical for every code and passes for a
+  code that should never be tolerable. The comparison is exercised on pairs that must fail.
+  **The gate is enforced twice, and the second point is the load-bearing one**: `applyAstmProfile`
+  re-checks `isSafetyCriticalCode` before downgrading, because `AstmProfile` is a plain interface
+  and a hand-authored literal never passes through `defineAstmProfile`. See known defect 2.
   `parseAstmRecords(raw, { profile })` accepts an explicit profile (`null` opts out of the process
   default set via `setDefaultAstmProfile`); an expected quirk does **not** escalate in `strict` mode.
   **Built-ins:** `astmProfiles.default` (tolerates nothing) + `astmProfiles.referenceCorpus`, a

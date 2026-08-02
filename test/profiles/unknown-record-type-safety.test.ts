@@ -381,8 +381,10 @@ describe("ASTM_RECORD_UNKNOWN_TYPE is not a code a profile may tolerate", () => 
  * as a pair: the same logical stream with the condition present and with it absent. Equal
  * partitions mean the readers did not see it.
  *
- * The pairing is only trustworthy if it can fail, so `assertsUnseen` is exercised on the
- * mangled-header pair as a negative control below, where the partitions must differ.
+ * The pairing is only trustworthy if it can fail, so `readTheSame` is exercised below on two
+ * negative controls, one per arm: the mangled-header pair, where the partitions differ, and the
+ * mangled-`Q` pair, where the partitions agree and only the classification differs. Without the
+ * second, the classification arm would never be shown capable of failing.
  */
 interface Pair {
   readonly code: AnyAstmWarningCode;
@@ -444,12 +446,23 @@ const readTheSame = (a: string, b: string): boolean =>
   classification(a) === classification(b);
 
 describe("the surviving codes report conditions neither structural reader sees", () => {
-  it("negative control: the comparison DOES fail for the code that was removed", () => {
+  it("negative control, grouping arm: the comparison DOES fail for the code that was removed", () => {
     // CLEAN and MANGLED differ only by the stray byte that ASTM_RECORD_UNKNOWN_TYPE reports.
     // If `readTheSame` could not tell them apart, every assertion below would be vacuous.
     expect(readTheSame(CLEAN, MANGLED)).toBe(false);
     expect(partition(CLEAN)).toHaveLength(2);
     expect(partition(MANGLED)).toHaveLength(1);
+  });
+
+  it("negative control, classification arm: it fails on a difference grouping cannot see", () => {
+    // The grouping arm alone would short-circuit the pair above, leaving the classification arm
+    // never shown capable of failing. These two partition identically and classify differently.
+    const clean = "H|\\^&\rQ|1|^SPEC-0001\rR|1|^^^687|10.0|U/L||N||F\rL|1|N\r";
+    const mangledQ = "H|\\^&\r Q|1|^SPEC-0001\rR|1|^^^687|10.0|U/L||N||F\rL|1|N\r";
+    expect(partition(clean)).toHaveLength(1);
+    expect(partition(mangledQ)).toHaveLength(1);
+    expect(classification(clean)).not.toBe(classification(mangledQ));
+    expect(readTheSame(clean, mangledQ)).toBe(false);
   });
 
   for (const { code, withCondition, without } of SURVIVORS) {
