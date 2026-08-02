@@ -160,17 +160,18 @@ describe("what it must never fire on", () => {
 
 /**
  * **The limits, pinned.** This code tests one of the four delimiter roles, the field separator, and
- * only in its total form, so its absence is not evidence that a record split correctly. Every shape
- * below loses data and reports nothing, and every one reproduces identically on the previous
+ * only in its total form, so its absence is not evidence that a record split correctly. The shapes
+ * below still lose data and still report nothing, and each reproduces identically on the previous
  * release.
  *
- * **They are not all the same kind of limit, and the difference matters.** The first three are
- * accepted: repairing them would mean deciding which set a record ought to have had, which is the
- * guess the parser declines to make everywhere else. The last, an escape character occurring
- * literally in a record, is **not** an accepted limit but a separately recorded open defect: it
- * reaches a wholly canonical feed with no delimiter set difference at all, and it is fixable without
- * guessing any set. It is pinned here because it is the sharpest member of the class the prose
- * describes, so it cannot be quietly re-read as cosmetic, not because it is meant to stay.
+ * **They are the accepted kind of limit**: repairing them would mean deciding which set a record
+ * ought to have had, which is the guess the parser declines to make everywhere else.
+ *
+ * **One member of this list has left it.** An escape character occurring literally in a record used
+ * to merge every field after it, silently, and was recorded here as an open defect rather than an
+ * accepted limit precisely because it reached a wholly canonical feed and was fixable without
+ * guessing any set. It is now fixed at the source, and its former fixture is kept below as the pin
+ * on that, so this file cannot drift back into describing a loss the parser no longer has.
  *
  * They are asserted rather than merely written down, so that the documented boundary cannot quietly
  * drift into a guarantee the code does not provide. A test here going red means the scope moved,
@@ -212,17 +213,22 @@ describe("the limits: shapes that lose data and are deliberately NOT reported", 
     expect(lost?.type === "R" ? lost.value : "unreachable").toBeUndefined();
   });
 
-  it("an escape character occurring literally in a record costs the value, and is not reported", () => {
-    // The sharpest member of the repeat/component/escape class, and the reason that class must not
-    // be described as merely mis-splitting a component: a lone `&` under the canonical set merges
-    // every field after it, so a nine-field result reads back as four with no warning at all.
+  it("the ESCAPE role has LEFT this list: a literal escape character no longer costs the value", () => {
+    // This case used to belong here, and it was the sharpest member of the group: a lone `&` under
+    // the canonical set merged every field after it, so a nine-field result read back as four with
+    // no warning at all. It is closed at the source, not by widening this check: an escape
+    // character heading no `&X&` sequence is read as a literal, so the record splits normally and
+    // `ASTM_UNPAIRED_ESCAPE_CHARACTER` reports the character. See `unpaired-escape.test.ts`.
+    //
+    // It is pinned here so the limits this file states stay true to what the parser does. What
+    // remains an accepted limit is the FIELD-separator class above and the component case below.
     const raw = "H|\\^&\rP|1||LAB-0001\rR|1|^^^687|28.6&|U/L||N||F\rL|1|N\r";
-    expect(parseAstmRecords(raw).records[2]?.fields).toHaveLength(4);
+    expect(parseAstmRecords(raw).records[2]?.fields).toHaveLength(9);
     const [only] = results(parseAstmRecords(raw));
-    expect(only?.value).toBe("28.6&|U/L||N||F");
-    expect(only?.units).toBeUndefined();
-    expect(only?.status.isActiveFinal).toBe(false);
-    expect(codes(raw)).toEqual([]);
+    expect(only?.value).toBe("28.6&");
+    expect(only?.units).toBe("U/L");
+    expect(only?.status.isActiveFinal).toBe(true);
+    expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
   });
 
   it("a set differing only in the component role splits into fields normally, silently", () => {

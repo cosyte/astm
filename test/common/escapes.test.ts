@@ -23,8 +23,10 @@ describe("decodeEscapes", () => {
     expect(unknowns).toBe(1);
   });
 
-  it("preserves a lone unterminated escape char verbatim", () => {
+  it("preserves an escape char that heads no sequence, verbatim and in place", () => {
     expect(decodeEscapes("value&", D)).toBe("value&");
+    // Not just at the end: the rest of the leaf survives it rather than being absorbed by it.
+    expect(decodeEscapes("O&Brien", D)).toBe("O&Brien");
   });
 
   it("substitutes the ACTIVE (non-canonical) delimiters, not hardcoded ones", () => {
@@ -50,8 +52,10 @@ describe("splitEscapeAware", () => {
     expect(splitEscapeAware("a^^b", "^", "&")).toEqual(["a", "", "b"]);
   });
 
-  it("preserves an unterminated escape sequence in the final segment", () => {
+  it("keeps an escape char that heads no sequence as ordinary text, and keeps splitting", () => {
     expect(splitEscapeAware("a^b&trailing", "^", "&")).toEqual(["a", "b&trailing"]);
+    // The delimiter AFTER it still splits: it used to be swallowed to end of input.
+    expect(splitEscapeAware("a&^b", "^", "&")).toEqual(["a&", "b"]);
   });
 });
 

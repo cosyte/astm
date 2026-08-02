@@ -34,6 +34,7 @@ describe("stable code surface", () => {
         "ASTM_RECORD_UNPARSEABLE_REFERENCE_RANGE",
         "ASTM_RECORD_UNREADABLE_REDECLARATION",
         "ASTM_UNKNOWN_ESCAPE_SEQUENCE",
+        "ASTM_UNPAIRED_ESCAPE_CHARACTER",
         "PROFILE_QUIRK_APPLIED",
       ]
     `);

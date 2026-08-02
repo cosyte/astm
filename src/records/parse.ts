@@ -26,6 +26,7 @@ import {
   uninterpretedQueryStatus,
   unitsAbsent,
   unknownEscapeSequence,
+  unpairedEscapeCharacter,
   unknownRecordType,
   unparseableReferenceRange,
   unreadableRedeclaration,
@@ -293,13 +294,18 @@ function buildRecord(
       unknownEscapeSequence({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
     );
   };
-  // The header needs its own tokenizer: the escape char sits literally inside the delimiter
-  // declaration, and the generic escape-aware split reads it as an unterminated escape and
-  // merges every following field into it.
+  const onUnpairedEscape = (fieldIndex: number): void => {
+    warnings.push(
+      unpairedEscapeCharacter({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+    );
+  };
+  // The header needs its own tokenizer: all three non-field delimiters sit literally inside the
+  // delimiter declaration, so the generic tokenizer would split the declaration on its own repeat
+  // and component characters and report its escape character as unpaired.
   const fields =
     rawType === "H"
-      ? tokenizeHeader(line, d, onUnknownEscape)
-      : tokenizeRecord(line, d, onUnknownEscape);
+      ? tokenizeHeader(line, d, onUnknownEscape, onUnpairedEscape)
+      : tokenizeRecord(line, d, onUnknownEscape, onUnpairedEscape);
 
   // A record that carries content beyond its type letter but yields exactly ONE field contains no
   // field separator at all, so the delimiters in force are not the set this record was written
@@ -320,11 +326,11 @@ function buildRecord(
   //     `|` in an otherwise `*`-separated record is enough, and the value is lost just the same.
   //     This can happen to one record INSIDE a run of these warnings, so a run is not a sweep of
   //     the records it spans.
-  //   * A set differing in the REPEAT, COMPONENT or ESCAPE role usually splits into fields normally,
-  //     and nothing here sees it. A mis-split component can cost a test identity while the value
-  //     survives; an ESCAPE character occurring literally in a record merges every field after it,
-  //     which costs the value, the units and the status together (a lone `&` under the canonical
-  //     set leaves a 9-field `R` reading as 4, silently). That last one is its own recorded defect.
+  //   * A set differing in the REPEAT or COMPONENT role usually splits into fields normally, and
+  //     nothing here sees it. A mis-split component can cost a test identity while the value
+  //     survives. The ESCAPE role no longer merges fields at all: an escape character that heads no
+  //     sequence is read as a literal and reported (`ASTM_UNPAIRED_ESCAPE_CHARACTER`), so a record
+  //     carrying one still splits on every delimiter after it.
   //
   // So the absence of this warning is NOT evidence that a record was read in its own set. Widening
   // it would mean deciding which set a record "should" have had, which is the same guess again.

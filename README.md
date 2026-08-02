@@ -143,6 +143,21 @@ produce a confident wrong value: an embedded escaped delimiter reads as one comp
 record type is surfaced (never dropped), and a missing unit is flagged (never defaulted). A
 `{ strict: true }` mode escalates every tolerated deviation to a thrown error.
 
+### An unescaped ampersand does not cost you the rest of the record
+
+An escape sequence is the escape character, **one** body character, and the escape character again
+(`&F&` `&S&` `&R&` `&E&`). An escape character that heads no such sequence is not an escape: it is
+read as the literal character it is, every delimiter after it still splits the record, and
+`ASTM_UNPAIRED_ESCAPE_CHARACTER` reports it. So `R|1|^^^687|28.6&|U/L||N||F` reads a value of
+`28.6&` with units `U/L` and status `final`, and `O&Brien` in a surname keeps the patient's birth
+date and sex.
+
+The parser does not decide what the sender meant by the character: it keeps the byte that arrived
+and says so. The spec-clean way to send a literal escape character is `&E&`, which is what this
+package's serializer emits, so a stream it produced never trips the code. The code is **tolerable**,
+so a vendor profile can expect it on a feed that sends bare ampersands and still parse
+`{ strict: true }`.
+
 ### Several messages in one stream
 
 A message runs from its `H` header to its `L` terminator, so a stream can carry several. `messages()`
@@ -203,17 +218,13 @@ outside it:
   the value, the units and the status with no warning at all, while the identical record without
   that one byte is reported. This also happens **inside** a run of these warnings, so even a run
   does not mean every record in it was checked.
-- A set differing in the **repeat, component or escape** role usually splits into fields normally,
-  and the damage then varies. A mis-split component can cost a test identity while the value and
-  units survive. But an **escape** character occurring literally in a record merges every field
-  after it, which costs the value, the units and the status together, and warns nothing: an
-  ampersand inside a result value or a surname is enough.
+- A set differing in the **repeat or component** role usually splits into fields normally, and the
+  damage then varies. A mis-split component can cost a test identity while the value and units
+  survive.
 
-The first of those is an accepted limit: widening the check would mean deciding which set a record
-ought to have had, which is the same guess the parser declines to make elsewhere, so it is written
-down rather than papered over. The escape case is **not** an accepted limit but a known open defect,
-and note it needs no delimiter difference at all to bite: an ampersand in a value corrupts a wholly
-canonical stream. Read the warning as "this record definitely lost its fields", never as "no other
+Both are accepted limits: widening the check would mean deciding which set a record ought to have
+had, which is the same guess the parser declines to make elsewhere, so they are written down rather
+than papered over. Read the warning as "this record definitely lost its fields", never as "no other
 record did". If
 delimiter drift is a real risk on your feed, parse with `{ strict: true }`, which refuses both an
 outright collapse and an unrecognized type letter, and treat `ASTM_RECORD_UNKNOWN_TYPE` as

@@ -68,6 +68,20 @@ the parser does not recognize is surfaced as `"undefined"`, never coerced to `"n
 unparseable reference range is surfaced verbatim with no invented bound. In every case the library
 refuses to hand you a confident wrong value: inspect the warning and decide.
 
+## `ASTM_UNPAIRED_ESCAPE_CHARACTER`: a value carries a bare ampersand
+
+An escape sequence is the escape character, **one** body character, and the escape character again
+(`&F&` `&S&` `&R&` `&E&`). An escape character that heads no such sequence is not an escape: it is
+kept as the literal character it is, and every delimiter after it still splits the record. So
+`R|1|^^^687|28.6&|U/L||N||F` gives you a value of `28.6&` with its units and its `final` status
+intact, and `O&Brien` in a surname leaves the birth date and sex where they are.
+
+The warning says the sender did not write the character the spec-clean way, which is `&E&`. The
+parser does not guess which it meant: it keeps the byte that arrived and reports it. If your feed
+does this routinely, the code is **tolerable**, so a vendor profile can expect it and let you keep
+parsing `{ strict: true }`. Emitting is unaffected: this package always writes a literal escape
+character as `&E&`, so a stream it produced never raises the code.
+
 ## A framed stream lost a frame, or a checksum is wrong
 
 The frame layer validates every modulo-256 checksum and tracks the frame-number sequence. A

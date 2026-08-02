@@ -88,6 +88,21 @@ const CLEAN = twoMessages("H|\\^&|||ANALYZER^1\r");
  */
 const MANGLED = twoMessages(" H|\\^&|||ANALYZER^1\r");
 
+/**
+ * What a lenient parse of {@link MANGLED} reports, in order.
+ *
+ * The second code is **incidental to this fixture, not a second reader of the mangled header**. The
+ * stray byte means the line is not tokenized as a header, so the delimiter declaration it carries is
+ * read as ordinary data, and the escape character in it heads no `&X&` sequence: that is an
+ * `ASTM_UNPAIRED_ESCAPE_CHARACTER` on its own terms. A mangled header whose declaration happened to
+ * carry no escape character would report only the first code, and the merge would be identical.
+ * Nothing here recognizes the line as a header, and nothing may start to.
+ */
+const MANGLED_CODES = [
+  WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+  WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE,
+];
+
 describe("an unrecognized header re-merges two messages", () => {
   it("control: a recognized second header opens its own message, and nothing is warned", () => {
     const msg = parseAstmRecords(CLEAN);
@@ -137,10 +152,11 @@ describe("an unrecognized header re-merges two messages", () => {
     expect(results(msg)).toHaveLength(2);
   });
 
-  it("the ASTM_RECORD_UNKNOWN_TYPE warning is the entire signal, and strict mode refuses", () => {
+  it("ASTM_RECORD_UNKNOWN_TYPE is the only signal OF THE MERGE, and strict mode refuses", () => {
     const msg = parseAstmRecords(MANGLED);
-    expect(msg.warnings.map((w) => w.code)).toEqual([WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE]);
-    expect(msg.warnings[0]?.position).toMatchObject({ recordIndex: 5 });
+    expect(msg.warnings.map((w) => w.code)).toEqual(MANGLED_CODES);
+    // Both land on the record the stray byte made unreadable; neither identifies it as a header.
+    for (const w of msg.warnings) expect(w.position).toMatchObject({ recordIndex: 5 });
     expect(() => parseAstmRecords(MANGLED, { strict: true })).toThrow(AstmStrictError);
   });
 
@@ -278,12 +294,13 @@ describe("ASTM_RECORD_UNKNOWN_TYPE is not a code a profile may tolerate", () => 
     expect(isSafetyCriticalCode(WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE)).toBe(true);
   });
 
-  it("the allow-list is exactly the three codes that survived the re-derivation", () => {
+  it("the allow-list is exactly the codes that survived the re-derivation", () => {
     expect([...TOLERABLE_CODES].sort()).toEqual(
       [
         WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
         WARNING_CODES.ASTM_RECORD_UNINTERPRETED_QUERY_STATUS,
         WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
+        WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
       ].sort(),
     );
     // Still a partition: every known code is on exactly one side.
@@ -347,7 +364,17 @@ describe("ASTM_RECORD_UNKNOWN_TYPE is not a code a profile may tolerate", () => 
         tolerate: [{ code, rationale: "a deviation this profile expects" }],
       });
       const msg = parseAstmRecords(MANGLED, { profile });
-      expect(msg.warnings.map((w) => w.code)).toEqual([WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE]);
+      // The boundary report is still there, still under its own code, still not `expected`. A
+      // profile tolerating a code this fixture also happens to raise re-badges THAT one and only
+      // that one, which is why this asserts the survivor rather than the whole array.
+      const boundary = msg.warnings.filter(
+        (w) => w.code === WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE,
+      );
+      expect(boundary).toHaveLength(1);
+      expect(boundary[0]?.expected).toBeUndefined();
+      expect(msg.warnings.map((w) => w.toleratedCode)).not.toContain(
+        WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE,
+      );
       expect(() => parseAstmRecords(MANGLED, { strict: true, profile })).toThrow(AstmStrictError);
     }
   });
@@ -377,8 +404,9 @@ describe("ASTM_RECORD_UNKNOWN_TYPE is not a code a profile may tolerate", () => 
 
     it("passed per call: the warning survives and strict still refuses", () => {
       const msg = parseAstmRecords(MANGLED, { profile: handAuthored });
-      expect(msg.warnings.map((w) => w.code)).toEqual([WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE]);
-      expect(msg.warnings[0]?.expected).toBeUndefined();
+      expect(msg.warnings.map((w) => w.code)).toEqual(MANGLED_CODES);
+      // The one the profile named is untouched: not re-badged, not marked expected.
+      expect(msg.warnings.every((w) => w.expected === undefined)).toBe(true);
       expect(() => parseAstmRecords(MANGLED, { strict: true, profile: handAuthored })).toThrow(
         AstmStrictError,
       );
@@ -387,7 +415,7 @@ describe("ASTM_RECORD_UNKNOWN_TYPE is not a code a profile may tolerate", () => 
     it("installed process-wide as the default: same answer, with no call-site evidence", () => {
       setDefaultAstmProfile(handAuthored);
       const msg = parseAstmRecords(MANGLED);
-      expect(msg.warnings.map((w) => w.code)).toEqual([WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE]);
+      expect(msg.warnings.map((w) => w.code)).toEqual(MANGLED_CODES);
       expect(() => parseAstmRecords(MANGLED, { strict: true })).toThrow(AstmStrictError);
     });
 

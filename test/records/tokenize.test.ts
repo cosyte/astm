@@ -56,9 +56,9 @@ describe("fieldScalar", () => {
 });
 
 describe("tokenizeHeader", () => {
-  // The header's own escape char sits LITERALLY inside the delimiter declaration. Fed to the
-  // generic escape-aware split it reads as an unterminated escape, which swallows the rest of
-  // the record into one field and loses every header data field.
+  // The header's declaration carries all three non-field delimiters LITERALLY. Fed to the generic
+  // tokenizer it would be split on its own repeat and component characters and its escape character
+  // would decode and report as unpaired, so the declaration must stay one opaque, undecoded field.
   it("keeps the delimiter declaration opaque and still splits the data fields", () => {
     const fields = tokenizeHeader("H|\\^&|||analyzer^cobas^1|addr", D);
     expect(fields.map((f) => f.raw)).toEqual(["H", "\\^&", "", "", "analyzer^cobas^1", "addr"]);
