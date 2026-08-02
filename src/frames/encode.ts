@@ -204,9 +204,10 @@ function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): n
  * a different character (it used to be truncated to its low byte, which is another
  * ordinary character, and reached the wire silently). To frame content outside
  * Latin-1, encode it with the character encoding your instrument uses and pass the
- * resulting `Uint8Array`. Those two forms are the whole of what `records` accepts:
- * a caller reaching this from JavaScript with some other typed array is outside the
- * signature, and the elements of one are not treated as bytes.
+ * resulting `Uint8Array`. Those two forms are the whole of what `records` accepts.
+ * A caller reaching this from JavaScript with some **other** typed array is outside
+ * the signature and gets no such refusal: each element is still written as its low
+ * byte, the same substitution described above. Pass a `Uint8Array` or a string.
  *
  * That covers the string-to-bytes step only. It is **not** a guarantee that any
  * accepted record reads back: a record already carrying an `STX`, `ETX` or `ETB`

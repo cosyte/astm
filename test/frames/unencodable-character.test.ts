@@ -227,7 +227,6 @@ describe("the property, stated with its bound", () => {
    */
   const FRAME_STRUCTURE_BYTES = ["\u0002", "\u0003", "\u0017"];
 
-  /** Every code unit in 0x00 to 0xFF, long enough to be split across frames. */
   /**
    * Every byte except the three the frame layer reserves as structure. The LONG
    * arm draws from this alphabet rather than filtering afterwards: a 241-byte
@@ -239,6 +238,7 @@ describe("the property, stated with its bound", () => {
     (b) => b !== 0x02 && b !== 0x03 && b !== 0x17,
   );
 
+  /** A record string of Latin-1 bytes, long enough that some cross the frame split. */
   const latin1Record = fc
     .oneof(
       // fast-check biases array length low, so one arbitrary with a large

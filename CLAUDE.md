@@ -464,9 +464,13 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    cases, so the property's own wording was carrying more than the evidence did.
    **One residue, stated rather than left to be found:** the guard is on the `string` branch of
    `toBytes`, so a JavaScript caller passing some other typed array (a `Uint16Array`) still gets the
-   old low-byte corruption from `Uint8Array.from`. That is outside the declared `Uint8Array | string`
-   signature and no TypeScript consumer can reach it, so the doc comment is scoped to the two
-   accepted forms rather than claiming coverage it does not have. `PRE-EXISTING`. Originally found by
+   old low-byte corruption from `Uint8Array.from`: measured, each element is written as its low byte
+   and a `Uint16Array` carrying `U+03BC` reads back `¼`, `warnings: []`. That is outside the declared
+   `Uint8Array | string` signature and no TypeScript consumer can reach it. The doc comment is scoped
+   to the two accepted forms **and says what happens to any other typed array**, rather than implying
+   the refusal covers it: a first draft of that sentence claimed the elements "are not treated as
+   bytes", which is false, and a false sentence in a comment that compiles into `dist/index.d.ts` is
+   worse than the silence it replaced. `PRE-EXISTING`. Originally found by
    the `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29; the residue and the thin
    generator both found by the `conformance-refuter` grading `ASTM-FRAME-BYTE-RESIDUALS` 2026-08-02.
 
