@@ -73,10 +73,15 @@ stream it yields exactly one entry.
 
 > **Check for an `ASTM_RECORD_UNKNOWN_TYPE` warning before you trust a split.** Grouping reads each
 > record's type letter, so a header the reader does not recognize as a header, one carrying a stray
-> leading byte for instance, opens no message and the messages either side of it merge. The parser
+> leading byte for instance, opens no message and the messages either side of it merge, so a patient
+> can end up holding results that arrived under a different header. Delimiters are re-read at each
+> header too, so if the unrecognized one declared a different set, the records after it are read with
+> the previous set and their fields can be lost rather than merely misfiled. The parser
 > reports that record as an unsupported record and warns, and a `{ strict: true }` parse refuses the
-> stream outright. On such a stream that warning is the only one raised, so a profile is **not**
-> allowed to tolerate the code: naming it in `tolerate` throws from `defineAstmProfile()`. Reading
+> stream outright. That warning is the only report the merge produces, so a profile is **not**
+> allowed to tolerate it: naming it in `tolerate` throws from `defineAstmProfile()`, and a warning
+> carrying it is not downgraded whatever profile is in force. Match on the code rather than gating
+> on the warning count, because the records that merged in can raise warnings of their own. Reading
 > it as cosmetic noise is what puts a patient back next to somebody else's result.
 
 ```ts

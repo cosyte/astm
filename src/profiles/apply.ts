@@ -15,6 +15,7 @@
 import { profileQuirkApplied, type AstmRecordWarning } from "../common/warnings.js";
 import type { AstmFraming } from "../ltp/transport.js";
 
+import { isSafetyCriticalCode } from "./safety.js";
 import type { AstmProfile, AstmQuirkTolerance } from "./types.js";
 
 /**
@@ -45,6 +46,17 @@ function toleranceApplies(tolerance: AstmQuirkTolerance, warning: AstmRecordWarn
  * never reallocated). A warning that is already `expected` (e.g. re-processed) is
  * passed through untouched.
  *
+ * **The safety gate is re-checked here, and that is not redundant.**
+ * {@link defineAstmProfile} refuses a safety-critical code at definition time, but
+ * {@link AstmProfile} is a plain interface: a hand-authored object literal
+ * type-checks, and `parseAstmRecords(raw, { profile })` and `setDefaultAstmProfile`
+ * both accept one without re-running the factory. A definition-time-only gate
+ * therefore guards a door that has a second entrance. A safety-critical code is
+ * **not downgraded here whatever the profile says**, so the original warning
+ * survives and `strict` still escalates it. Silently declining to downgrade, rather
+ * than throwing, is the fail-safe direction: the signal is preserved either way, and
+ * a parse is not turned into an exception by a profile the caller built by hand.
+ *
  * @param profile - The active profile.
  * @param warning - One accumulated warning.
  * @returns The re-badged warning when tolerated, else the original.
@@ -62,6 +74,7 @@ export function applyAstmProfile(
   warning: AstmRecordWarning,
 ): AstmRecordWarning {
   if (warning.expected === true) return warning;
+  if (isSafetyCriticalCode(warning.code)) return warning;
   for (const tolerance of profile.tolerate) {
     if (toleranceApplies(tolerance, warning)) {
       return profileQuirkApplied(warning, profile.name);

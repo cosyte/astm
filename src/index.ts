@@ -163,7 +163,8 @@ export { deepFreeze } from "./common/freeze.js";
 
 // ── The vendor profile system (P8): the engine + registry + tolerance transform ──
 // `defineAstmProfile` builds an immutable, provenance-backed profile with a
-// definition-time safety gate (a profile can never tolerate a safety-critical
+// safety gate enforced both at definition time and again when a warning would be
+// downgraded (a profile can never tolerate a safety-critical
 // deviation, and never alters an extracted value: it only re-badges an expected
 // warning to PROFILE_QUIRK_APPLIED and can force the raw-vs-framed transport). The
 // built-in registry ships `default` + the corpus-grounded `referenceCorpus`; named

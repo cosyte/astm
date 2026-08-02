@@ -90,8 +90,9 @@ import type { AnyAstmWarningCode } from "./types.js";
 /**
  * The **only** warning codes a profile may list in its `tolerate` set: benign
  * structural or syntactic vendor noise that cannot alter, drop, or fabricate an
- * extracted value, **and** that nothing in this package reads to decide where one
- * message ends and the next begins. Frozen so it cannot be mutated at runtime to
+ * extracted value, **and** whose reported condition nothing else in this package
+ * reads: not to decide where one message ends and the next begins, and not to
+ * decide what kind of message it is. Frozen so it cannot be mutated at runtime to
  * smuggle a code in. Adding to this set is a deliberate, reviewable act, and an
  * addition has to satisfy both halves of that test, not just the first.
  *

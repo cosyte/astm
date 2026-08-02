@@ -132,7 +132,10 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 - **BREAKING: a profile may no longer tolerate `ASTM_RECORD_UNKNOWN_TYPE`**
   (`ASTM-UNKNOWN-RECORD-REMERGE`). The code moves off the profile safety gate's tolerable
   allow-list and onto the safety-critical set, so `defineAstmProfile({ tolerate: [...] })` naming
-  it now throws `AstmProfileDefinitionError` at definition time instead of building a profile.
+  it now throws `AstmProfileDefinitionError` at definition time instead of building a profile, and
+  the gate is re-checked when a warning would be downgraded, so a profile assembled as a plain
+  object rather than through the factory gets the same answer (it declines to downgrade rather than
+  throwing, so a hand-authored profile still parses, it just cannot quiet a safety-critical code).
   `TOLERABLE_CODES` goes from four members to three (`ASTM_NONSTANDARD_DELIMITERS`,
   `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`) and
   `SAFETY_CRITICAL_CODES` / `isSafetyCriticalCode()` answer accordingly. No built-in profile
@@ -180,8 +183,12 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   warning reports**, and that second clause is a claim about the whole library which can stop being
   true without anyone editing `safety.ts`. It is a review obligation, not a mechanical check, and
   the file says so rather than implying a gate that does not exist. The three surviving codes were
-  each re-derived against message grouping and are measured to leave the message partition
-  identical whether or not a profile downgrades them.
+  each re-derived against both readers of record structure, and each is measured by comparing the
+  same logical stream with the reported condition present and absent. That is deliberately not a
+  comparison of a parse with a profile against one without: the profile transform runs after the
+  records are built, so the second comparison is identical for every code and would have passed for
+  the one just removed. The comparison actually used is exercised on the mangled-header pair as a
+  negative control, where it has to fail.
 
   **Evidence, labelled.** The `H` … `L` message unit is _verified primary_ and its grounding is
   recorded on `messages()`, unchanged here. The allow-list itself is **this library's own policy,

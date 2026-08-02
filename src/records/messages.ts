@@ -37,8 +37,12 @@
  * side of it merge: a patient from the first is then paired with results from the second, which
  * is the precise pairing {@link messages} exists to prevent. The parser does report it, as an
  * `ASTM_RECORD_UNKNOWN_TYPE` warning against that record, and a strict parse refuses the stream
- * outright. Because that warning is the only report the merge produces, a profile is **not**
- * permitted to tolerate the code and quiet it; the safety gate refuses it at definition time. Read an
+ * outright. The cost is not only misattribution: delimiters are re-read at each `H` too, so an
+ * unrecognized header does not re-scope them either, and where the sets differ the merged tail is
+ * tokenized with the previous header's delimiters and its fields are lost rather than merely
+ * misfiled. Because that warning is the only report the merge produces, a profile is **not**
+ * permitted to tolerate the code and quiet it; the safety gate refuses the code when a profile is
+ * defined, and declines to downgrade the warning whatever profile is in force. Read an
  * `ASTM_RECORD_UNKNOWN_TYPE` on a stream you are about to group as "a message boundary may be
  * missing here", not as cosmetic noise.
  *

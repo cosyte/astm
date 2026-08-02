@@ -285,9 +285,26 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    **What changed:** `ASTM_RECORD_UNKNOWN_TYPE` was on the profile safety gate's **tolerable**
    allow-list, so a consumer profile tolerating it re-badged the only signal to
    `PROFILE_QUIRK_APPLIED` and `{ strict: true }` then accepted the stream. It is now
-   safety-critical, so no definable profile reaches it and a strict parse of a merged stream throws
-   whatever profile is in force. Measured, both directions, in
+   safety-critical, so no profile reaches it and a strict parse of a merged stream throws whatever
+   profile is in force. Measured, both directions, in
    `test/profiles/unknown-record-type-safety.test.ts`.
+   **▶ THE GATE IS NOW ENFORCED AT TWO POINTS, AND THE SECOND ONE IS LOAD-BEARING.** `AstmProfile`
+   is a plain exported interface whose own docs say hand-authoring is supported, so an object
+   literal naming a safety-critical code type-checks with no cast, and both a per-call `profile`
+   option and `setDefaultAstmProfile` accept one **without re-running the factory**. A
+   definition-time-only gate therefore guarded a door with a second entrance, and the refuter walked
+   through it: a hand-authored profile reproduced the full defect on the fixed tree. `applyAstmProfile`
+   now re-checks `isSafetyCriticalCode` before downgrading anything. It **declines rather than
+   throws**, so a hand-authored profile still parses and the original warning simply survives. Do not
+   "simplify" that check away as redundant with `defineAstmProfile`: it is the only one of the two
+   that a hand-authored profile passes through.
+   **▶ THE COST IS VALUE LOSS, NOT ONLY MISATTRIBUTION.** Delimiters are re-read at each `H`, keyed
+   on the same letter, so an unrecognized header does not re-scope them either. Where it declared a
+   different set, the merged tail is tokenized with the previous header's delimiters: measured, a
+   `99.9 mmol/L` final result reads back with no value, no units and status `unspecified`, filed
+   under the first message's patient, with `ASTM_RECORD_UNKNOWN_TYPE` as the only report. That is
+   `ASTM-SECOND-HEADER-COLLAPSE` reachable through a mangled header. `PRE-EXISTING` in `parse.ts`
+   and **not fixed here**; pinned in the test file so it cannot regress unnoticed.
    **▶ THE TYPE LETTER HAS A SECOND LOAD-BEARING READER, FOUND WHILE RE-DERIVING THE ALLOW-LIST.**
    `classifyMessage` counts `Q`/`R`/`O` by letter, so an unrecognized `Q` defeats the "`Q` dominates,
    a query is never read as a result set" fail-safe: `H|\^&` + a mangled `Q` + an `R` classifies as
