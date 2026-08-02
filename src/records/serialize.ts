@@ -453,16 +453,20 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
  * were unprintable inside a declaration whose meaning is already unresolved.
  *
  * **What this rule does not reach**, stated rather than left to be discovered.
- * It is keyed on the *character*, while the frame layer's structure is keyed on
- * the low byte: `src/frames/encode.ts` writes `charCodeAt(i) & 0xff`, so a
- * non-control character whose code point truncates onto `STX`/`ETX`/`ETB`
- * (`U+0102`, `U+0103`, `U+0117`) passes this guard and still breaks framing. It
- * fails loudly when it does (a typed parse error, or an unknown-record-type
- * warning), never silently, so the property this module holds is intact; the
- * truncation itself is a frame-layer defect that predates this rule and is
- * recorded separately. Nor does refusing a control character *here* imply one
- * cannot be a **delimiter role**: only `CR`/`LF` are refused as delimiters, so a
- * set declaring `STX` as its component separator is still accepted.
+ * It is keyed on the *character*, so a surplus character above `U+00FF` passes
+ * it: nothing in this rule's character classes matches one, and a control
+ * character is not what it is. The frame layer is where that is settled now,
+ * because that is where a string becomes bytes: `composeAstmFrames` refuses a
+ * character with no single byte to stand for
+ * (`ASTM_FRAME_UNENCODABLE_CHARACTER`) instead of truncating it to its low byte,
+ * which used to let one land on `STX`/`ETX`/`ETB` and break framing, or on an
+ * ordinary byte and alter the value in silence. A record-only emit
+ * (`serializeAstmRecords`) still carries such a surplus through, and that is
+ * deliberate: a returned `string` is not yet bytes and the caller may encode it
+ * however their instrument does. Nor does refusing a control character *here*
+ * imply one cannot be a **delimiter role**: only `CR`/`LF` are refused as
+ * delimiters, so a set declaring `STX` as its component separator is still
+ * accepted.
  *
  * Losing a field is a structural loss; dropping inert bytes is not.
  *

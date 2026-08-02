@@ -82,11 +82,18 @@ export function parseFramedAstm(
  * {@link decodeAstmFrames} reassembles: `parseFramedAstm(serializeFramedAstm(msg))`
  * yields an equal message.
  *
+ * A value carrying a character above `U+00FF` is **refused** here rather than
+ * framed: the record layer is happy to hold one, but a frame carries bytes and
+ * nothing in the message says which character encoding to turn it into. A message
+ * whose every value is Latin-1 is unaffected.
+ *
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
  * @param options - Frame-encode options.
  * @returns The framed byte stream.
  * @throws {@link AstmSerializeError} when a value contains an unencodable `CR`/`LF`.
- * @throws {@link AstmFrameEncodeError} when there are no records to frame.
+ * @throws {@link AstmFrameEncodeError} when there are no records to frame
+ *   (`ASTM_FRAME_EMPTY_RECORD`), or a value holds a character above `U+00FF`
+ *   (`ASTM_FRAME_UNENCODABLE_CHARACTER`).
  * @example
  * ```ts
  * import { parseAstmRecords, serializeFramedAstm, parseFramedAstm } from "@cosyte/astm";

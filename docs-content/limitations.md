@@ -58,6 +58,14 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   that define it are not in the freely available text), and guessing it is the wrong-patient failure
   by another route. Messages carrying several patients are real, chiefly on the download direction,
   so treat this as a boundary to handle rather than a case that will not arise.
+- **No choice of character encoding.** A frame carries **bytes**, and nothing this library reads from
+  an ASTM stream says which character encoding those bytes are in: that is out-of-band knowledge your
+  instrument's interface document holds. So a record handed to `composeAstmFrames` as a `string` is
+  read as one byte per character, and a character above `U+00FF` is **refused**
+  (`ASTM_FRAME_UNENCODABLE_CHARACTER`) rather than encoded on a guess. To put content outside Latin-1
+  on the wire, encode it yourself with the code page your instrument uses and pass the resulting
+  `Uint8Array`, which `composeAstmFrames` writes through untouched. The record layer is unaffected:
+  `serializeAstmRecords` returns a `string` and what you encode it with is yours to decide.
 - **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
   does **not** decide whether a value is "critical" or act on a correction/cancel.
 - **No proof that an arbitrary delimiter set round-trips.** Emit checks the three conditions readback
