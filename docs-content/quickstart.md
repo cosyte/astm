@@ -325,6 +325,14 @@ const bytes = serializeFramedAstm(msg); // spec-clean framed stream
 results(parseFramedAstm(bytes).message)[0]?.value; // => "28.6"
 ```
 
+A frame carries **bytes**, so a record passed as a `string` is read as one byte per
+character. A character above `U+00FF` has no byte to stand for, and nothing in an
+ASTM stream says which character encoding to turn it into, so it is refused with
+`ASTM_FRAME_UNENCODABLE_CHARACTER` rather than quietly written as a different
+character. To frame content outside Latin-1, encode it with the code page your
+instrument uses and pass the `Uint8Array`: `composeAstmFrames` takes bytes directly
+and writes them through untouched.
+
 ## Map a local code to LOINC (LIVD, bring-your-own)
 
 An analyzer transmits a proprietary **local** test code in the Universal Test ID; a

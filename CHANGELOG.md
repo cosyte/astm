@@ -9,6 +9,68 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ## [Unreleased]
 
+### Fixed
+
+- **The frame encoder no longer writes a different character than the one it was handed**
+  (`ASTM-FRAME-BYTE-RESIDUALS`, closing known defect 7). `composeAstmFrames` turned a record given
+  as a `string` into bytes with `charCodeAt(i) & 0xff`, so any character above `U+00FF` was replaced
+  by its low byte. That low byte is another perfectly ordinary character, which is why the
+  substitution was **silent**: it reached the wire, checksummed clean, and came back with an empty
+  warnings array from **both** layers.
+
+  Measured, on this package's own round trip, three shapes on the canonical set:
+  - `R|1|^^^687|28.6|μmol/L||N||F` read back `28.6` in `¼mol/L` (`U+03BC` low byte `0xBC`). A lab
+    number whose **units** silently changed.
+  - `P|1||LAB-0001||ŁUKASZ^JAN||19800101|M` read back the name spelled `AUKASZ` (`U+0141` low byte
+    `0x41`).
+  - `P|1||LAB-0001||GRAżYNA^ANNA||19800101|F` read back as **ten fields where the record models
+    nine** (`U+017C` low byte `0x7C`, the field separator). Every field after the split shifted one
+    along, so `patient().sex` answered `19800101` and the birth date was gone. That is **silent
+    re-read divergence**: a different field tree, `warnings: []` at both layers.
+
+  The known-defect entry said this class fails loudly in every case measured, and for the cases it
+  had measured that was true: they all truncated onto `STX`/`ETX`/`ETB`/`CR`. Nothing had measured a
+  code point whose low byte is an ordinary character, and that is the larger and quieter class.
+
+  **The disposition is a refusal, and it invents nothing.** `composeAstmFrames` now throws
+  `AstmFrameEncodeError` with the new `ASTM_FRAME_UNENCODABLE_CHARACTER` code, carrying the record
+  index and the character's index, never the character and never its code point. The alternative,
+  encoding as UTF-8, was **considered and rejected**: turning a character into bytes requires a
+  character encoding, this library reads no character-set declaration from any ASTM record, and
+  picking one would be a guess at bytes the caller never supplied, in a package that declines to
+  infer a delimiter set, a record type letter or a code system. Emit also has no warning channel, so
+  a warning could only have been ignored while the wrong bytes still shipped. That is the same
+  argument already written for `ASTM_EMIT_UNENCODABLE_VALUE` and `ASTM_EMIT_INVALID_DELIMITERS`.
+
+  **What grounds the Latin-1 boundary**, since no clause is claimed for it and none was read. Two
+  things, both firsthand. (1) This package's own byte-to-string boundary is already Latin-1, on the
+  read side, deliberately: `parseAstmRecords` decodes with one `String.fromCharCode` per byte "so
+  every byte survives 1:1". The encoder is documented as the exact inverse of the decoder, and the
+  decoder can never produce a code point above `U+00FF`, so a string carrying one is outside the
+  codec's domain by construction. (2) The redistributable OSS reference implementation
+  (`kxepal/python-astm`, BSD) parameterizes the codec on `encoding` throughout
+  (`encode(records, encoding=ENCODING, ...)` / `decode(data, encoding=ENCODING)`) and defines
+  `ENCODING = 'latin-1'` in `astm/constants.py`: the wire code page there is caller-supplied
+  out-of-band knowledge with a latin-1 default, not something a reader discovers from the stream.
+  **The normative text was not reachable and no clause is cited**: LIS02-A2 is withheld from CLSI's
+  free sample and E1394-97 / LIS01-A2 are paywalled, so this is a reasoned choice, exactly as the
+  delimiter-scoping and surplus-declaration choices before it were.
+
+  **The refusal removes no capability.** `composeAstmFrames` already accepted `Uint8Array`, so a
+  consumer who knows their instrument's code page encodes with their own encoder and passes bytes,
+  which are written through untouched. A stream whose every character is Latin-1 is byte-identical
+  to before, the full `0x00`–`0xFF` range included. The **record** layer is deliberately unchanged:
+  `serializeAstmRecords` returns a `string`, which is not yet bytes, so the caller keeps the choice.
+
+  **Stated no wider than it was measured.** This closes the string-to-bytes step only. It is not a
+  claim that every accepted record reads back: a record already carrying a raw `STX`/`ETX`/`ETB`
+  byte is framed as given and re-decodes wrong (known defect 6), which this change does not touch
+  and pins as out of scope in `test/frames/unencodable-character.test.ts`. A surrogate pair needs no
+  separate rule, each half being above `U+00FF` itself. New export `AstmFrameEncodeErrorCode`;
+  `AstmFrameEncodeError.code` is now that union and gains a `characterIndex`. The property "either
+  refuse the record string or reproduce it byte for byte" is asserted over 2,000 generated cases,
+  with its bound written into the test and a non-vacuity check that both sides of it are reached.
+
 ### Added
 
 - **`ASTM_RECORD_FIELDS_UNSEPARATED`: a record that lost its fields no longer loses them in

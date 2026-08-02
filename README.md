@@ -39,7 +39,10 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
   frame them with computed checksums, frame numbers, and the 240-byte split. Both layers round-trip by
   construction, and a delimiter set that fails any of the three conditions readback requires (one
   character per separator, no `CR`/`LF`, no two the same) is a typed error rather than bytes written
-  and lost.
+  and lost. A frame carries **bytes**, so a record handed to `composeAstmFrames` as a `string` is one
+  byte per character and a character above `U+00FF` is a typed error too: the encoder will not pick a
+  character encoding for you, and it never quietly writes a different character than the one you gave
+  it. Encode such content yourself and pass the `Uint8Array`.
 - **Vendor profiles.** `defineAstmProfile()` builds a provenance-backed profile whose tolerances
   downgrade _expected_, non-safety-critical deviations to a `PROFILE_QUIRK_APPLIED` warning without
   ever altering a value, behind a safety gate that refuses to tolerate any result value, flag,

@@ -244,7 +244,7 @@ export type { LtpPhase, LtpState, LtpEvent, LtpAction, LtpTransition } from "./l
 // ── The E1381 / CLSI-LIS01 framing layer (P5) ──
 export { decodeAstmFrames } from "./frames/decode.js";
 export { composeAstmFrames, AstmFrameEncodeError } from "./frames/encode.js";
-export type { ComposeFramesOptions } from "./frames/encode.js";
+export type { AstmFrameEncodeErrorCode, ComposeFramesOptions } from "./frames/encode.js";
 export { parseFramedAstm, serializeFramedAstm } from "./frames/compose.js";
 export type { FramedAstmResult } from "./frames/compose.js";
 export { computeChecksum, toChecksumHex, parseChecksumHex } from "./frames/checksum.js";
