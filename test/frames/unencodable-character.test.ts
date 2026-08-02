@@ -210,6 +210,15 @@ describe("the property, stated with its bound", () => {
    * the decoder gives back exactly the bytes it stood for. Never a third outcome,
    * which is what the truncation was.
    *
+   * The two sides are generated **separately and deliberately**, rather than by
+   * filtering one arbitrary string generator. A single unfiltered generator over
+   * arbitrary code points sends almost every case down the refusal branch, so the
+   * reproduction half is measured on a handful of short ASCII strings and carries
+   * far less evidence than the property's wording implies. The Latin-1 generator
+   * below spans the **whole** 0x00 to 0xFF range and runs long enough to cross the
+   * 240-byte frame split, and the non-vacuity block asserts both of those are
+   * actually reached rather than merely counting runs.
+   *
    * The bound is explicit and is not an oversight: a record already carrying a
    * frame-structure byte (`STX`/`ETX`/`ETB`) is excluded, because the encoder
    * accepts it, frames it as given, and the decoder then reads it wrong. That is a
@@ -218,20 +227,66 @@ describe("the property, stated with its bound", () => {
    */
   const FRAME_STRUCTURE_BYTES = ["\u0002", "\u0003", "\u0017"];
 
-  it("either refuses a record string or reproduces it byte for byte", () => {
+  /** Every code unit in 0x00 to 0xFF, long enough to be split across frames. */
+  /**
+   * Every byte except the three the frame layer reserves as structure. The LONG
+   * arm draws from this alphabet rather than filtering afterwards: a 241-byte
+   * uniform-random record has only about a 6% chance of avoiding all three, so a
+   * filtered long arm is almost entirely discarded and the 240-byte split goes
+   * unexercised. The non-vacuity block below is what measured that.
+   */
+  const FRAMABLE_BYTES = Array.from({ length: 256 }, (_, i) => i).filter(
+    (b) => b !== 0x02 && b !== 0x03 && b !== 0x17,
+  );
+
+  const latin1Record = fc
+    .oneof(
+      // fast-check biases array length low, so one arbitrary with a large
+      // maxLength never actually crosses the split. The long arm is explicit.
+      {
+        weight: 3,
+        arbitrary: fc.array(fc.integer({ min: 0, max: 0xff }), { minLength: 1, maxLength: 240 }),
+      },
+      {
+        weight: 2,
+        arbitrary: fc.array(fc.constantFrom(...FRAMABLE_BYTES), {
+          minLength: 241,
+          maxLength: 700,
+        }),
+      },
+    )
+    .map((codes) => codes.map((c) => String.fromCharCode(c)).join(""));
+
+  /** The same, with one character above U+00FF spliced in at an arbitrary position. */
+  const recordWithUnencodable = fc
+    .tuple(latin1Record, fc.integer({ min: 0x100, max: 0x10ffff }), fc.nat())
+    .map(([base, code, at]) => {
+      const i = at % (base.length + 1);
+      return base.slice(0, i) + String.fromCodePoint(code) + base.slice(i);
+    });
+
+  const framable = (record: string): boolean =>
+    !FRAME_STRUCTURE_BYTES.some((c) => record.includes(c));
+
+  it("refuses every record string carrying a character above U+00FF", () => {
     fc.assert(
-      fc.property(fc.string({ minLength: 1, maxLength: 300, unit: "binary" }), (record) => {
-        if ([...record].some((c) => c.charCodeAt(0) > 0xff)) {
-          try {
-            composeAstmFrames([record]);
-            return false; // must not have been framed
-          } catch (err) {
-            return (
-              err instanceof AstmFrameEncodeError && err.code === "ASTM_FRAME_UNENCODABLE_CHARACTER"
-            );
-          }
+      fc.property(recordWithUnencodable, (record) => {
+        try {
+          composeAstmFrames([record]);
+          return false; // must not have been framed
+        } catch (err) {
+          return (
+            err instanceof AstmFrameEncodeError && err.code === "ASTM_FRAME_UNENCODABLE_CHARACTER"
+          );
         }
-        if (FRAME_STRUCTURE_BYTES.some((c) => record.includes(c))) return true; // out of scope
+      }),
+      { numRuns: 2000 },
+    );
+  });
+
+  it("reproduces every framable Latin-1 record byte for byte, with no warning", () => {
+    fc.assert(
+      fc.property(latin1Record.filter(framable), (record) => {
         const decoded = decodeAstmFrames(composeAstmFrames([record]));
         return decoded.warnings.length === 0 && asByteString(def(decoded.records[0])) === record;
       }),
@@ -239,30 +294,69 @@ describe("the property, stated with its bound", () => {
     );
   });
 
-  it("is not vacuous: the generator reaches both sides of the bound", () => {
-    const seen = { refused: 0, reproduced: 0 };
+  it("is not vacuous: the reproduction half reaches high bytes and the frame split", () => {
+    // Counting runs is not evidence. These are the two conditions the property's
+    // wording actually leans on, and an earlier draft of this file reached neither.
+    let highByte = 0;
+    let multiFrame = 0;
+    let excluded = 0;
     fc.assert(
-      fc.property(fc.string({ minLength: 1, maxLength: 40, unit: "binary" }), (record) => {
-        if ([...record].some((c) => c.charCodeAt(0) > 0xff)) seen.refused += 1;
-        else if (!FRAME_STRUCTURE_BYTES.some((c) => record.includes(c))) seen.reproduced += 1;
+      fc.property(latin1Record, (record) => {
+        if (!framable(record)) {
+          excluded += 1;
+          return true;
+        }
+        if ([...record].some((c) => c.charCodeAt(0) >= 0x80)) highByte += 1;
+        if (record.length > 240) multiFrame += 1;
         return true;
       }),
       { numRuns: 2000 },
     );
-    expect(seen.refused).toBeGreaterThan(0);
-    expect(seen.reproduced).toBeGreaterThan(0);
+    expect(highByte).toBeGreaterThan(500);
+    expect(multiFrame).toBeGreaterThan(300);
+    expect(excluded).toBeGreaterThan(0); // the bound excludes something real
   });
 });
 
 describe("the limit of this refusal, pinned so it is not read as wider", () => {
-  it("does not touch a raw control character already in a value", () => {
-    // A record whose value carries an ETX is a single byte, so this guard has
-    // nothing to say about it. It is framed as given and the frame layer then
-    // rejects the record behind a checksum warning: a different open defect,
-    // deliberately not closed here.
+  // A record whose value carries an ETX is a single byte, so the guard above has
+  // nothing to say about it: it is framed as given and the decoder reads the
+  // embedded byte as the frame terminator. That is a different open defect,
+  // deliberately not closed here. BOTH its branches are pinned, because an
+  // earlier draft of this file pinned only the first and then described the
+  // whole defect as failing loudly, which the second branch falsifies.
+
+  it("does not touch a raw control character in a value: the branch that warns", () => {
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|\u0003|N||F\rL|1\r");
     const rt = parseFramedAstm(serializeFramedAstm(msg));
     expect(rt.frameWarnings.map((w) => w.code)).toContain("ASTM_FRAME_BAD_CHECKSUM");
     expect(rt.message.records.map((r) => r.type)).toEqual(["H", "L"]); // the R is gone
+  });
+
+  it("does not touch a raw control character in a value: the branch that is SILENT", () => {
+    // When the two bytes after the embedded ETX happen to BE the truncated
+    // frame's checksum, the short frame verifies, the tail is skipped as
+    // inter-frame bytes and the frame numbers still run in sequence. Nothing
+    // warns, and a whole result record is lost into the previous record's text.
+    const body = "C|1|I|SPECIMEN SLIGHTLY HEMOLYZED";
+    // The checksum composeAstmFrames would emit for that prefix in frame 3
+    // (H, P, then this comment), computed here rather than copied, so the
+    // fixture cannot rot into a merely-invalid one and quietly stop measuring.
+    let sum = (0x30 + 3) % 256;
+    for (const c of body) sum = (sum + c.charCodeAt(0)) % 256;
+    sum = (sum + 0x03) % 256; // the embedded ETX, read as this frame's terminator
+    const forged = sum.toString(16).toUpperCase().padStart(2, "0");
+
+    const msg = parseAstmRecords(
+      `H|\\^&\rP|1||LAB-0001\r${body}\u0003${forged}\rR|1|^^^687|28.6|U/L||N||F\rL|1\r`,
+    );
+    expect(results(msg)).toHaveLength(1); // one final result went in
+
+    const rt = parseFramedAstm(serializeFramedAstm(msg));
+    expect(rt.frameWarnings).toEqual([]); // silent
+    expect(rt.message.warnings).toEqual([]); // at both layers
+    expect(rt.frames.every((f) => f.trusted)).toBe(true);
+    expect(rt.message.records.map((r) => r.type)).toEqual(["H", "P", "C", "L"]);
+    expect(results(rt.message)).toHaveLength(0); // and the result is simply gone
   });
 });

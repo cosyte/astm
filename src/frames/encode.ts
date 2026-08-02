@@ -196,7 +196,7 @@ function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): n
  * across the whole stream; every frame's modulo-256 checksum is computed and
  * emitted uppercase.
  *
- * **A record's bytes are written through unchanged, or the record is refused.** A
+ * **A record in either accepted form is written through unchanged, or refused.** A
  * record given as a `Uint8Array` is already bytes. A record given as a `string` is
  * a **byte string**, character `i` becoming byte `i`, the exact inverse of how a
  * decoded record becomes a string again. A character above `U+00FF` is not a byte,
@@ -204,7 +204,9 @@ function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): n
  * a different character (it used to be truncated to its low byte, which is another
  * ordinary character, and reached the wire silently). To frame content outside
  * Latin-1, encode it with the character encoding your instrument uses and pass the
- * resulting `Uint8Array`.
+ * resulting `Uint8Array`. Those two forms are the whole of what `records` accepts:
+ * a caller reaching this from JavaScript with some other typed array is outside the
+ * signature, and the elements of one are not treated as bytes.
  *
  * That covers the string-to-bytes step only. It is **not** a guarantee that any
  * accepted record reads back: a record already carrying an `STX`, `ETX` or `ETB`

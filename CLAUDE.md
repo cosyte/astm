@@ -391,25 +391,39 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    `encodeLeaf`/`assertEmittableDelimiters` in the **record** serializer rather than in the frame
    encoder, and nothing about the byte-level truncation fix brings the derivation any closer.
    Found by the `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
-6. **Any raw control character in a _value_ survives record emit and then breaks the frame layer.**
-   Emit rejects `CR`/`LF` in a component and nothing else, so a value carrying `STX`/`ETX`/`ETB`
-   passes `serializeAstmRecord`, truncates the frame body in `composeAstmFrames`, and makes
-   `parseFramedAstm` drop the whole record behind an `ASTM_FRAME_BAD_CHECKSUM`. A warning does fire
-   and no value is mis-_read_ (a record is refused, not garbled) which is why this is not a
-   stop-the-line. `PRE-EXISTING`; the surplus half of this was closed by `ASTM-EMIT-RESIDUALS`
-   (`declarationResidual` drops any control character), the **value** half was not.
-   **Deferred, explicitly, by `ASTM-FRAME-BYTE-RESIDUALS`, and this is the adjacent one, so the
-   reason matters most here.** That slice added a guard to the very function this defect passes
-   through, and did not widen it to cover this. Two reasons. It is a **different question**: a
-   truncation is a conversion that loses information and has one honest answer, while an `STX` in a
-   value is a byte the caller genuinely supplied, and refusing it means deciding whether the record
-   layer may hold a byte the frame layer reserves, which changes `serializeAstmRecord` for consumers
-   who never frame anything. And this one **fails loudly** (`ASTM_FRAME_BAD_CHECKSUM`, the record
-   refused rather than garbled) where the truncation failed silently, which is the ordering the
-   whole list is ranked by. It is pinned as out of scope, with the current behaviour asserted, in
-   `test/frames/unencodable-character.test.ts` under "the limit of this refusal", so widening the
-   guard later will red that test rather than pass unnoticed. Found by the `conformance-refuter`
-   grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
+6. **🩺 ANY RAW CONTROL CHARACTER IN A _VALUE_ SURVIVES RECORD EMIT AND THEN BREAKS THE FRAME LAYER,
+   AND ITS WORST BRANCH IS SILENT.** Emit rejects `CR`/`LF` in a component and nothing else, so a
+   value carrying `STX`/`ETX`/`ETB` passes `serializeAstmRecord` and truncates the frame body in
+   `composeAstmFrames`. `PRE-EXISTING`; the surplus half of this was closed by
+   `ASTM-EMIT-RESIDUALS` (`declarationResidual` drops any control character), the **value** half was
+   not.
+   **▶ THIS ENTRY SAID "A WARNING DOES FIRE AND NO VALUE IS MIS-READ (A RECORD IS REFUSED, NOT
+   GARBLED), WHICH IS WHY THIS IS NOT A STOP-THE-LINE". THAT IS FALSE, AND THE CORRECTION IS
+   MEASURED.** It holds only while the two bytes that follow the embedded control character fail to
+   be that truncated frame's checksum. When they **are**, the short frame verifies, the tail is
+   skipped as inter-frame bytes (`decode.ts` resumes at `termIndex + 3` and skips any non-`STX`), the
+   next frame number is still in sequence, and nothing warns at all. Measured, `ASTM_FRAME_BAD_CHECKSUM`
+   absent and `warnings: []` at **both** layers: a `C` comment ending `…HEMOLYZED` + `ETX` + `1C`
+   reassembled without its terminating `CR`, so the following `R` record **merged into the comment's
+   free text** (`"SPECIMEN SLIGHTLY HEMOLYZEDR"`) and a final `28.6 U/L` result **disappeared**,
+   `results()` returning `[]` where the input carried one. Milder variants of the same shape alter a
+   result's units or status instead. So this belongs in the **silent** tier with the truncation that
+   was defect 7, not above it: **it is a stop-the-line candidate and wants scheduling, not parking.**
+   The precondition is a raw control character in a value **and** two following bytes that match
+   (roughly 1 in 256 by accident, trivially constructible on purpose), which bounds the likelihood,
+   not the harm.
+   **▶ IT IS STILL DEFERRED BY `ASTM-FRAME-BYTE-RESIDUALS`, ON THE OTHER REASON ONLY, AND THE
+   RANKING REASON IS WITHDRAWN.** That slice added a guard to the very function this passes through
+   and did not widen it, because this is a **different question**: a truncation is a conversion that
+   loses information and has one honest answer, while an `STX` in a value is a byte the caller
+   genuinely supplied, and refusing it means deciding whether the record layer may hold a byte the
+   frame layer reserves, which changes `serializeAstmRecord` for consumers who never frame anything.
+   That reason survives the correction; "it fails loudly" does not. Both branches are pinned in
+   `test/frames/unencodable-character.test.ts` under "the limit of this refusal", the silent one
+   included, so widening the guard later reds a test rather than passing unnoticed. Found by the
+   `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29; the silent branch found by the
+   `conformance-refuter` grading `ASTM-FRAME-BYTE-RESIDUALS` 2026-08-02, on prose this repo had just
+   written, two entries below the sentence warning against exactly this.
 7. **CLOSED 2026-08-02 by `ASTM-FRAME-BYTE-RESIDUALS`. It was recorded as a LOUD defect and the
    larger half of it was SILENT.** Was: `src/frames/encode.ts` wrote `input.charCodeAt(i) & 0xff`,
    truncating every character to its low byte.
@@ -444,8 +458,17 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    `test/frames/unencodable-character.test.ts`, which asserts on what the OLD encoder produced, not
    merely on the new throw, and carries the property "either refuse the record string or reproduce
    it byte for byte" **with its bound written in**: a record already carrying a raw `STX`/`ETX`/`ETB`
-   is excluded, because that is defect 6 and is still open. Originally found by the
-   `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
+   is excluded, because that is defect 6 and is still open. A non-vacuity block asserts the
+   reproduction half actually reaches high bytes and the 240-byte split rather than counting runs,
+   and it earned its keep immediately: the first generator crossed the split **zero** times in 2,000
+   cases, so the property's own wording was carrying more than the evidence did.
+   **One residue, stated rather than left to be found:** the guard is on the `string` branch of
+   `toBytes`, so a JavaScript caller passing some other typed array (a `Uint16Array`) still gets the
+   old low-byte corruption from `Uint8Array.from`. That is outside the declared `Uint8Array | string`
+   signature and no TypeScript consumer can reach it, so the doc comment is scoped to the two
+   accepted forms rather than claiming coverage it does not have. `PRE-EXISTING`. Originally found by
+   the `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29; the residue and the thin
+   generator both found by the `conformance-refuter` grading `ASTM-FRAME-BYTE-RESIDUALS` 2026-08-02.
 
 8. **CLOSED 2026-08-02 by `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL`. It WAS a stop-the-line, and the
    measurement is why.** Was: `splitEscapeAware` / `decodeEscapes` (`src/common/escapes.ts`) scanned

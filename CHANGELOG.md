@@ -64,8 +64,13 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
   **Stated no wider than it was measured.** This closes the string-to-bytes step only. It is not a
   claim that every accepted record reads back: a record already carrying a raw `STX`/`ETX`/`ETB`
-  byte is framed as given and re-decodes wrong (known defect 6), which this change does not touch
-  and pins as out of scope in `test/frames/unencodable-character.test.ts`. A surrogate pair needs no
+  byte is framed as given and re-decodes wrong (known defect 6), which this change does not touch.
+  **Both** of that defect's branches are now pinned as out of scope in
+  `test/frames/unencodable-character.test.ts`, the warned one and the **silent** one: where the two
+  bytes following the embedded control character happen to be that truncated frame's checksum, the
+  short frame verifies and a whole result record is absorbed into the previous record's text with
+  `warnings: []` at both layers. That branch was found grading this change, reproduces byte-identically
+  on the base, and is why known defect 6's "it fails loudly" ranking was withdrawn rather than restated. A surrogate pair needs no
   separate rule, each half being above `U+00FF` itself. New export `AstmFrameEncodeErrorCode`;
   `AstmFrameEncodeError.code` is now that union and gains a `characterIndex`. The property "either
   refuse the record string or reproduce it byte for byte" is asserted over 2,000 generated cases,
