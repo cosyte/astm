@@ -15,7 +15,8 @@
  * `tolerate` entry whose code is unknown, whose `rationale` is empty, or, the
  * load-bearing safety rule, whose code is **safety-critical** (a result value,
  * abnormal flag, result status, reference range, units, patient/comment context,
- * message-kind, code system, or any frame/LTP integrity warning). Carries the
+ * message-kind, code system, an unrecognized record type, or any frame/LTP
+ * integrity warning). Carries the
  * offending profile's `name` when it is known, so a multi-profile build names the
  * culprit.
  *

@@ -90,14 +90,28 @@ That means the two copies can drift; the upstream file is the source of truth.
   transform (`applyAstmProfileToWarnings`, run last in `parseAstmRecords`) only ever re-badges a warning
   it _expects_ to `PROFILE_QUIRK_APPLIED` (flagged `expected`, carrying the original `toleratedCode`);
   a spec-clean message parses byte-identically with or without a profile, and no warning is ever
-  dropped. **The safety gate is default-deny and total** (`src/profiles/safety.ts`): only four benign,
-  value-preserving record codes are tolerable (`ASTM_RECORD_UNKNOWN_TYPE`,
-  `ASTM_NONSTANDARD_DELIMITERS`, `ASTM_UNKNOWN_ESCAPE_SEQUENCE`,
-  `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`); **every other code across all three registries (record,
-  frame `ASTM_FRAME_*`, and LTP `ASTM_LTP_*`) is safety-critical and refused at definition time**,
-  so a profile can never make a bad checksum "ok," a cancelled result read "final," or quiet a wrong
-  value / flag / status / range / units / patient or comment context / message-kind ambiguity. Any new
-  warning code is safety-critical **by default** until deliberately added to the allow-list.
+  dropped. **The safety gate is default-deny and total** (`src/profiles/safety.ts`): three benign,
+  value-preserving record codes are tolerable (`ASTM_NONSTANDARD_DELIMITERS`,
+  `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`); **every other code
+  across all three registries (record, frame `ASTM_FRAME_*`, and LTP `ASTM_LTP_*`) is
+  safety-critical and refused at definition time**, so a profile can never make a bad checksum "ok,"
+  a cancelled result read "final," or quiet a wrong value / flag / status / range / units / patient
+  or comment context / message-kind ambiguity. Any new warning code is safety-critical **by default**
+  until deliberately added to the allow-list.
+  **▶ THE LIST WAS FOUR AND IS NOW THREE: `ASTM_RECORD_UNKNOWN_TYPE` WAS REMOVED
+  (`ASTM-UNKNOWN-RECORD-REMERGE`, 2026-08-01), and the reason generalizes.** The admission test was
+  one clause, "cannot alter, drop, or fabricate an extracted value", which that code still passes.
+  It stopped being benign anyway, because `messages()` made a record's **type letter** load-bearing
+  for segmentation, so an unrecognized letter became a report that a message boundary may have been
+  missed while the allow-list still called it harmless. **The test now has a second clause: nothing
+  else in this package may read the condition the warning reports**, and that clause is a claim
+  about the whole library which can stop being true without anyone touching `safety.ts`. It is a
+  review obligation, not a mechanical one, and there is deliberately no automatic check for it (see
+  the note at the foot of that file). **Re-derive the list whenever something new starts reading
+  record structure**, and note the direction of the failure is safe: default-deny means a new code
+  is refused until argued in, so the risk is confined to the three named above. The re-derivation
+  itself is measured in `test/profiles/unknown-record-type-safety.test.ts`: each survivor is checked
+  to leave the message partition identical whether or not a profile downgrades it.
   `parseAstmRecords(raw, { profile })` accepts an explicit profile (`null` opts out of the process
   default set via `setDefaultAstmProfile`); an expected quirk does **not** escalate in `strict` mode.
   **Built-ins:** `astmProfiles.default` (tolerates nothing) + `astmProfiles.referenceCorpus`, a
@@ -262,17 +276,38 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    vendor interface grammar makes the patient group repeatable on the **download** direction, which
    is precisely the direction the OSS test corpora do not cover) so this is a deferral with a known
    shape, not a claim the case does not arise. Do not close it by guessing a hierarchy.
-2. **A record whose type letter is not recognized as `H` silently re-merges two messages.** Message
-   grouping keys on the `H` letter, in lockstep with the delimiter scoping, so a header the reader
-   does not see as a header (a stray byte before it, for instance) does not open a new message: the
-   two messages merge, `patient()` answers confidently, and the closed misattribution is restored.
-   A lenient parse does warn `ASTM_RECORD_UNKNOWN_TYPE`, but that code sits on the profile safety
-   gate's **tolerable** allow-list, so a consumer profile tolerating it re-badges the only signal and
-   `{ strict: true }` then accepts the stream. `PRE-EXISTING` (reproduces on `b1b46fc`, where the flat
-   accessors misattributed unconditionally). `assertSinglePatient` still catches the variant where
-   the merged second message carries a `P`. **The real question is the allow-list classification:**
-   `ASTM_RECORD_UNKNOWN_TYPE` was admitted as "benign, value-preserving" before an unrecognized
-   record could mean a lost **message boundary**, and re-deriving that belongs in its own slice.
+2. **A record whose type letter is not recognized as `H` re-merges two messages. The SILENCING was
+   closed 2026-08-01 by `ASTM-UNKNOWN-RECORD-REMERGE`; the MERGE itself is still open, on purpose.**
+   Message grouping keys on the `H` letter, in lockstep with the delimiter scoping, so a header the
+   reader does not see as a header (a stray byte before it, for instance) does not open a new
+   message: the two messages merge and one message's patient acquires the next message's results.
+   `PRE-EXISTING` (reproduces on `b1b46fc`, where the flat accessors misattributed unconditionally).
+   **What changed:** `ASTM_RECORD_UNKNOWN_TYPE` was on the profile safety gate's **tolerable**
+   allow-list, so a consumer profile tolerating it re-badged the only signal to
+   `PROFILE_QUIRK_APPLIED` and `{ strict: true }` then accepted the stream. It is now
+   safety-critical, so no definable profile reaches it and a strict parse of a merged stream throws
+   whatever profile is in force. Measured, both directions, in
+   `test/profiles/unknown-record-type-safety.test.ts`.
+   **▶ THE TYPE LETTER HAS A SECOND LOAD-BEARING READER, FOUND WHILE RE-DERIVING THE ALLOW-LIST.**
+   `classifyMessage` counts `Q`/`R`/`O` by letter, so an unrecognized `Q` defeats the "`Q` dominates,
+   a query is never read as a result set" fail-safe: `H|\^&` + a mangled `Q` + an `R` classifies as
+   `kind: "results"`, `isHostQueryRequest` false, and the `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`
+   warning vanishes with the `Q` it was counting. Measured, pinned in the same test file. **Not
+   fixed, deliberately**, and it is a different defect from #3 below (that one is per-message
+   scoping of a correct fold; this one is the fold reading a letter it could not recognize). Fixing
+   it means inferring the intended letter, which is the guess this package declines to make.
+   **What is still open, and why it is not a "fix it next" item.** The lenient parse still merges,
+   and merging is not obviously the wrong answer: recognizing a mangled header _as_ a header means
+   guessing at a byte the sender did not send, and that guess would split the stream a different way
+   just as silently. A warning plus a strict refusal is the honest disposition, so **do not close
+   this by inferring a header.** The residual exposure is a lenient consumer that reads warnings and
+   does not act on this code; the README, the quickstart, `messages()` and the warning's own message
+   text all now say so.
+   **The variant that reaches furthest is the `P`-less second message.** `assertSinglePatient`
+   catches the merge when the second message carries its own `P` (two `P` in one message throws).
+   It cannot see a **result-only** second message: the merged message still holds exactly one `P`,
+   so `patient()` and `results()` both answer without objecting and the first patient silently owns
+   the second message's results. That is the fixture pinned in the test file above.
    Found by the `conformance-refuter` grading `ASTM-PATIENT-RESULT-MISATTRIBUTION` 2026-07-29.
 3. **`msg.classification` is folded over the whole STREAM but documented as per-message.**
    `src/records/types.ts` describes it as the classification of "this message"; `classifyMessage`

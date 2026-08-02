@@ -31,6 +31,22 @@
  * is made this way because it is the boundary this parser already enforces for delimiters,
  * and because it never drops a record.
  *
+ * **What that costs, and where the cost is paid.** Grouping reads a record's **type letter**,
+ * so it is only as good as the reader's ability to recognize one. A header carrying a stray
+ * leading byte reads as an unsupported record, opens no message, and the two messages either
+ * side of it merge: a patient from the first is then paired with results from the second, which
+ * is the precise pairing {@link messages} exists to prevent. The parser does report it, as an
+ * `ASTM_RECORD_UNKNOWN_TYPE` warning against that record, and a strict parse refuses the stream
+ * outright. Because that warning is the only report the merge produces, a profile is **not**
+ * permitted to tolerate the code and quiet it; the safety gate refuses it at definition time. Read an
+ * `ASTM_RECORD_UNKNOWN_TYPE` on a stream you are about to group as "a message boundary may be
+ * missing here", not as cosmetic noise.
+ *
+ * Recognizing a mangled header *as* a header is deliberately not attempted. Deciding that an
+ * unsupported record was "really" an `H` means guessing at a byte the sender did not send, and
+ * that guess would silently split a stream a different way; a warning that the reader lost its
+ * place is the honest answer, and refusing the stream in strict mode is the safe one.
+ *
  * **What is deliberately not modeled.** ASTM's within-message record hierarchy, which `P`
  * a given `R` files against when one message carries several patients, is not modeled
  * here. The clauses that would ground it (the message-level structure diagram, and the `P`

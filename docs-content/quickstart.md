@@ -71,6 +71,14 @@ stream it yields exactly one entry.
 > as is a result-only message with no `P`, which still answers `undefined`. `commentsFor()` works on
 > any stream: the parent record you hand it already names the message.
 
+> **Check for an `ASTM_RECORD_UNKNOWN_TYPE` warning before you trust a split.** Grouping reads each
+> record's type letter, so a header the reader does not recognize as a header, one carrying a stray
+> leading byte for instance, opens no message and the messages either side of it merge. The parser
+> reports that record as an unsupported record and warns, and a `{ strict: true }` parse refuses the
+> stream outright. On such a stream that warning is the only one raised, so a profile is **not**
+> allowed to tolerate the code: naming it in `tolerate` throws from `defineAstmProfile()`. Reading
+> it as cosmetic noise is what puts a patient back next to somebody else's result.
+
 ```ts
 import { parseAstmRecords, WARNING_CODES } from "@cosyte/astm";
 
@@ -78,7 +86,8 @@ const { warnings } = parseAstmRecords(raw);
 
 for (const w of warnings) {
   if (w.code === WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE) {
-    // an unrecognized record was surfaced as an unsupported record, not dropped
+    // an unrecognized record, surfaced as an unsupported record and not dropped.
+    // If it was a header, this stream has one fewer message than it looks like.
   }
 }
 ```

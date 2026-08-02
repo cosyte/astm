@@ -44,8 +44,9 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
   downgrade _expected_, non-safety-critical deviations to a `PROFILE_QUIRK_APPLIED` warning without
   ever altering a value, behind a definition-time safety gate that refuses to tolerate any result
   value, flag, status, range, or units warning, any patient or comment context, any message-kind
-  ambiguity, and any frame or transport integrity warning. A profile can never make a bad checksum
-  "ok" or a cancelled result read "final." Named per-vendor profiles await a public,
+  ambiguity, any unrecognized record type, and any frame or transport integrity warning. A profile
+  can never make a bad checksum "ok", a cancelled result read "final", or quiet the warning that
+  says a message boundary went unrecognized. Named per-vendor profiles await a public,
   vendor-attributed quirk document.
 - **Terminology, bring your own.** `applyLivd(msg, catalog)` maps an analyzer's local test code to a
   LOINC from a consumer-supplied IICC LIVD catalog as an additive, advisory annotation that never
@@ -169,6 +170,12 @@ several patients used to answer with the first of them. A stream that is one mes
 patient is unchanged, and so is a result-only message with no `P` at all, which still answers
 `undefined`. `commentsFor()` is unchanged on every stream, because the parent record you hand it
 already names the message.
+
+Splitting reads each record's type letter, so check for an `ASTM_RECORD_UNKNOWN_TYPE` warning before
+you trust the split. A header the reader does not recognize as a header, one carrying a stray leading
+byte for instance, opens no message, and the messages either side of it merge back into one. The
+parser warns on that record and a `{ strict: true }` parse refuses the stream; on such a stream that
+warning is the only one raised, so a profile is not allowed to tolerate the code and quiet it.
 
 ## Map local codes to LOINC (LIVD, bring-your-own)
 

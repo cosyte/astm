@@ -129,6 +129,66 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 
 ### Changed
 
+- **BREAKING: a profile may no longer tolerate `ASTM_RECORD_UNKNOWN_TYPE`**
+  (`ASTM-UNKNOWN-RECORD-REMERGE`). The code moves off the profile safety gate's tolerable
+  allow-list and onto the safety-critical set, so `defineAstmProfile({ tolerate: [...] })` naming
+  it now throws `AstmProfileDefinitionError` at definition time instead of building a profile.
+  `TOLERABLE_CODES` goes from four members to three (`ASTM_NONSTANDARD_DELIMITERS`,
+  `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`) and
+  `SAFETY_CRITICAL_CODES` / `isSafetyCriticalCode()` answer accordingly. No built-in profile
+  tolerated the code, so nothing in this package changes shape; a consumer profile that named it
+  will now fail to define, loudly, at the point of definition.
+
+  **Why, and it is a wrong-patient path.** A message runs from an `H` header to its `L`
+  terminator, and `messages()` decides where one starts by reading each record's **type letter**.
+  A header the reader cannot recognize as a header (one carrying a stray leading byte, for
+  instance) is surfaced as an unsupported record, opens no message, and the two messages either
+  side of it are grouped as one. The merged message pairs a patient with results that arrived
+  under a different header. The `ASTM_RECORD_UNKNOWN_TYPE` warning is the entire report that this
+  happened, so a profile downgrading it to `PROFILE_QUIRK_APPLIED` quieted the whole signal, and a
+  `{ strict: true }` parse then accepted the stream with no objection at all.
+
+  **The type letter turned out to have two load-bearing readers, not one.** `classifyMessage`
+  counts `Q` / `R` / `O` records by the same letter, and the rule that a message carrying a query
+  is never read as a result set is stated on that count. An unrecognized `Q` costs a host-query
+  request that guarantee: the message reads as `kind: "results"`, and the
+  `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` warning that flags a query-plus-result contradiction
+  disappears along with the `Q` it was counting. There too `ASTM_RECORD_UNKNOWN_TYPE` is the only
+  warning left on the stream. Both readers are measured in the regression test. The
+  mis-classification itself is not fixed here, for the same reason the merge is not: it is a
+  property of reading the letter, and inferring the intended letter is the guess this package
+  declines to make.
+
+  **The variant that reaches furthest carries no second patient.** When the merged second message
+  has its own `P`, the merged message holds two and the multi-patient guard throws. When the
+  second message is **result-only**, the merged message still holds exactly one `P`, so `patient()`
+  and `results()` both answer confidently and the first patient silently acquires the second
+  message's results. That is the fixture the regression test pins.
+
+  **The parser is deliberately unchanged.** Recognizing a mangled header _as_ a header means
+  guessing at a byte the sender did not send, and that guess would split a stream a different way
+  just as silently. A lenient parse still merges and still warns; a strict parse refuses; and the
+  refusal can no longer be configured away. `messages()`, the warning's own message text, the
+  `UnsupportedRecord` type, the README and the quickstart all now say to read this code as a
+  possible lost message boundary rather than as cosmetic noise.
+
+  **The admission test for the allow-list gained a second clause**, which is the durable part of
+  this change. A code was admitted on one question: can it alter, drop, or fabricate an extracted
+  value? `ASTM_RECORD_UNKNOWN_TYPE` still passes that one, and it was still wrong to tolerate,
+  because the condition it reports had quietly become something the library reads. The rule is now
+  that a code is tolerable only while **nothing else in this package reads the condition the
+  warning reports**, and that second clause is a claim about the whole library which can stop being
+  true without anyone editing `safety.ts`. It is a review obligation, not a mechanical check, and
+  the file says so rather than implying a gate that does not exist. The three surviving codes were
+  each re-derived against message grouping and are measured to leave the message partition
+  identical whether or not a profile downgrades them.
+
+  **Evidence, labelled.** The `H` … `L` message unit is _verified primary_ and its grounding is
+  recorded on `messages()`, unchanged here. The allow-list itself is **this library's own policy,
+  not the standard's**: no clause governs which of our warning codes a profile may downgrade, and
+  none is claimed for it. The behaviour above (the merge, the accessors answering, the strict
+  acceptance under a tolerating profile) is _measured_, on the tree before and after the change.
+
 - **The em dash (U+2014) is gone from every tracked file, and a CI gate keeps it out**
   (`EMDASH-CONFORMANCE`). The brand rule bans the character outright across every cosyte surface
   and names commit messages explicitly; this package was the last one it had not reached, and the

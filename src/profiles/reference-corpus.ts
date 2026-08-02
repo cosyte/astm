@@ -25,8 +25,11 @@
  * only re-badges the *warning*: no value, flag, status, or identifier is altered
  * or dropped. And by the safety gate in `defineAstmProfile`, it **cannot** tolerate
  * a result value / flag / status / range / units, a patient or comment context, a
- * message-kind ambiguity, or any frame / LTP integrity warning: those always
- * surface, profile or not.
+ * message-kind ambiguity, an unrecognized record type, or any frame / LTP integrity
+ * warning: those always surface, profile or not. The unrecognized-record-type case
+ * matters because message grouping reads a record's type letter, so a letter the
+ * reader does not recognize may be a header, and a header read as something else
+ * joins two messages into one.
  *
  * **Honesty.** This is a *reference-corpus* profile, not a claim about any named
  * analyzer vendor. No per-vendor ("cobas does X") behaviour is asserted; a named

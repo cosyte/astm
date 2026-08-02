@@ -91,7 +91,9 @@ describe("defineAstmProfile: extends composition", () => {
       description: "base desc",
       transport: "framed",
       provenance: { source: "base-src", reference: "base-ref" },
-      tolerate: [{ code: "ASTM_RECORD_UNKNOWN_TYPE", rationale: "base vendor record" }],
+      tolerate: [
+        { code: "ASTM_RECORD_UNINTERPRETED_QUERY_STATUS", rationale: "base vendor status" },
+      ],
     });
     const child = defineAstmProfile({
       name: "child",
@@ -104,7 +106,7 @@ describe("defineAstmProfile: extends composition", () => {
     expect(child.description).toBe("base desc"); // inherited (child omitted)
     expect(child.provenance?.source).toBe("base-src"); // inherited
     expect(child.tolerate.map((t) => t.code)).toEqual([
-      "ASTM_RECORD_UNKNOWN_TYPE",
+      "ASTM_RECORD_UNINTERPRETED_QUERY_STATUS",
       "ASTM_NONSTANDARD_DELIMITERS",
     ]);
   });
@@ -112,12 +114,12 @@ describe("defineAstmProfile: extends composition", () => {
   it("child refines a parent tolerance rationale for the same code+match (last-wins)", () => {
     const parent = defineAstmProfile({
       name: "p",
-      tolerate: [{ code: "ASTM_RECORD_UNKNOWN_TYPE", rationale: "old" }],
+      tolerate: [{ code: "ASTM_RECORD_UNINTERPRETED_QUERY_STATUS", rationale: "old" }],
     });
     const child = defineAstmProfile({
       name: "c",
       extends: [parent],
-      tolerate: [{ code: "ASTM_RECORD_UNKNOWN_TYPE", rationale: "refined" }],
+      tolerate: [{ code: "ASTM_RECORD_UNINTERPRETED_QUERY_STATUS", rationale: "refined" }],
     });
     expect(child.tolerate).toHaveLength(1);
     expect(child.tolerate[0]?.rationale).toBe("refined");
@@ -158,7 +160,7 @@ describe("defineAstmProfile: validation throws", () => {
     expect(() =>
       defineAstmProfile({
         name: "x",
-        tolerate: [{ code: "ASTM_RECORD_UNKNOWN_TYPE", rationale: "  " }],
+        tolerate: [{ code: "ASTM_RECORD_UNINTERPRETED_QUERY_STATUS", rationale: "  " }],
       }),
     ).toThrow(/needs a non-empty 'rationale'/u);
   });
@@ -221,12 +223,12 @@ describe("the safety gate: a profile can never tolerate a safety-critical deviat
       expect(tolerable !== critical).toBe(true); // exactly one is true
       expect(isSafetyCriticalCode(code)).toBe(critical);
     }
-    // The only four tolerable codes are the benign, value-preserving ones.
+    // The tolerable codes are the benign, value-preserving ones that nothing load-bearing reads.
+    // The membership itself is pinned, with its reasoning, in unknown-record-type-safety.test.ts.
     expect([...TOLERABLE_CODES].sort()).toEqual(
       [
         WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
         WARNING_CODES.ASTM_RECORD_UNINTERPRETED_QUERY_STATUS,
-        WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE,
         WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
       ].sort(),
     );
@@ -424,11 +426,17 @@ describe("edge branches: describe scopes, merge inheritance, match narrowing, hi
 
     const recordOnly = defineAstmProfile({
       name: "rec",
-      tolerate: [{ code: "ASTM_RECORD_UNKNOWN_TYPE", rationale: "r", match: { recordType: "Z" } }],
+      tolerate: [
+        {
+          code: "ASTM_RECORD_UNINTERPRETED_QUERY_STATUS",
+          rationale: "r",
+          match: { recordType: "Q" },
+        },
+      ],
     });
     const text = recordOnly.describe?.() ?? "";
-    expect(text).toContain("@record Z");
-    expect(text).not.toContain("@record Z.");
+    expect(text).toContain("@record Q");
+    expect(text).not.toContain("@record Q.");
   });
 
   it("a scoped tolerance does not apply when the field index differs", () => {

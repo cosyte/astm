@@ -51,7 +51,7 @@ import {
  *   description: "Acme's inbound raw-TCP analyzer",
  *   transport: "raw",
  *   tolerate: [
- *     { code: "ASTM_RECORD_UNKNOWN_TYPE", rationale: "emits a vendor QC record letter" },
+ *     { code: "ASTM_NONSTANDARD_DELIMITERS", rationale: "declares its own delimiter set" },
  *   ],
  *   provenance: { source: "Acme host-interface manual", reference: "internal-2026" },
  * });

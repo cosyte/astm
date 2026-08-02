@@ -155,9 +155,11 @@ export function validateTolerations(
       throw new AstmProfileDefinitionError(
         `Profile '${profileName}' may not tolerate '${t.code}': it is a safety-critical warning ` +
           `code (a result value / flag / status / range / units, patient or comment context, ` +
-          `message-kind ambiguity, code system, or a frame / LTP integrity warning). A profile quiets ` +
-          `benign structural noise, never a deviation that could change a clinical reading or corrupt ` +
-          `the wire: it can never make a bad checksum "ok" or a cancelled result read "final."`,
+          `message-kind ambiguity, code system, an unrecognized record type, or a frame / LTP ` +
+          `integrity warning). A profile quiets benign structural noise, never a deviation that could ` +
+          `change a clinical reading, report a lost message boundary, or corrupt the wire: it can ` +
+          `never make a bad checksum "ok", a cancelled result read "final", or quiet the warning ` +
+          `that says two messages were read as one.`,
         profileName,
       );
     }
