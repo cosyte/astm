@@ -2,7 +2,7 @@
 "@cosyte/astm": patch
 ---
 
-Stop one unescaped `&` in a value from swallowing every field after it
+Stop one unescaped `&` in a value from swallowing every following field
 (`ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL`). `PRE-EXISTING`, shipped `0.0.1` through `0.0.8`.
 
 The escape codec read an escape character with no closing escape character as the opening of a

@@ -2,9 +2,11 @@
 "@cosyte/astm": patch
 ---
 
-Close the two findings `ASTM-UNKNOWN-RECORD-REMERGE` measured, pinned and deliberately did not fix,
-both of which follow from a record's type letter having acquired load-bearing readers
-(`ASTM-TYPE-LETTER-SECOND-READER`).
+Report a record whose fields did not separate, instead of reading it back with no value, no units and
+no status, and stop calling a message a result set when a record's type letter is unreadable. Both
+follow from a record's type letter having acquired load-bearing readers, and both were measured and
+pinned by an earlier finding without being fixed (`ASTM-UNKNOWN-RECORD-REMERGE`,
+`ASTM-TYPE-LETTER-SECOND-READER`).
 
 **The value loss, which outranked the other.** Delimiters are re-read at every `H`, keyed on the same
 letter message grouping uses, so a header the reader could not recognize does not re-scope them and
