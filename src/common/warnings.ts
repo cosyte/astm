@@ -345,9 +345,14 @@ export function unknownEscapeSequence(position: AstmPosition): AstmRecordWarning
 
 /**
  * Build an `ASTM_UNPAIRED_ESCAPE_CHARACTER` warning. The character is preserved
- * verbatim as a literal in the decoded value and the record splits on every
- * delimiter after it; the warning body carries neither the character's
+ * verbatim as a literal in the decoded value and opens no atom, so it does not
+ * merge the rest of the record; the warning body carries neither the character's
  * surroundings nor any field value.
+ *
+ * **It is a statement about that one character, not about the record.** A
+ * different escape character in the same record may head a real three-character
+ * sequence, and if that sequence's body is a delimiter, that delimiter does not
+ * split. See {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}.
  *
  * A profile **may** tolerate this code: the value it reports is byte-identical
  * with the warning and without it, because reading the character as a literal is

@@ -214,7 +214,7 @@ describe("the boundary of what this fixed: an `&X&` atom still swallows a delimi
 });
 
 describe("the codec's split and its decoder agree on what an escape sequence is", () => {
-  it("a delimiter after an unpaired escape character still splits", () => {
+  it("a delimiter after an unpaired escape character is not swallowed by it", () => {
     // This single assertion is the regression: under the old rule the delimiter was swallowed and
     // the result was ["a&^b"]. Anything that reintroduces an unbounded forward scan reddens it.
     expect(splitEscapeAware("a&^b", "^", "&")).toEqual(["a&", "b"]);
