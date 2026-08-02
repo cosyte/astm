@@ -399,8 +399,8 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   (the escape character, **one** body character, the escape character), which is all the four
   mnemonics `&F&` `&S&` `&R&` `&E&` ever need, and both `splitEscapeAware` and `decodeEscapes` share
   that one definition. An escape character that heads no such sequence is read as the **literal
-  character it is**: the value keeps the byte that arrived, every delimiter after it still splits the
-  record, and nothing is invented to close a sequence the sender did not open. The same fixture now
+  character it is**: the value keeps the byte that arrived, it opens no atom, and nothing is
+  invented to close a sequence the sender did not open. The same fixture now
   reads `value = "28.6&"` with `units: "U/L"` and `status.meaning: "final"`, and the patient keeps
   their birth date and sex. Emit writes the literal character as `&E&`, so the emitted line is
   spec-clean **and** structurally faithful, and re-parses to the same tree.
@@ -433,8 +433,9 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   read correctly where the previous release read them wrongly, against 27 read differently in the
   other direction.
 
-  Measured red on base: 10 of the 16 new tests fail against `064c078` extracted into a clean tree;
-  the 6 that pass are the negative controls, which measure behavior this change does not touch.
+  Measured red on base: 10 of the 18 new tests fail against `064c078` extracted into a clean tree.
+  Of the 8 that pass, 6 are the negative controls (behavior this change does not touch) and 2 are the
+  boundary pins on what it deliberately does **not** fix.
   `test/records/unseparated-fields.test.ts` had pinned this loss as a documented limit of
   `ASTM_RECORD_FIELDS_UNSEPARATED`; that pin is inverted rather than deleted, and the prose stating
   the limit moved with it in `README.md`, the quickstart and the warning code's own docs.

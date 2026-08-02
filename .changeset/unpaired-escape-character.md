@@ -17,8 +17,8 @@ value, so a round trip baked the mis-read in instead of surfacing it.
 An escape sequence is now exactly three characters (the escape character, one body character, the
 escape character), which is all the four mnemonics `&F&` `&S&` `&R&` `&E&` ever need, and the split
 and the decoder share that one definition. An escape character heading no such sequence is read as
-the literal character it is: the value keeps the byte that arrived, every delimiter after it still
-splits the record, and nothing is invented to close a sequence the sender did not open. The bound
+the literal character it is: the value keeps the byte that arrived, it opens no atom, and nothing is
+invented to close a sequence the sender did not open. The bound
 also removes a non-local behavior, where whether a field kept its value depended on some later field
 happening to carry an escape character too.
 

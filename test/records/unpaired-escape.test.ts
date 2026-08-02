@@ -1,6 +1,6 @@
 /**
  * `ASTM_UNPAIRED_ESCAPE_CHARACTER`: an escape character that heads no escape sequence is read as
- * the literal character it is, and the record still splits on every delimiter after it.
+ * the literal character it is, and opens no atom, so it no longer merges the rest of the record.
  *
  * An escape sequence is the escape character, one body character, and the escape character again
  * (`&F&` / `&S&` / `&R&` / `&E&`). Before this code existed, the codec read an escape character

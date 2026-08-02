@@ -490,9 +490,17 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     `unspecified` rather than `final`**, and the sole warning is `ASTM_UNKNOWN_ESCAPE_SEQUENCE` --
     which is on `TOLERABLE_CODES`, and the shipped `referenceCorpus` profile tolerates it, so
     `{ strict: true }` **accepts** the record. `PRE-EXISTING` (byte-identical on `064c078`).
-    **▶ IT IS NOT A STOP-THE-LINE, and the difference from defect 8 is the whole reason:** it always
-    warns (never `warnings: []`), and the round trip is stable rather than divergent. A warned
-    mis-read ranks below a silent one, consistently with defects 6 and 7.
+    **▶ IT IS NOT A STOP-THE-LINE, and the reason is exactly one thing: the FIRST parse of the wire
+    bytes warns.** An ingest-time consumer reading warnings is told. A warned mis-read ranks below a
+    silent one, consistently with defects 6 and 7. **Do not add "and the round trip is stable" to
+    that argument** (an earlier draft of this entry did): the round trip is stable, and stability is
+    what makes this WORSE, not better. Measured, head and base alike, the emit path launders it in
+    one hop: generation 1 warns `ASTM_UNKNOWN_ESCAPE_SEQUENCE` and reads `28.6&|&U/L`; it serializes
+    to the spec-clean `R|1|^^^687|28.6&E&&F&&E&U/L||||F`; generation 2 reads the same wrong value
+    with `warnings: []` and `{ strict: true }` **accepts** it. That is the same signature defect 8
+    was called a stop-the-line for, one re-emit away. It does not carry the verdict here only
+    because the harm needs a re-emit and a re-ingest rather than a single read. **It is why this
+    defect should be scheduled rather than parked.**
     **▶ THE ADMISSION ARGUMENT IN `src/profiles/safety.ts` IS WRONG FOR THIS CASE AND SAYS SO NOW.**
     It reasons that the split "has already finished dividing before any body is decoded", which is
     true and beside the point: the atom decision **is** the split, so the condition this code
