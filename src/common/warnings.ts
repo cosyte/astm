@@ -22,7 +22,11 @@ import type { AstmPosition } from "./position.js";
  * ```
  */
 export const WARNING_CODES = {
-  /** A record's type letter is not one of the modeled types: surfaced as an unsupported record. */
+  /**
+   * A record's type letter is not one of the modeled types: surfaced as an unsupported record,
+   * never dropped. Treat it as a possible lost message boundary, because a header the reader did
+   * not recognize as one does not open a new message.
+   */
   ASTM_RECORD_UNKNOWN_TYPE: "ASTM_RECORD_UNKNOWN_TYPE",
   /** The header declared delimiters other than the canonical `H|\^&`: tolerated, noted. */
   ASTM_NONSTANDARD_DELIMITERS: "ASTM_NONSTANDARD_DELIMITERS",
@@ -159,6 +163,11 @@ export interface AstmRecordWarning {
  * Build an `ASTM_RECORD_UNKNOWN_TYPE` warning. The record is still surfaced (as
  * an unsupported record), never dropped.
  *
+ * **This one is not cosmetic.** Message grouping decides where a message starts by
+ * reading each record's type letter, so an unrecognized letter may be a header the
+ * reader failed to see, and two messages then read as one. A profile is therefore
+ * not permitted to tolerate this code.
+ *
  * @example
  * ```ts
  * import { unknownRecordType } from "@cosyte/astm";
@@ -168,7 +177,9 @@ export interface AstmRecordWarning {
 export function unknownRecordType(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE,
-    message: "Unrecognized record type, surfaced verbatim as an unsupported record.",
+    message:
+      "Unrecognized record type, surfaced verbatim as an unsupported record. " +
+      "If this record was a header, message grouping did not open a new message here.",
     position,
   };
 }

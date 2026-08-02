@@ -16,10 +16,11 @@
  *
  * 1. **A profile can never tolerate a safety-critical warning code**: a result
  *    value, abnormal flag, result status, reference range, units, patient/comment
- *    context, message-kind ambiguity, code system, or any frame/LTP integrity
- *    warning (see `src/profiles/safety.ts`). Naming one is a *definition-time
- *    throw*, not a silent relaxation, so a profile can never make a bad checksum
- *    "ok" or a cancelled result read "final."
+ *    context, message-kind ambiguity, code system, an unrecognized record type, or
+ *    any frame/LTP integrity warning (see `src/profiles/safety.ts`). Naming one is
+ *    a *definition-time throw*, not a silent relaxation, so a profile can never
+ *    make a bad checksum "ok", a cancelled result read "final", or quiet the
+ *    warning that says two messages were read as one.
  * 2. **A tolerated deviation is downgraded, never dropped.** The parser still
  *    records it (re-coded {@link WARNING_CODES.PROFILE_QUIRK_APPLIED}, flagged
  *    `expected: true`, carrying the original `toleratedCode`) so nothing is
@@ -164,7 +165,7 @@ export interface AstmProfile {
  * const opts: DefineAstmProfileOptions = {
  *   name: "my-analyzer",
  *   transport: "raw",
- *   tolerate: [{ code: "ASTM_RECORD_UNKNOWN_TYPE", rationale: "partial vendor grammar" }],
+ *   tolerate: [{ code: "ASTM_NONSTANDARD_DELIMITERS", rationale: "declares its own set" }],
  * };
  * const p = defineAstmProfile(opts);
  * ```

@@ -359,6 +359,11 @@ export interface TerminatorRecord extends RecordBase {
  * `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` are all modeled; anything else is surfaced
  * with its raw fields intact and flagged with an
  * `ASTM_RECORD_UNKNOWN_TYPE` warning, never dropped.
+ *
+ * **One of these may be a header.** Message grouping decides where a message
+ * starts by reading the type letter, so a header the reader could not recognize
+ * arrives here instead, opens no message, and the messages either side of it are
+ * grouped as one. Check `rawType` before trusting a split.
  */
 export interface UnsupportedRecord extends RecordBase {
   readonly type: "unsupported";
