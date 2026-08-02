@@ -40,7 +40,7 @@ export const WARNING_CODES = {
    *
    * **Its absence is not evidence that a record was read in its own set.** This tests one of the
    * four delimiter roles, the field separator, and only in its total form, where that separator
-   * occurs nowhere in the line. Two whole classes of the same loss are outside it: a foreign set
+   * occurs in the line (unescaped). Two whole classes of the same loss are outside it: a foreign set
    * whose field separator happens to occur somewhere in the line still splits (on the wrong
    * boundaries, silently, and this can happen to one record inside a run of these warnings); and a
    * set differing in the repeat, component or escape role usually splits into fields normally,

@@ -195,7 +195,7 @@ another set trips it too.
 
 **Its absence does not certify that a record was read in its own set**, and this is the important
 half. The check tests one of the four delimiter roles, the **field** separator, and only in its
-total form, where that separator occurs nowhere in the line. Two classes of the same loss sit
+total form, where no unescaped separator occurs in the line. Two classes of the same loss sit
 outside it:
 
 - A foreign set whose **field** separator happens to occur somewhere in the line still splits, on
@@ -209,9 +209,12 @@ outside it:
   after it, which costs the value, the units and the status together, and warns nothing: an
   ampersand inside a result value or a surname is enough.
 
-Widening the check would mean deciding which set a record ought to have had, which is the same guess
-the parser declines to make elsewhere, so the limit is written down rather than papered over. Read
-the warning as "this record definitely lost its fields", never as "no other record did". If
+The first of those is an accepted limit: widening the check would mean deciding which set a record
+ought to have had, which is the same guess the parser declines to make elsewhere, so it is written
+down rather than papered over. The escape case is **not** an accepted limit but a known open defect,
+and note it needs no delimiter difference at all to bite: an ampersand in a value corrupts a wholly
+canonical stream. Read the warning as "this record definitely lost its fields", never as "no other
+record did". If
 delimiter drift is a real risk on your feed, parse with `{ strict: true }`, which refuses both an
 outright collapse and an unrecognized type letter, and treat `ASTM_RECORD_UNKNOWN_TYPE` as
 invalidating what follows it rather than expecting this warning to enumerate the damage.

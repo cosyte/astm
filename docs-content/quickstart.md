@@ -111,7 +111,7 @@ for (const w of warnings) {
 >
 > **The absence of this warning is not a guarantee that a record split correctly**, and that is the
 > half worth carrying away. It tests one of the four delimiter roles, the **field** separator, and
-> only in its total form, where that separator occurs nowhere in the line. Two classes of the same
+> only in its total form, where no unescaped separator occurs in the line. Two classes of the same
 > loss sit outside it. A foreign set whose **field** separator happens to appear somewhere in the
 > line still splits, on the wrong boundaries and silently: one stray `|` inside an otherwise
 > `*`-separated result loses the value, the units and the status with **no** warning, and this can
@@ -120,9 +120,12 @@ for (const w of warnings) {
 > fields normally, with the damage varying: a mis-split component can cost a test identity while the
 > value survives, but an **escape** character appearing literally in a record merges every field
 > after it and costs the value, the units and the status together, silently. An ampersand inside a
-> result value or a surname is enough to do that. Widening the check would mean deciding which set a
-> record ought to have had, which is a guess this parser does not make, so the boundary is documented
-> instead. If delimiter drift is a real risk on your feed, parse with `{ strict: true }`, which
+> result value or a surname is enough to do that, and note that case needs **no** delimiter
+> difference at all: it corrupts a wholly canonical stream, and it is a known open defect rather than
+> an accepted limit. The first class above **is** an accepted limit: widening the check would mean
+> deciding which set a record ought to have had, which is a guess this parser does not make, so the
+> boundary is documented instead. If delimiter drift is a real risk on your feed, parse with
+> `{ strict: true }`, which
 > refuses both an outright collapse and an unrecognized type letter, and treat
 > `ASTM_RECORD_UNKNOWN_TYPE` as invalidating what follows it rather than expecting this warning to
 > enumerate the damage.

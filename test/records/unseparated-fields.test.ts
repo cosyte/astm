@@ -159,11 +159,18 @@ describe("what it must never fire on", () => {
 });
 
 /**
- * **The limits, pinned.** This code is one test on one of the four delimiter roles, in its total
- * form only, so its absence is not evidence that a record split correctly. Both shapes below lose
- * data and report nothing, both reproduce identically on the previous release, and neither is
- * repaired here: widening the check would mean deciding which set a record ought to have had, which
- * is the guess the parser declines to make.
+ * **The limits, pinned.** This code tests one of the four delimiter roles, the field separator, and
+ * only in its total form, so its absence is not evidence that a record split correctly. Every shape
+ * below loses data and reports nothing, and every one reproduces identically on the previous
+ * release.
+ *
+ * **They are not all the same kind of limit, and the difference matters.** The first three are
+ * accepted: repairing them would mean deciding which set a record ought to have had, which is the
+ * guess the parser declines to make everywhere else. The last, an escape character occurring
+ * literally in a record, is **not** an accepted limit but a separately recorded open defect: it
+ * reaches a wholly canonical feed with no delimiter set difference at all, and it is fixable without
+ * guessing any set. It is pinned here because it is the sharpest member of the class the prose
+ * describes, so it cannot be quietly re-read as cosmetic, not because it is meant to stay.
  *
  * They are asserted rather than merely written down, so that the documented boundary cannot quietly
  * drift into a guarantee the code does not provide. A test here going red means the scope moved,
