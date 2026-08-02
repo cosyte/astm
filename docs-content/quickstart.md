@@ -110,14 +110,22 @@ for (const w of warnings) {
 > set trips it too.
 >
 > **The absence of this warning is not a guarantee that a record split correctly**, and that is the
-> half worth carrying away. It tests one of the four delimiter roles, in its total form only. A
-> foreign set whose **field** separator happens to appear somewhere in the line still splits, on the
-> wrong boundaries and silently: one stray `|` inside an otherwise `*`-separated result loses the
-> value with **no** warning. A set differing only in the **repeat, component or escape** role splits
-> into fields perfectly, and a mis-split component can still cost a test identity. Widening the check
-> would mean deciding which set a record ought to have had, which is a guess this parser does not
-> make, so the boundary is documented instead. If delimiter drift is a real risk on your feed, gate
-> on the header's declared set (`msg.header.delimiters`) rather than on this warning alone.
+> half worth carrying away. It tests one of the four delimiter roles, the **field** separator, and
+> only in its total form, where that separator occurs nowhere in the line. Two classes of the same
+> loss sit outside it. A foreign set whose **field** separator happens to appear somewhere in the
+> line still splits, on the wrong boundaries and silently: one stray `|` inside an otherwise
+> `*`-separated result loses the value, the units and the status with **no** warning, and this can
+> happen to one record **inside** a run of these warnings, so a run does not mean every record in it
+> was checked. And a set differing in the **repeat, component or escape** role usually splits into
+> fields normally, with the damage varying: a mis-split component can cost a test identity while the
+> value survives, but an **escape** character appearing literally in a record merges every field
+> after it and costs the value, the units and the status together, silently. An ampersand inside a
+> result value or a surname is enough to do that. Widening the check would mean deciding which set a
+> record ought to have had, which is a guess this parser does not make, so the boundary is documented
+> instead. If delimiter drift is a real risk on your feed, parse with `{ strict: true }`, which
+> refuses both an outright collapse and an unrecognized type letter, and treat
+> `ASTM_RECORD_UNKNOWN_TYPE` as invalidating what follows it rather than expecting this warning to
+> enumerate the damage.
 
 > **About runnable examples.** The first block above is tagged ` ```ts runnable `: the docs
 > build extracts it, runs it against the package, and asserts the `// =>` result, so a documented

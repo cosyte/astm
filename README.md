@@ -184,7 +184,7 @@ not gate on the warning count, though, because the records that merged in can ra
 their own.
 
 Delimiters are re-read at each header too, so if the unrecognized one declared a different set, the
-records after it are read with the previous set and their fields are lost rather than merely
+records after it are read with the previous set and their fields can be lost rather than merely
 misfiled. `ASTM_RECORD_FIELDS_UNSEPARATED` reports a record that suffered the total form of that:
 the delimiters in force found no field separator in it at all, so the whole line read back as one
 field and none of its modeled fields survived. On a result record that is the value, the units and
@@ -194,15 +194,27 @@ code is safety-critical, and it does not need a mangled header to fire: a lone r
 another set trips it too.
 
 **Its absence does not certify that a record was read in its own set**, and this is the important
-half. The check is one test on one of the four delimiter roles, in its total form only, so two
-classes of the same loss are outside it. A foreign set whose **field** separator happens to occur
-somewhere in the line still splits, on the wrong boundaries and in silence: a single stray `|` in an
-otherwise `*`-separated result is enough to lose the value with no warning at all. And a set
-differing only in the **repeat, component or escape** role splits into fields perfectly, while a
-mis-split component can still cost a test identity. Widening the check would mean deciding which
-set a record ought to have had, which is the same guess the parser declines to make elsewhere, so
-the limit is written down rather than papered over. Read the warning as "this record definitely lost
-its fields", never as "no other record did".
+half. The check tests one of the four delimiter roles, the **field** separator, and only in its
+total form, where that separator occurs nowhere in the line. Two classes of the same loss sit
+outside it:
+
+- A foreign set whose **field** separator happens to occur somewhere in the line still splits, on
+  the wrong boundaries and in silence. A single stray `|` in an otherwise `*`-separated result loses
+  the value, the units and the status with no warning at all, while the identical record without
+  that one byte is reported. This also happens **inside** a run of these warnings, so even a run
+  does not mean every record in it was checked.
+- A set differing in the **repeat, component or escape** role usually splits into fields normally,
+  and the damage then varies. A mis-split component can cost a test identity while the value and
+  units survive. But an **escape** character occurring literally in a record merges every field
+  after it, which costs the value, the units and the status together, and warns nothing: an
+  ampersand inside a result value or a surname is enough.
+
+Widening the check would mean deciding which set a record ought to have had, which is the same guess
+the parser declines to make elsewhere, so the limit is written down rather than papered over. Read
+the warning as "this record definitely lost its fields", never as "no other record did". If
+delimiter drift is a real risk on your feed, parse with `{ strict: true }`, which refuses both an
+outright collapse and an unrecognized type letter, and treat `ASTM_RECORD_UNKNOWN_TYPE` as
+invalidating what follows it rather than expecting this warning to enumerate the damage.
 
 An unrecognized type letter also makes the message **kind** unknowable, because the letter that
 could not be read may have been the very `Q` that decides it. `classification.kind` is

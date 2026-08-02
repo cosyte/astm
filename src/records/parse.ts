@@ -318,8 +318,13 @@ function buildRecord(
   //   * A foreign set whose FIELD separator happens to occur anywhere in the line still splits, so
   //     the count is 2 and nothing fires, while the fields land on the wrong boundaries. One stray
   //     `|` in an otherwise `*`-separated record is enough, and the value is lost just the same.
-  //   * A set differing only in the REPEAT, COMPONENT or ESCAPE role splits into fields perfectly.
-  //     Nothing here sees it, and a mis-split component can still cost a test identity.
+  //     This can happen to one record INSIDE a run of these warnings, so a run is not a sweep of
+  //     the records it spans.
+  //   * A set differing in the REPEAT, COMPONENT or ESCAPE role usually splits into fields normally,
+  //     and nothing here sees it. A mis-split component can cost a test identity while the value
+  //     survives; an ESCAPE character occurring literally in a record merges every field after it,
+  //     which costs the value, the units and the status together (a lone `&` under the canonical
+  //     set leaves a 9-field `R` reading as 4, silently). That last one is its own recorded defect.
   //
   // So the absence of this warning is NOT evidence that a record was read in its own set. Widening
   // it would mean deciding which set a record "should" have had, which is the same guess again.

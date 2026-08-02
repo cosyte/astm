@@ -40,16 +40,21 @@ this file is maintained by hand (Changesets handles the version bump and publish
   construction rather than by exception: it is always read with the set it declares itself. Content
   after the type letter that is entirely whitespace is excluded, since no field is at stake there.
 
-  **Deliberately partial, and its absence certifies nothing.** This is one test on one of the four
-  delimiter roles, in its total form only, so two classes of the same loss stay silent and are
-  documented as such on the code, in `README.md` and in the quickstart rather than left to be
-  inferred. A foreign set whose **field** separator happens to occur anywhere in the line still
-  splits, on the wrong boundaries: one stray `|` inside an otherwise `*`-separated result loses the
-  value with no warning. A set differing only in the **repeat, component or escape** role splits
-  into fields perfectly, while a mis-split component can still cost a test identity. Both reproduce
-  identically on the previous release. Widening the check would mean deciding which set a record
-  ought to have had, which is the same guess declined above, so the boundary is written down instead
-  of chased.
+  **Deliberately partial, and its absence certifies nothing.** This tests one of the four delimiter
+  roles, the **field** separator, and only in its total form, where that separator occurs nowhere in
+  the line. Two classes of the same loss stay silent and are documented as such on the code, in
+  `README.md` and in the quickstart rather than left to be inferred. A foreign set whose **field**
+  separator happens to occur anywhere in the line still splits, on the wrong boundaries: one stray
+  `|` inside an otherwise `*`-separated result loses the value, the units and the status with no
+  warning, and this can happen to one record **inside** a run of these warnings, so a run is not a
+  sweep of the records it spans. A set differing in the **repeat, component or escape** role usually
+  splits into fields normally, with the damage varying: a mis-split component can cost a test
+  identity while the value survives, but an **escape** character occurring literally in a record
+  merges every field after it and costs the value, the units and the status together (a lone `&`
+  under the canonical set leaves a nine-field `R` reading as four, in silence). All of them
+  reproduce identically on the previous release, and the last is recorded as a defect in its own
+  right. Widening the check would mean deciding which set a record ought to have had, which is the
+  same guess declined above, so the boundary is written down instead of chased.
 
   The exported factory `fieldsUnseparated` joins the record registry, and `WARNING_CODES` goes from
   15 members to 16. **That a record's fields are separated by the declared field delimiter is read
@@ -202,7 +207,8 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 
   Two limits, stated rather than implied. `msg.classification` is still folded over the **whole
   stream** (a known, separately-recorded defect), so one unrecognized letter anywhere now withholds
-  `kind` for the entire stream, which widens that over-trigger; the per-message answer,
+  `kind` for the entire stream **unless a `Q` was read**, in which case the `Q` still dominates as
+  before. That widens the existing over-trigger; the per-message answer,
   `classifyMessage(m.records)` on a `messages()` entry, is unaffected and is the reading to prefer.
   And the fix lands on `kind`, not on `isHostQueryRequest`, which `README.md` calls the safety
   surface: a mangled `Q` still reports `false` there, because the parser genuinely did not read a

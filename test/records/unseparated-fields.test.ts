@@ -188,7 +188,37 @@ describe("the limits: shapes that lose data and are deliberately NOT reported", 
     ]);
   });
 
-  it("a set differing only in the component role splits into fields perfectly, silently", () => {
+  it("a run of these warnings is not a sweep: one record inside the run can escape it", () => {
+    // A collapsed tail where one record happens to carry the in-force `|`. The records around it
+    // are reported and it is not, so a consumer who reads the run as "these are the damaged ones"
+    // is wrong about exactly the record that lost its value.
+    const raw =
+      "H|\\^&|||s\rP|1||LAB-0001\rL|1|N\r H*~:#*\rP*1**LAB-0002\rR*1*^^^688*99.9*mmol/L**H**F|\rL*1*N\r";
+    const reported = parseAstmRecords(raw)
+      .warnings.filter((w) => w.code === WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED)
+      .map((w) => w.position.recordIndex);
+    expect(reported).toEqual([3, 4, 6]);
+    // Record 5 is the `R`, and it is the one that lost its value.
+    expect(reported).not.toContain(5);
+    const lost = parseAstmRecords(raw).records[5];
+    expect(lost?.type).toBe("R");
+    expect(lost?.type === "R" ? lost.value : "unreachable").toBeUndefined();
+  });
+
+  it("an escape character occurring literally in a record costs the value, and is not reported", () => {
+    // The sharpest member of the repeat/component/escape class, and the reason that class must not
+    // be described as merely mis-splitting a component: a lone `&` under the canonical set merges
+    // every field after it, so a nine-field result reads back as four with no warning at all.
+    const raw = "H|\\^&\rP|1||LAB-0001\rR|1|^^^687|28.6&|U/L||N||F\rL|1|N\r";
+    expect(parseAstmRecords(raw).records[2]?.fields).toHaveLength(4);
+    const [only] = results(parseAstmRecords(raw));
+    expect(only?.value).toBe("28.6&|U/L||N||F");
+    expect(only?.units).toBeUndefined();
+    expect(only?.status.isActiveFinal).toBe(false);
+    expect(codes(raw)).toEqual([]);
+  });
+
+  it("a set differing only in the component role splits into fields normally, silently", () => {
     // Fields separate on `|` as declared, so nothing collapses and the value and units survive.
     // What does not survive is the test identity: the component split never happened.
     const raw = "H|\\^&\rP|1||LAB-0001\rR|1|:::688|99.9|mmol/L||H||F\rL|1|N\r";

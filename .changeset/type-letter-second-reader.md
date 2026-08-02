@@ -26,12 +26,17 @@ than on the mangled header, since identifying that header would itself require g
 also fires on the same silent collapse reachable with no mangled header at all, which parsed with zero
 warnings on the previous release.
 
-It is deliberately partial, and its absence certifies nothing. This is one test on one of the four
-delimiter roles, in its total form only. A foreign set whose field separator happens to occur anywhere
-in the line still splits, on the wrong boundaries, so one stray `|` inside an otherwise
-`*`-separated result loses the value with no warning; and a set differing only in the repeat,
-component or escape role splits into fields perfectly while a mis-split component can still cost a
-test identity. Both reproduce identically on the previous release. Widening the check would mean
+It is deliberately partial, and its absence certifies nothing. It tests one of the four delimiter
+roles, the field separator, and only in its total form, where that separator occurs nowhere in the
+line. A foreign set whose field separator happens to occur anywhere in the line still splits, on the
+wrong boundaries, so one stray `|` inside an otherwise `*`-separated result loses the value, the units
+and the status with no warning, and that can happen to one record inside a run of these warnings, so a
+run is not a sweep of the records it spans. A set differing in the repeat, component or escape role
+usually splits into fields normally, with the damage varying: a mis-split component can cost a test
+identity while the value survives, but an escape character occurring literally in a record merges
+every field after it and costs the value, the units and the status together (a lone `&` under the
+canonical set leaves a nine-field `R` reading as four, in silence). All reproduce identically on the
+previous release, and the last is recorded as a defect in its own right. Widening the check would mean
 deciding which set a record ought to have had, which is the same guess declined above, so the limit is
 documented on the code, in `README.md` and in the quickstart, and pinned by tests, rather than chased.
 
@@ -52,7 +57,8 @@ patch, per the repo's version policy.
 
 Two limits, stated rather than implied. `msg.classification` is still folded over the whole stream (a
 known, separately-recorded defect), so one unrecognized letter anywhere now withholds `kind` for the
-entire stream, widening that over-trigger; `classifyMessage(m.records)` on a `messages()` entry is the
+entire stream unless a `Q` was read, in which case the `Q` still dominates as before; that widens the
+existing over-trigger. `classifyMessage(m.records)` on a `messages()` entry is the
 per-message answer and is unaffected. And the fix lands on `kind`, not on `isHostQueryRequest`: a
 mangled `Q` still reports `false` there, because no query was in fact read. `false` therefore means
 "no query was read", never "this is a result set", and the type docs and quickstart now say so.

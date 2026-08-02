@@ -426,13 +426,20 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    `ASTM-TYPE-LETTER-SECOND-READER`. Found by the `conformance-refuter` grading it, 2026-08-02.
 10. **`ASTM_RECORD_FIELDS_UNSEPARATED` is deliberately PARTIAL, so its absence certifies nothing,
     and two classes of the same value loss stay silent.** The check is one test on one of the four
-    delimiter roles, in its total form only. **(a)** A foreign set whose **field** separator happens
+    delimiter roles, the **field** separator, and only in its total form (that separator occurs
+    nowhere in the line). **(a)** A foreign set whose **field** separator happens
     to occur anywhere in the line still splits, on the wrong boundaries:
     `R*1*^^^688*99.9*mmol/L**H**F|` (one stray `|`) loses value, units and status with **zero**
-    warnings, and the identical record without that one byte **is** reported. **(b)** A set
-    differing only in the **repeat / component / escape** role splits into fields perfectly, so a
-    `:`-component record under the canonical set keeps its value and units but loses its test
-    identity, silently. Both `PRE-EXISTING`. **Not fixed on purpose:** widening the check means
+    warnings, and the identical record without that one byte **is** reported. **This happens INSIDE
+    a run of these warnings too**, so a run is not a sweep of the records it spans: measured, a
+    collapsed tail fired at records 3, 4 and 6 and **not** at record 5, whose value/units/status
+    were gone. **(b)** A set differing in the **repeat / component / escape** role usually splits
+    into fields normally, and the damage varies. A `:`-component record under the canonical set
+    keeps its value and units but loses its test identity, silently. **An ESCAPE character occurring
+    literally in a record is much worse and costs the value: that is defect 8 above**, and an
+    earlier draft of this entry wrongly described the whole role group as splitting "perfectly" and
+    costing only a test identity, which is the same misdiagnosis (misattribution, not value loss)
+    this item exists to correct. Both `PRE-EXISTING`. **Not fixed on purpose:** widening the check means
     deciding which set a record _ought_ to have had, which is the same guess the parser declines
     everywhere else. Both are **pinned** in `test/records/unseparated-fields.test.ts` under "the
     limits", and the boundary is stated on the warning code, in `README.md` and in the quickstart.

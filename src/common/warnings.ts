@@ -38,13 +38,16 @@ export const WARNING_CODES = {
    * which is how a delimiter-scoping mistake turns into lost values. It is reported rather than
    * repaired, because recovering the fields would mean guessing which set the sender meant.
    *
-   * **Its absence is not evidence that a record was read in its own set.** This is a test on one of
-   * the four delimiter roles, in its total form only, so two whole classes of the same loss are
-   * outside it: a foreign set whose field separator happens to occur somewhere in the line still
-   * splits (on the wrong boundaries, silently), and a set differing only in the repeat, component
-   * or escape role splits into fields perfectly while a component can still be mis-read. Treat this
-   * code as a report that one record definitely lost its fields, never as a sweep that would have
-   * fired if any had.
+   * **Its absence is not evidence that a record was read in its own set.** This tests one of the
+   * four delimiter roles, the field separator, and only in its total form, where that separator
+   * occurs nowhere in the line. Two whole classes of the same loss are outside it: a foreign set
+   * whose field separator happens to occur somewhere in the line still splits (on the wrong
+   * boundaries, silently, and this can happen to one record inside a run of these warnings); and a
+   * set differing in the repeat, component or escape role usually splits into fields normally,
+   * where a mis-split component can cost a test identity while an escape character occurring
+   * literally in a record merges every field after it and costs the value, the units and the status
+   * together. Treat this code as a report that one record definitely lost its fields, never as a
+   * sweep that would have fired if any had.
    */
   ASTM_RECORD_FIELDS_UNSEPARATED: "ASTM_RECORD_FIELDS_UNSEPARATED",
   /** The header declared delimiters other than the canonical `H|\^&`: tolerated, noted. */
