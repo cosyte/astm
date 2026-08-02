@@ -53,13 +53,16 @@
  *
  * **A third reader of record structure landed with
  * `ASTM_RECORD_FIELDS_UNSEPARATED`, and the allow-list was re-derived against it.**
- * That code reports a record the delimiters in force could not split, which is the
- * signature of a record being read in a set that is not its own, and it fires
- * wherever a modeled field went missing for that reason. It is safety-critical (it
- * reports lost values, so it fails part 1 outright) and it is on the forbidden side
- * by construction, because that side is computed rather than listed. What it
- * required was re-reading the three survivors below against it: none of them is a
- * statement about whether a record split, so none of them is now hiding it.
+ * That code reports a record the delimiters in force could not split at all, which
+ * is one signature of a record being read in a set that is not its own. It is
+ * safety-critical (it reports lost values, so it fails part 1 outright) and it is
+ * on the forbidden side by construction, because that side is computed rather than
+ * listed. What it required was re-reading the three survivors below against it:
+ * none of them is a statement about whether a record split, so none of them is now
+ * hiding it. Note the code is deliberately **partial** (see its own docs): it does
+ * not fire wherever a field went missing to a foreign delimiter set, only where the
+ * field separator was absent outright, so it is a reader of record structure that
+ * cannot be relied on as a sweep.
  *
  * **So the three that remain are recorded with the reading each one survives**, not
  * merely with the value it preserves. Each was re-derived against both readers of

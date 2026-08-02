@@ -401,6 +401,45 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    (refuse a non-Latin-1 code point? encode UTF-8?) and belongs in its own slice.** Found by the
    `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
 
+8. **🩺 ONE UNESCAPED `&` IN A VALUE SILENTLY SWALLOWS EVERY FOLLOWING FIELD, AND THE ROUND TRIP
+   BAKES THE MIS-READ IN. This is the sharpest thing on this list and it is a candidate
+   stop-the-line.** `splitEscapeAware` (`src/common/escapes.ts`) copies from a lone escape character
+   to end-of-record, and **there is no warning code for an unterminated escape**, so:
+   `R|1|^^^687|28.6&|U/L||N||F` reads back `value` = `28.6&|U/L||N||F` with **units gone, abnormal
+   flag gone, and status `unspecified` rather than `final`**, `warnings: []`. And
+   `P|1||LAB-0001||O&Brien^John||19800101|M` reads surname `O&Brien^John||19800101|M` with
+   **birthDate and sex gone**, `warnings: []`. A surname carrying an ampersand is not exotic.
+   Emit then **re-escapes the garble** into `28.6&E&&F&U/L&F&&F&N&F&&F&F`, so a spec-clean-looking
+   line now encodes the corrupted tree and re-parses to the same wrong value: **silent re-read
+   divergence**, the exact direction the #21/#22/#24 house invariant forbids, reached with no
+   malformed delimiter set at all. `PRE-EXISTING`: reproduces **byte-identically** on `64e018d`
+   (`0.0.8`) in a clean worktree. **Not fixed in `ASTM-TYPE-LETTER-SECOND-READER`** (out of that
+   item's scope, which was the type letter's two readers) and it wants its own slice, ahead of
+   further delimiter hardening. Found by the `conformance-refuter` grading
+   `ASTM-TYPE-LETTER-SECOND-READER` 2026-08-02.
+9. **`inline-loinc-candidate` is asserted with no LOINC evidence.**
+   `src/common/coding-system.ts` tags **any** non-empty first component as an inline LOINC candidate
+   with no format check, so the very ordinary `R|1|Glucose|28.6|U/L||N||F` reports
+   `provenance: "inline-loinc-candidate"` with `loincCandidate: "Glucose"`, and `primaryCode()`
+   returns `"Glucose"`. That is a code-system provenance claim on evidence that does not support it,
+   in a package whose whole discipline is never to guess a code system. `PRE-EXISTING`, untouched by
+   `ASTM-TYPE-LETTER-SECOND-READER`. Found by the `conformance-refuter` grading it, 2026-08-02.
+10. **`ASTM_RECORD_FIELDS_UNSEPARATED` is deliberately PARTIAL, so its absence certifies nothing,
+    and two classes of the same value loss stay silent.** The check is one test on one of the four
+    delimiter roles, in its total form only. **(a)** A foreign set whose **field** separator happens
+    to occur anywhere in the line still splits, on the wrong boundaries:
+    `R*1*^^^688*99.9*mmol/L**H**F|` (one stray `|`) loses value, units and status with **zero**
+    warnings, and the identical record without that one byte **is** reported. **(b)** A set
+    differing only in the **repeat / component / escape** role splits into fields perfectly, so a
+    `:`-component record under the canonical set keeps its value and units but loses its test
+    identity, silently. Both `PRE-EXISTING`. **Not fixed on purpose:** widening the check means
+    deciding which set a record _ought_ to have had, which is the same guess the parser declines
+    everywhere else. Both are **pinned** in `test/records/unseparated-fields.test.ts` under "the
+    limits", and the boundary is stated on the warning code, in `README.md` and in the quickstart.
+    **If you ever make one of those tests go green by widening the guard, the prose in all three
+    places has to move with it.** Found by the `conformance-refuter` grading
+    `ASTM-TYPE-LETTER-SECOND-READER` 2026-08-02.
+
 Two further defects once on this list (the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d`) were recorded with
 `ASTM-MIXED-DELIMITER-EMIT` (#21), left again by `ASTM-SECOND-HEADER-COLLAPSE` (#22), and **both

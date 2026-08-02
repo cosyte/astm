@@ -100,14 +100,24 @@ for (const w of warnings) {
 
 > **`ASTM_RECORD_FIELDS_UNSEPARATED` means a record lost its fields, not that it was formatted
 > oddly.** Delimiters are re-read at each header, so a header the reader did not recognize does not
-> re-scope them, and the records after it are read with the previous set. A record read in a set that
-> is not its own contains no field separator at all, so the whole line comes back as one field and
-> none of its modeled fields survive. On a result record that costs the value, the **units** and the
-> **status** together, and the result then reads as though it simply never carried them. The parser
-> warns once per affected record, surfaces the raw line intact, and **never** re-splits it on a set
-> no header declared, because that would invent data. A `{ strict: true }` parse refuses, and no
-> profile may tolerate the code. This does not need a mangled header to happen: any record written in
-> a set the header did not declare trips it.
+> re-scope them, and the records after it are read with the previous set. When that set's field
+> separator does not occur in a record at all, the whole line comes back as one field and none of its
+> modeled fields survive. On a result record that costs the value, the **units** and the **status**
+> together, and the result then reads as though it simply never carried them. The parser warns once
+> per affected record, surfaces the raw line intact, and **never** re-splits it on a set no header
+> declared, because that would invent data. A `{ strict: true }` parse refuses, and no profile may
+> tolerate the code. This does not need a mangled header to happen: a lone record written in another
+> set trips it too.
+>
+> **The absence of this warning is not a guarantee that a record split correctly**, and that is the
+> half worth carrying away. It tests one of the four delimiter roles, in its total form only. A
+> foreign set whose **field** separator happens to appear somewhere in the line still splits, on the
+> wrong boundaries and silently: one stray `|` inside an otherwise `*`-separated result loses the
+> value with **no** warning. A set differing only in the **repeat, component or escape** role splits
+> into fields perfectly, and a mis-split component can still cost a test identity. Widening the check
+> would mean deciding which set a record ought to have had, which is a guess this parser does not
+> make, so the boundary is documented instead. If delimiter drift is a real risk on your feed, gate
+> on the header's declared set (`msg.header.delimiters`) rather than on this warning alone.
 
 > **About runnable examples.** The first block above is tagged ` ```ts runnable `: the docs
 > build extracts it, runs it against the package, and asserts the `// =>` result, so a documented

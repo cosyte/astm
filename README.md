@@ -185,13 +185,24 @@ their own.
 
 Delimiters are re-read at each header too, so if the unrecognized one declared a different set, the
 records after it are read with the previous set and their fields are lost rather than merely
-misfiled. Each such record gets its own `ASTM_RECORD_FIELDS_UNSEPARATED` warning: it says the
-delimiters in force found no field separator in that record, so the whole line read back as one
+misfiled. `ASTM_RECORD_FIELDS_UNSEPARATED` reports a record that suffered the total form of that:
+the delimiters in force found no field separator in it at all, so the whole line read back as one
 field and none of its modeled fields survived. On a result record that is the value, the units and
 the status at once, so treat it as a lost result, not a formatting nit. The fields are never
-reconstructed, because the set the sender used is unknown and guessing at it would invent data. That
-code is safety-critical too, and it does not need a mangled header to fire: any record written in a
-set the header did not declare trips it.
+reconstructed, because the set the sender used is unknown and guessing at it would invent data. The
+code is safety-critical, and it does not need a mangled header to fire: a lone record written in
+another set trips it too.
+
+**Its absence does not certify that a record was read in its own set**, and this is the important
+half. The check is one test on one of the four delimiter roles, in its total form only, so two
+classes of the same loss are outside it. A foreign set whose **field** separator happens to occur
+somewhere in the line still splits, on the wrong boundaries and in silence: a single stray `|` in an
+otherwise `*`-separated result is enough to lose the value with no warning at all. And a set
+differing only in the **repeat, component or escape** role splits into fields perfectly, while a
+mis-split component can still cost a test identity. Widening the check would mean deciding which
+set a record ought to have had, which is the same guess the parser declines to make elsewhere, so
+the limit is written down rather than papered over. Read the warning as "this record definitely lost
+its fields", never as "no other record did".
 
 An unrecognized type letter also makes the message **kind** unknowable, because the letter that
 could not be read may have been the very `Q` that decides it. `classification.kind` is

@@ -26,19 +26,30 @@ this file is maintained by hand (Changesets handles the version bump and publish
   the previous message's patient, with the unrecognized-type warning as the **only** report on the
   stream. That warning says a letter was unreadable; it never said a value had gone.
 
-  The detector is keyed on the **observed collapse**, not on that one cause of it, which is both
-  simpler and strictly wider: identifying the mangled header would itself require guessing which
-  byte the sender meant. It therefore also closes the same silent collapse reached without any
-  mangled header at all, which reproduced on the previous release with **zero** warnings: a lone
-  record written in another set (`H|\^&` then `R*1*:::688*99.9*mmol/L**H**F`) parsed clean and
-  answered `undefined` for the value.
+  The detector is keyed on the **observed collapse**, not on that one cause of it, because
+  identifying the mangled header would itself require guessing which byte the sender meant. It
+  therefore also fires on the same silent collapse reached without any mangled header at all, which
+  reproduced on the previous release with **zero** warnings: a lone record written in another set
+  (`H|\^&` then `R*1*:::688*99.9*mmol/L**H**F`) parsed clean and answered `undefined` for the value.
 
   **Reported, never repaired.** The fields are not re-split on a set no header declared, because
   that would invent data; the raw line is surfaced intact and nothing is dropped. One warning per
   affected record, each at its own position and carrying no field data. The code is **safety-critical
   by construction** (the forbidden set is computed as every known code minus the tolerable
   allow-list), so no profile can quiet it and `{ strict: true }` refuses. A header is exempt by
-  construction rather than by exception: it is always read with the set it declares itself.
+  construction rather than by exception: it is always read with the set it declares itself. Content
+  after the type letter that is entirely whitespace is excluded, since no field is at stake there.
+
+  **Deliberately partial, and its absence certifies nothing.** This is one test on one of the four
+  delimiter roles, in its total form only, so two classes of the same loss stay silent and are
+  documented as such on the code, in `README.md` and in the quickstart rather than left to be
+  inferred. A foreign set whose **field** separator happens to occur anywhere in the line still
+  splits, on the wrong boundaries: one stray `|` inside an otherwise `*`-separated result loses the
+  value with no warning. A set differing only in the **repeat, component or escape** role splits
+  into fields perfectly, while a mis-split component can still cost a test identity. Both reproduce
+  identically on the previous release. Widening the check would mean deciding which set a record
+  ought to have had, which is the same guess declined above, so the boundary is written down instead
+  of chased.
 
   The exported factory `fieldsUnseparated` joins the record registry, and `WARNING_CODES` goes from
   15 members to 16. **That a record's fields are separated by the declared field delimiter is read
@@ -166,8 +177,8 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 
 ### Changed
 
-- **A record type letter the reader could not recognize no longer lets a host-query request read as
-  a result set** (`ASTM-TYPE-LETTER-SECOND-READER`, finding 1). `classifyMessage` counts `Q` / `R` /
+- **BREAKING: a record type letter the reader could not recognize no longer lets a host-query
+  request read as a result set** (`ASTM-TYPE-LETTER-SECOND-READER`, finding 1). `classifyMessage` counts `Q` / `R` /
   `O` records **by letter**, and the `Q`-dominates guarantee (a message carrying a query is never
   read as a result set) was stated on that count, so it only ever held while every letter was
   legible. Measured: `H|\^&` plus a `Q` carrying one stray leading byte plus an `R` classified
@@ -183,11 +194,20 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   because an unreadable letter can only ever add a kind, never remove a query already on the wire.
 
   `hasQuery` / `hasResults` / `hasOrders` stay truthful, so a caller wanting the raw tally still has
-  it, and `results()` and the rest are untouched. Behavior change for a consumer branching on `kind`
-  or `isHostQueryRequest`: on a stream carrying an unrecognized record letter, a previously positive
-  `kind` now reads `indeterminate`. That is the fix, and it moves in the fail-safe direction. A
-  conformant stream, where every letter is legible, is unchanged. Kept on the `0.0.x` pre-alpha
-  ladder as a patch, per the repo's version policy.
+  it, and `results()` and the rest are untouched. Breaking for a consumer branching on `kind`: on a
+  stream carrying an unrecognized record letter, a previously positive `kind` now reads
+  `indeterminate`. That is the fix, and it moves in the fail-safe direction. A conformant stream,
+  where every letter is legible, is unchanged. Kept on the `0.0.x` pre-alpha ladder as a patch, per
+  the repo's version policy.
+
+  Two limits, stated rather than implied. `msg.classification` is still folded over the **whole
+  stream** (a known, separately-recorded defect), so one unrecognized letter anywhere now withholds
+  `kind` for the entire stream, which widens that over-trigger; the per-message answer,
+  `classifyMessage(m.records)` on a `messages()` entry, is unaffected and is the reading to prefer.
+  And the fix lands on `kind`, not on `isHostQueryRequest`, which `README.md` calls the safety
+  surface: a mangled `Q` still reports `false` there, because the parser genuinely did not read a
+  query. `false` therefore means "no query was read", never "this is a result set", and both the
+  type doc and the quickstart now say so and point at `kind`.
 
 - **BREAKING: a profile may no longer tolerate `ASTM_RECORD_UNKNOWN_TYPE`**
   (`ASTM-UNKNOWN-RECORD-REMERGE`). The code moves off the profile safety gate's tolerable

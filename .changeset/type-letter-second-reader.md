@@ -21,10 +21,19 @@ safety-critical by construction (the forbidden set is computed as every known co
 allow-list), so no profile can quiet it and `{ strict: true }` refuses.
 
 Reported, never repaired: the record is not re-split on a set no header declared, because that would
-invent data, and the raw line is surfaced intact. The detector is keyed on the observed collapse
-rather than on the mangled header, which is simpler (identifying that header would itself require
-guessing a byte) and strictly wider: it also closes the same silent collapse reachable with no mangled
-header at all, which parsed with zero warnings on the previous release.
+invent data, and the raw line is surfaced intact. The check is keyed on the observed collapse rather
+than on the mangled header, since identifying that header would itself require guessing a byte, so it
+also fires on the same silent collapse reachable with no mangled header at all, which parsed with zero
+warnings on the previous release.
+
+It is deliberately partial, and its absence certifies nothing. This is one test on one of the four
+delimiter roles, in its total form only. A foreign set whose field separator happens to occur anywhere
+in the line still splits, on the wrong boundaries, so one stray `|` inside an otherwise
+`*`-separated result loses the value with no warning; and a set differing only in the repeat,
+component or escape role splits into fields perfectly while a mis-split component can still cost a
+test identity. Both reproduce identically on the previous release. Widening the check would mean
+deciding which set a record ought to have had, which is the same guess declined above, so the limit is
+documented on the code, in `README.md` and in the quickstart, and pinned by tests, rather than chased.
 
 **The classification fail-safe.** `classifyMessage` counts `Q` / `R` / `O` by letter, so the
 documented "`Q` dominates, a query is never read as a result set" guarantee held only while every
@@ -35,11 +44,18 @@ instead. An unsupported record with no `Q` read alongside it now yields `kind: "
 the new `AstmMessageClassification.hasUnrecognized` reports why. A `Q` that was read still dominates,
 since an unreadable letter can only add a kind, never remove a query already on the wire.
 
-Behavior change for a consumer branching on `kind` or `isHostQueryRequest`: on a stream carrying an
-unrecognized record letter, a previously positive `kind` now reads `indeterminate`. That is the fix,
-and it moves in the fail-safe direction; a stream whose every letter is legible is unchanged.
-`hasQuery` / `hasResults` / `hasOrders` stay truthful, and the extractors are untouched. Kept on the
-`0.0.x` pre-alpha ladder as a patch, per the repo's version policy.
+Breaking for a consumer branching on `kind`: on a stream carrying an unrecognized record letter, a
+previously positive `kind` now reads `indeterminate`. That is the fix, and it moves in the fail-safe
+direction; a stream whose every letter is legible is unchanged. `hasQuery` / `hasResults` /
+`hasOrders` stay truthful, and the extractors are untouched. Kept on the `0.0.x` pre-alpha ladder as a
+patch, per the repo's version policy.
+
+Two limits, stated rather than implied. `msg.classification` is still folded over the whole stream (a
+known, separately-recorded defect), so one unrecognized letter anywhere now withholds `kind` for the
+entire stream, widening that over-trigger; `classifyMessage(m.records)` on a `messages()` entry is the
+per-message answer and is unaffected. And the fix lands on `kind`, not on `isHostQueryRequest`: a
+mangled `Q` still reports `false` there, because no query was in fact read. `false` therefore means
+"no query was read", never "this is a result set", and the type docs and quickstart now say so.
 
 Still open and deliberately deferred, as before: the **merge itself**. A lenient parse still reads the
 two messages as one, and recognizing a mangled header as a header means guessing at a byte the sender

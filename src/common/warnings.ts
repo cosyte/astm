@@ -34,9 +34,17 @@ export const WARNING_CODES = {
    * fields could be recovered. The raw line is surfaced intact and nothing is dropped, but on a
    * result record it means the value, the units and the status are all absent from the parsed model.
    *
-   * This is the signature of a record being read with a delimiter set that does not belong to it,
+   * This is one signature of a record being read with a delimiter set that does not belong to it,
    * which is how a delimiter-scoping mistake turns into lost values. It is reported rather than
    * repaired, because recovering the fields would mean guessing which set the sender meant.
+   *
+   * **Its absence is not evidence that a record was read in its own set.** This is a test on one of
+   * the four delimiter roles, in its total form only, so two whole classes of the same loss are
+   * outside it: a foreign set whose field separator happens to occur somewhere in the line still
+   * splits (on the wrong boundaries, silently), and a set differing only in the repeat, component
+   * or escape role splits into fields perfectly while a component can still be mis-read. Treat this
+   * code as a report that one record definitely lost its fields, never as a sweep that would have
+   * fired if any had.
    */
   ASTM_RECORD_FIELDS_UNSEPARATED: "ASTM_RECORD_FIELDS_UNSEPARATED",
   /** The header declared delimiters other than the canonical `H|\^&`: tolerated, noted. */
@@ -205,6 +213,10 @@ export function unknownRecordType(position: AstmPosition): AstmRecordWarning {
  * it, and on a result record that costs the value, the units and the status in
  * one go. The fields are not reconstructed, because doing so would mean guessing
  * which set the sender meant, so a profile is not permitted to tolerate this code.
+ *
+ * **It is a report, not a sweep.** See {@link WARNING_CODES} for the two classes
+ * of the same loss it does not see: its absence never certifies a record split
+ * correctly.
  *
  * @example
  * ```ts

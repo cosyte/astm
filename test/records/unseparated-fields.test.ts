@@ -118,6 +118,19 @@ describe("what it must never fire on", () => {
     expect(unseparated("H|\\^&\rP\rL\r")).toBe(0);
   });
 
+  it("a terminator padded with trailing whitespace, where no field is at stake", () => {
+    // The code is safety-critical, so it cannot be tolerated by a profile and strict refuses on it.
+    // Firing it over a pad byte would leave a consumer no remedy but to abandon strict mode, and
+    // the diagnosis would be false anyway: with no non-blank byte after the type letter there is no
+    // field content that could have been lost.
+    expect(unseparated("H|\\^&\rP|1||LAB-0001\rL \r")).toBe(0);
+    expect(unseparated("H|\\^&\rP|1||LAB-0001\rL\t\r")).toBe(0);
+    expect(() => parseAstmRecords("H|\\^&\rP|1||LAB-0001\rL \r", { strict: true })).not.toThrow();
+    // A non-blank byte after the type letter is still reported, so this is a whitespace carve-out
+    // and not a length one.
+    expect(unseparated("H|\\^&\rP|1||LAB-0001\rL1\r")).toBe(1);
+  });
+
   it("a header, which is always read with the set it declares itself", () => {
     // Both headers are legible, so the second re-scopes the delimiters and neither is unsplittable.
     const raw = "H|\\^&|||s\rL|1|N\rH*~:#*||*s2\rR*1*:::688*9.0*U**H**F\rL*1*N\r";
@@ -142,6 +155,53 @@ describe("what it must never fire on", () => {
     const raw = "H*~:#*||*s\rP*1**LAB-0001\rR*1*:::688*99.9*mmol/L**H**F\rL*1*N\r";
     expect(unseparated(raw)).toBe(0);
     expect(results(parseAstmRecords(raw)).map((r) => r.value)).toEqual(["99.9"]);
+  });
+});
+
+/**
+ * **The limits, pinned.** This code is one test on one of the four delimiter roles, in its total
+ * form only, so its absence is not evidence that a record split correctly. Both shapes below lose
+ * data and report nothing, both reproduce identically on the previous release, and neither is
+ * repaired here: widening the check would mean deciding which set a record ought to have had, which
+ * is the guess the parser declines to make.
+ *
+ * They are asserted rather than merely written down, so that the documented boundary cannot quietly
+ * drift into a guarantee the code does not provide. A test here going red means the scope moved,
+ * and the prose on the warning code, in `README.md` and in the quickstart has to move with it.
+ */
+describe("the limits: shapes that lose data and are deliberately NOT reported", () => {
+  it("a foreign set whose field separator happens to occur in the line still splits, silently", () => {
+    // The record is `*`-separated but carries one `|`, which is the set in force. It therefore
+    // splits into two fields on the wrong boundary, so the collapse test does not see it, and the
+    // value, the units and the status are gone exactly as in the total case.
+    const raw = "H|\\^&\rP|1||LAB-0001\rR*1*^^^688*99.9*mmol/L**H**F|\rL|1|N\r";
+    const [only] = results(parseAstmRecords(raw));
+    expect(only?.value).toBeUndefined();
+    expect(only?.units).toBeUndefined();
+    expect(only?.status.isActiveFinal).toBe(false);
+    expect(codes(raw)).toEqual([]);
+
+    // The same record without that one byte is the total form, and IS reported. One character is
+    // the whole difference between the covered case and the uncovered one.
+    expect(codes("H|\\^&\rP|1||LAB-0001\rR*1*^^^688*99.9*mmol/L**H**F\rL|1|N\r")).toEqual([
+      WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED,
+    ]);
+  });
+
+  it("a set differing only in the component role splits into fields perfectly, silently", () => {
+    // Fields separate on `|` as declared, so nothing collapses and the value and units survive.
+    // What does not survive is the test identity: the component split never happened.
+    const raw = "H|\\^&\rP|1||LAB-0001\rR|1|:::688|99.9|mmol/L||H||F\rL|1|N\r";
+    const [only] = results(parseAstmRecords(raw));
+    expect(only?.value).toBe("99.9");
+    expect(only?.units).toBe("mmol/L");
+    expect(codes(raw)).toEqual([]);
+    // The canonical twin resolves a local code; the foreign-component one cannot.
+    expect(only?.universalTestId?.localCode).toBeUndefined();
+    expect(
+      results(parseAstmRecords("H|\\^&\rP|1||LAB-0001\rR|1|^^^688|99.9|mmol/L||H||F\rL|1|N\r"))[0]
+        ?.universalTestId?.localCode,
+    ).toBe("688");
   });
 });
 

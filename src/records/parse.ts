@@ -308,14 +308,30 @@ function buildRecord(
   //
   // Reported, never repaired. Re-splitting on a set the header did not declare would mean guessing
   // at bytes the sender did not send, which is the guess this package declines to make; what it
-  // will not do is lose the fields in silence. This detector is deliberately keyed on the OBSERVED
-  // collapse rather than on any one cause of it, so it also covers routes into the collapse that
-  // are not a redeclaring header at all (a record type letter the reader could not recognize does
-  // not re-scope delimiters either, and neither does one that never reaches the scoping rule).
+  // will not do is lose those fields in silence. Keying the check on the OBSERVED collapse rather
+  // than on any one cause of it is what lets it cover routes that are not a redeclaring header at
+  // all: a type letter the reader could not recognize does not re-scope delimiters either.
+  //
+  // ── WHAT THIS DOES NOT CATCH, which is most of the space and is why it is a report and not a
+  // guarantee. It is one test on ONE of the four delimiter roles, and only in its total form:
+  //
+  //   * A foreign set whose FIELD separator happens to occur anywhere in the line still splits, so
+  //     the count is 2 and nothing fires, while the fields land on the wrong boundaries. One stray
+  //     `|` in an otherwise `*`-separated record is enough, and the value is lost just the same.
+  //   * A set differing only in the REPEAT, COMPONENT or ESCAPE role splits into fields perfectly.
+  //     Nothing here sees it, and a mis-split component can still cost a test identity.
+  //
+  // So the absence of this warning is NOT evidence that a record was read in its own set. Widening
+  // it would mean deciding which set a record "should" have had, which is the same guess again.
+  // The honest scope is stated on the warning code and in the shipped docs, and it is stated as a
+  // limit rather than left to be inferred.
+  //
+  // Whitespace-only trailing content is excluded: with no non-blank byte after the type letter
+  // there is no field content that could have been lost, so a padded terminator is not a report.
   //
   // A header is exempt by construction, not by exception: `tokenizeHeader` always yields the type
   // letter plus the delimiter declaration, and a header is read with the set it declares itself.
-  if (line.length > 1 && fields.length === 1) {
+  if (fields.length === 1 && line.slice(1).trim().length > 0) {
     warnings.push(fieldsUnseparated({ recordIndex, recordType: rawType }));
   }
 
