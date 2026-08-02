@@ -305,21 +305,39 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    throws**, so a hand-authored profile still parses and the original warning simply survives. Do not
    "simplify" that check away as redundant with `defineAstmProfile`: it is the only one of the two
    that a hand-authored profile passes through.
-   **▶ THE COST IS VALUE LOSS, NOT ONLY MISATTRIBUTION.** Delimiters are re-read at each `H`, keyed
-   on the same letter, so an unrecognized header does not re-scope them either. Where it declared a
-   different set, the merged tail is tokenized with the previous header's delimiters: measured, a
-   `99.9 mmol/L` final result reads back with no value, no units and status `unspecified`, filed
-   under the first message's patient, with `ASTM_RECORD_UNKNOWN_TYPE` as the only report. That is
-   `ASTM-SECOND-HEADER-COLLAPSE` reachable through a mangled header. `PRE-EXISTING` in `parse.ts`
-   and **not fixed here**; pinned in the test file so it cannot regress unnoticed.
-   **▶ THE TYPE LETTER HAS A SECOND LOAD-BEARING READER, FOUND WHILE RE-DERIVING THE ALLOW-LIST.**
-   `classifyMessage` counts `Q`/`R`/`O` by letter, so an unrecognized `Q` defeats the "`Q` dominates,
-   a query is never read as a result set" fail-safe: `H|\^&` + a mangled `Q` + an `R` classifies as
-   `kind: "results"`, `isHostQueryRequest` false, and the `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`
-   warning vanishes with the `Q` it was counting. Measured, pinned in the same test file. **Not
-   fixed, deliberately**, and it is a different defect from #3 below (that one is per-message
-   scoping of a correct fold; this one is the fold reading a letter it could not recognize). Fixing
-   it means inferring the intended letter, which is the guess this package declines to make.
+   **▶ BOTH DOWNSTREAM COSTS WERE CLOSED 2026-08-02 by `ASTM-TYPE-LETTER-SECOND-READER`, NEITHER BY
+   INFERRING THE LETTER. Read `CHANGELOG.md` `[Unreleased]` before touching `parse.ts` or
+   `host-query.ts`.**
+   **(a) The value loss.** Delimiters are re-read at each `H`, keyed on the same letter, so an
+   unrecognized header does not re-scope them either. Where it declared a different set, the merged
+   tail was tokenized with the previous header's delimiters: measured, a `99.9 mmol/L` final result
+   read back with no value, no units and status `unspecified`, filed under the first message's
+   patient, with `ASTM_RECORD_UNKNOWN_TYPE` as the only report. New code
+   `ASTM_RECORD_FIELDS_UNSEPARATED` (+ exported factory `fieldsUnseparated`) now fires once per
+   record that carries content beyond its type letter and still yields exactly **one** field, which
+   means the set in force is not that record's set. **The detector is keyed on the OBSERVED collapse,
+   not on the mangled header** (identifying that header is itself the guess), so it is strictly
+   wider: it also closed the same silent collapse reachable with **no** mangled header at all, which
+   parsed with zero warnings through `0.0.8`. **Reported, never repaired** (re-splitting on a set no
+   header declared invents data); the raw line is surfaced intact. Safety-critical by construction,
+   so `strict` refuses and no profile reaches it. A header is exempt **by construction**, not by
+   exception: `tokenizeHeader` always yields type letter + declaration, and a header is read with the
+   set it declares itself. Measured in `test/records/unseparated-fields.test.ts`, which carries the
+   must-not-fire negative controls (conformant stream, bare `L`, a recognized redeclaring header, a
+   self-consistent non-canonical set, and this package's own serializer output).
+   **(b) The classification fail-safe.** `classifyMessage` counts `Q`/`R`/`O` by letter, so the
+   documented "`Q` dominates, a query is never read as a result set" guarantee held only while every
+   letter was legible: `H|\^&` + a mangled `Q` + an `R` classified `kind: "results"`,
+   `isHostQueryRequest` false, and `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` vanished with the `Q` it was
+   counting. The letter is **still never inferred**; the classifier declines the positive answer
+   instead. An `unsupported` record with no `Q` read alongside it now yields
+   `kind: "indeterminate"`, and the new `AstmMessageClassification.hasUnrecognized` reports why. **A
+   `Q` that WAS read still dominates** (an unreadable letter can only add a kind, never remove a
+   query already on the wire), and `hasQuery`/`hasResults`/`hasOrders` stay truthful. This is a
+   **behavior change** for a consumer branching on `kind` or `isHostQueryRequest`, in the fail-safe
+   direction; a stream whose every letter is legible is unchanged. It remains a different defect from
+   #3 below (that one is per-message scoping of a correct fold; this was the fold reading a letter it
+   could not recognize).
    **What is still open, and why it is not a "fix it next" item.** The lenient parse still merges,
    and merging is not obviously the wrong answer: recognizing a mangled header _as_ a header means
    guessing at a byte the sender did not send, and that guess would split the stream a different way

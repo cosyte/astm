@@ -133,6 +133,7 @@ export type { FatalCode } from "./common/errors.js";
 export {
   WARNING_CODES,
   unknownRecordType,
+  fieldsUnseparated,
   nonStandardDelimiters,
   unknownEscapeSequence,
   ambiguousValueSplit,

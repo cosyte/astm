@@ -21,9 +21,15 @@
  * three codes that remain: for each, the same logical stream is read the same way with the
  * condition present and absent, and the comparison is shown to fail for the code that was removed.
  *
- * The parser is deliberately unchanged here. Recognizing a mangled header *as* a header would mean
- * guessing at a byte the sender did not send, and that guess would split the stream a different
- * way just as silently.
+ * **The merge is still deliberately not closed.** Recognizing a mangled header *as* a header would
+ * mean guessing at a byte the sender did not send, and that guess would split the stream a different
+ * way just as silently, so a warning plus a strict refusal remains the honest disposition.
+ *
+ * Two consequences of the merge that this file used to pin as unfixed have since been addressed,
+ * neither by inferring the letter. The merged tail's lost fields are now reported per record with
+ * `ASTM_RECORD_FIELDS_UNSEPARATED`, so the value loss is no longer left to be inferred from a letter
+ * warning; and message classification no longer answers `results` over a letter it could not read,
+ * withholding the kind instead. Both tests below now measure the closure rather than the defect.
  *
  * All fixtures are **synthetic**: the identifiers, names, specimen IDs, and values are invented and
  * correspond to no real person or specimen.
@@ -144,9 +150,10 @@ describe("an unrecognized header re-merges two messages", () => {
    * following message is tokenized with the previous header's set. Where the two sets differ, the
    * merged tail loses its fields.
    *
-   * This is a property of the parser and reproduces on the tree before this change; it is pinned
-   * here because it is what the one surviving warning is reporting, and it is the strongest reason
-   * that warning cannot be downgraded.
+   * The loss itself still happens, and still cannot be repaired without guessing which set the
+   * sender meant. What is no longer true is that it happens in silence: every record the delimiters
+   * in force could not split now carries its own `ASTM_RECORD_FIELDS_UNSEPARATED`, so the reader is
+   * told which records lost their fields rather than only that a letter was unreadable.
    */
   it("a mangled header also skips delimiter re-scoping, so the merged tail loses values", () => {
     const first = "H|\\^&|||s\rP|1||LAB-0001\rO|1|SPEC-0001\rR|1|^^^687|10.0|U/L||N||F\rL|1|N\r";
@@ -166,8 +173,27 @@ describe("an unrecognized header re-merges two messages", () => {
     expect(merged[1]?.value).toBeUndefined();
     expect(merged[1]?.units).toBeUndefined();
     expect(merged[1]?.status.isActiveFinal).toBe(false);
-    // And this code is still the only report of it.
-    expect(mangled.warnings.map((w) => w.code)).toEqual([WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE]);
+    // The loss is no longer silent: the unreadable letter is reported, and so is every record the
+    // delimiters in force could not split (the tail's `O`, `R` and `L`), each at its own position.
+    expect(mangled.warnings.map((w) => w.code)).toEqual([
+      WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE,
+      WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED,
+      WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED,
+      WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED,
+    ]);
+    expect(
+      mangled.warnings
+        .filter((w) => w.code === WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED)
+        .map((w) => w.position.recordType),
+    ).toEqual(["O", "R", "L"]);
+    // The clean twin, whose header the reader did see, reports none of it.
+    expect(clean.warnings.map((w) => w.code)).not.toContain(
+      WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED,
+    );
+    // And strict mode refuses the collapse: the code is safety-critical, so no profile reaches it.
+    expect(() => parseAstmRecords(`${first} H${second}`, { strict: true })).toThrow(
+      AstmStrictError,
+    );
   });
 
   it("carries no field data in the warning text (value discipline)", () => {
@@ -185,9 +211,11 @@ describe("an unrecognized header re-merges two messages", () => {
  * read as a result set) is stated on that count. An unrecognized letter defeats it too, which is a
  * second, independent reason the code cannot be tolerable.
  *
- * The mis-classification itself is not fixed here: it is a property of reading the letter, the same
- * one segmentation has, and inferring the intended letter is the guess this package declines to
- * make. What is fixed is that the report of it can no longer be configured away.
+ * The intended letter is still never inferred, because that is the guess this package declines to
+ * make. What the classifier does instead is decline the positive answer: an unrecognized letter
+ * with no `Q` read alongside it leaves the kind `indeterminate`, so the request no longer reads as
+ * a result set. A `Q` that was read still dominates, since an unreadable letter can only add a
+ * kind, never remove the query already on the wire.
  */
 describe("the type letter has a second load-bearing reader: message classification", () => {
   // A host-query request that also carries a result. The Q-dominates rule reads this as a query
@@ -200,17 +228,33 @@ describe("the type letter has a second load-bearing reader: message classificati
     const msg = parseAstmRecords(Q_AND_R);
     expect(msg.classification.kind).toBe("host-query");
     expect(msg.classification.isHostQueryRequest).toBe(true);
+    expect(msg.classification.hasUnrecognized).toBe(false);
     expect(msg.warnings.map((w) => w.code)).toEqual([
       WARNING_CODES.ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND,
     ]);
   });
 
-  it("an unrecognized Q letter makes the same request read as a result set", () => {
+  it("an unrecognized Q letter no longer makes the same request read as a result set", () => {
     const msg = parseAstmRecords(Q_MANGLED);
-    expect(msg.classification.kind).toBe("results");
+    // The letter is still not inferred, so the query is not recovered. What is refused is the
+    // positive claim that this is a result set, which is the misreading the Q-dominates rule bars.
+    expect(msg.classification.kind).toBe("indeterminate");
     expect(msg.classification.isHostQueryRequest).toBe(false);
-    // The ambiguity warning is gone with the Q, so this code is the only report left.
+    expect(msg.classification.hasUnrecognized).toBe(true);
+    // The raw counts stay truthful: the R really is present, the Q really was not read.
+    expect(msg.classification.hasResults).toBe(true);
+    expect(msg.classification.hasQuery).toBe(false);
+    // The mangled Q record still carries its field separators, so only the letter is reported.
     expect(msg.warnings.map((w) => w.code)).toEqual([WARNING_CODES.ASTM_RECORD_UNKNOWN_TYPE]);
+  });
+
+  it("an unrecognized letter cannot cancel a Q that WAS read", () => {
+    // The stray byte lands on the R instead. The Q is legible, so it still dominates.
+    const rMangled = "H|\\^&\rQ|1|^SPEC-0001\r R|1|^^^687|10.0|U/L||N||F\rL|1|N\r";
+    const msg = parseAstmRecords(rMangled);
+    expect(msg.classification.kind).toBe("host-query");
+    expect(msg.classification.isHostQueryRequest).toBe(true);
+    expect(msg.classification.hasUnrecognized).toBe(true);
   });
 
   it("and no profile can quiet that report either", () => {

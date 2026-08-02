@@ -176,14 +176,27 @@ already names the message.
 Splitting reads each record's type letter, so check for an `ASTM_RECORD_UNKNOWN_TYPE` warning before
 you trust the split. A header the reader does not recognize as a header, one carrying a stray leading
 byte for instance, opens no message, and the messages either side of it merge back into one, so a
-patient can end up holding results that arrived under a different header. Delimiters are re-read at
-each header too, so if the unrecognized one declared a different set, the records after it are read
-with the previous set and their fields can be lost rather than merely misfiled. The
+patient can end up holding results that arrived under a different header. The
 parser warns on that record and a `{ strict: true }` parse refuses the stream. That warning is the
 only report the merge produces, so a profile is not allowed to tolerate it: the code is refused when
 a profile is defined, and a warning carrying it is not downgraded whatever profile is in force. Do
 not gate on the warning count, though, because the records that merged in can raise warnings of
 their own.
+
+Delimiters are re-read at each header too, so if the unrecognized one declared a different set, the
+records after it are read with the previous set and their fields are lost rather than merely
+misfiled. Each such record gets its own `ASTM_RECORD_FIELDS_UNSEPARATED` warning: it says the
+delimiters in force found no field separator in that record, so the whole line read back as one
+field and none of its modeled fields survived. On a result record that is the value, the units and
+the status at once, so treat it as a lost result, not a formatting nit. The fields are never
+reconstructed, because the set the sender used is unknown and guessing at it would invent data. That
+code is safety-critical too, and it does not need a mangled header to fire: any record written in a
+set the header did not declare trips it.
+
+An unrecognized type letter also makes the message **kind** unknowable, because the letter that
+could not be read may have been the very `Q` that decides it. `classification.kind` is
+`indeterminate` in that case rather than `results` or `orders`, and `classification.hasUnrecognized`
+says why. A `Q` that was read still wins outright.
 
 ## Map local codes to LOINC (LIVD, bring-your-own)
 

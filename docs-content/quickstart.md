@@ -74,9 +74,7 @@ stream it yields exactly one entry.
 > **Check for an `ASTM_RECORD_UNKNOWN_TYPE` warning before you trust a split.** Grouping reads each
 > record's type letter, so a header the reader does not recognize as a header, one carrying a stray
 > leading byte for instance, opens no message and the messages either side of it merge, so a patient
-> can end up holding results that arrived under a different header. Delimiters are re-read at each
-> header too, so if the unrecognized one declared a different set, the records after it are read with
-> the previous set and their fields can be lost rather than merely misfiled. The parser
+> can end up holding results that arrived under a different header. The parser
 > reports that record as an unsupported record and warns, and a `{ strict: true }` parse refuses the
 > stream outright. That warning is the only report the merge produces, so a profile is **not**
 > allowed to tolerate it: naming it in `tolerate` throws from `defineAstmProfile()`, and a warning
@@ -94,8 +92,22 @@ for (const w of warnings) {
     // an unrecognized record, surfaced as an unsupported record and not dropped.
     // If it was a header, this stream has one fewer message than it looks like.
   }
+  if (w.code === WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED) {
+    // this record did not split: treat its modeled fields as lost, not as absent.
+  }
 }
 ```
+
+> **`ASTM_RECORD_FIELDS_UNSEPARATED` means a record lost its fields, not that it was formatted
+> oddly.** Delimiters are re-read at each header, so a header the reader did not recognize does not
+> re-scope them, and the records after it are read with the previous set. A record read in a set that
+> is not its own contains no field separator at all, so the whole line comes back as one field and
+> none of its modeled fields survive. On a result record that costs the value, the **units** and the
+> **status** together, and the result then reads as though it simply never carried them. The parser
+> warns once per affected record, surfaces the raw line intact, and **never** re-splits it on a set
+> no header declared, because that would invent data. A `{ strict: true }` parse refuses, and no
+> profile may tolerate the code. This does not need a mangled header to happen: any record written in
+> a set the header did not declare trips it.
 
 > **About runnable examples.** The first block above is tagged ` ```ts runnable `: the docs
 > build extracts it, runs it against the package, and asserts the `// =>` result, so a documented
@@ -154,7 +166,19 @@ msg.classification.kind; // => "host-query"
 ```
 
 The `Q` **dominates**: even a message that (anomalously) carries both a `Q` and an `R` is classified
-`host-query` and flagged, a query is never silently read as a result upload. The `Q` record's range
+`host-query` and flagged, a query is never silently read as a result upload.
+
+That rule is a count of record type letters, so it holds only while every letter was legible. If any
+record's type is unsupported and no `Q` was read, the kind is **withheld**: `classification.kind` is
+`indeterminate` rather than `results` or `orders`, and `classification.hasUnrecognized` is `true`.
+The unreadable letter may have been the `Q`, and answering `results` over it is exactly the
+misreading this rule exists to prevent, so the parser declines to answer instead of guessing which
+letter was sent. The `hasQuery` / `hasResults` / `hasOrders` counts stay truthful throughout, so a
+caller that wants the raw tally still has it, and `isHostQueryRequest` being `false` is not a warrant
+that a message is a result set: read `kind` for that. A `Q` that **was** read still dominates, since
+an unreadable letter can only add a kind, never remove the query already on the wire.
+
+The `Q` record's range
 IDs, the `ALL` keyword, and the request-information status codes are surfaced **verbatim** and flagged
 `[OSS-derived]` (their exact structure is paywalled), never guessed.
 

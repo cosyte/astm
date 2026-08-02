@@ -17,6 +17,7 @@ import {
   ambiguousMessageKind,
   ambiguousValueSplit,
   delimitersRedeclared,
+  fieldsUnseparated,
   nonStandardDelimiters,
   orphanComment,
   partialTimestamp,
@@ -299,6 +300,24 @@ function buildRecord(
     rawType === "H"
       ? tokenizeHeader(line, d, onUnknownEscape)
       : tokenizeRecord(line, d, onUnknownEscape);
+
+  // A record that carries content beyond its type letter but yields exactly ONE field contains no
+  // field separator at all, so the delimiters in force are not the set this record was written
+  // with. Every modeled field of it is then absent: on an `R` that is the value, the units and the
+  // status at once, which is the shape a delimiter-scoping mistake takes when it reaches a reader.
+  //
+  // Reported, never repaired. Re-splitting on a set the header did not declare would mean guessing
+  // at bytes the sender did not send, which is the guess this package declines to make; what it
+  // will not do is lose the fields in silence. This detector is deliberately keyed on the OBSERVED
+  // collapse rather than on any one cause of it, so it also covers routes into the collapse that
+  // are not a redeclaring header at all (a record type letter the reader could not recognize does
+  // not re-scope delimiters either, and neither does one that never reaches the scoping rule).
+  //
+  // A header is exempt by construction, not by exception: `tokenizeHeader` always yields the type
+  // letter plus the delimiter declaration, and a header is read with the set it declares itself.
+  if (line.length > 1 && fields.length === 1) {
+    warnings.push(fieldsUnseparated({ recordIndex, recordType: rawType }));
+  }
 
   switch (rawType) {
     case "H":

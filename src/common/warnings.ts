@@ -28,6 +28,17 @@ export const WARNING_CODES = {
    * not recognize as one does not open a new message.
    */
   ASTM_RECORD_UNKNOWN_TYPE: "ASTM_RECORD_UNKNOWN_TYPE",
+  /**
+   * The delimiters in force found **no field separator at all** in a record that carries content
+   * beyond its type letter, so the whole record read back as a single field and none of its modeled
+   * fields could be recovered. The raw line is surfaced intact and nothing is dropped, but on a
+   * result record it means the value, the units and the status are all absent from the parsed model.
+   *
+   * This is the signature of a record being read with a delimiter set that does not belong to it,
+   * which is how a delimiter-scoping mistake turns into lost values. It is reported rather than
+   * repaired, because recovering the fields would mean guessing which set the sender meant.
+   */
+  ASTM_RECORD_FIELDS_UNSEPARATED: "ASTM_RECORD_FIELDS_UNSEPARATED",
   /** The header declared delimiters other than the canonical `H|\^&`: tolerated, noted. */
   ASTM_NONSTANDARD_DELIMITERS: "ASTM_NONSTANDARD_DELIMITERS",
   /** An escape sequence body was not one of `&F&`/`&S&`/`&R&`/`&E&`: preserved verbatim. */
@@ -180,6 +191,34 @@ export function unknownRecordType(position: AstmPosition): AstmRecordWarning {
     message:
       "Unrecognized record type, surfaced verbatim as an unsupported record. " +
       "If this record was a header, message grouping did not open a new message here.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_FIELDS_UNSEPARATED` warning. The raw line is surfaced
+ * intact; what is lost is every **modeled** field of the record, because the
+ * delimiters in force never split it.
+ *
+ * **This one is not cosmetic either.** A record with content but no field
+ * separator is a record being read with a delimiter set that does not belong to
+ * it, and on a result record that costs the value, the units and the status in
+ * one go. The fields are not reconstructed, because doing so would mean guessing
+ * which set the sender meant, so a profile is not permitted to tolerate this code.
+ *
+ * @example
+ * ```ts
+ * import { fieldsUnseparated } from "@cosyte/astm";
+ * fieldsUnseparated({ recordIndex: 4, recordType: "R" });
+ * ```
+ */
+export function fieldsUnseparated(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED,
+    message:
+      "The delimiters in force found no field separator in this record, so its whole content read " +
+      "back as one field and none of its modeled fields could be recovered. The raw line is " +
+      "surfaced intact, and no field is reconstructed, because the set the sender used is unknown.",
     position,
   };
 }

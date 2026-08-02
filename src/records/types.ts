@@ -364,6 +364,16 @@ export interface TerminatorRecord extends RecordBase {
  * starts by reading the type letter, so a header the reader could not recognize
  * arrives here instead, opens no message, and the messages either side of it are
  * grouped as one. Check `rawType` before trusting a split.
+ *
+ * **And one of these may be a `Q`.** Message classification counts type letters
+ * too, so a message carrying an unsupported record is classified `indeterminate`
+ * unless a `Q` was read outright: see
+ * {@link AstmMessageClassification.hasUnrecognized}.
+ *
+ * **A header that arrives here also failed to re-scope the delimiters.** The
+ * records after it are read with the set already in force, and where that set is
+ * not theirs they do not split at all, which is reported per record as
+ * `ASTM_RECORD_FIELDS_UNSEPARATED`.
  */
 export interface UnsupportedRecord extends RecordBase {
   readonly type: "unsupported";
@@ -415,7 +425,14 @@ export type AstmMessageKind = "host-query" | "results" | "orders" | "indetermina
  * ```
  */
 export interface AstmMessageClassification {
-  /** The message kind. */
+  /**
+   * The message kind.
+   *
+   * `indeterminate` also covers a message the reader declines to classify: when
+   * {@link AstmMessageClassification.hasUnrecognized} is `true` and no `Q` was read, the kind is
+   * withheld rather than guessed, because the unreadable letter may have been that `Q`. The `has*`
+   * flags below stay truthful in that case, so a caller that wants the raw counts still has them.
+   */
   readonly kind: AstmMessageKind;
   /** At least one `Q` (request-information) record is present. */
   readonly hasQuery: boolean;
@@ -424,8 +441,20 @@ export interface AstmMessageClassification {
   /** At least one `O` (order) record is present. */
   readonly hasOrders: boolean;
   /**
-   * `true` **iff** `kind === "host-query"` (a `Q` record is present), the safety surface: gate on this
+   * At least one record's type letter was **not recognized** (an
+   * {@link UnsupportedRecord}), so the letter counts above are known to be incomplete.
+   *
+   * Any of them may have been a `Q`, which is why a message carrying one is classified
+   * `indeterminate` unless a `Q` was read outright. `ASTM_RECORD_UNKNOWN_TYPE` reports the same
+   * condition on {@link AstmMessage.warnings}.
+   */
+  readonly hasUnrecognized: boolean;
+  /**
+   * `true` **iff** `kind === "host-query"` (a `Q` record was read), the safety surface: gate on this
    * before treating records as results, so a query is never misread as a result upload.
+   *
+   * `false` is **not** a warrant that the message is a result set. Read `kind` for that: it is
+   * `indeterminate` whenever the reader could not account for every type letter.
    */
   readonly isHostQueryRequest: boolean;
 }

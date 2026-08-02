@@ -11,6 +11,43 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Added
 
+- **`ASTM_RECORD_FIELDS_UNSEPARATED`: a record that lost its fields no longer loses them in
+  silence** (`ASTM-TYPE-LETTER-SECOND-READER`, finding 2, the one that outranked the other).
+  A record carries its type letter and then its fields, separated by the field delimiter the header
+  declared, so a record that carries content beyond its type letter and still yields exactly **one**
+  field contains no field separator at all: the delimiters in force are not the set that record was
+  written with. Every modeled field of it is then absent. On an `R` that is the **value, the units
+  and the status at once**, and the result reads back as though it simply never carried them.
+
+  The reachable route is a header whose type letter the reader could not recognize. Delimiters are
+  re-read at every `H`, keyed on that same letter, so an unrecognized header does not re-scope them
+  and the whole following message is tokenized with the previous header's set. Measured: a
+  `99.9 mmol/L` final result read back with no value, no units and status `unspecified`, filed under
+  the previous message's patient, with the unrecognized-type warning as the **only** report on the
+  stream. That warning says a letter was unreadable; it never said a value had gone.
+
+  The detector is keyed on the **observed collapse**, not on that one cause of it, which is both
+  simpler and strictly wider: identifying the mangled header would itself require guessing which
+  byte the sender meant. It therefore also closes the same silent collapse reached without any
+  mangled header at all, which reproduced on the previous release with **zero** warnings: a lone
+  record written in another set (`H|\^&` then `R*1*:::688*99.9*mmol/L**H**F`) parsed clean and
+  answered `undefined` for the value.
+
+  **Reported, never repaired.** The fields are not re-split on a set no header declared, because
+  that would invent data; the raw line is surfaced intact and nothing is dropped. One warning per
+  affected record, each at its own position and carrying no field data. The code is **safety-critical
+  by construction** (the forbidden set is computed as every known code minus the tolerable
+  allow-list), so no profile can quiet it and `{ strict: true }` refuses. A header is exempt by
+  construction rather than by exception: it is always read with the set it declares itself.
+
+  The exported factory `fieldsUnseparated` joins the record registry, and `WARNING_CODES` goes from
+  15 members to 16. **That a record's fields are separated by the declared field delimiter is read
+  off this package's own emit contract and off every fixture in this repository, not off a normative
+  sentence, and no clause is claimed for it**: the relevant CLSI text is withheld from the free
+  sample and the surrounding standards are paywalled, and the redistributable reference corpus
+  hardcodes the canonical delimiters and never reads the declaration, so it cannot ground a
+  delimiter question either.
+
 - **`messages()`: read a stream as the sequence of messages it actually is**
   (`ASTM-PATIENT-RESULT-MISATTRIBUTION`). A parsed model has always been a whole record
   **stream**, and a stream may carry several messages back to back: a message runs from an `H`
@@ -128,6 +165,29 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   unreadable.
 
 ### Changed
+
+- **A record type letter the reader could not recognize no longer lets a host-query request read as
+  a result set** (`ASTM-TYPE-LETTER-SECOND-READER`, finding 1). `classifyMessage` counts `Q` / `R` /
+  `O` records **by letter**, and the `Q`-dominates guarantee (a message carrying a query is never
+  read as a result set) was stated on that count, so it only ever held while every letter was
+  legible. Measured: `H|\^&` plus a `Q` carrying one stray leading byte plus an `R` classified
+  `kind: "results"` with `isHostQueryRequest: false`, and the `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`
+  warning that flags a `Q` + `R` contradiction vanished along with the `Q` it was counting. A stray
+  byte turned the fail-safe off.
+
+  The intended letter is still **never inferred**: that is the guess this package declines to make,
+  and inferring it would split a stream a different way just as silently. What the classifier does
+  instead is decline the positive answer. An unsupported record with no `Q` read alongside it now
+  yields `kind: "indeterminate"` rather than `"results"` or `"orders"`, and the new
+  `AstmMessageClassification.hasUnrecognized` reports why. A `Q` that **was** read still dominates,
+  because an unreadable letter can only ever add a kind, never remove a query already on the wire.
+
+  `hasQuery` / `hasResults` / `hasOrders` stay truthful, so a caller wanting the raw tally still has
+  it, and `results()` and the rest are untouched. Behavior change for a consumer branching on `kind`
+  or `isHostQueryRequest`: on a stream carrying an unrecognized record letter, a previously positive
+  `kind` now reads `indeterminate`. That is the fix, and it moves in the fail-safe direction. A
+  conformant stream, where every letter is legible, is unchanged. Kept on the `0.0.x` pre-alpha
+  ladder as a patch, per the repo's version policy.
 
 - **BREAKING: a profile may no longer tolerate `ASTM_RECORD_UNKNOWN_TYPE`**
   (`ASTM-UNKNOWN-RECORD-REMERGE`). The code moves off the profile safety gate's tolerable
