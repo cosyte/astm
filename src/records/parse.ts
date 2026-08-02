@@ -17,6 +17,7 @@ import {
   ambiguousMessageKind,
   ambiguousValueSplit,
   delimitersRedeclared,
+  fieldsUnseparated,
   nonStandardDelimiters,
   orphanComment,
   partialTimestamp,
@@ -299,6 +300,45 @@ function buildRecord(
     rawType === "H"
       ? tokenizeHeader(line, d, onUnknownEscape)
       : tokenizeRecord(line, d, onUnknownEscape);
+
+  // A record that carries content beyond its type letter but yields exactly ONE field contains no
+  // field separator at all, so the delimiters in force are not the set this record was written
+  // with. Every modeled field of it is then absent: on an `R` that is the value, the units and the
+  // status at once, which is the shape a delimiter-scoping mistake takes when it reaches a reader.
+  //
+  // Reported, never repaired. Re-splitting on a set the header did not declare would mean guessing
+  // at bytes the sender did not send, which is the guess this package declines to make; what it
+  // will not do is lose those fields in silence. Keying the check on the OBSERVED collapse rather
+  // than on any one cause of it is what lets it cover routes that are not a redeclaring header at
+  // all: a type letter the reader could not recognize does not re-scope delimiters either.
+  //
+  // ── WHAT THIS DOES NOT CATCH, which is most of the space and is why it is a report and not a
+  // guarantee. It is one test on ONE of the four delimiter roles, and only in its total form:
+  //
+  //   * A foreign set whose FIELD separator happens to occur anywhere in the line still splits, so
+  //     the count is 2 and nothing fires, while the fields land on the wrong boundaries. One stray
+  //     `|` in an otherwise `*`-separated record is enough, and the value is lost just the same.
+  //     This can happen to one record INSIDE a run of these warnings, so a run is not a sweep of
+  //     the records it spans.
+  //   * A set differing in the REPEAT, COMPONENT or ESCAPE role usually splits into fields normally,
+  //     and nothing here sees it. A mis-split component can cost a test identity while the value
+  //     survives; an ESCAPE character occurring literally in a record merges every field after it,
+  //     which costs the value, the units and the status together (a lone `&` under the canonical
+  //     set leaves a 9-field `R` reading as 4, silently). That last one is its own recorded defect.
+  //
+  // So the absence of this warning is NOT evidence that a record was read in its own set. Widening
+  // it would mean deciding which set a record "should" have had, which is the same guess again.
+  // The honest scope is stated on the warning code and in the shipped docs, and it is stated as a
+  // limit rather than left to be inferred.
+  //
+  // Whitespace-only trailing content is excluded: with no non-blank byte after the type letter
+  // there is no field content that could have been lost, so a padded terminator is not a report.
+  //
+  // A header is exempt by construction, not by exception: `tokenizeHeader` always yields the type
+  // letter plus the delimiter declaration, and a header is read with the set it declares itself.
+  if (fields.length === 1 && line.slice(1).trim().length > 0) {
+    warnings.push(fieldsUnseparated({ recordIndex, recordType: rawType }));
+  }
 
   switch (rawType) {
     case "H":

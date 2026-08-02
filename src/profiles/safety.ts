@@ -36,14 +36,33 @@
  * where one message ends and the next begins, so an unrecognized header opens no
  * message and two messages are read as one, pairing a patient with results that
  * arrived under a different header. Message classification counts `Q` / `R` / `O`
- * records by the same letter, so an unrecognized `Q` costs a host-query request its
- * `Q`-dominates guarantee: it reads as a result set, and the
- * `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` warning that flags that contradiction goes
+ * records by the same letter, so an unrecognized `Q` cost a host-query request its
+ * `Q`-dominates guarantee: it read as a result set, and the
+ * `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` warning that flags that contradiction went
  * with it. In both cases `ASTM_RECORD_UNKNOWN_TYPE` is the only warning left on the
  * stream, while the allow-list still described it as harmless. Tolerating it
  * re-badged the single report that the reader had lost its place, and a strict parse
  * then accepted the stream. It is off the list for that reason, and its removal is
  * what part 2 above is written down to prevent a repeat of.
+ *
+ * The classifier no longer answers `results` over a letter it could not read (it
+ * withholds the kind instead), so that particular misreading is closed at the
+ * source as well as reported. The allow-list conclusion is unchanged either way:
+ * part 2 asks whether anything **reads** the reported condition, and the classifier
+ * still does, now to decide whether it may answer at all.
+ *
+ * **A third reader of record structure landed with
+ * `ASTM_RECORD_FIELDS_UNSEPARATED`, and the allow-list was re-derived against it.**
+ * That code reports a record the delimiters in force could not split at all, which
+ * is one signature of a record being read in a set that is not its own. It is
+ * safety-critical (it reports lost values, so it fails part 1 outright) and it is
+ * on the forbidden side by construction, because that side is computed rather than
+ * listed. What it required was re-reading the three survivors below against it:
+ * none of them is a statement about whether a record split, so none of them is now
+ * hiding it. Note the code is deliberately **partial** (see its own docs): it does
+ * not fire wherever a field went missing to a foreign delimiter set, only where the
+ * field separator was absent outright, so it is a reader of record structure that
+ * cannot be relied on as a sweep.
  *
  * **So the three that remain are recorded with the reading each one survives**, not
  * merely with the value it preserves. Each was re-derived against both readers of
@@ -51,25 +70,33 @@
  *
  * - `ASTM_NONSTANDARD_DELIMITERS`: the header's own declared delimiters are read
  *   and honored either way, and this notes only that they differ from the canonical
- *   set. Neither reader sees them: the stream is cut into records on a line break,
+ *   set. No reader sees them: the stream is cut into records on a line break,
  *   and a record's type letter is the first character of its line, both taken before
- *   any delimiter-driven tokenization runs.
+ *   any delimiter-driven tokenization runs. It survives the split reader too, and
+ *   the distinction is worth stating precisely: this code says the declared set is
+ *   unusual, `ASTM_RECORD_FIELDS_UNSEPARATED` says a record did not match the set in
+ *   force. A stream may be wholly non-canonical and split perfectly, and a wholly
+ *   canonical stream can still carry a record that does not split, so tolerating the
+ *   first can never quiet the second.
  * - `ASTM_UNKNOWN_ESCAPE_SEQUENCE`: an unrecognized escape body is **preserved
  *   byte-for-byte** in the decoded value (the escape codec does not guess at one),
- *   so the value is identical with or without the profile. Neither reader sees it
- *   either: a decoded field value is never cut back into records, and the type
- *   letter is read before decoding.
+ *   so the value is identical with or without the profile. No reader sees it
+ *   either: a decoded field value is never cut back into records, the type
+ *   letter is read before decoding, and the split reader counts fields, which the
+ *   escape-aware tokenizer has already finished dividing before any body is decoded.
  * - `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`: a request-information status carried
  *   verbatim as a leaf field on a `Q` record; the code set is paywalled and is not
  *   interpreted, profile or not. Classification reads whether a `Q` record is
- *   *present*, never what this field says, and grouping does not read `Q` at all.
+ *   *present*, never what this field says; grouping does not read `Q` at all; and the
+ *   split reader is a count of fields, not a reading of any one of them, so a record
+ *   carrying this warning has by definition already split.
  *
  * Everything a wrong value could hide from: a result value split ambiguity, an
  * undefined abnormal flag or result status, an unparseable reference range, absent
  * units, a mis-attached comment, a partial timestamp, a query-vs-result ambiguity,
- * an unrecognized record type, a bad frame checksum / sequence gap / unterminated /
- * oversize frame, an ambiguous transport, an unexpected protocol event, or a
- * rejected frame: is forbidden.
+ * an unrecognized record type, a record the delimiters in force could not split, a
+ * bad frame checksum / sequence gap / unterminated / oversize frame, an ambiguous
+ * transport, an unexpected protocol event, or a rejected frame: is forbidden.
  *
  * **What this file cannot do for you.** Part 2 is a review obligation, not a
  * mechanical one. There is no honest automatic check for "nothing load-bearing
@@ -99,8 +126,12 @@ import type { AnyAstmWarningCode } from "./types.js";
  * `ASTM_RECORD_UNKNOWN_TYPE` is **not** on this list, and used to be. An
  * unrecognized record type may be a header the reader did not recognize as one, in
  * which case two messages have been read as one, or a `Q` it did not recognize, in
- * which case a host-query request reads as a result set. Tolerating it can quiet
- * the only report either happened.
+ * which case the message kind is no longer knowable. Tolerating it can quiet the
+ * only report either happened.
+ *
+ * `ASTM_RECORD_FIELDS_UNSEPARATED` is not on this list either, and never was. It
+ * reports a record the delimiters in force could not split, so every modeled field
+ * of that record is missing: it fails the first half of the test outright.
  *
  * @example
  * ```ts
