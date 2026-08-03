@@ -696,17 +696,27 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     included. Pinned in `test/frames/start-frame-number.test.ts`.
     **What the fix does NOT do, and it is documented on the option instead:** a continuation decoded
     **on its own** opens on a sequence gap, so the decoder drops that first record and
-    `parseFramedAstm` throws. **The base entry's "the failure code varies with the message shape, so
-    a caller cannot key on one" is TRUE and this slice briefly deleted it**: it is
-    `ASTM_RECORD_NO_HEADER` when the dropped record was the `H` and `EMPTY_INPUT` when nothing
-    survived, and it is restored on every surface. The documented-valid `0` has always behaved that
-    way; it is a cost of the option, not a defect in the caller's records. **Nothing returns the
+    `parseFramedAstm` **does not always fail, which is the pass-2 finding and the one that mattered.**
+    The base entry's "the failure code varies with the message shape, so a caller cannot key on one"
+    is TRUE, this slice briefly deleted it, and the first replacement (`ASTM_RECORD_NO_HEADER` or
+    `EMPTY_INPUT`) was **a new unqualified universal in place of the old one**. Measured: with a
+    _later_ record an `H`, `parseFramedAstm` **returns**, one record short, `message.warnings` EMPTY,
+    the loss reported only in `frameWarnings` (3 in, 2 out, `ASTM_FRAME_SEQUENCE_GAP`). Failing
+    shapes measured: `ASTM_RECORD_NO_HEADER`, `EMPTY_INPUT`, and
+    `ASTM_RECORD_UNDECLARED_DELIMITERS` where what survived cannot declare a set. **Three measured
+    shapes, stated as such and NOT as a closed list**, on all five surfaces. The documented-valid `0`
+    has always behaved that way; it is a cost of the option, not a defect in the caller's records. **Nothing returns the
     number to continue from and the frame count is not it once a record splits**, so the supported
     computation (`decode the part, read the last frame's number, + 1 mod 8`) is written on the option
-    and in the quickstart.
+    and in the quickstart, with the note that its `?? 0` fallback cannot fire on a part this encoder
+    composed (a frame lacks a number only when the stream ends right after its `STX`).
+    **`PRE-EXISTING`, recorded not fixed (pass 2, minor):** `serializeFramedAstm`'s round-trip
+    sentence is now scoped to the default start but stays unqualified on the **record**-layer axis
+    (defects 11/12 residuals), where `composeAstmFrames`'s own JSDoc does carry the "what is still
+    not guaranteed" caveat. It belongs to the record-layer residual slice with defect 12.
     Old bytes and new refusal both pinned, rebuilt with the test-only `frame()` builder so nothing is
     transcribed twice, with a biconditional property (refused **iff** not a whole number in `0`–`7`);
-    14 of 30 new tests red against `64c2fd5`.
+    14 of 32 new tests red against `64c2fd5`.
     **Its sibling minor is NOT closed with it and is deliberately left:** `serializeAstmRecords`
     silently drops all 31 C0/DEL characters from a **header delimiter-declaration surplus**. It is the
     record serializer, not the frame encoder's options, it is already argued at its own site in

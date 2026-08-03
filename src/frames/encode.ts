@@ -170,17 +170,26 @@ export interface ComposeFramesOptions {
    * **Decoded on its own, a stream that starts anywhere but `1` opens on a
    * sequence gap.** The decoder never bridges a gap silently, so it warns
    * (`ASTM_FRAME_SEQUENCE_GAP`) and does not emit that first record.
-   * {@link parseFramedAstm} then throws, but **not under one code a caller can
-   * key on**: `ASTM_RECORD_NO_HEADER` when the dropped record was the `H`, and
-   * `EMPTY_INPUT` when nothing survived at all. That is the cost of the option
-   * rather than a defect in the caller's records, and it is why `1` is the
-   * default.
+   * **What {@link parseFramedAstm} does about that varies with the message
+   * shape, and it does not always fail.** Measured: where a *later* record is an
+   * `H`, it does not fail at all, and the message parses one record short with
+   * the record layer's own `warnings` **empty**, the loss reported only in
+   * `frameWarnings`. Where it does fail, the code varies too
+   * (`ASTM_RECORD_NO_HEADER` with the `H` dropped, `EMPTY_INPUT` with nothing
+   * left, `ASTM_RECORD_UNDECLARED_DELIMITERS` where what survived cannot declare
+   * a set); that is three shapes measured rather than a closed list, and the
+   * point is that a caller cannot key on one. Read `frameWarnings`. That is the
+   * cost of the option rather than a defect in the caller's records, and it is
+   * why `1` is the default.
    *
    * **Finding the number to continue from.** Nothing here returns it, and the
    * frame count is not it once a record splits: decode the part you just
    * composed and read the last frame's number, then add one modulo 8, as in
-   * `((decodeAstmFrames(part).frames.at(-1)?.frameNumber ?? 0) + 1) % 8`. Getting
-   * it wrong costs the record at the join, warned rather than silently.
+   * `((decodeAstmFrames(part).frames.at(-1)?.frameNumber ?? 0) + 1) % 8`. A frame
+   * carries no number only when the stream ends immediately after its `STX`,
+   * which is not something this encoder writes, so that fallback never fires on
+   * a part composed here. Getting the number wrong costs the record at the join,
+   * warned rather than silently.
    *
    * A value outside `0`-`7`, or one that is not a whole number, is refused with
    * `ASTM_FRAME_INVALID_START_FRAME_NUMBER`.

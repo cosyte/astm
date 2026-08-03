@@ -275,4 +275,35 @@ describe("what a non-default start costs when the stream IS decoded on its own",
       expect((err as AstmParseError).code).toBe("ASTM_RECORD_NO_HEADER");
     }
   });
+
+  it("DOES NOT always fail, and the shape that does not fail is the one worth pinning", () => {
+    // The first replacement prose for this said parseFramedAstm throws under one of
+    // two codes. That is a universal over the message shape and it is false: where a
+    // LATER record is an H, the gap taints only the first record, the decoder resyncs,
+    // and the message parses one record short. The record layer's own warnings array
+    // is EMPTY, so a consumer reading only `message.warnings` is told nothing.
+    const bytes = composeAstmFrames(["L|1|N\r", "H|\\^&\r", "P|1||||SYNTHETIC^PATIENT\r"], {
+      startFrameNumber: 4,
+    });
+    const out = parseFramedAstm(bytes);
+    expect(out.message.records.map((r) => r.type)).toEqual(["H", "P"]); // three in, two out
+    expect(out.message.warnings).toEqual([]);
+    expect(out.frameWarnings.map((w) => w.code)).toEqual(["ASTM_FRAME_SEQUENCE_GAP"]);
+  });
+
+  it("and where it does fail, the code varies with the shape, so a caller cannot key on one", () => {
+    const codeFor = (records: readonly string[]): string => {
+      try {
+        parseFramedAstm(composeAstmFrames([...records], { startFrameNumber: 4 }));
+        return "NO THROW";
+      } catch (err) {
+        return (err as AstmParseError).code;
+      }
+    };
+    // Three measured shapes. This is not asserted as a closed list: it is asserted
+    // that no single code covers them.
+    expect(codeFor(RECORDS)).toBe("ASTM_RECORD_NO_HEADER");
+    expect(codeFor(["H|\\^&\r"])).toBe("EMPTY_INPUT");
+    expect(codeFor(["L|1|N\r", "H|\\^\r", "P|1\r"])).toBe("ASTM_RECORD_UNDECLARED_DELIMITERS");
+  });
 });

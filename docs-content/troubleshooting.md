@@ -131,14 +131,21 @@ The whole `0`-`7` range is still accepted, because a non-default start has a rea
 transfer across several calls. Continue the sequence at the number after the last frame the previous
 call used, and joining the results is byte-identical to composing the whole list in one call. What a
 continuation is **not** is the start of a transfer: read on its own, a stream that starts anywhere but
-`1` opens on a sequence gap and the decoder does not emit that first record. `parseFramedAstm` then
-throws, but not under one code you can key on: `ASTM_RECORD_NO_HEADER` when the dropped record was the
-`H`, and `EMPTY_INPUT` when nothing survived at all. If you are not continuing a sequence, do not set
-the option.
+`1` opens on a sequence gap and the decoder does not emit that first record.
+
+What `parseFramedAstm` does about that **varies with the message shape, and it does not always fail**.
+Where a _later_ record is an `H`, it does not fail at all: the message parses one record short, with
+the record layer's own `warnings` empty and the loss reported only in `frameWarnings`. Where it does
+fail, the code varies too: `ASTM_RECORD_NO_HEADER` with the `H` dropped, `EMPTY_INPUT` with nothing
+left, `ASTM_RECORD_UNDECLARED_DELIMITERS` where what survived cannot declare a delimiter set. Those
+are three measured shapes rather than a closed list, and the point is that you cannot key on one:
+**read `frameWarnings`.** If you are not continuing a sequence, do not set the option.
 
 To find the number to continue from, decode the part you just composed and read its last frame's
 number: `((decodeAstmFrames(part).frames.at(-1)?.frameNumber ?? 0) + 1) % 8`. The number of frames is
-not the same thing once a record has split across several of them.
+not the same thing once a record has split across several of them. A frame carries no number only
+when the stream ends immediately after its `STX`, which is not something `composeAstmFrames` writes,
+so that fallback never fires on a part it composed.
 
 ## Known limitations
 

@@ -52,18 +52,25 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
   **What a continuation is not, now stated on the option rather than guarded against.** Read on its
   own, a stream that starts anywhere but `1` opens on a sequence gap; the decoder never bridges a gap
-  silently, so it warns and does not emit that first record, and `parseFramedAstm` then throws, but
-  **not under one code a caller can key on**: `ASTM_RECORD_NO_HEADER` when the dropped record was the
-  `H`, and `EMPTY_INPUT` when nothing survived. Nothing returns the number to continue a sequence
-  from either, and the frame count is not it once a record splits, so the supported computation is
-  named on the option. The documented-valid `0` has always
-  behaved that way. It is the cost of the option, not a defect in the caller's records, and it is why
-  `1` is the default.
+  silently, so it warns and does not emit that first record. **What `parseFramedAstm` does about that
+  varies with the message shape, and it does not always fail:** measured, where a _later_ record is an
+  `H` it does not fail at all, and the message parses one record short with the record layer's own
+  `warnings` **empty**, the loss reported only in `frameWarnings`. Where it does fail the code varies
+  too (`ASTM_RECORD_NO_HEADER`, `EMPTY_INPUT`, `ASTM_RECORD_UNDECLARED_DELIMITERS`), which is three
+  measured shapes and not a closed list; the point is that a caller cannot key on one and has to read
+  `frameWarnings`. Nothing returns the number to continue a sequence from either, and the frame count
+  is not it once a record splits, so the supported computation is named on the option. The
+  documented-valid `0` has always behaved that way. It is the cost of the option, not a defect in the
+  caller's records, and it is why `1` is the default.
+
+  **This is a narrowing on a published package, in a small population.** `1.5` and `257` used to
+  produce a working stream, the byte-for-byte start-at-`1` one, and now throw. Every value the check
+  turns away was already outside the range the option documented.
 
   Both the old bytes and the new refusal are pinned in `test/frames/start-frame-number.test.ts`,
   asserted on what the old encoder produced (rebuilt with the test-only `frame()` builder, so nothing
   is transcribed twice), with a biconditional property: a value is refused **if and only if** it is
-  not a whole number in `0`-`7`. 14 of the 30 new tests are red against `64c2fd5`.
+  not a whole number in `0`-`7`. 14 of the 32 new tests are red against `64c2fd5`.
 
 - **Three `{@link}` targets in the published `.d.ts` did not name a symbol declared there**
   (`ASTM-FRAME-RESIDUALS`, the sibling minors). `QuirkTolerance` is `AstmQuirkTolerance` (twice, in
