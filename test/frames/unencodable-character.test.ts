@@ -188,8 +188,15 @@ describe("the refusal removes no capability and no valid stream", () => {
     expect(decoded.warnings).toEqual([]);
     expect(asByteString(def(decoded.records[0]))).toBe(record);
 
-    const every = String.fromCharCode(...Array.from({ length: 256 }, (_, i) => i));
-    expect(composeAstmFrames([every]).length).toBeGreaterThan(256);
+    // Every byte except the three the framing reads as structure, which are
+    // refused by the other guard (`ASTM_FRAME_RESERVED_BYTE`, its own file) and
+    // are nothing to do with the U+00FF bound this file is about.
+    const every = String.fromCharCode(
+      ...Array.from({ length: 256 }, (_, i) => i).filter(
+        (b) => b !== 0x02 && b !== 0x03 && b !== 0x17,
+      ),
+    );
+    expect(composeAstmFrames([every]).length).toBeGreaterThan(253);
   });
 
   it("still refuses an empty record with its own code, unchanged", () => {
@@ -219,11 +226,12 @@ describe("the property, stated with its bound", () => {
    * 240-byte frame split, and the non-vacuity block asserts both of those are
    * actually reached rather than merely counting runs.
    *
-   * The bound is explicit and is not an oversight: a record already carrying a
-   * frame-structure byte (`STX`/`ETX`/`ETB`) is excluded, because the encoder
-   * accepts it, frames it as given, and the decoder then reads it wrong. That is a
-   * separate open defect about control characters in values, untouched here, and
-   * writing the property without the exclusion would claim it had been fixed.
+   * The bound is explicit and is not an oversight: a record carrying a
+   * frame-structure byte (`STX`/`ETX`/`ETB`) is excluded, because it is refused
+   * for the **other** reason (`ASTM_FRAME_RESERVED_BYTE`) and this property is
+   * about the `U+00FF` bound. It used to be excluded because the encoder framed
+   * such a record as given and the decoder then read it wrong; that is closed,
+   * and `reserved-structure-byte.test.ts` is where it is measured.
    */
   const FRAME_STRUCTURE_BYTES = ["\u0002", "\u0003", "\u0017"];
 
@@ -319,44 +327,31 @@ describe("the property, stated with its bound", () => {
 });
 
 describe("the limit of this refusal, pinned so it is not read as wider", () => {
-  // A record whose value carries an ETX is a single byte, so the guard above has
-  // nothing to say about it: it is framed as given and the decoder reads the
-  // embedded byte as the frame terminator. That is a different open defect,
-  // deliberately not closed here. BOTH its branches are pinned, because an
-  // earlier draft of this file pinned only the first and then described the
-  // whole defect as failing loudly, which the second branch falsifies.
+  // This guard is the `U+00FF` bound and nothing else. A record whose value
+  // carries a raw `STX`/`ETB`/`ETX` is already a byte, so this guard has nothing
+  // to say about it; such a record is refused by a second guard with its own
+  // code, measured in `reserved-structure-byte.test.ts`. Both routes are pinned
+  // here as the separate things they are, so neither is read as covering the
+  // other's ground. This block used to pin the two branches of that defect while
+  // it was open, including the SILENT one; those fixtures live in that file now,
+  // still asserted on what the old encoder produced.
 
-  it("does not touch a raw control character in a value: the branch that warns", () => {
+  it("does not report a frame-structure byte as an unencodable character", () => {
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|\u0003|N||F\rL|1\r");
-    const rt = parseFramedAstm(serializeFramedAstm(msg));
-    expect(rt.frameWarnings.map((w) => w.code)).toContain("ASTM_FRAME_BAD_CHECKSUM");
-    expect(rt.message.records.map((r) => r.type)).toEqual(["H", "L"]); // the R is gone
+    try {
+      serializeFramedAstm(msg);
+      expect.unreachable("a value carrying an ETX must not be framed");
+    } catch (err) {
+      expect((err as AstmFrameEncodeError).code).toBe("ASTM_FRAME_RESERVED_BYTE");
+    }
   });
 
-  it("does not touch a raw control character in a value: the branch that is SILENT", () => {
-    // When the two bytes after the embedded ETX happen to BE the truncated
-    // frame's checksum, the short frame verifies, the tail is skipped as
-    // inter-frame bytes and the frame numbers still run in sequence. Nothing
-    // warns, and a whole result record is lost into the previous record's text.
-    const body = "C|1|I|SPECIMEN SLIGHTLY HEMOLYZED";
-    // The checksum composeAstmFrames would emit for that prefix in frame 3
-    // (H, P, then this comment), computed here rather than copied, so the
-    // fixture cannot rot into a merely-invalid one and quietly stop measuring.
-    let sum = (0x30 + 3) % 256;
-    for (const c of body) sum = (sum + c.charCodeAt(0)) % 256;
-    sum = (sum + 0x03) % 256; // the embedded ETX, read as this frame's terminator
-    const forged = sum.toString(16).toUpperCase().padStart(2, "0");
-
-    const msg = parseAstmRecords(
-      `H|\\^&\rP|1||LAB-0001\r${body}\u0003${forged}\rR|1|^^^687|28.6|U/L||N||F\rL|1\r`,
+  it("reports the character bound when a record trips both, because bytes come first", () => {
+    // A record carrying a character above U+00FF never becomes bytes at all, so
+    // the string-to-bytes refusal is the one raised even where a reserved byte is
+    // also present.
+    expect(() => composeAstmFrames([`R|1|28.6|${MU}mol/L\u0003\r`])).toThrow(
+      expect.objectContaining({ code: "ASTM_FRAME_UNENCODABLE_CHARACTER" }),
     );
-    expect(results(msg)).toHaveLength(1); // one final result went in
-
-    const rt = parseFramedAstm(serializeFramedAstm(msg));
-    expect(rt.frameWarnings).toEqual([]); // silent
-    expect(rt.message.warnings).toEqual([]); // at both layers
-    expect(rt.frames.every((f) => f.trusted)).toBe(true);
-    expect(rt.message.records.map((r) => r.type)).toEqual(["H", "P", "C", "L"]);
-    expect(results(rt.message)).toHaveLength(0); // and the result is simply gone
   });
 });

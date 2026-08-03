@@ -97,6 +97,21 @@ lenient mode, a thrown `AstmFrameStrictError` in strict); a sequence gap is warn
 silently bridged**. Read `frameWarnings` from `parseFramedAstm`: each carries a frame number and byte
 offset, never the record bytes.
 
+## `ASTM_FRAME_RESERVED_BYTE`: emit refused a record carrying `STX`, `ETB` or `ETX`
+
+`composeAstmFrames` (and `serializeFramedAstm` through it) throws an `AstmFrameEncodeError` with this
+code when a record holds one of the three bytes the framing reads as structure. There is no option to
+force it and no bytes-instead escape hatch, because the byte is unframable however it arrives: a
+frame's text ends at the first `ETB`/`ETX` after its `STX`, and framing has no escape sequence to hide
+one behind. Written through, it truncated the frame at that byte, which was **not** reliably loud:
+where the next two bytes happened to be the short frame's checksum, the truncated frame verified and a
+whole record was absorbed into the previous one with an empty `warnings` array at both layers.
+
+`recordIndex` and `characterIndex` locate it in your own data (the error never carries the bytes).
+Remove or replace the byte in the value before framing: which byte belongs in a clinical value is your
+call, not the library's. If you do not frame at all, nothing changes for you: `serializeAstmRecords`
+returns a string and round-trips such a value byte for byte.
+
 ## Known limitations
 
 `@cosyte/astm` is feature-complete across both layers, but its promise is deliberately narrow. See

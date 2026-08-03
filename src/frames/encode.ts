@@ -49,6 +49,9 @@ import {
  *   empty frame.
  * - `ASTM_FRAME_UNENCODABLE_CHARACTER`: a record given as a `string` holds a
  *   character above `U+00FF`, which has no single byte to stand for.
+ * - `ASTM_FRAME_RESERVED_BYTE`: a record holds a byte this layer reads as frame
+ *   structure (`STX`, `ETB` or `ETX`). Framing has no escape mechanism, so such
+ *   a byte cannot be carried inside a frame at all.
  *
  * @example
  * ```ts
@@ -58,7 +61,8 @@ import {
  */
 export type AstmFrameEncodeErrorCode =
   | "ASTM_FRAME_EMPTY_RECORD"
-  | "ASTM_FRAME_UNENCODABLE_CHARACTER";
+  | "ASTM_FRAME_UNENCODABLE_CHARACTER"
+  | "ASTM_FRAME_RESERVED_BYTE";
 
 /**
  * Thrown by {@link composeAstmFrames} when the input cannot be framed into a
@@ -81,6 +85,16 @@ export type AstmFrameEncodeErrorCode =
  * The refusal removes no capability, it routes you to the parameter that already
  * carried it.
  *
+ * **The reserved-byte case, and why it has no escape hatch.** `STX`, `ETB` and
+ * `ETX` are what {@link decodeAstmFrames} reads as frame structure: `STX` opens
+ * a frame, and the first `ETB`/`ETX` after it *is* the end of that frame's text.
+ * A record carrying one of those bytes therefore cannot be framed and read back,
+ * whichever form it arrives in, and this layer has no escape sequence to hide one
+ * behind. Passing bytes instead of a string does **not** route around it, because
+ * the byte is the problem rather than the encoding. Take the byte out of the value
+ * before framing: which byte belongs in a clinical value is the sender's call, not
+ * this library's, so it refuses rather than substituting or deleting one.
+ *
  * @example
  * ```ts
  * import { composeAstmFrames, AstmFrameEncodeError } from "@cosyte/astm";
@@ -99,7 +113,9 @@ export class AstmFrameEncodeError extends Error {
   /**
    * Position of the offending character within that record, when applicable:
    * its index in the string, never the character itself and never its code
-   * point. Enough to find it in the caller's own data.
+   * point. Enough to find it in the caller's own data. For a record supplied as
+   * a `Uint8Array` this is the offending byte's index, which is the same
+   * position: a record string is a byte string, so the two indices coincide.
    */
   public readonly characterIndex?: number;
   /** @internal */
@@ -177,6 +193,59 @@ function toBytes(input: Uint8Array | string, recordIndex: number): Uint8Array {
   return out;
 }
 
+/**
+ * The three bytes this layer reads as frame structure, and therefore the three a
+ * frame's *text* cannot carry. Derived from {@link decodeAstmFrames} rather than
+ * assumed: it starts a frame at `STX`, ends that frame's text at the first
+ * `ETB`/`ETX` after it, and treats a second `STX` before any terminator as a new
+ * frame beginning. `CR`/`LF` are deliberately absent, because they are read only
+ * *after* a frame's checksum: a record's own `CR` terminator sits inside frame
+ * text on every well-formed stream this encoder writes.
+ */
+const RESERVED_STRUCTURE_BYTES: ReadonlySet<number> = new Set([STX, ETB, ETX]);
+
+/**
+ * Refuse a record carrying a byte the framing reads as structure.
+ *
+ * **Why a refusal rather than a warning or a repair.** Framing has no escape
+ * mechanism: there is nowhere to put such a byte and no way to signal that it is
+ * data. Writing it anyway truncates the frame at that byte, and the outcome is
+ * not reliably loud. Measured on this package's own round trip: where the two
+ * bytes following an embedded `ETX` happen to be the short frame's checksum, the
+ * truncated frame **verifies**, the remainder of the record is skipped as
+ * inter-frame bytes, the next frame number is still in sequence, and both layers
+ * report an empty warnings array while a whole result record has been absorbed
+ * into the previous record's text and lost. An embedded `ETB` reaches the same
+ * silence by the other door: the truncated frame stays open, so the *next*
+ * record's text is appended to it and the two records read back as one. Emit has
+ * no warning channel (it returns bytes), so the only alternatives to refusing are
+ * substituting a byte the caller did not send or dropping one they did.
+ *
+ * The check is on the **bytes**, so it covers both accepted forms. A caller
+ * cannot route around it by encoding the record themselves, which is the point:
+ * the byte is unframable regardless of how it got there.
+ *
+ * @param bytes - One record's bytes.
+ * @param recordIndex - The record's index within the input, for error context.
+ * @throws {@link AstmFrameEncodeError} `ASTM_FRAME_RESERVED_BYTE` at the first
+ *   such byte.
+ */
+function assertFramable(bytes: Uint8Array, recordIndex: number): void {
+  for (let i = 0; i < bytes.length; i += 1) {
+    const byte = bytes[i];
+    if (byte !== undefined && RESERVED_STRUCTURE_BYTES.has(byte)) {
+      throw new AstmFrameEncodeError(
+        "A record contains a byte the framing layer reads as structure (STX, ETB or ETX). " +
+          "A frame has no escape sequence for one, so it cannot be carried inside a frame: " +
+          "remove it from the record before framing.",
+        recordIndex,
+        "ASTM_FRAME_RESERVED_BYTE",
+        i,
+      );
+    }
+  }
+}
+
 /** Build one frame's bytes: `STX FN text (ETB|ETX) C1 C2 CR LF`, checksum over `FN … terminator`. */
 function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): number[] {
   const term = isFinal ? ETX : ETB;
@@ -207,20 +276,32 @@ function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): n
  * resulting `Uint8Array`. Those two forms are the whole of what `records` accepts.
  * A caller reaching this from JavaScript with some **other** typed array is outside
  * the signature and gets no such refusal: each element is still written as its low
- * byte, the same substitution described above. Pass a `Uint8Array` or a string.
+ * byte, the same substitution described above. The reserved-byte check below does
+ * not reach that route either, because it compares elements against the three byte
+ * values and an element like `0x0103` is not one of them, though its low byte
+ * becomes an `ETX` on the wire. Pass a `Uint8Array` or a string.
  *
- * That covers the string-to-bytes step only. It is **not** a guarantee that any
- * accepted record reads back: a record already carrying an `STX`, `ETX` or `ETB`
- * byte is framed as given and re-decodes wrong, which this refusal does not touch
- * and does not claim to.
+ * **A record carrying a frame-structure byte is refused too, in either form.**
+ * `STX`, `ETB` and `ETX` are what the decoder reads as the shape of a frame, and
+ * framing has no escape sequence to hide one behind, so a record holding one is
+ * `ASTM_FRAME_RESERVED_BYTE` rather than a frame truncated at that byte. It used
+ * to be written as given, and the result was not reliably loud: with the two
+ * following bytes matching, the truncated frame verifies and a whole record is
+ * absorbed into the previous one with an empty warnings array at both layers.
+ * Supplying the record as a `Uint8Array` does not route around this check.
+ *
+ * What is still **not** guaranteed: that an accepted record round-trips through
+ * the *record* layer. A delimiter colliding with a record's type letter, for one,
+ * frames and de-frames byte-exactly and still re-reads as a different record.
  *
  * @param records - The reassembled record byte-strings (`Uint8Array` or latin1
  *   `string`), one entry per complete record.
  * @param options - Encode options.
  * @returns The framed byte stream.
  * @throws {@link AstmFrameEncodeError} when the list is empty, a record has no
- *   bytes (`ASTM_FRAME_EMPTY_RECORD`), or a record string holds a character above
- *   `U+00FF` (`ASTM_FRAME_UNENCODABLE_CHARACTER`).
+ *   bytes (`ASTM_FRAME_EMPTY_RECORD`), a record string holds a character above
+ *   `U+00FF` (`ASTM_FRAME_UNENCODABLE_CHARACTER`), or a record holds an `STX`,
+ *   `ETB` or `ETX` byte (`ASTM_FRAME_RESERVED_BYTE`).
  * @example
  * ```ts
  * import { composeAstmFrames, decodeAstmFrames } from "@cosyte/astm";
@@ -248,6 +329,7 @@ export function composeAstmFrames(
         recordIndex,
       );
     }
+    assertFramable(bytes, recordIndex);
     // Split the record text into <=240-byte chunks; the last chunk of the record closes with ETX.
     for (let offset = 0; offset < bytes.length; offset += MAX_FRAME_TEXT) {
       const chunk = bytes.subarray(offset, offset + MAX_FRAME_TEXT);

@@ -42,7 +42,12 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
   and lost. A frame carries **bytes**, so a record handed to `composeAstmFrames` as a `string` is one
   byte per character and a character above `U+00FF` is a typed error too: the encoder will not pick a
   character encoding for you, and it never quietly writes a different character than the one you gave
-  it. Encode such content yourself and pass the `Uint8Array`.
+  it. Encode such content yourself and pass the `Uint8Array`. A raw `STX`, `ETB` or `ETX` **byte** in a
+  record is a typed error as well, in either form: those three are what the decoder reads as the shape
+  of a frame, framing has no escape sequence for them, and writing one through truncated the frame at
+  that byte, silently losing a whole record whenever the two bytes after it happened to be the short
+  frame's checksum. The **record** layer still carries them, because a returned string is not yet on a
+  wire and a raw-transport consumer round-trips such a value exactly.
 - **Vendor profiles.** `defineAstmProfile()` builds a provenance-backed profile whose tolerances
   downgrade _expected_, non-safety-critical deviations to a `PROFILE_QUIRK_APPLIED` warning without
   ever altering a value, behind a safety gate that refuses to tolerate any result value, flag,
