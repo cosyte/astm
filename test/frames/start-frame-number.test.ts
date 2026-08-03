@@ -277,11 +277,14 @@ describe("what a non-default start costs when the stream IS decoded on its own",
   });
 
   it("DOES NOT always fail, and the shape that does not fail is the one worth pinning", () => {
-    // The first replacement prose for this said parseFramedAstm throws under one of
-    // two codes. That is a universal over the message shape and it is false: where a
-    // LATER record is an H, the gap taints only the first record, the decoder resyncs,
-    // and the message parses one record short. The record layer's own warnings array
-    // is EMPTY, so a consumer reading only `message.warnings` is told nothing.
+    // This is an EXISTENTIAL, not a rule, and it is here because two drafts of the
+    // shipped prose stated a rule and both measured false. What it shows: the gap
+    // taints only the first record, the decoder resyncs, and the message parses one
+    // record short. `message.warnings` is empty here because these survivors warrant
+    // nothing, NOT because the shape guarantees it: the general statement is that the
+    // record layer cannot see the loss at all, since parseFramedAstm hands the record
+    // parser only the frames the codec vouched for. Do not read a condition out of
+    // this fixture. The one below shows it can also throw, under more than one code.
     const bytes = composeAstmFrames(["L|1|N\r", "H|\\^&\r", "P|1||||SYNTHETIC^PATIENT\r"], {
       startFrameNumber: 4,
     });
@@ -301,9 +304,13 @@ describe("what a non-default start costs when the stream IS decoded on its own",
       }
     };
     // Three measured shapes. This is not asserted as a closed list: it is asserted
-    // that no single code covers them.
+    // that no single code covers them. The third one is also the counterexample to
+    // "a later record being an H means it does not fail": here record 1 IS an H and
+    // is the first survivor, and it still throws.
     expect(codeFor(RECORDS)).toBe("ASTM_RECORD_NO_HEADER");
     expect(codeFor(["H|\\^&\r"])).toBe("EMPTY_INPUT");
     expect(codeFor(["L|1|N\r", "H|\\^\r", "P|1\r"])).toBe("ASTM_RECORD_UNDECLARED_DELIMITERS");
+    // And a second one, where the dropped record was itself an H and a later H exists.
+    expect(codeFor(["H|\\^&\r", "P|1\r", "H|\\^&\r", "L|1|N\r"])).toBe("ASTM_RECORD_NO_HEADER");
   });
 });

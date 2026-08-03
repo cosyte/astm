@@ -133,13 +133,12 @@ call used, and joining the results is byte-identical to composing the whole list
 continuation is **not** is the start of a transfer: read on its own, a stream that starts anywhere but
 `1` opens on a sequence gap and the decoder does not emit that first record.
 
-What `parseFramedAstm` does about that **varies with the message shape, and it does not always fail**.
-Where a _later_ record is an `H`, it does not fail at all: the message parses one record short, with
-the record layer's own `warnings` empty and the loss reported only in `frameWarnings`. Where it does
-fail, the code varies too: `ASTM_RECORD_NO_HEADER` with the `H` dropped, `EMPTY_INPUT` with nothing
-left, `ASTM_RECORD_UNDECLARED_DELIMITERS` where what survived cannot declare a delimiter set. Those
-are three measured shapes rather than a closed list, and the point is that you cannot key on one:
-**read `frameWarnings`.** If you are not continuing a sequence, do not set the option.
+What `parseFramedAstm` does after that **varies with the message shape**. It may throw, under more
+than one code, and it may return a message that is simply one record short. What does hold is that
+the **record layer never reports the loss**: `parseFramedAstm` hands the record parser only the frames
+the codec vouched for, so `message.warnings` carries what the surviving records warrant and nothing
+about the record that did not survive. **Read `frameWarnings`.** If you are not continuing a sequence,
+do not set the option.
 
 To find the number to continue from, decode the part you just composed and read its last frame's
 number: `((decodeAstmFrames(part).frames.at(-1)?.frameNumber ?? 0) + 1) % 8`. The number of frames is

@@ -696,20 +696,35 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     included. Pinned in `test/frames/start-frame-number.test.ts`.
     **What the fix does NOT do, and it is documented on the option instead:** a continuation decoded
     **on its own** opens on a sequence gap, so the decoder drops that first record and
-    `parseFramedAstm` **does not always fail, which is the pass-2 finding and the one that mattered.**
-    The base entry's "the failure code varies with the message shape, so a caller cannot key on one"
-    is TRUE, this slice briefly deleted it, and the first replacement (`ASTM_RECORD_NO_HEADER` or
-    `EMPTY_INPUT`) was **a new unqualified universal in place of the old one**. Measured: with a
-    _later_ record an `H`, `parseFramedAstm` **returns**, one record short, `message.warnings` EMPTY,
-    the loss reported only in `frameWarnings` (3 in, 2 out, `ASTM_FRAME_SEQUENCE_GAP`). Failing
-    shapes measured: `ASTM_RECORD_NO_HEADER`, `EMPTY_INPUT`, and
-    `ASTM_RECORD_UNDECLARED_DELIMITERS` where what survived cannot declare a set. **Three measured
-    shapes, stated as such and NOT as a closed list**, on all five surfaces. The documented-valid `0`
-    has always behaved that way; it is a cost of the option, not a defect in the caller's records. **Nothing returns the
+    `parseFramedAstm` behaves in a way NO SHIPPED SURFACE NOW STATES A RULE FOR, and getting to that
+    took three refuter passes on one paragraph.
+    **▶ 🩺 THE SAME PARAGRAPH WAS WRONG IN THREE SUCCESSIVE FORMULATIONS, EACH TIME BY GENERALIZING A
+    MEASUREMENT, AND THAT IS THE FINDING WORTH CARRYING.** The base entry's "the failure code varies
+    with the message shape, so a caller cannot key on one" was TRUE; this slice deleted it (pass 2
+    caught that); its replacement, "`parseFramedAstm` throws under `ASTM_RECORD_NO_HEADER` or
+    `EMPTY_INPUT`", was a **new unqualified universal**; and ITS replacement, "where a _later_ record
+    is an `H` it does not fail at all", was **falsified by this slice's own committed test** two
+    blocks below the sentence (pass 3). Measured on this tree: `["L","H|\^&","P"]` at start 4
+    **returns**, 3 in and 2 out, `message.warnings` `[]`; `["L","H|\^","P"]` **throws**
+    `ASTM_RECORD_UNDECLARED_DELIMITERS` with a later `H` present; `["H","P","H","L"]` **throws**
+    `ASTM_RECORD_NO_HEADER` with a later `H` present. The governing condition is "the first
+    **surviving** record is a usable `H`" (`parse.ts` tests `first.charAt(0)`), which is not the same
+    predicate, and `message.warnings` is empty only for THAT FIXTURE: survivors carrying a `Z` warn
+    `ASTM_RECORD_UNKNOWN_TYPE`, survivors carrying an `&X&` atom warn `ASTM_UNKNOWN_ESCAPE_SEQUENCE`.
+    **▶ THE DISPOSITION AT THE ADR 0016 CAP WAS A CUT, NOT A FOURTH REWRITE.** The shipped surfaces
+    now offer **no rule** for what follows: they say the outcome varies with the message shape, that
+    it may throw under more than one code or return a message one record short, and that the one
+    statement which does generalize is that **the record layer never reports the loss**
+    (`parseFramedAstm` hands the record parser only the frames the codec vouched for, so
+    `message.warnings` carries what the survivors warrant and nothing about the record that did not
+    survive). The operative instruction is **read `frameWarnings`**. Do not reintroduce a shape rule
+    here; three have now measured false. The documented-valid `0` has always behaved this way; it is a
+    cost of the option, not a defect in the caller's records. **Nothing returns the
     number to continue from and the frame count is not it once a record splits**, so the supported
     computation (`decode the part, read the last frame's number, + 1 mod 8`) is written on the option
     and in the quickstart, with the note that its `?? 0` fallback cannot fire on a part this encoder
-    composed (a frame lacks a number only when the stream ends right after its `STX`).
+    composed (a frame lacks a number only when the stream ends right after its `STX`; verified against
+    every `frameNumber`-omitting path in `decode.ts`).
     **`PRE-EXISTING`, recorded not fixed (pass 2, minor):** `serializeFramedAstm`'s round-trip
     sentence is now scoped to the default start but stays unqualified on the **record**-layer axis
     (defects 11/12 residuals), where `composeAstmFrames`'s own JSDoc does carry the "what is still

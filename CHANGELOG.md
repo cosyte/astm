@@ -52,20 +52,20 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
   **What a continuation is not, now stated on the option rather than guarded against.** Read on its
   own, a stream that starts anywhere but `1` opens on a sequence gap; the decoder never bridges a gap
-  silently, so it warns and does not emit that first record. **What `parseFramedAstm` does about that
-  varies with the message shape, and it does not always fail:** measured, where a _later_ record is an
-  `H` it does not fail at all, and the message parses one record short with the record layer's own
-  `warnings` **empty**, the loss reported only in `frameWarnings`. Where it does fail the code varies
-  too (`ASTM_RECORD_NO_HEADER`, `EMPTY_INPUT`, `ASTM_RECORD_UNDECLARED_DELIMITERS`), which is three
-  measured shapes and not a closed list; the point is that a caller cannot key on one and has to read
-  `frameWarnings`. Nothing returns the number to continue a sequence from either, and the frame count
+  silently, so it warns and does not emit that first record. **What `parseFramedAstm` does after that
+  varies with the message shape, and no rule is offered for it:** it may throw, under more than one
+  code (`ASTM_RECORD_NO_HEADER`, `EMPTY_INPUT` and `ASTM_RECORD_UNDECLARED_DELIMITERS` were each
+  measured), and it may return a message one record short. **The one statement that generalizes is
+  that the record layer never reports the loss**, because `parseFramedAstm` hands the record parser
+  only the frames the codec vouched for, so `message.warnings` carries what the surviving records
+  warrant and nothing about the record that did not survive. Read `frameWarnings`. Nothing returns the number to continue a sequence from either, and the frame count
   is not it once a record splits, so the supported computation is named on the option. The
   documented-valid `0` has always behaved that way. It is the cost of the option, not a defect in the
   caller's records, and it is why `1` is the default.
 
   **This is a narrowing on a published package, in a small population.** `1.5` and `257` used to
   produce a working stream, the byte-for-byte start-at-`1` one, and now throw. Every value the check
-  turns away was already outside the range the option documented.
+  turns away was already outside what the option documented: a frame number, a whole number `0`-`7`.
 
   Both the old bytes and the new refusal are pinned in `test/frames/start-frame-number.test.ts`,
   asserted on what the old encoder produced (rebuilt with the test-only `frame()` builder, so nothing

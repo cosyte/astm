@@ -170,17 +170,15 @@ export interface ComposeFramesOptions {
    * **Decoded on its own, a stream that starts anywhere but `1` opens on a
    * sequence gap.** The decoder never bridges a gap silently, so it warns
    * (`ASTM_FRAME_SEQUENCE_GAP`) and does not emit that first record.
-   * **What {@link parseFramedAstm} does about that varies with the message
-   * shape, and it does not always fail.** Measured: where a *later* record is an
-   * `H`, it does not fail at all, and the message parses one record short with
-   * the record layer's own `warnings` **empty**, the loss reported only in
-   * `frameWarnings`. Where it does fail, the code varies too
-   * (`ASTM_RECORD_NO_HEADER` with the `H` dropped, `EMPTY_INPUT` with nothing
-   * left, `ASTM_RECORD_UNDECLARED_DELIMITERS` where what survived cannot declare
-   * a set); that is three shapes measured rather than a closed list, and the
-   * point is that a caller cannot key on one. Read `frameWarnings`. That is the
-   * cost of the option rather than a defect in the caller's records, and it is
-   * why `1` is the default.
+   * **What {@link parseFramedAstm} does after that varies with the message
+   * shape and no rule is offered for it here.** It may throw, under more than
+   * one code, and it may return a message that is simply one record short. **The
+   * one thing that does hold is that the record layer never reports the loss**:
+   * `parseFramedAstm` hands the record parser only the frames the codec
+   * vouched for, so `message.warnings` carries what the surviving records
+   * warrant and nothing about the record that did not survive. **Read
+   * `frameWarnings`.** That is the cost of the option rather than a defect in
+   * the caller's records, and it is why `1` is the default.
    *
    * **Finding the number to continue from.** Nothing here returns it, and the
    * frame count is not it once a record splits: decode the part you just

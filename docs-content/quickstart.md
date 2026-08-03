@@ -374,11 +374,10 @@ just composed: `((decodeAstmFrames(part).frames.at(-1)?.frameNumber ?? 0) + 1) %
 
 Note what a continuation is not: read on its own, a stream that starts anywhere but
 `1` opens on a sequence gap, so the decoder does not emit that first record. What
-`parseFramedAstm` does about that varies with the message shape and does not always
-fail: where a later record is an `H` it parses one record short, with the record
-layer's own `warnings` empty and the loss reported only in `frameWarnings`. Read
-`frameWarnings`, and leave the option alone unless you are genuinely continuing a
-sequence.
+`parseFramedAstm` does after that varies with the message shape: it may throw, and it
+may return a message one record short. The record layer never reports the loss, because
+it only ever sees the records that survived, so **read `frameWarnings`**. Leave the
+option alone unless you are genuinely continuing a sequence.
 
 ## Map a local code to LOINC (LIVD, bring-your-own)
 
