@@ -65,10 +65,18 @@
  * one character, no separator a `CR`/`LF`, no two separators the same character) and a
  * set failing any of them is a typed {@link AstmSerializeError}
  * (`ASTM_EMIT_INVALID_DELIMITERS`) rather than output this library's own parser would
- * reject or silently re-read with a different field tree. These are **necessary**
- * conditions, not a guarantee of readback: a set can pass all three and still produce a
- * stream that reads back wrong, a separator that collides with a record's type letter
- * is the known case, and it corrupts identically with or without this check.
+ * reject or silently re-read with a different field tree. These are conditions on the
+ * **set alone**, so they are not a readback guarantee on their own: a set can pass all
+ * three and still collide with a particular record's type letter, which is why that is
+ * checked per record, on the bytes actually written
+ * (`ASTM_EMIT_TYPE_LETTER_COLLISION`, see {@link assertTypeLetterSurvives}).
+ *
+ * **What is still not guaranteed.** Together the two checks guarantee that every
+ * record re-reads as its own *type*. They do not guarantee that every *field* of it
+ * lands where it did: an escape sequence whose body is itself a delimiter is read as
+ * one opaque atom, so that delimiter never becomes a boundary and the fields after it
+ * shift. That is reported on the parse side (`ASTM_UNKNOWN_ESCAPE_SEQUENCE`) and is
+ * not what these refusals cover.
  */
 
 import { CANONICAL_DELIMITERS, type Delimiters } from "../common/delimiters.js";
@@ -129,8 +137,12 @@ export class AstmSerializeError extends Error {
  *   (`CR`/`LF`), which the escape codec has no mnemonic for.
  * - `ASTM_EMIT_INVALID_DELIMITERS`: the delimiter set to emit against failed one
  *   of the three conditions readback requires (see {@link serializeAstmRecords}).
- *   Those conditions are necessary rather than sufficient, so this code means a
+ *   Those conditions are checked against the *set alone*, so this code means a
  *   set was rejected, not that every unreversible set is.
+ * - `ASTM_EMIT_TYPE_LETTER_COLLISION`: this record's type letter would not be the
+ *   first character of its own emitted line, so the record would read back as a
+ *   **different** record. Raised per record rather than per set, because whether
+ *   a set collides depends on which record is being written.
  *
  * @example
  * ```ts
@@ -138,7 +150,10 @@ export class AstmSerializeError extends Error {
  * const code: AstmSerializeErrorCode = "ASTM_EMIT_INVALID_DELIMITERS";
  * ```
  */
-export type AstmSerializeErrorCode = "ASTM_EMIT_UNENCODABLE_VALUE" | "ASTM_EMIT_INVALID_DELIMITERS";
+export type AstmSerializeErrorCode =
+  | "ASTM_EMIT_UNENCODABLE_VALUE"
+  | "ASTM_EMIT_INVALID_DELIMITERS"
+  | "ASTM_EMIT_TYPE_LETTER_COLLISION";
 
 /**
  * The three conditions a delimiter set must meet for emit to be reversible, in
@@ -187,14 +202,15 @@ const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
  * That is a deliberate narrowing on a published package: the input it turns away
  * is exactly the input it was corrupting.
  *
- * **What this does not cover.** These three rules are necessary, not sufficient.
- * A set can satisfy all of them and still emit a stream that reads back wrong:
- * a separator equal to a record's type letter (`field` of `R`) is the known case,
- * because the type letter is then escaped away and the record re-reads as
- * unsupported. That corruption predates this check and is unchanged by it; it is
- * recorded as a known defect rather than fixed here, because the rule that would
- * catch it has to be derived rather than guessed, and deriving it while fixing
- * two unrelated gaps is how a fix outgrows the thing it fixes.
+ * **What this does not cover, and where the rest of it lives now.** These three
+ * rules read the delimiter set and nothing else, so they cannot see a collision
+ * that depends on *which record* is being written: a separator equal to a record's
+ * type letter (`field` of `R`) satisfies all three and still escapes that letter
+ * away. That is checked per record instead, against the bytes actually produced,
+ * by {@link assertTypeLetterSurvives} (`ASTM_EMIT_TYPE_LETTER_COLLISION`). Keep
+ * the two apart: this one answers "could any record survive this set", and a
+ * caller of {@link encodeComponent} or {@link serializeField}, which hold no
+ * record, gets only this one.
  *
  * The error never echoes the offending characters. A caller-supplied "delimiter"
  * that fails rule 1 can be arbitrary text, so quoting it back into a message
@@ -255,8 +271,10 @@ function assertEmittableDelimiters(d: Delimiters, recordIndex?: number): void {
  * @returns The escaped component text.
  * @throws {@link AstmSerializeError} for a `CR`/`LF` in the leaf
  *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or for a delimiter set failing one of the
- *   three conditions readback requires (`ASTM_EMIT_INVALID_DELIMITERS`), which
- *   are necessary, not sufficient, so a set can pass them and still not reverse.
+ *   three conditions readback requires (`ASTM_EMIT_INVALID_DELIMITERS`). This
+ *   helper takes a leaf and no record, so it never raises
+ *   `ASTM_EMIT_TYPE_LETTER_COLLISION`: a caller assembling a record line out of it
+ *   is outside that check and gets no guarantee that a type letter survives.
  * @example
  * ```ts
  * import { encodeComponent, CANONICAL_DELIMITERS } from "@cosyte/astm";
@@ -319,9 +337,11 @@ function encodeField(
  * @param d - The delimiters to emit against; defaults to `H|\^&`.
  * @returns The record's wire text, terminator excluded.
  * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`
- *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` fails one of the three conditions
- *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`): necessary conditions, not
- *   sufficient ones, so a set can pass them and still not reverse.
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), when `d` fails one of the three conditions
+ *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`), or when this record's type
+ *   letter would not be the first character of its own emitted line
+ *   (`ASTM_EMIT_TYPE_LETTER_COLLISION`), which would make it read back as a
+ *   different record.
  * @example
  * ```ts
  * import { serializeAstmRecord, parseAstmRecords } from "@cosyte/astm";
@@ -339,11 +359,88 @@ export function serializeAstmRecord(
 
 /** {@link serializeAstmRecord} for callers that have already checked `d`. */
 function serializeRecordChecked(record: AstmRecord, d: Delimiters): string {
+  return assertTypeLetterSurvives(serializeRecordText(record, d), record);
+}
+
+/** The emitted wire text, before the type-letter readback check. */
+function serializeRecordText(record: AstmRecord, d: Delimiters): string {
   if (record.type === "M" || record.type === "S") return serializeVerbatimRecord(record, d);
 
   if (record.type === "H") return serializeHeader(record, d);
 
   return record.fields.map((f) => encodeField(f.repeats, d, record.recordIndex)).join(d.field);
+}
+
+/**
+ * The letter this record must re-read as: `record.type` for every modeled type,
+ * and the verbatim wire letter for an unsupported one. It is the same datum the
+ * parser reads (the first character of the line) and the same datum every warning
+ * already carries as its `recordType` position, so it is structural rather than a
+ * value, and naming it in an error message puts no data into a log.
+ */
+function recordTypeLetter(record: AstmRecord): string {
+  return record.type === "unsupported" ? record.rawType : record.type;
+}
+
+/**
+ * Refuse a record whose **type letter would not survive its own emit**.
+ *
+ * **The condition is derived from the reader, and it is checked on the output
+ * rather than on the delimiter set.** `parseAstmRecords` takes a record's type
+ * from `line.charAt(0)`, before any delimiter-driven tokenization runs, so the
+ * one thing emit has to guarantee is that the first character it writes is the
+ * letter the record models. Testing the bytes actually produced is what makes
+ * this cover every route into them: it needs no list of which delimiter roles are
+ * dangerous, and it cannot drift out of step with `encodeLeaf`.
+ *
+ * **What goes wrong without it.** A record's type letter is just another leaf to
+ * {@link encodeComponent}, so a delimiter set naming that letter escapes it away:
+ * an `R` record emitted with `field` = `R` goes out as `&F&R1R…` and re-reads as
+ * an **unsupported** record, one result in and zero out of `results()`. Such a
+ * set passes all three of {@link assertEmittableDelimiters}'s conditions (one
+ * character each, no `CR`/`LF`, all four distinct), which is why those are
+ * documented as conditions on the set and not as a readback guarantee.
+ *
+ * **The branch that decides the severity is the one where the record re-reads as
+ * a different RECOGNIZED type, and it is silent.** `encodeLeaf` writes an escaped
+ * character as `escape` + mnemonic + `escape`, so when the escape character is
+ * itself a record type letter the escaped type letter *starts with a valid
+ * letter*. Measured: a `P` record emitted with `field` = `P` and `escape` = `R`
+ * comes back as an `R` record whose `value` is the patient's laboratory ID and
+ * whose `units` are the practice-assigned one, `resultStatus` `F`, so `results()`
+ * returns a **fabricated final result built out of patient identifiers**. No
+ * unknown-type warning fires, because the letter that arrived is a real one. Over
+ * a sweep of every delimiter role against every record type letter, across nine
+ * record-set shapes, 750 emitted streams read back as something other than the
+ * records that produced them and **303 of those were accepted by
+ * `{ strict: true }`** under a profile the safety gate permits, carrying the same
+ * `ASTM_NONSTANDARD_DELIMITERS` a *clean* non-canonical stream carries and
+ * nothing else. That code is on the tolerable allow-list precisely because "a
+ * record's type letter is the first character of its line" is read before
+ * tokenization: true of the parse, and no protection at all when the emit is what
+ * chose the character.
+ *
+ * **The escape role is exempt, measured rather than assumed.** A type letter that
+ * equals the escape character encodes to `letter` + `E` + `letter`, whose first
+ * character is the letter itself, so the record re-reads as its own type and its
+ * type field decodes back to the letter. This check accepts it because the output
+ * is correct, which is the advantage of testing the output.
+ *
+ * **What it does not reach**, stated rather than left to be found. It is a check
+ * on the *type letter*, not a readback guarantee for the whole record: a set that
+ * keeps every type letter can still shift a record's later fields, and
+ * {@link encodeComponent} and {@link serializeField} take no record at all, so a
+ * caller assembling a line out of those two is not covered by it.
+ */
+function assertTypeLetterSurvives(text: string, record: AstmRecord): string {
+  const letter = recordTypeLetter(record);
+  if (text.charAt(0) === letter) return text;
+  throw new AstmSerializeError(
+    `Cannot emit this ${letter} record against these delimiters: its type letter is not the ` +
+      `first character of the emitted record, so the record would read back as a different record.`,
+    record.recordIndex,
+    "ASTM_EMIT_TYPE_LETTER_COLLISION",
+  );
 }
 
 /**
@@ -528,18 +625,26 @@ function declarationResidual(header: HeaderRecord, d: Delimiters): string {
  * fails is an {@link AstmSerializeError} with code `ASTM_EMIT_INVALID_DELIMITERS`.
  * This is stricter than the parser, which reads some sets it cannot reverse, so
  * `serializeAstmRecords(msg, msg.delimiters)` can refuse a message that parsed:
- * in exactly the cases where it used to emit a stream that read back wrong. The
- * three conditions are necessary rather than sufficient: a set that passes them can
- * still read back wrong if a separator collides with a record's type letter, which
- * this check does not claim to catch.
+ * in exactly the cases where it used to emit a stream that read back wrong.
+ *
+ * **And each record is checked against the set it is being written with.** Those
+ * three conditions read the set alone, so they cannot see that `field` = `R`
+ * escapes an `R` record's own type letter away. Every record's emitted line is
+ * therefore checked to start with the letter the record models, and one that does
+ * not is `ASTM_EMIT_TYPE_LETTER_COLLISION` rather than a stream that reads back as
+ * different records. What neither check promises is that every *field* lands where
+ * it did: an escape sequence whose body is a delimiter is an opaque atom, so that
+ * delimiter never becomes a boundary, and the parse side reports that
+ * (`ASTM_UNKNOWN_ESCAPE_SEQUENCE`) rather than emit refusing it.
  *
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
  * @param d - The delimiters to emit against; defaults to the canonical `H|\^&` set.
  * @returns The serialized record stream (`CR` after every record).
  * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`
- *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` fails one of the three conditions
- *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`): necessary conditions, not
- *   sufficient ones, so a set can pass them and still not reverse.
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), when `d` fails one of the three conditions
+ *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`), or when a record's type
+ *   letter would not be the first character of its own emitted line
+ *   (`ASTM_EMIT_TYPE_LETTER_COLLISION`).
  * @example
  * ```ts
  * import { parseAstmRecords, serializeAstmRecords } from "@cosyte/astm";
@@ -568,8 +673,10 @@ export function serializeAstmRecords(
  * @returns The escaped field text.
  * @throws {@link AstmSerializeError} when a component contains an unencodable `CR`/`LF`
  *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when `d` fails one of the three conditions
- *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`): necessary conditions, not
- *   sufficient ones, so a set can pass them and still not reverse.
+ *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`). Like
+ *   {@link encodeComponent} this takes no record, so it never raises
+ *   `ASTM_EMIT_TYPE_LETTER_COLLISION`: encoding a record's type-letter field
+ *   through it will escape that letter away without objecting.
  * @example
  * ```ts
  * import { serializeField, tokenizeRecord, CANONICAL_DELIMITERS } from "@cosyte/astm";

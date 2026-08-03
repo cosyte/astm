@@ -284,10 +284,23 @@ declarations it cannot reverse, so a message that parsed can still be refused wh
 back in its own set: the alternative was output that read back with a different field tree and
 said nothing.
 
-Those three conditions are what readback **requires**, not a proof that it works. A set can pass all
-three and still read back wrong: a separator that collides with a record's type letter is the known
-case. If you emit against a set of your own rather than the canonical one, check the round-trip on
-your own traffic.
+Those three conditions read the **set** and nothing else, so they cannot see a collision that depends
+on which record is being written. A separator equal to a record's own type letter passes all three
+and then escapes that letter away, so each record's emitted line is checked separately to start with
+the letter the record models; one that does not is an `AstmSerializeError` with code
+`ASTM_EMIT_TYPE_LETTER_COLLISION`. Without it the corruption was **silent** in its worst branch:
+where the escape character is itself a record type letter, the escaped letter starts with a real one,
+so a `P` record came back as an `R` whose `value` was the patient's laboratory ID, reported `F` for
+final, on a stream whose only warning was the `ASTM_NONSTANDARD_DELIMITERS` a clean non-canonical
+stream carries too.
+
+What the two refusals together promise is that every record re-reads as its own **type**. They do not
+promise that every field lands where it did: an escape sequence whose body is itself a delimiter is
+read as one opaque atom, so that delimiter never becomes a boundary and the fields after it shift.
+That is reported on the parse side as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The low-level
+`encodeComponent` and `serializeField` helpers take no record and carry neither guarantee. If you
+emit against a set of your own rather than the canonical one, check the round-trip on your own
+traffic.
 
 `buildAstmMessage` constructs a spec-clean stream from typed input, and **never
 fabricates**. It emits only the values you supply; an omitted field stays empty,

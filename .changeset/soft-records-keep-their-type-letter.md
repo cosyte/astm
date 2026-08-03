@@ -1,0 +1,13 @@
+---
+"@cosyte/astm": patch
+---
+
+Refuse to emit a record whose own type letter the delimiter set would escape away, which used to produce a stream that read back as different records and, in its silent branch, fabricated a final lab result out of patient identifiers.
+
+A record's type letter is just another leaf to the escape encoder, so a set naming that letter escaped it: an `R` record emitted with `field` = `R` went out as `&F&R1R…` and read back as an unsupported record, one result in and none out. That branch at least warned. The encoder writes an escaped character as escape + mnemonic + escape, so where the escape character was itself a record type letter the escaped type letter began with a real letter and nothing warned: measured, a patient record emitted with `field` = `P` and `escape` = `R` came back as a result record whose value was the patient's laboratory ID, whose units were the practice-assigned identifier and whose status was `F` for final. The only warning on that stream was the `ASTM_NONSTANDARD_DELIMITERS` a clean non-canonical stream carries too, so `{ strict: true }` accepted it under a profile the safety gate permits.
+
+`serializeAstmRecords` and `serializeAstmRecord` now throw an `AstmSerializeError` with the new code `ASTM_EMIT_TYPE_LETTER_COLLISION`, a third member of `AstmSerializeErrorCode`, carrying the record's index and naming the record type letter but never a value. The condition is taken from the reader, which reads a record's type as the first character of its line, and is checked on the bytes actually written rather than on the delimiter set, so the escape role falls out as exempt without a special case: a type letter equal to the escape character encodes to letter + `E` + letter, whose first character is the letter itself, and that round-trips and is allowed. Across 137,632 delimiter sets the refusal is biconditional with the previous serializer losing a type letter, with no over-refusal.
+
+This narrows a published package in exactly the cases that were being corrupted, including `serializeAstmRecords(msg, msg.delimiters)` on a stream whose own header declared such a set. Emit against the canonical delimiters, or choose a set that names no record type letter in its field, repeat or component role.
+
+It guarantees that a record re-reads as its own type, not that every field lands where it did: an escape sequence whose body is a delimiter is still read as one opaque atom and is reported on the parse side as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The low-level `encodeComponent` and `serializeField` helpers take no record and are outside the check.

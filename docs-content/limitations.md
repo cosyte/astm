@@ -25,9 +25,10 @@ value.**
   faked. A header declaration carrying characters beyond the three that hold a delimiter role
   keeps them rather than being truncated, since deleting bytes is the larger claim. Emit returns a
   plain string and has no warning channel, so what it cannot write reversibly is a typed error at the
-  call: a value carrying a `CR`/`LF` no escape can encode, and a delimiter set that fails one of the
-  three conditions readback requires. Those conditions are necessary, not sufficient: see the
-  non-goals below.
+  call: a value carrying a `CR`/`LF` no escape can encode, a delimiter set that fails one of the
+  three conditions readback requires, and a record whose own type letter that set would escape away.
+  Those refusals cover a record's **type**; they do not promise every field lands where it did: see
+  the non-goals below.
 - **Fail-safe on ambiguity.** A missing unit, an unrecognized abnormal flag, a corrected/cancelled
   result, a bad checksum, an unparseable range: each surfaces as a typed warning or error. The
   library refuses to guess a value into existence.
@@ -77,11 +78,15 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   not a modeled value and from which every control character is dropped on emit.
 - **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
   does **not** decide whether a value is "critical" or act on a correction/cancel.
-- **No proof that an arbitrary delimiter set round-trips.** Emit checks the three conditions readback
-  requires and refuses a set that fails one, but passing them is not a guarantee: a separator that
-  collides with a record's type letter still produces a stream that reads back wrong. If you emit
-  against a set of your own choosing rather than the canonical one, verify the round-trip on your own
-  traffic.
+- **No proof that an arbitrary delimiter set round-trips.** Emit refuses a set that fails one of the
+  three conditions readback requires, and refuses any record whose own type letter that set would
+  escape away (`ASTM_EMIT_TYPE_LETTER_COLLISION`), so an emitted stream re-reads as the same record
+  **types**. That is not a guarantee that every field lands where it did: an escape sequence whose
+  body is itself a delimiter is read as one opaque atom, so that delimiter never becomes a boundary
+  and the fields after it shift, reported on the parse side as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The
+  low-level `encodeComponent` and `serializeField` helpers take no record and so carry neither
+  guarantee. If you emit against a set of your own choosing rather than the canonical one, verify the
+  round-trip on your own traffic.
 - **No vendor-proprietary quirks absent from public specs.** The profile engine fully supports named
   vendor profiles, but a named per-vendor built-in ships **only** when a public, vendor-attributed
   quirk document grounds it. Inspection of the public reference corpus found the record layer

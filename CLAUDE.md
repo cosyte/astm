@@ -376,21 +376,43 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    profile safety gate and therefore on every consumer profile: a behaviour change wanting its own
    argument, not a rider on a byte-level encoder fix.
    Found while grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
-5. **A delimiter that collides with a record's type letter corrupts the record, and the emit-side
-   delimiter check does not catch it.** Emitting with `field: "R"` escapes the `R` record's own type
-   letter away (it is just another leaf to `encodeLeaf`), so the line goes out as `&F&R1R…` and
-   re-reads as an **unsupported** record, one result in, zero out of `results()`. It passes all
-   three emit rules (one char each, no `CR`/`LF`, all distinct), which is why those rules are
-   documented as **necessary, not sufficient** rather than as a readback guarantee.
-   `PRE-EXISTING`: reproduces byte-identically on `7253098`, before any of `ASTM-EMIT-RESIDUALS`.
-   Not fixed there deliberately: the rule that would catch it has to be _derived_ (it is not simply
-   "no delimiter may be a type letter", the real condition is that a record's type letter must
-   survive emit unescaped), and deriving it inside a slice about two other gaps is how a fix outgrows
-   the thing it fixes. **Deferred again, explicitly, by `ASTM-FRAME-BYTE-RESIDUALS`, for the same
-   reason it was deferred the first time**: the rule still has to be derived, it lives in
-   `encodeLeaf`/`assertEmittableDelimiters` in the **record** serializer rather than in the frame
-   encoder, and nothing about the byte-level truncation fix brings the derivation any closer.
-   Found by the `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
+5. **CLOSED 2026-08-03 by `ASTM-FRAME-RESIDUALS`. It was recorded as a LOUD defect and its worse
+   branch was SILENT: the third time an astm loudness note has been measured false.** Was: emitting
+   with `field: "R"` escaped the `R` record's own type letter away (it is just another leaf to
+   `encodeLeaf`), so the line went out as `&F&R1R…` and re-read as an **unsupported** record, one
+   result in, zero out of `results()`. `PRE-EXISTING`, byte-identical on `7253098`.
+   **▶ WHAT THE OLD ENTRY GOT WRONG.** It described only the branch where the escape character is
+   _not_ a record type letter. `encodeLeaf` writes an escaped character as escape + mnemonic +
+   escape, so when the escape character **is** a type letter the escaped type letter begins with a
+   real letter and `ASTM_RECORD_UNKNOWN_TYPE` never fires. Measured: a `P` record emitted with
+   `field: "P"`, `escape: "R"` comes back as an **`R` record** whose `value` is the patient's
+   laboratory ID, `units` the practice-assigned ID, `resultStatus` `F`, so `results()` returns a
+   **fabricated final result built out of patient identifiers**. Its only warning is
+   `ASTM_NONSTANDARD_DELIMITERS`, which a **clean** non-canonical stream carries too and which is on
+   the safety gate's tolerable allow-list: over 3,690 emits across nine record-set shapes, 750
+   streams read back as different records and **303 of them were accepted by `{ strict: true }`**
+   under a gate-legal profile. That allow-list entry argues "a record's type letter is the first
+   character of its line" is read before tokenization: true of the parse, no protection when the
+   **emit** chose the character. The entry is annotated, not removed, and its severity is defect 11's
+   question, not this slice's.
+   **▶ THE FIX IS DERIVED FROM THE READER AND CHECKED ON THE BYTES. Read `CHANGELOG.md`
+   `[Unreleased]` before touching `serialize.ts`.** `parseAstmRecords` takes a record's type from
+   `line.charAt(0)`, so `serializeRecordChecked` now asserts the first character it wrote is the
+   letter the record models, and raises `ASTM_EMIT_TYPE_LETTER_COLLISION` (third member of
+   `AstmSerializeErrorCode`) otherwise. **Testing the output rather than listing dangerous roles is
+   what makes the escape role fall out as EXEMPT with no special case**: a type letter equal to the
+   escape character encodes to `letter`+`E`+`letter`, whose first character is the letter itself, so
+   it round-trips and is allowed. Do not "simplify" this into a rule over the four roles; the
+   exemption is measured and a role list would refuse a set that works. Biconditional with the old
+   serializer losing a type letter over **137,632** delimiter sets: zero over-refusal, zero
+   under-refusal. **No clause claimed**; grounding is this package's own reader.
+   **What it does NOT promise, and the prose says so in five places:** a record re-reads as its own
+   **type**, not that every field lands where it did (defect 11's atom is untouched), and
+   `encodeComponent`/`serializeField` take no record so they are outside the check by construction.
+   Pinned in `test/records/type-letter-collision.test.ts`, asserted on what the old serializer
+   produced, rebuilt from the shipped `serializeField` so nothing is transcribed twice.
+   Originally found by the `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29; the silent
+   branch found by `ASTM-FRAME-RESIDUALS` 2026-08-03.
 6. **CLOSED 2026-08-03 by `ASTM-RAW-ETX-SWALLOWS-A-RECORD`. It WAS a stop-the-line, and the reason
    is that its worst branch was SILENT.** Was: emit rejected `CR`/`LF` in a component and nothing
    else, so a value carrying `STX`/`ETX`/`ETB` passed `serializeAstmRecord` and truncated the frame
@@ -603,6 +625,21 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     consumer profile naming the code, so it wants its own slice. Pinned in
     `test/records/unseparated-fields.test.ts` and `test/records/unpaired-escape.test.ts`. Found by
     the `conformance-refuter` grading `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL` 2026-08-02.
+
+12. **`composeAstmFrames`'s `startFrameNumber` is documented `0`–`7` and is UNVALIDATED**, so the
+    documented-valid `0` emits frames `0,1,2,3` that `parseFramedAstm` rejects. `PRE-EXISTING`,
+    measured by `#44`'s gate and **re-measured by `ASTM-FRAME-RESIDUALS` 2026-08-03 rather than
+    trusted**, because this list has been wrong about loudness three times. It holds: across 31
+    (start value x message shape) combinations only `1` decodes, and every other value throws
+    `ASTM_RECORD_NO_HEADER` or `EMPTY_INPUT`. **No silent branch was found**, which is a statement
+    about those 31 cases, not a property. Two details the record did not have: an out-of-range value
+    writes a **non-digit byte** into the frame-number position (`-1` emits `/`, `NaN` emits a space),
+    and the failure code varies with the message shape, so a caller cannot key on one. **Deferred by
+    `ASTM-FRAME-RESIDUALS`**: it is the frame encoder's option validation, a different layer and a
+    different question from the record serializer's type-letter rule, and folding it in is how a fix
+    outgrows the thing it fixes. Its sibling minor, `serializeAstmRecords` silently dropping all 31
+    C0/DEL characters from a **header delimiter-declaration surplus**, is argued at its own site in
+    `declarationResidual` and is deferred with it.
 
 Two further defects once on this list (the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d`) were recorded with

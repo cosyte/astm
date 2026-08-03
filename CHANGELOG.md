@@ -11,6 +11,58 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Fixed
 
+- **A delimiter set colliding with a record's type letter emitted a stream that read back as
+  DIFFERENT records, and in its silent branch it fabricated a final lab result out of patient
+  identifiers** (`ASTM-FRAME-RESIDUALS`, defect 5). `PRE-EXISTING`, byte-identical on `7253098`,
+  before any of `ASTM-EMIT-RESIDUALS`. `serializeAstmRecords` / `serializeAstmRecord` now throw
+  `AstmSerializeError` with the new code `ASTM_EMIT_TYPE_LETTER_COLLISION` (a third member of
+  `AstmSerializeErrorCode`), carrying the `recordIndex` and naming the record type letter, never a
+  value.
+
+  **The recorded defect said the record "re-reads as an unsupported record, one result in, zero out".
+  That describes one branch of two, and the branch it does not describe is silent.** A record's type
+  letter is just another leaf to the escape encoder, so a set naming that letter escapes it away: an
+  `R` record emitted with `field` = `R` goes out as `&F&R1R…`, reads back as `unsupported`, and
+  `ASTM_RECORD_UNKNOWN_TYPE` does fire. But the encoder writes an escaped character as
+  escape + mnemonic + escape, so **when the escape character is itself a record type letter the
+  escaped type letter begins with a real letter** and no unknown-type warning fires at all. Measured:
+  a `P` record emitted with `field` = `P` and `escape` = `R` comes back as an `R` record whose
+  `value` is the patient's laboratory ID, whose `units` are the practice-assigned identifier, and
+  whose `resultStatus` is `F`, so `results()` returns a fabricated **final** result built out of
+  patient identifiers. The stream's only warning is `ASTM_NONSTANDARD_DELIMITERS`, which is what a
+  **clean** non-canonical stream carries too and which is on the profile safety gate's tolerable
+  allow-list, so `{ strict: true }` accepts it under a profile the gate permits. That allow-list
+  entry reasons that "a record's type letter is the first character of its line" is read before any
+  delimiter-driven tokenization: true of the parse, and no protection when the **emit** is what chose
+  that character.
+
+  **The rule is derived from the reader and checked on the bytes, not on the delimiter set.**
+  `parseAstmRecords` takes a record's type from `line.charAt(0)`, so the condition emit has to meet
+  is that the first character it writes is the letter the record models. Testing the output rather
+  than enumerating dangerous roles is what makes the escape role fall out as **exempt** without a
+  special case: a type letter equal to the escape character encodes to `letter` + `E` + `letter`,
+  whose first character is the letter itself, so it round-trips and is allowed. Measured over 137,632
+  delimiter sets (two roles at a time, every printable ASCII character each, against a stream
+  carrying one record of every modeled type plus an unsupported one), the refusal is
+  **biconditional** with the old serializer losing a type letter: zero over-refusals and zero
+  under-refusals. Over a second sweep of 3,690 emits across nine record-set shapes, 750 streams
+  previously read back as something other than the records that produced them, **303 of them accepted
+  by `{ strict: true }`**; all 750 are now refused and the remaining 2,940 are byte-unchanged.
+
+  This is a **narrowing on a published package**, in exactly the cases that were being corrupted: a
+  caller passing such a set (including via `serializeAstmRecords(msg, msg.delimiters)`) now gets a
+  typed error where it previously got a stream that re-read as different records. The three
+  set-level conditions are unchanged and still raise `ASTM_EMIT_INVALID_DELIMITERS`; this is a
+  separate, per-record check because whether a set collides depends on which record is being written.
+  **What it does not promise, stated rather than left to be found:** it guarantees a record re-reads
+  as its own **type**, not that every field lands where it did (an escape sequence whose body is a
+  delimiter is still an opaque atom, reported on the parse side as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`),
+  and `encodeComponent` / `serializeField` take no record, so a caller assembling a line out of them
+  is outside the check. Pinned in `test/records/type-letter-collision.test.ts`, asserted on what the
+  old serializer produced, rebuilt from the shipped `serializeField` so nothing is transcribed twice.
+  **No clause is claimed**: LIS02-A2 §5.4/§6.2 stay withheld from CLSI's free sample and the
+  paywalled editions were not read; the grounding is this package's own reader.
+
 - **A raw `STX`, `ETB` or `ETX` byte in a value was framed as given, and in its worst branch a whole
   result record disappeared into the previous record's text with `warnings: []` at BOTH layers**
   (`ASTM-RAW-ETX-SWALLOWS-A-RECORD`). `PRE-EXISTING`, shipped since the frame encoder did.

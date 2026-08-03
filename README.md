@@ -39,7 +39,10 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
   frame them with computed checksums, frame numbers, and the 240-byte split. Both layers round-trip by
   construction, and a delimiter set that fails any of the three conditions readback requires (one
   character per separator, no `CR`/`LF`, no two the same) is a typed error rather than bytes written
-  and lost. A frame carries **bytes**, so a record handed to `composeAstmFrames` as a `string` is one
+  and lost. Those three read the set alone, so each record is additionally checked against the set it
+  is written with: a separator equal to a record's own type letter escapes that letter away and the
+  record re-reads as a different record, which is `ASTM_EMIT_TYPE_LETTER_COLLISION` rather than
+  output. A frame carries **bytes**, so a record handed to `composeAstmFrames` as a `string` is one
   byte per character and a character above `U+00FF` is a typed error too: the encoder will not pick a
   character encoding for you, and it never quietly writes a different character than the one you gave
   it. Encode such content yourself and pass the `Uint8Array`. A raw `STX`, `ETB` or `ETX` **byte** in a

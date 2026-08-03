@@ -21,12 +21,14 @@ import fc from "fast-check";
 
 import {
   AstmFrameEncodeError,
+  AstmSerializeError,
   composeAstmFrames,
   decodeAstmFrames,
   parseAstmRecords,
   parseFramedAstm,
   results,
   serializeAstmRecords,
+  serializeField,
   serializeFramedAstm,
 } from "../../src/index.js";
 import { def, frame, stream } from "./_frame-builder.js";
@@ -411,16 +413,26 @@ describe("the limits of this refusal, pinned so it is not read as wider", () => 
   });
 
   it("does not make an accepted record read back as the same RECORD", () => {
-    // Framing integrity is not record-layer readback. A delimiter colliding with
-    // a record's type letter frames and de-frames byte-exactly and still re-reads
-    // as a different record: a separate open defect, in the record serializer.
+    // Framing integrity is not record-layer readback, and it never was: this frame
+    // layer accepts bytes the RECORD layer is what has to vouch for. The vehicle
+    // used to be a delimiter colliding with a record's type letter; the record
+    // serializer now refuses to write one (`ASTM_EMIT_TYPE_LETTER_COLLISION`, see
+    // `test/records/type-letter-collision.test.ts`), so the collided bytes are
+    // rebuilt here from `serializeField`, which takes no record and is outside that
+    // guard by construction. The frame layer still frames and de-frames them
+    // byte-exactly with no objection, and they still re-read as a different record.
+    const d = { field: "R", repeat: "\\", component: "^", escape: "&" };
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
-    const emitted = serializeAstmRecords(msg, {
-      field: "R",
-      repeat: "\\",
-      component: "^",
-      escape: "&",
-    });
+    expect(() => serializeAstmRecords(msg, d)).toThrow(AstmSerializeError);
+
+    const emitted = msg.records
+      .map((r) =>
+        r.type === "H"
+          ? "H" + d.field + d.repeat + d.component + d.escape
+          : r.fields.map((f) => serializeField(f, d)).join(d.field),
+      )
+      .map((line) => line + "\r")
+      .join("");
     const rt = parseFramedAstm(composeAstmFrames([emitted])); // frames without objection
     expect(rt.frameWarnings).toEqual([]);
     expect(results(rt.message)).toHaveLength(0); // one result in, none out
