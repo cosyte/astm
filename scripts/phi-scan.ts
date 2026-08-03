@@ -90,9 +90,12 @@
  * alike. That is pre-existing, and it is not a link-versus-file asymmetry.
  *
  * Note also that a walk ROOT is handed to `existsSync`/`readdirSync` directly
- * and is never classified as a `Dirent`, so a root that is itself a link is
- * followed and read through. "Follow nothing" is a rule about the entries a
- * walk enumerates, not about the two roots it is pointed at. Pre-existing.
+ * and is never classified as a `Dirent`, so a root that is itself a link is not
+ * refused: pointed at a directory it is followed and read through, and pointed
+ * at a non-directory `readdirSync` raises an uncaught `ENOTDIR` rather than the
+ * engine-owned refusal (which fails closed, and is pre-existing). "Follow
+ * nothing" is a rule about the entries a walk enumerates, not about the two
+ * roots it is pointed at. Both behaviours are pre-existing.
  *
  * A refusal names the entry's own repo-relative path and an engine-owned token
  * for its kind. IT NEVER REPORTS THE LINK TARGET, which is text off the working
