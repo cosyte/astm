@@ -13,7 +13,8 @@
  *   case of);
  * - the **frame number** `0`–`7`, starting at `1` and rolling over `7 → 0 → 1`,
  *   continuous across every frame in the stream (as the decoder's sequence check
- *   expects);
+ *   expects); a caller may start the sequence elsewhere to compose one transfer
+ *   across several calls, but only at a number a frame can actually carry;
  * - the **240-byte text split**: a record longer than 240 bytes is split across
  *   frames closed by `ETB` (intermediate) with a final `ETX`; the seven framing
  *   control bytes are never counted toward the 240.
@@ -52,6 +53,9 @@ import {
  * - `ASTM_FRAME_RESERVED_BYTE`: a record holds a byte this layer reads as frame
  *   structure (`STX`, `ETB` or `ETX`). Framing has no escape mechanism, so such
  *   a byte cannot be carried inside a frame at all.
+ * - `ASTM_FRAME_INVALID_START_FRAME_NUMBER`: `options.startFrameNumber` is not a
+ *   whole number from `0` to `7`. A frame's number is one ASCII digit, so a
+ *   value outside that range has no digit to be written as.
  *
  * @example
  * ```ts
@@ -62,7 +66,8 @@ import {
 export type AstmFrameEncodeErrorCode =
   | "ASTM_FRAME_EMPTY_RECORD"
   | "ASTM_FRAME_UNENCODABLE_CHARACTER"
-  | "ASTM_FRAME_RESERVED_BYTE";
+  | "ASTM_FRAME_RESERVED_BYTE"
+  | "ASTM_FRAME_INVALID_START_FRAME_NUMBER";
 
 /**
  * Thrown by {@link composeAstmFrames} when the input cannot be framed into a
@@ -94,6 +99,20 @@ export type AstmFrameEncodeErrorCode =
  * the byte is the problem rather than the encoding. Take the byte out of the value
  * before framing: which byte belongs in a clinical value is the sender's call, not
  * this library's, so it refuses rather than substituting or deleting one.
+ *
+ * **The start-frame-number case, and why an option gets an error of its own.** A
+ * frame's number is a single ASCII digit, `FN_ZERO + n` for `n` in `0`-`7`, and
+ * nothing used to check that `options.startFrameNumber` was one. What went out
+ * instead was whatever byte that sum truncated to: measured on this package's own
+ * round trip, `-1` wrote `/` into the frame-number position and `NaN`, `Infinity`
+ * and `-Infinity` each wrote a `NUL` byte into every frame of the stream, after
+ * which the decoder read no frame number at all and emitted **none** of the
+ * records. Out-of-domain values that happened to land back on a digit were worse
+ * in a quieter way: `1.5` and `257` both produced the byte-for-byte stream a
+ * `startFrameNumber` of `1` produces, so the option silently accepted a value it
+ * documented as invalid. This one refusal is about the caller's own option rather
+ * than about record content, so its message names the value received. Nothing
+ * from the stream is quoted.
  *
  * @example
  * ```ts
@@ -136,8 +155,42 @@ export class AstmFrameEncodeError extends Error {
 /** Options for {@link composeAstmFrames}. */
 export interface ComposeFramesOptions {
   /**
-   * The frame number to start the sequence at (`0`–`7`). Defaults to
-   * {@link FIRST_FRAME_NUMBER} (`1`): the ASTM convention.
+   * The frame number to start the sequence at: a whole number from `0` to `7`.
+   * Defaults to `1`, the number ASTM gives the first frame of a transfer and the
+   * one {@link decodeAstmFrames} expects to read first.
+   *
+   * **Any other value writes a continuation rather than the start of a transfer,
+   * and that is what the option is for**: composing one transfer across more than
+   * one call. Concatenating `composeAstmFrames(head)` with
+   * `composeAstmFrames(tail, { startFrameNumber: n })`, where `n` is the number
+   * after the last frame `head` used, is byte-identical to composing the whole
+   * list in a single call and decodes with an empty warnings array, across the
+   * `7 → 0` rollover included.
+   *
+   * **Decoded on its own, a stream that starts anywhere but `1` opens on a
+   * sequence gap.** The decoder never bridges a gap silently, so it warns
+   * (`ASTM_FRAME_SEQUENCE_GAP`) and does not emit that first record.
+   * **What {@link parseFramedAstm} does after that varies with the message
+   * shape and no rule is offered for it here.** It may throw, under more than
+   * one code, and it may return a message that is simply one record short. **The
+   * one thing that does hold is that the record layer never reports the loss**:
+   * `parseFramedAstm` hands the record parser only the frames the codec
+   * vouched for, so `message.warnings` carries what the surviving records
+   * warrant and nothing about the record that did not survive. **Read
+   * `frameWarnings`.** That is the cost of the option rather than a defect in
+   * the caller's records, and it is why `1` is the default.
+   *
+   * **Finding the number to continue from.** Nothing here returns it, and the
+   * frame count is not it once a record splits: decode the part you just
+   * composed and read the last frame's number, then add one modulo 8, as in
+   * `((decodeAstmFrames(part).frames.at(-1)?.frameNumber ?? 0) + 1) % 8`. A frame
+   * carries no number only when the stream ends immediately after its `STX`,
+   * which is not something this encoder writes, so that fallback never fires on
+   * a part composed here. Getting the number wrong costs the record at the join,
+   * warned rather than silently.
+   *
+   * A value outside `0`-`7`, or one that is not a whole number, is refused with
+   * `ASTM_FRAME_INVALID_START_FRAME_NUMBER`.
    */
   readonly startFrameNumber?: number;
 }
@@ -246,6 +299,39 @@ function assertFramable(bytes: Uint8Array, recordIndex: number): void {
   }
 }
 
+/**
+ * Refuse a `startFrameNumber` that cannot be written as a frame number.
+ *
+ * **Derived from what a frame carries, not from a preference.** The byte after
+ * `STX` is one ASCII digit, {@link FN_ZERO} plus the number, so the writable
+ * numbers are exactly the whole numbers `0`-`7`, the same modulo-8 sequence
+ * {@link decodeAstmFrames} reads and rolls over. Anything else has no digit.
+ *
+ * **Why a refusal rather than a clamp or a modulo.** Both of those pick a frame
+ * number the caller did not ask for, and the frame number is the decoder's only
+ * evidence that no frame was dropped: a stream numbered from a value the caller
+ * did not choose is a stream whose sequence check certifies the wrong thing.
+ * Writing the value through unchecked was the previous behaviour and it produced
+ * bytes that were not frame numbers at all (`-1` wrote `/`; `NaN` and either
+ * infinity wrote `NUL` into every frame, after which the decoder emitted none of
+ * the records), or, where the truncation happened to land back on a digit,
+ * silently behaved as some other start value (`1.5` and `257` both emitted the
+ * `1` stream byte for byte).
+ *
+ * @param value - The caller's `startFrameNumber`.
+ * @throws {@link AstmFrameEncodeError} `ASTM_FRAME_INVALID_START_FRAME_NUMBER`.
+ */
+function assertStartFrameNumber(value: number): void {
+  if (!Number.isInteger(value) || value < 0 || value > FRAME_NUMBER_MODULUS - 1) {
+    throw new AstmFrameEncodeError(
+      "startFrameNumber must be a whole number from 0 to 7: a frame's number is one ASCII " +
+        `digit and the sequence is modulo 8. Received: ${String(value)}.`,
+      undefined,
+      "ASTM_FRAME_INVALID_START_FRAME_NUMBER",
+    );
+  }
+}
+
 /** Build one frame's bytes: `STX FN text (ETB|ETX) C1 C2 CR LF`, checksum over `FN … terminator`. */
 function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): number[] {
   const term = isFinal ? ETX : ETB;
@@ -290,6 +376,17 @@ function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): n
  * absorbed into the previous one with an empty warnings array at both layers.
  * Supplying the record as a `Uint8Array` does not route around this check.
  *
+ * **`options.startFrameNumber` is checked before *this function* reads a record**,
+ * so on this entry point the refusal never depends on the caller's data.
+ * ({@link serializeFramedAstm} serializes every record *before* it gets here, so
+ * a record that cannot be serialized is refused first on that route.) It has to
+ * be a whole number from `0` to `7`, because a frame's number is one ASCII digit;
+ * anything else is `ASTM_FRAME_INVALID_START_FRAME_NUMBER` rather than whatever
+ * byte the arithmetic truncated to. A value other than the default `1` writes a
+ * **continuation** of a sequence already in progress, which is what the option is
+ * for, and a continuation decoded on its own opens on a sequence gap: see
+ * {@link ComposeFramesOptions}.
+ *
  * What is still **not** guaranteed: that an accepted record round-trips through
  * the *record* layer. A delimiter colliding with a record's type letter, for one,
  * frames and de-frames byte-exactly and still re-reads as a different record.
@@ -298,10 +395,12 @@ function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): n
  *   `string`), one entry per complete record.
  * @param options - Encode options.
  * @returns The framed byte stream.
- * @throws {@link AstmFrameEncodeError} when the list is empty, a record has no
- *   bytes (`ASTM_FRAME_EMPTY_RECORD`), a record string holds a character above
- *   `U+00FF` (`ASTM_FRAME_UNENCODABLE_CHARACTER`), or a record holds an `STX`,
- *   `ETB` or `ETX` byte (`ASTM_FRAME_RESERVED_BYTE`).
+ * @throws {@link AstmFrameEncodeError} when `options.startFrameNumber` is not a
+ *   whole number from `0` to `7` (`ASTM_FRAME_INVALID_START_FRAME_NUMBER`), the
+ *   list is empty, a record has no bytes (`ASTM_FRAME_EMPTY_RECORD`), a record
+ *   string holds a character above `U+00FF`
+ *   (`ASTM_FRAME_UNENCODABLE_CHARACTER`), or a record holds an `STX`, `ETB` or
+ *   `ETX` byte (`ASTM_FRAME_RESERVED_BYTE`).
  * @example
  * ```ts
  * import { composeAstmFrames, decodeAstmFrames } from "@cosyte/astm";
@@ -314,12 +413,17 @@ export function composeAstmFrames(
   records: readonly (Uint8Array | string)[],
   options: ComposeFramesOptions = {},
 ): Uint8Array {
+  // Options first: an unwritable start frame number is malformed whatever records follow, so the
+  // refusal does not depend on the caller's data.
+  const start = options.startFrameNumber ?? FIRST_FRAME_NUMBER;
+  assertStartFrameNumber(start);
+
   if (records.length === 0) {
     throw new AstmFrameEncodeError("Cannot frame an empty record list: nothing to transmit.");
   }
 
   const out: number[] = [];
-  let frameNumber = options.startFrameNumber ?? FIRST_FRAME_NUMBER;
+  let frameNumber = start;
 
   records.forEach((record, recordIndex) => {
     const bytes = toBytes(record, recordIndex);

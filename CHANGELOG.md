@@ -11,6 +11,75 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Fixed
 
+- **`composeAstmFrames` wrote an out-of-range `startFrameNumber` straight into the frame-number
+  position, so a value that was not a frame number produced a stream whose records the decoder
+  refused to emit** (`ASTM-FRAME-RESIDUALS`, defect 13). `PRE-EXISTING`, byte-identical on `64c2fd5`.
+  The option is now checked before `composeAstmFrames` reads a record, and refused with the new code
+  `ASTM_FRAME_INVALID_START_FRAME_NUMBER` (a fourth member of `AstmFrameEncodeErrorCode`) unless it is
+  a whole number from `0` to `7`.
+
+  **What went out instead, measured on this package's own round trip.** A frame's number is one ASCII
+  digit, written as `FN_ZERO + n`, and nothing checked `n`. `-1` put a `/` in the frame-number
+  position, and `NaN`, `Infinity` and `-Infinity` each put a `NUL` there in **every** frame of the
+  stream, after which `decodeAstmFrames` recognised no frame number at all, warned
+  `ASTM_FRAME_SEQUENCE_GAP` on every frame, and emitted **none** of the records: a whole four-record
+  message in, zero out, and `parseFramedAstm` throwing on empty input. **The recorded defect said an
+  out-of-range value writes a non-digit byte and named a space for `NaN`. It is a `NUL`**, which is
+  the difference between an ordinary inter-frame byte the decoder skips and a byte that costs the
+  stream every one of its records.
+
+  **The quieter half is why the check covers the whole domain rather than the ends.** Values that
+  truncated back onto a digit were accepted silently and behaved as some other start value: `1.5` and
+  `257` each produced the byte-for-byte stream a `startFrameNumber` of `1` produces. The option
+  documented `0`-`7` and enforced neither bound nor integrality in either direction.
+
+  **The domain is derived from what a frame can carry, and the refusal is not a clamp.** The writable
+  numbers are exactly the whole numbers `0`-`7`, the modulo-8 sequence `decodeAstmFrames` reads and
+  rolls over. Clamping or taking a modulo would pick a frame number the caller did not ask for, and
+  the frame number is the decoder's only evidence that no frame was dropped, so a stream numbered from
+  a value nobody chose is a stream whose sequence check certifies the wrong thing. The refusal is
+  raised before `composeAstmFrames` reads a record, so on that entry point it never depends on the
+  caller's data (`serializeFramedAstm` serializes every record first, so a record that cannot be
+  serialized at all is refused ahead of it on that route). Its message names the value received: that
+  value is the caller's own option, not stream content, and nothing from the records reaches it.
+
+  **The whole `0`-`7` range is still accepted, because a non-default start has a real use that was
+  measured rather than assumed.** It composes a **continuation** of a transfer already in progress:
+  `composeAstmFrames(head)` joined with `composeAstmFrames(tail, { startFrameNumber: n })`, where `n`
+  is the number after the last frame `head` used, is **byte-identical** to composing the whole list in
+  one call and decodes with an empty warnings array, across the `7 → 0` rollover included. Narrowing
+  the option to `1` would have removed that.
+
+  **What a continuation is not, now stated on the option rather than guarded against.** Read on its
+  own, a stream that starts anywhere but `1` opens on a sequence gap; the decoder never bridges a gap
+  silently, so it warns and does not emit that first record. **What `parseFramedAstm` does after that
+  varies with the message shape, and no rule is offered for it:** it may throw, under more than one
+  code (`ASTM_RECORD_NO_HEADER`, `EMPTY_INPUT` and `ASTM_RECORD_UNDECLARED_DELIMITERS` were each
+  measured), and it may return a message one record short. **The one statement that generalizes is
+  that the record layer never reports the loss**, because `parseFramedAstm` hands the record parser
+  only the frames the codec vouched for, so `message.warnings` carries what the surviving records
+  warrant and nothing about the record that did not survive. Read `frameWarnings`. Nothing returns the number to continue a sequence from either, and the frame count
+  is not it once a record splits, so the supported computation is named on the option. The
+  documented-valid `0` has always behaved that way. It is the cost of the option, not a defect in the
+  caller's records, and it is why `1` is the default.
+
+  **This is a narrowing on a published package, in a small population.** `1.5` and `257` used to
+  produce a working stream, the byte-for-byte start-at-`1` one, and now throw. Every value the check
+  turns away was already outside what the option documented: a frame number, a whole number `0`-`7`.
+
+  Both the old bytes and the new refusal are pinned in `test/frames/start-frame-number.test.ts`,
+  asserted on what the old encoder produced (rebuilt with the test-only `frame()` builder, so nothing
+  is transcribed twice), with a biconditional property: a value is refused **if and only if** it is
+  not a whole number in `0`-`7`. 14 of the 32 new tests are red against `64c2fd5`.
+
+- **Three `{@link}` targets in the published `.d.ts` did not name a symbol declared there**
+  (`ASTM-FRAME-RESIDUALS`, the sibling minors). `QuirkTolerance` is `AstmQuirkTolerance` (twice, in
+  `src/profiles/types.ts`); the `startFrameNumber` doc linked `FIRST_FRAME_NUMBER`, which this
+  package does not export, and that sentence was rewritten and no longer links it; and
+  `AstmMessage.profile` linked a bare `warnings`, meaning its sibling member, which resolves only for
+  a tool that resolves against the enclosing declaration. Every `{@link}` target in
+  `dist/index.d.ts` now names a symbol declared in that file.
+
 - **A delimiter set colliding with a record's type letter emitted a stream that read back as
   DIFFERENT records, and in its silent branch it fabricated a final lab result out of patient
   identifiers** (`ASTM-FRAME-RESIDUALS`, defect 5). `PRE-EXISTING`, byte-identical on `7253098`,

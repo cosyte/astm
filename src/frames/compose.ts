@@ -80,7 +80,11 @@ export function parseFramedAstm(
  * delimiters, embedded delimiters re-escaped) and then framed **independently**
  * (one record per `ETX`-closed frame run), so the framing exactly mirrors what
  * {@link decodeAstmFrames} reassembles: `parseFramedAstm(serializeFramedAstm(msg))`
- * yields an equal message.
+ * yields an equal message **with the default `startFrameNumber`**. That clause is
+ * load-bearing rather than pedantic: a non-default start writes a continuation of
+ * a sequence already in progress, and a continuation read on its own opens on a
+ * sequence gap, so the decoder does not emit its first record and this round trip
+ * does not hold for it. See {@link ComposeFramesOptions}.
  *
  * A value carrying a character above `U+00FF` is **refused** here rather than
  * framed: the record layer is happy to hold one, but a frame carries bytes and
@@ -100,10 +104,11 @@ export function parseFramedAstm(
  *   survive being written in the canonical set this function serializes with
  *   (`ASTM_EMIT_TYPE_LETTER_COLLISION`). The second reaches messages parsed under a
  *   **different** delimiter set, since this function passes no set of its own.
- * @throws {@link AstmFrameEncodeError} when there are no records to frame
- *   (`ASTM_FRAME_EMPTY_RECORD`), a value holds a character above `U+00FF`
- *   (`ASTM_FRAME_UNENCODABLE_CHARACTER`), or a record holds an `STX`, `ETB` or
- *   `ETX` byte (`ASTM_FRAME_RESERVED_BYTE`).
+ * @throws {@link AstmFrameEncodeError} when `options.startFrameNumber` is not a
+ *   whole number from `0` to `7` (`ASTM_FRAME_INVALID_START_FRAME_NUMBER`), there
+ *   are no records to frame (`ASTM_FRAME_EMPTY_RECORD`), a value holds a
+ *   character above `U+00FF` (`ASTM_FRAME_UNENCODABLE_CHARACTER`), or a record
+ *   holds an `STX`, `ETB` or `ETX` byte (`ASTM_FRAME_RESERVED_BYTE`).
  * @example
  * ```ts
  * import { parseAstmRecords, serializeFramedAstm, parseFramedAstm } from "@cosyte/astm";

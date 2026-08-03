@@ -496,7 +496,7 @@ export interface AstmMessage {
    * The vendor profile that was active for this parse, when one applied: its
    * `name` and resolved `lineage` (attribution only; the profile object itself is
    * not embedded). Absent when no profile applied. A profile that tolerated a
-   * deviation shows up as a `PROFILE_QUIRK_APPLIED` entry in {@link warnings}, not
+   * deviation shows up as a `PROFILE_QUIRK_APPLIED` entry in {@link AstmMessage.warnings}, not
    * here.
    */
   readonly profile?: { readonly name: string; readonly lineage: readonly string[] };
