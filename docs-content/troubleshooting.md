@@ -116,9 +116,10 @@ returns a string and round-trips such a value byte for byte.
 
 `composeAstmFrames` (and `serializeFramedAstm` through it) throws an `AstmFrameEncodeError` with this
 code when `options.startFrameNumber` is not a whole number from `0` to `7`. A frame's number is a
-single ASCII digit, so there is nothing else to write it as. The option is checked before any record
-is read, so this refusal never depends on your data, and the message names the value received: it is
-your own option, not stream content.
+single ASCII digit, so there is nothing else to write it as. The message names the value received: it
+is your own option, not stream content. `composeAstmFrames` checks it before it reads a record, so on
+that entry point the refusal never depends on your data. `serializeFramedAstm` serializes every record
+first, so a record that cannot be serialized at all is refused before this check runs on that route.
 
 It used to be written through unchecked, which is why the check exists. `-1` put a `/` in the
 frame-number position; `NaN` and either infinity put a `NUL` there in **every** frame, after which the
@@ -130,9 +131,14 @@ The whole `0`-`7` range is still accepted, because a non-default start has a rea
 transfer across several calls. Continue the sequence at the number after the last frame the previous
 call used, and joining the results is byte-identical to composing the whole list in one call. What a
 continuation is **not** is the start of a transfer: read on its own, a stream that starts anywhere but
-`1` opens on a sequence gap, the decoder does not emit that first record, and `parseFramedAstm` throws
-`ASTM_RECORD_NO_HEADER` if that record was the `H`. If you are not continuing a sequence, do not set
+`1` opens on a sequence gap and the decoder does not emit that first record. `parseFramedAstm` then
+throws, but not under one code you can key on: `ASTM_RECORD_NO_HEADER` when the dropped record was the
+`H`, and `EMPTY_INPUT` when nothing survived at all. If you are not continuing a sequence, do not set
 the option.
+
+To find the number to continue from, decode the part you just composed and read its last frame's
+number: `((decodeAstmFrames(part).frames.at(-1)?.frameNumber ?? 0) + 1) % 8`. The number of frames is
+not the same thing once a record has split across several of them.
 
 ## Known limitations
 

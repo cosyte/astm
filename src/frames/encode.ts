@@ -169,10 +169,18 @@ export interface ComposeFramesOptions {
    *
    * **Decoded on its own, a stream that starts anywhere but `1` opens on a
    * sequence gap.** The decoder never bridges a gap silently, so it warns
-   * (`ASTM_FRAME_SEQUENCE_GAP`) and does not emit that first record; if it was
-   * the `H` record, {@link parseFramedAstm} then has no header and throws. That
-   * is the cost of the option rather than a defect in the caller's records, and
-   * it is why `1` is the default.
+   * (`ASTM_FRAME_SEQUENCE_GAP`) and does not emit that first record.
+   * {@link parseFramedAstm} then throws, but **not under one code a caller can
+   * key on**: `ASTM_RECORD_NO_HEADER` when the dropped record was the `H`, and
+   * `EMPTY_INPUT` when nothing survived at all. That is the cost of the option
+   * rather than a defect in the caller's records, and it is why `1` is the
+   * default.
+   *
+   * **Finding the number to continue from.** Nothing here returns it, and the
+   * frame count is not it once a record splits: decode the part you just
+   * composed and read the last frame's number, then add one modulo 8, as in
+   * `((decodeAstmFrames(part).frames.at(-1)?.frameNumber ?? 0) + 1) % 8`. Getting
+   * it wrong costs the record at the join, warned rather than silently.
    *
    * A value outside `0`-`7`, or one that is not a whole number, is refused with
    * `ASTM_FRAME_INVALID_START_FRAME_NUMBER`.
@@ -361,7 +369,10 @@ function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): n
  * absorbed into the previous one with an empty warnings array at both layers.
  * Supplying the record as a `Uint8Array` does not route around this check.
  *
- * **`options.startFrameNumber` is checked before any record is read.** It has to
+ * **`options.startFrameNumber` is checked before *this function* reads a record**,
+ * so on this entry point the refusal never depends on the caller's data.
+ * ({@link serializeFramedAstm} serializes every record *before* it gets here, so
+ * a record that cannot be serialized is refused first on that route.) It has to
  * be a whole number from `0` to `7`, because a frame's number is one ASCII digit;
  * anything else is `ASTM_FRAME_INVALID_START_FRAME_NUMBER` rather than whatever
  * byte the arithmetic truncated to. A value other than the default `1` writes a

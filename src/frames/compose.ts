@@ -80,7 +80,11 @@ export function parseFramedAstm(
  * delimiters, embedded delimiters re-escaped) and then framed **independently**
  * (one record per `ETX`-closed frame run), so the framing exactly mirrors what
  * {@link decodeAstmFrames} reassembles: `parseFramedAstm(serializeFramedAstm(msg))`
- * yields an equal message.
+ * yields an equal message **with the default `startFrameNumber`**. That clause is
+ * load-bearing rather than pedantic: a non-default start writes a continuation of
+ * a sequence already in progress, and a continuation read on its own opens on a
+ * sequence gap, so the decoder does not emit its first record and this round trip
+ * does not hold for it. See {@link ComposeFramesOptions}.
  *
  * A value carrying a character above `U+00FF` is **refused** here rather than
  * framed: the record layer is happy to hold one, but a frame carries bytes and

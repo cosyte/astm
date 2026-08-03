@@ -54,9 +54,12 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
   that byte, silently losing a whole record whenever the two bytes after it happened to be the short
   frame's checksum. The **record** layer still carries them, because a returned string is not yet on a
   wire and a raw-transport consumer round-trips such a value exactly. `startFrameNumber` lets you
-  compose one transfer across several calls, and it is checked before any record is read: a frame's
-  number is a single ASCII digit, so a value that is not a whole number from `0` to `7` is a typed
-  error rather than whatever byte the arithmetic truncated to.
+  compose one transfer across several calls, and `composeAstmFrames` checks it before it reads a
+  record: a frame's number is a single ASCII digit, so a value that is not a whole number from `0` to
+  `7` is a typed error rather than whatever byte the arithmetic truncated to. The round trip above is
+  the **default** start; a non-default one writes a continuation of a sequence already in progress,
+  and a continuation read on its own opens on a frame-sequence gap, so its first record is warned
+  about and not emitted.
 - **Vendor profiles.** `defineAstmProfile()` builds a provenance-backed profile whose tolerances
   downgrade _expected_, non-safety-critical deviations to a `PROFILE_QUIRK_APPLIED` warning without
   ever altering a value, behind a safety gate that refuses to tolerate any result value, flag,

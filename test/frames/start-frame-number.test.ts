@@ -75,7 +75,10 @@ function join(...parts: readonly Uint8Array[]): Uint8Array {
  * below is.
  */
 const composeUnvalidated = (records: readonly string[], start: number): Uint8Array =>
-  stream(...records.map((r, i) => frame(r, { fn: (start + i) % 8 })));
+  // The FIRST frame takes the raw start value, unreduced, because that is what the
+  // old encoder wrote: `(start + i) % 8` for i = 0 would silently normalise a value
+  // like 8 into a '0' the old encoder never emitted.
+  stream(...records.map((r, i) => frame(r, { fn: i === 0 ? start : (start + i) % 8 })));
 
 describe("what an unwritable startFrameNumber used to put on the wire", () => {
   it("-1 wrote a '/' into the frame-number position, and the record was never emitted", () => {

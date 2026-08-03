@@ -682,9 +682,12 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     **Clamping and modulo were both rejected on one argument:** either picks a frame number the
     caller did not ask for, and the frame number is the decoder's only evidence that no frame was
     dropped, so a stream numbered from a value nobody chose is one whose sequence check certifies the
-    wrong thing. The refusal precedes the record list so it never depends on caller data, and **its
-    message names the value received**, which is deliberate and is the one message in this class that
-    quotes anything: a `startFrameNumber` is the caller's own option, never stream content.
+    wrong thing. The refusal precedes `composeAstmFrames`'s record loop so it never depends on caller
+    data **on that entry point only** (the refuter's finding: `serializeFramedAstm` serializes every
+    record first, so an unserializable record is refused ahead of it there, and the four surfaces
+    that said "before any record is read" without naming a function are now scoped). **Its message
+    names the value received**, which is deliberate and is the one message in this class that quotes
+    anything: a `startFrameNumber` is the caller's own option, never stream content.
     **▶ THE `0`–`7` DOMAIN WAS KEPT BECAUSE THE NON-DEFAULT START HAS A REAL USE, MEASURED RATHER
     THAN ASSUMED. Do NOT "simplify" this to `refuse anything but 1` on the reasoning that nothing
     else decodes standalone.** It composes a **continuation**: `composeAstmFrames(head)` joined with
@@ -693,8 +696,14 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     included. Pinned in `test/frames/start-frame-number.test.ts`.
     **What the fix does NOT do, and it is documented on the option instead:** a continuation decoded
     **on its own** opens on a sequence gap, so the decoder drops that first record and
-    `parseFramedAstm` throws `ASTM_RECORD_NO_HEADER` when it was the `H`. The documented-valid `0`
-    has always behaved that way; it is a cost of the option, not a defect in the caller's records.
+    `parseFramedAstm` throws. **The base entry's "the failure code varies with the message shape, so
+    a caller cannot key on one" is TRUE and this slice briefly deleted it**: it is
+    `ASTM_RECORD_NO_HEADER` when the dropped record was the `H` and `EMPTY_INPUT` when nothing
+    survived, and it is restored on every surface. The documented-valid `0` has always behaved that
+    way; it is a cost of the option, not a defect in the caller's records. **Nothing returns the
+    number to continue from and the frame count is not it once a record splits**, so the supported
+    computation (`decode the part, read the last frame's number, + 1 mod 8`) is written on the option
+    and in the quickstart.
     Old bytes and new refusal both pinned, rebuilt with the test-only `frame()` builder so nothing is
     transcribed twice, with a biconditional property (refused **iff** not a whole number in `0`–`7`);
     14 of 30 new tests red against `64c2fd5`.
@@ -703,10 +712,14 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     record serializer, not the frame encoder's options, it is already argued at its own site in
     `declarationResidual` (carrying the byte through would turn a spec-clean header into a refused
     stream), and it wants the same slice as defect 12 rather than this one.
-    Also closed here, from the same item: **two `{@link}` targets that did not resolve in the
-    published `.d.ts`** (`QuirkTolerance` → `AstmQuirkTolerance` in `src/profiles/types.ts`, and
-    `FIRST_FRAME_NUMBER`, which this package does not export, on the `startFrameNumber` doc that was
-    rewritten anyway). Every `{@link}` target in `dist/index.d.ts` now resolves.
+    Also closed here, from the same item: **three `{@link}` targets that did not name a symbol
+    declared in the published `.d.ts`** (`QuirkTolerance` → `AstmQuirkTolerance` in
+    `src/profiles/types.ts`; `FIRST_FRAME_NUMBER`, which this package does not export, on the
+    `startFrameNumber` doc that was rewritten anyway; and a bare `warnings` on `AstmMessage.profile`,
+    meaning the sibling member, which the refuter found and which resolves only for a tool that
+    resolves against the enclosing declaration). **The recorded claim is now "names a symbol declared
+    in that file", not "resolves"** -- resolution is resolver-dependent and the universal was
+    unqualified.
 
 Two further defects once on this list (the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d`) were recorded with

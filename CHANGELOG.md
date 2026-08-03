@@ -14,7 +14,7 @@ this file is maintained by hand (Changesets handles the version bump and publish
 - **`composeAstmFrames` wrote an out-of-range `startFrameNumber` straight into the frame-number
   position, so a value that was not a frame number produced a stream whose records the decoder
   refused to emit** (`ASTM-FRAME-RESIDUALS`, defect 13). `PRE-EXISTING`, byte-identical on `64c2fd5`.
-  The option is now checked before any record is read and refused with the new code
+  The option is now checked before `composeAstmFrames` reads a record, and refused with the new code
   `ASTM_FRAME_INVALID_START_FRAME_NUMBER` (a fourth member of `AstmFrameEncodeErrorCode`) unless it is
   a whole number from `0` to `7`.
 
@@ -38,9 +38,10 @@ this file is maintained by hand (Changesets handles the version bump and publish
   rolls over. Clamping or taking a modulo would pick a frame number the caller did not ask for, and
   the frame number is the decoder's only evidence that no frame was dropped, so a stream numbered from
   a value nobody chose is a stream whose sequence check certifies the wrong thing. The refusal is
-  raised before the record list is touched, so it never depends on the caller's data, and its message
-  names the value received: that value is the caller's own option, not stream content, and nothing
-  from the records reaches it.
+  raised before `composeAstmFrames` reads a record, so on that entry point it never depends on the
+  caller's data (`serializeFramedAstm` serializes every record first, so a record that cannot be
+  serialized at all is refused ahead of it on that route). Its message names the value received: that
+  value is the caller's own option, not stream content, and nothing from the records reaches it.
 
   **The whole `0`-`7` range is still accepted, because a non-default start has a real use that was
   measured rather than assumed.** It composes a **continuation** of a transfer already in progress:
@@ -51,8 +52,11 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
   **What a continuation is not, now stated on the option rather than guarded against.** Read on its
   own, a stream that starts anywhere but `1` opens on a sequence gap; the decoder never bridges a gap
-  silently, so it warns and does not emit that first record, and `parseFramedAstm` then throws
-  `ASTM_RECORD_NO_HEADER` if the dropped record was the `H`. The documented-valid `0` has always
+  silently, so it warns and does not emit that first record, and `parseFramedAstm` then throws, but
+  **not under one code a caller can key on**: `ASTM_RECORD_NO_HEADER` when the dropped record was the
+  `H`, and `EMPTY_INPUT` when nothing survived. Nothing returns the number to continue a sequence
+  from either, and the frame count is not it once a record splits, so the supported computation is
+  named on the option. The documented-valid `0` has always
   behaved that way. It is the cost of the option, not a defect in the caller's records, and it is why
   `1` is the default.
 
@@ -61,11 +65,13 @@ this file is maintained by hand (Changesets handles the version bump and publish
   is transcribed twice), with a biconditional property: a value is refused **if and only if** it is
   not a whole number in `0`-`7`. 14 of the 30 new tests are red against `64c2fd5`.
 
-- **Two `{@link}` targets in the published `.d.ts` named symbols that do not exist**
+- **Three `{@link}` targets in the published `.d.ts` did not name a symbol declared there**
   (`ASTM-FRAME-RESIDUALS`, the sibling minors). `QuirkTolerance` is `AstmQuirkTolerance` (twice, in
-  `src/profiles/types.ts`), and the `startFrameNumber` doc linked `FIRST_FRAME_NUMBER`, which this
-  package does not export; that sentence was rewritten and no longer links it. Every `{@link}` target
-  in `dist/index.d.ts` now resolves.
+  `src/profiles/types.ts`); the `startFrameNumber` doc linked `FIRST_FRAME_NUMBER`, which this
+  package does not export, and that sentence was rewritten and no longer links it; and
+  `AstmMessage.profile` linked a bare `warnings`, meaning its sibling member, which resolves only for
+  a tool that resolves against the enclosing declaration. Every `{@link}` target in
+  `dist/index.d.ts` now names a symbol declared in that file.
 
 - **A delimiter set colliding with a record's type letter emitted a stream that read back as
   DIFFERENT records, and in its silent branch it fabricated a final lab result out of patient
