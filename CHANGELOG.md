@@ -11,6 +11,72 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Fixed
 
+- **A raw `STX`, `ETB` or `ETX` byte in a value was framed as given, and in its worst branch a whole
+  result record disappeared into the previous record's text with `warnings: []` at BOTH layers**
+  (`ASTM-RAW-ETX-SWALLOWS-A-RECORD`). `PRE-EXISTING`, shipped since the frame encoder did.
+  `composeAstmFrames` now throws `AstmFrameEncodeError` with the new code `ASTM_FRAME_RESERVED_BYTE`
+  (a third member of `AstmFrameEncodeErrorCode`), carrying `recordIndex` and `characterIndex` and
+  never the bytes.
+
+  **The recorded reason for deferring this said it "fails loudly". That was false, and the
+  correction is what re-ranked it.** A frame's text ends at the first `ETB`/`ETX` after its `STX`, so
+  an embedded one truncates the frame there, and the two bytes that follow are then read as that
+  short frame's checksum. When they match, the truncated frame **verifies**, `decode.ts` resumes at
+  `termIndex + 3` and skips the rest of the record as inter-frame bytes, and the next frame number is
+  still in sequence. Measured on this package's own round trip: a `C` comment ending `…HEMOLYZED` +
+  `ETX` + the two matching characters reassembled without its terminating `CR`, so the following `R`
+  merged into the comment's free text (`"SPECIMEN SLIGHTLY HEMOLYZEDR"`) and a `28.6 U/L` result
+  vanished, `results()` returning `[]` where the input carried one. **An embedded `ETB` reaches the
+  same silence by the other door**, which the defect record did not have: it leaves the record open,
+  so the _next_ record's text is appended to the truncated one and two records read back as one, with
+  every field of the result hanging off the comment. The precondition is a coincidence in the two
+  bytes that follow: they must both read as hex digits and must equal the truncated frame's checksum,
+  which is about 1 in 34,600 for uniform-random bytes (1 in 256 once they are hex digits, which is
+  where the earlier 1-in-256 figure came from), and trivially constructible on purpose. That bounds
+  the likelihood, not the harm.
+  Both silent branches, and the loud ones, are pinned in `test/frames/reserved-structure-byte.test.ts`
+  asserted on what the old encoder produced, so a weakened guard reds a test rather than passing
+  unnoticed.
+
+  **The refusal has no bytes-instead escape hatch, unlike the `U+00FF` one beside it.** A
+  `Uint8Array` is checked too, because the byte is unframable however it arrives: framing has no
+  escape sequence for it, and emit has no warning channel, so the only alternatives to refusing are
+  substituting a byte the sender did not send or dropping one they did. The three bytes are derived
+  from what `decodeAstmFrames` actually reads as structure, not from a control-character class:
+  `CR`/`LF` are deliberately absent (they are read only _after_ a frame's checksum, and a record's own
+  `CR` sits inside frame text on every stream this encoder writes), and `ENQ`/`ACK`/`NAK`/`EOT` are
+  absent too (structure only _between_ frames; measured to round-trip byte-exactly inside one).
+  **No clause is claimed:** LIS02-A2 §5.4/§6.2 are withheld from CLSI's free sample and the paywalled
+  editions were not read. The grounding is this library's own decoder, in this repo.
+
+  **The record layer is deliberately UNCHANGED, and that was the cost this slice turned on.**
+  Refusing the byte in `serializeAstmRecord` would refuse a byte the caller genuinely supplied, for
+  consumers who never frame anything. Measured, in every modeled value: all three
+  bytes round-trip through parse → serialize → parse byte for byte, value, units and status intact,
+  byte-stable, `warnings: []` on both generations. The byte becomes structure only when a frame is
+  built, and `composeAstmFrames` is the total gate on that route, including through
+  `serializeFramedAstm`. `CR`/`LF` remain the record layer's own refusal, because they end a _record_.
+
+  **That claim is about VALUES, and one position on a record line is not a value.** The surplus of a
+  header's delimiter declaration drops any control character silently on emit, so a header that
+  arrived as `H|\^&` + `ETX` goes back out without it, `warnings: []`, byte-stable, and the
+  round-trip is not byte-exact there. `PRE-EXISTING` and deliberately unchanged: that rule is argued
+  at `declarationResidual` and long predates the frame-layer refusal, and it is the better of the two
+  dispositions now, since carrying the byte through would turn a spec-clean header into a refused
+  stream. Pinned in `test/frames/reserved-structure-byte.test.ts` so the scoped sentence stays
+  measured. Found by the `conformance-refuter` grading this slice.
+
+  **What this does not close.** A delimiter colliding with a record's type letter still frames and
+  de-frames byte-exactly and re-reads as a different record; framing integrity is not record-layer
+  readback. And a caller reaching `composeAstmFrames` from JavaScript with some other typed array is
+  still outside the declared signature, and **this guard does not reach that route either**: the
+  check compares elements against the three byte values, so a `Uint16Array` element of `0x0103` is
+  not one of them and is not refused, while `Uint8Array.from` later takes its low byte and writes an
+  `ETX` after all. Measured on all three (`0x0102`/`0x0103`/`0x0117`): framed, then lost at decode
+  with a bad checksum or an unterminated frame. That is the same out-of-signature residue already
+  recorded for the low-byte truncation, unchanged here in either direction, and stated rather than
+  left to be found. Pass a `Uint8Array` or a string.
+
 - **A symbolic link under a scan root read CLEAN on BOTH of the PHI scanner's enumerating routes, so
   a link pointing at a file full of real identifiers passed the gate twice over**
   (`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`). Development tooling only: `scripts/phi-scan.ts` ships in

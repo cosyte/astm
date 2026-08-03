@@ -333,6 +333,16 @@ a different character. To frame content outside Latin-1, encode it with the code
 instrument uses and pass the `Uint8Array`: `composeAstmFrames` takes bytes directly
 and writes them through untouched.
 
+A record carrying a raw `STX`, `ETB` or `ETX` byte is refused too, with
+`ASTM_FRAME_RESERVED_BYTE`, and that one has **no** bytes-instead escape hatch: those three
+are what the decoder reads as the shape of a frame, and framing has no escape sequence to
+hide one behind. Writing it through truncated the frame at that byte, and it was not
+reliably loud: where the two following bytes happened to be the short frame's checksum, the
+truncated frame verified and a whole record was absorbed into the previous one with no
+warning from either layer. Take the byte out of the value before framing. The **record**
+layer still carries it: `serializeAstmRecords` returns a string, and a raw-transport
+consumer that never frames anything round-trips such a value byte for byte.
+
 ## Map a local code to LOINC (LIVD, bring-your-own)
 
 An analyzer transmits a proprietary **local** test code in the Universal Test ID; a

@@ -66,6 +66,15 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   on the wire, encode it yourself with the code page your instrument uses and pass the resulting
   `Uint8Array`, which `composeAstmFrames` writes through untouched. The record layer is unaffected:
   `serializeAstmRecords` returns a `string` and what you encode it with is yours to decide.
+- **No way to put a frame-structure byte inside a frame.** `STX`, `ETB` and `ETX` are what the
+  decoder reads as the shape of a frame, and framing has no escape sequence for them, so a record
+  carrying one is refused (`ASTM_FRAME_RESERVED_BYTE`) rather than written as a frame that truncates
+  at that byte. Passing the record as a `Uint8Array` does not route around it: the byte is
+  unframable however it arrives. Which byte belongs in a clinical value is the sender's call, so the
+  library refuses rather than substituting or deleting one. The **record** layer deliberately still
+  carries such a byte in every modeled value, and round-trips it exactly: only framing reserves it.
+  The one position that does not keep it is the surplus of a header's delimiter declaration, which is
+  not a modeled value and from which every control character is dropped on emit.
 - **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
   does **not** decide whether a value is "critical" or act on a correction/cancel.
 - **No proof that an arbitrary delimiter set round-trips.** Emit checks the three conditions readback

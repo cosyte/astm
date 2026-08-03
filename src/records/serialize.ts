@@ -42,6 +42,24 @@
  * The serializer refuses: an embedded `CR`/`LF` is a typed {@link AstmSerializeError},
  * never emitted raw.
  *
+ * **A value keeps the bytes the *frame* layer reserves, on purpose.** `STX`, `ETB`
+ * and `ETX` are deliberately **not** refused here. They break a record only once it
+ * is framed, and this layer returns a `string`, which is not yet on any wire: a
+ * consumer on a raw transport, which is a real ASTM deployment this library models
+ * (`detectFraming`), gets such a value back byte for byte through parse and emit,
+ * measured on every modeled value. Refusing it here would take a
+ * byte the caller genuinely supplied away from consumers who never frame anything.
+ * `composeAstmFrames` is the total gate on the framed route, including through
+ * `serializeFramedAstm`, and refuses it there (`ASTM_FRAME_RESERVED_BYTE`).
+ * `CR`/`LF` are different: they end a *record*, so they corrupt this layer's own
+ * output, which is why they are refused at this one.
+ *
+ * **One position is not a modeled value and does not keep the byte:** the surplus
+ * of a header's delimiter declaration, where any control character is dropped
+ * silently (see `declarationResidual` below, where that disposition is argued and
+ * where it long predates the frame-layer refusal). So "the record layer carries
+ * these bytes" is a statement about values, not about every byte of every line.
+ *
  * **Check the delimiter set before writing.** Three conditions are required for the
  * emitted bytes to read back as the records that produced them (each separator exactly
  * one character, no separator a `CR`/`LF`, no two separators the same character) and a
@@ -451,6 +469,13 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
  * the bytes each layer happens to reserve, and re-derive that list every time a
  * layer is added, no control character is carried at all. The cost is bytes that
  * were unprintable inside a declaration whose meaning is already unresolved.
+ *
+ * That reasoning has since been overtaken on the frame layer, and this rule is
+ * the better of the two dispositions anyway: `composeAstmFrames` now **refuses** a
+ * record carrying `STX`/`ETB`/`ETX` (`ASTM_FRAME_RESERVED_BYTE`) instead of
+ * truncating a frame at it, so a surplus carried through would turn a spec-clean
+ * header into a refused stream rather than a lost record. Dropping unreadable
+ * bytes from a declaration whose surplus has no role keeps the emit writable.
  *
  * **What this rule does not reach**, stated rather than left to be discovered.
  * It is keyed on the *character*, so a surplus character above `U+00FF` passes
