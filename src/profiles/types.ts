@@ -36,7 +36,7 @@ import type { AstmFraming } from "../ltp/transport.js";
  * Any warning code from any of the three registries: the record layer
  * (`ASTM_RECORD_*` / `ASTM_NONSTANDARD_DELIMITERS` / `ASTM_UNKNOWN_ESCAPE_SEQUENCE`),
  * the frame codec (`ASTM_FRAME_*`), or the LTP protocol layer (`ASTM_LTP_*`). A
- * {@link QuirkTolerance} may *name* any of them, but the safety gate refuses all
+ * {@link AstmQuirkTolerance} may *name* any of them, but the safety gate refuses all
  * but the small, benign, record-layer subset, so the union exists mainly to let
  * the gate reject a frame/LTP code with a precise, typed message.
  */
@@ -71,7 +71,7 @@ export interface AstmProfileProvenance {
 }
 
 /**
- * Optional structural narrowing for a {@link QuirkTolerance}. When present, the
+ * Optional structural narrowing for an {@link AstmQuirkTolerance}. When present, the
  * tolerance applies only to warnings whose PHI-free {@link AstmPosition} matches
  * every provided field, so a profile can expect a deviation on one record type
  * (e.g. an unknown escape only inside `R` result values) without blanket-tolerating

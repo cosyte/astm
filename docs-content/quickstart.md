@@ -363,6 +363,16 @@ warning from either layer. Take the byte out of the value before framing. The **
 layer still carries it: `serializeAstmRecords` returns a string, and a raw-transport
 consumer that never frames anything round-trips such a value byte for byte.
 
+To compose one transfer across several calls, pass `startFrameNumber` to continue the
+sequence where the previous call left off: joining the results is byte-identical to
+composing the whole list in one call, rollover included. It has to be a whole number
+from `0` to `7`, because a frame's number is a single ASCII digit, and it is checked
+before any record is read (`ASTM_FRAME_INVALID_START_FRAME_NUMBER`). Note what a
+continuation is not: read on its own, a stream that starts anywhere but `1` opens on a
+sequence gap, so the decoder does not emit that first record and `parseFramedAstm` has
+no header to work from. Leave the option alone unless you are genuinely continuing a
+sequence.
+
 ## Map a local code to LOINC (LIVD, bring-your-own)
 
 An analyzer transmits a proprietary **local** test code in the Universal Test ID; a

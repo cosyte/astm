@@ -375,6 +375,10 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    side. Its open question is also a **new warning code on the parse path**, which lands on the
    profile safety gate and therefore on every consumer profile: a behaviour change wanting its own
    argument, not a rider on a byte-level encoder fix.
+   **Deferred again, explicitly, by `ASTM-FRAME-RESIDUALS` 2026-08-03** (the `startFrameNumber`
+   slice): that one refuses an **encoder option** whose domain is a single byte on the wire and which
+   no profile can see; this one adds a **parse-path warning code**, which every consumer profile has
+   to be re-derived against. Same repo, opposite blast radius. It still wants its own slice.
    Found while grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
 5. **CLOSED 2026-08-03 by `ASTM-FRAME-RESIDUALS`. It was recorded as a LOUD defect and its worse
    branch was SILENT: the third time an astm loudness note has been measured false.** Was: emitting
@@ -650,21 +654,59 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     ATOM, and the shipped "what is not guaranteed" prose names only the atom.** Those sentences are
     each individually true, so this is a widening, not a correction: when this is taken, widen them
     rather than rewriting them.
+    **Deferred by `ASTM-FRAME-RESIDUALS` 2026-08-03** (the `startFrameNumber` slice): it is the record
+    layer's escape codec, not the frame encoder's option domain, and widening a shipped guarantee
+    without a test that pins the widened claim is the half-move this repo's gates keep catching. It
+    wants a slice that carries both, alongside `serializeAstmRecords` dropping C0/DEL from a header
+    declaration surplus (defect 13's sibling minor), which is the other record-layer emit residual.
 
-13. **`composeAstmFrames`'s `startFrameNumber` is documented `0`–`7` and is UNVALIDATED**, so the
-    documented-valid `0` emits frames `0,1,2,3` that `parseFramedAstm` rejects. `PRE-EXISTING`,
-    measured by `#44`'s gate and **re-measured by `ASTM-FRAME-RESIDUALS` 2026-08-03 rather than
-    trusted**, because this list has been wrong about loudness three times. It holds: across 31
-    (start value x message shape) combinations only `1` decodes, and every other value throws
-    `ASTM_RECORD_NO_HEADER` or `EMPTY_INPUT`. **No silent branch was found**, which is a statement
-    about those 31 cases, not a property. Two details the record did not have: an out-of-range value
-    writes a **non-digit byte** into the frame-number position (`-1` emits `/`, `NaN` emits a space),
-    and the failure code varies with the message shape, so a caller cannot key on one. **Deferred by
-    `ASTM-FRAME-RESIDUALS`**: it is the frame encoder's option validation, a different layer and a
-    different question from the record serializer's type-letter rule, and folding it in is how a fix
-    outgrows the thing it fixes. Its sibling minor, `serializeAstmRecords` silently dropping all 31
-    C0/DEL characters from a **header delimiter-declaration surplus**, is argued at its own site in
-    `declarationResidual` and is deferred with it.
+13. **CLOSED 2026-08-03 by `ASTM-FRAME-RESIDUALS`. The loudness claim held, but the recorded byte was
+    wrong and there WAS a silent branch the 31-case sweep could not see.** Was:
+    `composeAstmFrames`'s `startFrameNumber` was documented `0`–`7` and **unvalidated**, so whatever
+    `FN_ZERO + value` truncated to went into the frame-number position. `PRE-EXISTING`,
+    byte-identical on `64c2fd5`.
+    **▶ TWO CORRECTIONS TO THE OLD ENTRY, BOTH MEASURED.** (1) It said `NaN` emits **a space**. It
+    emits a **`NUL`**, and the difference is the whole outcome: a space is an ordinary inter-frame
+    byte the decoder skips, while the `NUL` goes into **every** frame, so `decodeAstmFrames` reads no
+    frame number anywhere, warns `ASTM_FRAME_SEQUENCE_GAP` on every frame and emits **none** of the
+    records (four in, zero out; `parseFramedAstm` throws on empty input). `Infinity` and `-Infinity`
+    behave identically; `-1` really does emit `/`. (2) "No silent branch was found" was true of those
+    31 cases and false as a property: a value that **truncates back onto a digit** is accepted
+    silently and behaves as some other start. `1.5` and `257` each emit the byte-for-byte stream a
+    `startFrameNumber` of `1` emits. The sweep could not see it because it only varied start value x
+    message shape over integers.
+    **▶ THE FIX IS A DOMAIN CHECK DERIVED FROM WHAT A FRAME CAN CARRY, RUN BEFORE ANY RECORD IS READ.
+    Read `CHANGELOG.md` `[Unreleased]` before touching `encode.ts`.** New
+    `ASTM_FRAME_INVALID_START_FRAME_NUMBER` (fourth member of `AstmFrameEncodeErrorCode`): the option
+    must be a whole number `0`–`7`, the modulo-8 sequence the decoder reads and rolls over.
+    **Clamping and modulo were both rejected on one argument:** either picks a frame number the
+    caller did not ask for, and the frame number is the decoder's only evidence that no frame was
+    dropped, so a stream numbered from a value nobody chose is one whose sequence check certifies the
+    wrong thing. The refusal precedes the record list so it never depends on caller data, and **its
+    message names the value received**, which is deliberate and is the one message in this class that
+    quotes anything: a `startFrameNumber` is the caller's own option, never stream content.
+    **▶ THE `0`–`7` DOMAIN WAS KEPT BECAUSE THE NON-DEFAULT START HAS A REAL USE, MEASURED RATHER
+    THAN ASSUMED. Do NOT "simplify" this to `refuse anything but 1` on the reasoning that nothing
+    else decodes standalone.** It composes a **continuation**: `composeAstmFrames(head)` joined with
+    `composeAstmFrames(tail, { startFrameNumber: n })`, `n` the number after the last frame `head`
+    used, is **byte-identical** to one call over the whole list and decodes `warnings: []`, rollover
+    included. Pinned in `test/frames/start-frame-number.test.ts`.
+    **What the fix does NOT do, and it is documented on the option instead:** a continuation decoded
+    **on its own** opens on a sequence gap, so the decoder drops that first record and
+    `parseFramedAstm` throws `ASTM_RECORD_NO_HEADER` when it was the `H`. The documented-valid `0`
+    has always behaved that way; it is a cost of the option, not a defect in the caller's records.
+    Old bytes and new refusal both pinned, rebuilt with the test-only `frame()` builder so nothing is
+    transcribed twice, with a biconditional property (refused **iff** not a whole number in `0`–`7`);
+    14 of 30 new tests red against `64c2fd5`.
+    **Its sibling minor is NOT closed with it and is deliberately left:** `serializeAstmRecords`
+    silently drops all 31 C0/DEL characters from a **header delimiter-declaration surplus**. It is the
+    record serializer, not the frame encoder's options, it is already argued at its own site in
+    `declarationResidual` (carrying the byte through would turn a spec-clean header into a refused
+    stream), and it wants the same slice as defect 12 rather than this one.
+    Also closed here, from the same item: **two `{@link}` targets that did not resolve in the
+    published `.d.ts`** (`QuirkTolerance` → `AstmQuirkTolerance` in `src/profiles/types.ts`, and
+    `FIRST_FRAME_NUMBER`, which this package does not export, on the `startFrameNumber` doc that was
+    rewritten anyway). Every `{@link}` target in `dist/index.d.ts` now resolves.
 
 Two further defects once on this list (the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d`) were recorded with
