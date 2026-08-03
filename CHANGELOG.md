@@ -76,6 +76,44 @@ this file is maintained by hand (Changesets handles the version bump and publish
   refuse the record string or reproduce it byte for byte" is asserted over 2,000 generated cases,
   with its bound written into the test and a non-vacuity check that both sides of it are reached.
 
+- **The `attw` publish gate now fails when the packed tarball carries no types, where the CLI exits
+  `0`** (`ATTW-FALSE-GREEN-PORT`). The `attw` script was the bare `attw --pack .`.
+  `@arethetypeswrong/cli` opens `getExitCode()` with `if (!analysis.types) return 0`, returning
+  before it ever reads the problem list, because an untyped package is a legitimate npm package and
+  the CLI treats "no types at all" as a description rather than a problem. No `--profile`,
+  `--ignore-rules` or config setting reaches that branch. For a package that ships types the same
+  result means the declarations were **not in the tarball**, which is a broken publish reported as a
+  pass. A false red costs an hour; a false green merges.
+
+  Measured on this package at `0.0.9`, on a quiet box with **no** concurrency, both states printing
+  "This package does not contain types." and exiting `0`: `rm -rf dist`, and
+  `rm -f dist/index.d.ts dist/index.d.cts`. The second is the realistic one, and the trigger is the
+  build rather than any race: timed on one real `tsup` run here, `dist/index.mjs` and
+  `dist/index.cjs` appeared at 1,176 ms and `dist/index.d.ts` and `dist/index.d.cts` at 3,063 ms, a
+  **1,887 ms window** in which `dist/` held JS and no declarations. A concurrent build or `clean` in
+  the same working tree lands the gate in that window. This is deliberately **not** answered with a
+  lock or a build queue: the gate has to be able to report that its own inputs were missing,
+  whatever removed them.
+
+  `attw` is now `node scripts/attw.mjs`, which keeps two nets because they catch different things. A
+  **preflight** checks that every relative path `package.json` promises (`main`, `module`, `types`,
+  `typings`, and every string leaf of `exports`) exists and is non-empty, and names the missing file
+  rather than leaving it to be inferred. A **post-check** promotes `attw`'s untyped sentence to a
+  failure, catching what the preflight structurally cannot: declarations present on disk but
+  excluded from the tarball by `files` or an `.npmignore`. No instance of that second case is on
+  record in this repo. Because the post-check reads a printed string, the routes that would hide it
+  are refused rather than tolerated: `--quiet`, `--format`, a `.attw.json` setting either, and
+  `--config-path` at a file setting either were each measured here to restore the exact exit `0`. The
+  refusal is by option name, wholesale, not by value, and the list is a record of what is closed
+  rather than a proof that the post-check cannot be blinded at all: `--definitely-typed` suppresses
+  the sentence by making the analysis typed, is equally true of the bare CLI, and is deliberately not
+  refused. The preflight is the net that reads no string. Other arguments are forwarded, so
+  `--profile node16` still works. `test/scripts/attw-gate.test.ts` pins the upstream exit `0` itself,
+  so an `attw` upgrade that fixes it or rewords the sentence reds the suite instead of letting the
+  net go quietly slack, and it carries a negative control plus a real `attw` failure, because a gate
+  that only ever fails is not a gate and one that swallows the status is not one either. **No
+  runtime code changed and the built output is identical.**
+
 ### Added
 
 - **`ASTM_RECORD_FIELDS_UNSEPARATED`: a record that lost its fields no longer loses them in

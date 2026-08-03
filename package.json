@@ -76,7 +76,7 @@
     "test:fuzz": "vitest run test/property/frames-fuzz.property.test.ts test/property/records-fuzz.property.test.ts",
     "clean": "rm -rf dist coverage",
     "pack:docs": "bash scripts/build-docs-artifacts.sh",
-    "attw": "attw --pack .",
+    "attw": "node scripts/attw.mjs",
     "smoke": "node scripts/smoke.mjs",
     "version": "changeset version && node scripts/sync-version.mjs && prettier --write package.json CHANGELOG.md src/index.ts",
     "release": "changeset publish",

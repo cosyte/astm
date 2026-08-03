@@ -601,7 +601,9 @@ a summary.
 - **Language:** TypeScript (strict, full rigor set incl. `noUncheckedIndexedAccess`) via
   `@cosyte/tsconfig`. **Target ES2023**, `NodeNext`. TypeScript 5.9.x, exact-pinned.
 - **Build:** dual ESM + CJS + `.d.ts` via `tsup` (`@cosyte/tsup-config`); `attw` is a publish gate
-  (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`).
+  (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`). The `attw` script is
+  **`scripts/attw.mjs`, not the bare CLI**: see the guardrail below, because the CLI reports a
+  missing `dist/` as "does not contain types" and **exits 0**.
 - **Node:** **>= 22** (CI matrix 22 + 24).
 - **Package manager:** `pnpm@10`.
 - **Lint/format:** **ESLint 10** + unified `typescript-eslint` (type-checked) via
@@ -627,6 +629,62 @@ a summary.
   warning with a stable code + positional context.
 - Coverage: per-directory >= 90% (lines/branches/functions/statements), enforced by
   `pnpm test:coverage`.
+- **▶ `attw` SAYS "does not contain types" AND EXITS 0, SO THE `attw` SCRIPT IS A WRAPPER, NOT THE
+  BARE CLI.** `getExitCode.js` in `@arethetypeswrong/cli` (0.18.4, read in this repo's own
+  `node_modules`) opens with `if (!analysis.types) return 0`. An untyped package is a legitimate npm
+  package, so "no types at all" is a description, not a problem, and the problem list is never
+  consulted. No `--profile`, `--ignore-rules` or config setting reaches that early return. For a
+  package that ships types it means the declarations were **not in the tarball**, which is a broken
+  publish reported as a pass. A false red costs an hour; **a false green merges.**
+  **The race only supplies the condition, and the defect is not the race.** Reproduced here at
+  `0.0.9` with **zero** concurrency, both printing the sentence and exiting 0: `rm -rf dist`, and
+  `rm -f dist/index.d.ts dist/index.d.cts`. The second is the realistic window, and it is the
+  **build** that opens it: timed on one real `tsup` run of this package, the `.mjs`/`.cjs` entries
+  landed at 1,176 ms and the `.d.ts`/`.d.cts` at 3,063 ms, so `dist/` held JS and no declarations for
+  **1,887 ms**. A concurrent build or `clean` in the same working tree lands the gate in it. So the
+  answer is **not** a lock, a lease or a build queue: the gate must be able to say its own inputs
+  were missing, whatever removed them. **Do not quote the sibling's 4.95s here**; that figure is
+  `terminology`'s build, and this number was measured on this one.
+  `scripts/attw.mjs` carries **two nets, and they catch different things**: a preflight that every
+  relative path `package.json` promises (`main`, `module`, `types`, `typings`, every string leaf of
+  `exports`) exists and is non-empty, which catches the build window and _names the missing file_;
+  and a post-check on `attw`'s untyped sentence, which catches what the preflight structurally
+  cannot, declarations present on disk but excluded from the tarball by `files`/`.npmignore`. **No
+  instance of that second case is on record here.**
+  **The post-check reads a string, so what would hide that string is refused**, not tolerated. **Four**
+  routes were **measured on an untyped pack** to hand back exit 0: `--quiet` (printed nothing at all),
+  `--format json` (the JSON render omits the sentence), a `.attw.json` setting either (`readConfig()`
+  applies it after argv), and **`--config-path <file>` where that file sets either**. That last one
+  carries a qualifier worth keeping: `--config-path` at a path that does **not** exist blinds nothing,
+  because `readConfig` swallows the `ENOENT` and the sentence still prints. It is refused because the
+  `.attw.json` check reads one fixed filename and cannot see a config pointed elsewhere. The refusal is
+  **by option name, wholesale, not by value**: a harmless `--format` value blinds nothing and is
+  refused anyway, which is the deliberate trade against value-parsing them. Other arguments are
+  forwarded, so `--profile node16` still works.
+  **The refusal list is NOT a proof of closure, and must never be written as one.**
+  `--definitely-typed <tarball>` merges an external types tarball, which makes `analysis.types` truthy
+  and suppresses the sentence by a different mechanism. It is deliberately not refused: it is equally
+  true of the bare CLI, so it is not a regression, and no exit 0 was obtained through it here. The
+  **preflight** is the net that does not depend on reading a string.
+  `test/scripts/attw-gate.test.ts` pins both nets against the real binary, **including the upstream
+  exit-0 itself**, so an `attw` upgrade that reworks the wording or fixes the exit code reds the
+  suite instead of letting the net go quietly slack. It also pins a **negative control** on a
+  well-formed package, and that a real `attw` failure still fails: a gate that only ever fails is not
+  a gate, and one that swallows the status is not one either.
+  **This is a per-repo script.** The fix shipped first in `@cosyte/terminology`; this repo is a port,
+  and every sibling that still invokes the CLI directly keeps the false green, including
+  `config/scripts/parser-template/`, which new parser repos are minted from, so a port that skips the
+  template leaves the defect being re-born. **Do not write the repo count down here**: derive it with
+  `/usr/bin/grep -rl '"attw":' --include=package.json --exclude-dir=node_modules .` from the tree
+  root. **And do not port the sibling's prose with its code.** Every measured claim above was re-taken
+  here, and the first draft of this file shipped two that were not: it repeated the sibling's
+  "`--config-path` is refused by inference" while its own test file claimed the opposite, and it
+  asserted that "two numbers differ from the sibling" when only one did. Both were caught by the
+  refuter grading the port, which is the same failure a sibling port was refuted for. **Exactly one
+  figure here differs from the sibling's: the build window** (1,887 ms measured on this package, against
+  the 4.95 s recorded for `terminology`). The measured-versus-inferred split now differs too, but
+  because it was **re-measured here and moved**, not because the sibling's was wrong: `--config-path`
+  is measured on this tree, and `terminology` still records it as inferred.
 
 ## Standing disciplines (every change)
 
