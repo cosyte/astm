@@ -675,7 +675,8 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     silently and behaves as some other start. `1.5` and `257` each emit the byte-for-byte stream a
     `startFrameNumber` of `1` emits. The sweep could not see it because it only varied start value x
     message shape over integers.
-    **▶ THE FIX IS A DOMAIN CHECK DERIVED FROM WHAT A FRAME CAN CARRY, RUN BEFORE ANY RECORD IS READ.
+    **▶ THE FIX IS A DOMAIN CHECK DERIVED FROM WHAT A FRAME CAN CARRY, RUN BEFORE `composeAstmFrames`
+    READS A RECORD.
     Read `CHANGELOG.md` `[Unreleased]` before touching `encode.ts`.** New
     `ASTM_FRAME_INVALID_START_FRAME_NUMBER` (fourth member of `AstmFrameEncodeErrorCode`): the option
     must be a whole number `0`–`7`, the modulo-8 sequence the decoder reads and rolls over.
