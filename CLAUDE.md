@@ -414,7 +414,7 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    form: unlike the `U+00FF` refusal beside it there is **no bytes-instead escape hatch**, because
    the byte is unframable however it arrives.
    **The cost this slice turned on was whether to refuse it in `serializeAstmRecord`, and the answer
-   is no, measured.** In every field the record model carries, all three bytes round-trip through
+   is no, measured.** In every modeled value, all three bytes round-trip through
    parse → serialize → parse byte for byte, value/units/status intact, byte-stable, `warnings: []`
    on both generations, so refusing would take a byte a raw-transport consumer genuinely supplied.
    **That is a claim about VALUES and the refuter narrowed it to one:** the surplus of a header's

@@ -51,7 +51,7 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
   **The record layer is deliberately UNCHANGED, and that was the cost this slice turned on.**
   Refusing the byte in `serializeAstmRecord` would refuse a byte the caller genuinely supplied, for
-  consumers who never frame anything. Measured, in every field the record model carries: all three
+  consumers who never frame anything. Measured, in every modeled value: all three
   bytes round-trip through parse → serialize → parse byte for byte, value, units and status intact,
   byte-stable, `warnings: []` on both generations. The byte becomes structure only when a frame is
   built, and `composeAstmFrames` is the total gate on that route, including through

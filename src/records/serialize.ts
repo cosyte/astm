@@ -47,7 +47,7 @@
  * is framed, and this layer returns a `string`, which is not yet on any wire: a
  * consumer on a raw transport, which is a real ASTM deployment this library models
  * (`detectFraming`), gets such a value back byte for byte through parse and emit,
- * measured on every field the record model carries. Refusing it here would take a
+ * measured on every modeled value. Refusing it here would take a
  * byte the caller genuinely supplied away from consumers who never frame anything.
  * `composeAstmFrames` is the total gate on the framed route, including through
  * `serializeFramedAstm`, and refuses it there (`ASTM_FRAME_RESERVED_BYTE`).

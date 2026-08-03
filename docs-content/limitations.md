@@ -72,7 +72,7 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   at that byte. Passing the record as a `Uint8Array` does not route around it: the byte is
   unframable however it arrives. Which byte belongs in a clinical value is the sender's call, so the
   library refuses rather than substituting or deleting one. The **record** layer deliberately still
-  carries such a byte in every field it models, and round-trips it exactly: only framing reserves it.
+  carries such a byte in every modeled value, and round-trips it exactly: only framing reserves it.
   The one position that does not keep it is the surplus of a header's delimiter declaration, which is
   not a modeled value and from which every control character is dropped on emit.
 - **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
