@@ -11,6 +11,77 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Fixed
 
+- **A symbolic link under a scan root read CLEAN on BOTH of the PHI scanner's enumerating routes, so
+  a link pointing at a file full of real identifiers passed the gate twice over**
+  (`PHI-SCAN-SYMLINK-BLIND-ON-BOTH-ROUTES`). Development tooling only: `scripts/phi-scan.ts` ships in
+  no tarball and the package's public surface is unchanged.
+
+  Reproduced on `8e8012d` before any fix, with a synthetic name-bearing payload (an ASTM `P` record
+  carrying a patient name, a mother's maiden name and a birthdate, plus a dashed SSN and an email at
+  a non-test domain) placed outside the walk roots and a link to it at `src/leak.ts`. `pnpm phi-scan`
+  printed `OK: no hits` and exited **0**; `pnpm phi-scan --staged`, after `git add`, printed
+  `OK: no hits` and exited **0**. Naming the link's target explicitly on the command line reported
+  **six** hits and exited 1, so the payload was always detectable, and detectable by this package's
+  own structured `P`-record detectors rather than only by the cross-cutting SSN/email floor. The two
+  routes simply never looked at it.
+
+  The two blindnesses are separate mechanisms and needed separate fixes. The walk enumerates
+  `Dirent.isFile()`, which is an **lstat** answer, so a link is neither a file nor a directory and
+  fell out of the loop with no record that anything had been skipped, and `isDirectory()` answers
+  false for a linked directory too, so a whole subtree could disappear the same way. The `--staged`
+  route reads content with `git show :<path>`, and **git stores a symbolic link as its target path
+  under mode `120000`**, so it was handed the target's path text and scanned that. That second route
+  is this repo's `pre-commit` hook, which is exactly where the claim that `--staged` covers a link
+  would have been trusted.
+
+  **Neither route is made to follow the link.** Following would read bytes the enumeration does not
+  control (outside the repo, a loop, a device, a FIFO that blocks the gate forever) and git does not
+  carry those bytes anyway, so a hit on them would be a claim about something no commit contains.
+  Instead the enumeration is narrowed: an entry under a scan root that is not a regular file
+  **refuses the scan** (exit 2, the existing "could not complete" code), naming every offender rather
+  than the first. The walk classifies by `Dirent` (symbolic link, FIFO, socket, block device,
+  character device); `--staged` now reads `git diff --cached --raw -z` instead of `--name-only` so
+  the destination mode is visible, and refuses mode `120000` and `160000` (a gitlink) wherever that
+  route's own path scope reaches them. A `--raw` record that does not parse refuses as well, rather
+  than being skipped into a silently shortened list.
+
+  **`T` (typechange) is in the `--diff-filter`, and leaving it out would have made the mode check
+  unreachable whenever the file being replaced was already tracked.** Replacing a **tracked** regular
+  file with a link is neither an add nor a modify: git raises `:100644 120000 <sha> <sha> T`, so
+  `--diff-filter=AM` deletes the record before any mode can be read. Measured on git 2.39.5 on this
+  tree: with `AM` the raw output for that stage is empty, and the unfixed scanner passed that stage
+  green. Typechange carries a single path, exactly like `A` and `M`, so admitting it costs the record
+  stride nothing, and it means the reverse typechange, a link replaced by a real file, is now scanned
+  as the ordinary file it became.
+
+  **A refusal names the entry's own repo-relative path and an engine-owned token for its kind, and
+  never the link target**, because a target path is text off the working tree and can itself carry
+  PHI. That is asserted rather than argued: the pinning payload and the target's own filename both
+  carry a synthetic person name, and every refusal message is checked to contain none of it. 10 of
+  the file's 30 cases are red on `8e8012d`.
+
+  **What this does not cover, stated narrowly, each measured.** Explicit-path mode already read
+  through a link and reported the target's hits; it is unchanged. The `--staged` path scope is
+  unchanged, still `test/fixtures/**` and `src/**.ts`, so a staged link outside it is still not
+  looked at; narrowing what a scope admits is not widening the scope. That scope also bounds the
+  gitlink half: a submodule staged at `test/fixtures/nested` is refused, while one at `src/nested` is
+  a directory name that fails the `.ts` suffix and is not looked at. `R` (rename) and `C` (copy) are
+  still **not** enumerated by `--staged` at all, so a staged rename that also appends PHI passes that
+  route; pre-existing, unchanged here, and admitting it needs the two-path record shape handled,
+  which is a scope decision rather than this one. A tracked file **absent from the worktree** is
+  still caught at `git add` time only.
+
+  **The enumerate-then-read race is deliberately NOT closed here, and the deferral is measured
+  rather than assumed.** The scanner still has no tolerance for a file that vanishes between
+  enumeration and read, so a transient appearing under a walk root can refuse a whole sweep (exit 2,
+  fails closed). This repo's walk roots are `test/fixtures/` and `src/`, and nothing was observed
+  landing in either: polling both roots continuously across a real `pnpm build` saw only the tracked
+  corpus, while `tsup.config.bundled_*.mjs` (the transient that blocked a sibling's publish) appeared
+  at the **repo root**, which is not a walk root here. This repo's own suite writes its throwaway
+  trees under the OS temp directory, not under a scan root. So the shape is present and its trigger
+  is not, which makes closing it a separate slice with its own argument rather than a rider on a PHI
+  blindness fix. It is a different defect and it fails in the safe direction.
+
 - **The frame encoder no longer writes a different character than the one it was handed**
   (`ASTM-FRAME-BYTE-RESIDUALS`, closing known defect 7). `composeAstmFrames` turned a record given
   as a `string` into bytes with `charCodeAt(i) & 0xff`, so any character above `U+00FF` was replaced
