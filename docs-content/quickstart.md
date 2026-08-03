@@ -294,6 +294,13 @@ so a `P` record came back as an `R` whose `value` was the patient's laboratory I
 final, on a stream whose only warning was the `ASTM_NONSTANDARD_DELIMITERS` a clean non-canonical
 stream carries too.
 
+This one is a **transcoding** check, not a judgement on the set you asked for, so it fires with no
+delimiter argument at all. A stream whose header declares a vendor set and which carries one garbled
+line beginning `|` parses to an unsupported record whose type letter is `|`; emitting it on the
+default canonical path would escape that `|` away, so `serializeAstmRecords(msg)` refuses it, and so
+does `serializeFramedAstm(msg)`. "Emit against the canonical delimiters" is therefore not a way
+around it: the fix is to drop or repair the record whose type letter cannot be written.
+
 What the two refusals together promise is that every record re-reads as its own **type**. They do not
 promise that every field lands where it did: an escape sequence whose body is itself a delimiter is
 read as one opaque atom, so that delimiter never becomes a boundary and the fields after it shift.

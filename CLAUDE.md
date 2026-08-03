@@ -399,11 +399,14 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    `[Unreleased]` before touching `serialize.ts`.** `parseAstmRecords` takes a record's type from
    `line.charAt(0)`, so `serializeRecordChecked` now asserts the first character it wrote is the
    letter the record models, and raises `ASTM_EMIT_TYPE_LETTER_COLLISION` (third member of
-   `AstmSerializeErrorCode`) otherwise. **Testing the output rather than listing dangerous roles is
-   what makes the escape role fall out as EXEMPT with no special case**: a type letter equal to the
-   escape character encodes to `letter`+`E`+`letter`, whose first character is the letter itself, so
-   it round-trips and is allowed. Do not "simplify" this into a rule over the four roles; the
-   exemption is measured and a role list would refuse a set that works. Biconditional with the old
+   `AstmSerializeErrorCode`) otherwise, carrying `recordIndex` and quoting nothing from the record. **Testing the output rather than listing dangerous roles is
+   what makes a type letter equal to the ESCAPE character fall out as accepted with no special
+   case**: it is written starting with that letter, so the record re-reads as its own type. **Do NOT
+   restate that as `letter`+`E`+`letter`, which the refuter measured false**: `encodeLeaf` protects
+   the escape character it introduces but not the `E`/`F`/`S` mnemonics, so under
+   `{ field: "E", escape: "R" }` an `R` encodes to `RRFRR` and its type field decodes back to `RER`.
+   The first character is still `R`, which is the only thing checked. Do not "simplify" this into a
+   rule over the four roles; a role list would refuse sets that work. Biconditional with the old
    serializer losing a type letter over **137,632** delimiter sets: zero over-refusal, zero
    under-refusal. **No clause claimed**; grounding is this package's own reader.
    **What it does NOT promise, and the prose says so in five places:** a record re-reads as its own
@@ -411,8 +414,17 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    `encodeComponent`/`serializeField` take no record so they are outside the check by construction.
    Pinned in `test/records/type-letter-collision.test.ts`, asserted on what the old serializer
    produced, rebuilt from the shipped `serializeField` so nothing is transcribed twice.
+   **▶ IT IS A TRANSCODING CONDITION AND FIRES WITH NO `d` ARGUMENT. The first draft of this entry
+   and four shipped surfaces said "pass the canonical set instead", which is not a remedy.** A stream
+   whose header declares a vendor set and which carries one garbled line beginning `|` parses to an
+   unsupported record whose type letter is `|`, and the **default canonical** emit escapes it away:
+   `serializeAstmRecords(msg)`, `serializeAstmRecord(record)` and `serializeFramedAstm(msg)` all
+   refuse it, where base emitted a record whose `rawType` came back as `&`. The refuter fuzzed 300,000
+   streams on the default path: 2,316 new throws, 621 of which base genuinely relabeled a modeled
+   record type. That is a narrowing on a published package reaching the lenient-parse population, so
+   say so wherever the refusal is described.
    Originally found by the `conformance-refuter` grading `ASTM-EMIT-RESIDUALS` 2026-07-29; the silent
-   branch found by `ASTM-FRAME-RESIDUALS` 2026-08-03.
+   branch and the transcoding reach found by `ASTM-FRAME-RESIDUALS` 2026-08-03.
 6. **CLOSED 2026-08-03 by `ASTM-RAW-ETX-SWALLOWS-A-RECORD`. It WAS a stop-the-line, and the reason
    is that its worst branch was SILENT.** Was: emit rejected `CR`/`LF` in a component and nothing
    else, so a value carrying `STX`/`ETX`/`ETB` passed `serializeAstmRecord` and truncated the frame
@@ -626,7 +638,20 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
     `test/records/unseparated-fields.test.ts` and `test/records/unpaired-escape.test.ts`. Found by
     the `conformance-refuter` grading `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL` 2026-08-02.
 
-12. **`composeAstmFrames`'s `startFrameNumber` is documented `0`–`7` and is UNVALIDATED**, so the
+12. **`encodeLeaf` protects the escape character it introduces but NOT the `E`/`F`/`S` mnemonics,
+    so an accepted set naming one of those in another role alters values.** `PRE-EXISTING`,
+    byte-identical on `fdddadd`. Measured by the `conformance-refuter` grading
+    `ASTM-FRAME-RESIDUALS`: over a four-role sweep, **11,510 of 69,360 accepted sets** diverge at
+    field-tree level, and the largest bucket (8,204) reports only `ASTM_UNPAIRED_ESCAPE_CHARACTER`,
+    which is on `TOLERABLE_CODES`, so a gate-legal profile plus `{ strict: true }` accepts an altered
+    value. **Not a stop-the-line, on this repo's own consistently-applied rule** (defect 11): the
+    first parse of the wire bytes warns, measured **0 silent divergences** across 45,666 and 69,360
+    accepted sets in two sweeps. **▶ IT IS A SECOND, DIFFERENT FIELD-LEVEL RESIDUAL FROM DEFECT 11's
+    ATOM, and the shipped "what is not guaranteed" prose names only the atom.** Those sentences are
+    each individually true, so this is a widening, not a correction: when this is taken, widen them
+    rather than rewriting them.
+
+13. **`composeAstmFrames`'s `startFrameNumber` is documented `0`–`7` and is UNVALIDATED**, so the
     documented-valid `0` emits frames `0,1,2,3` that `parseFramedAstm` rejects. `PRE-EXISTING`,
     measured by `#44`'s gate and **re-measured by `ASTM-FRAME-RESIDUALS` 2026-08-03 rather than
     trusted**, because this list has been wrong about loudness three times. It holds: across 31

@@ -16,8 +16,8 @@ this file is maintained by hand (Changesets handles the version bump and publish
   identifiers** (`ASTM-FRAME-RESIDUALS`, defect 5). `PRE-EXISTING`, byte-identical on `7253098`,
   before any of `ASTM-EMIT-RESIDUALS`. `serializeAstmRecords` / `serializeAstmRecord` now throw
   `AstmSerializeError` with the new code `ASTM_EMIT_TYPE_LETTER_COLLISION` (a third member of
-  `AstmSerializeErrorCode`), carrying the `recordIndex` and naming the record type letter, never a
-  value.
+  `AstmSerializeErrorCode`), carrying the `recordIndex` and quoting nothing from the record: not the
+  value, and not the type letter either, which on an unsupported record is a byte off the wire.
 
   **The recorded defect said the record "re-reads as an unsupported record, one result in, zero out".
   That describes one branch of two, and the branch it does not describe is silent.** A record's type
@@ -39,9 +39,13 @@ this file is maintained by hand (Changesets handles the version bump and publish
   **The rule is derived from the reader and checked on the bytes, not on the delimiter set.**
   `parseAstmRecords` takes a record's type from `line.charAt(0)`, so the condition emit has to meet
   is that the first character it writes is the letter the record models. Testing the output rather
-  than enumerating dangerous roles is what makes the escape role fall out as **exempt** without a
-  special case: a type letter equal to the escape character encodes to `letter` + `E` + `letter`,
-  whose first character is the letter itself, so it round-trips and is allowed. Measured over 137,632
+  than enumerating dangerous roles is what makes a type letter equal to the **escape** character fall
+  out as accepted without a special case: it is written starting with that letter, so the record
+  re-reads as its own type. The familiar `letter` + `E` + `letter` shape is not general and the guard
+  does not rely on it: the encoder protects the escape character it introduces but not the `E`/`F`/`S`
+  mnemonics, so under `{ field: "E", escape: "R" }` an `R` encodes to `RRFRR` and its type field
+  decodes back to `RER`, not `R`. What holds across every such set is the only thing checked, the
+  first character written. Measured over 137,632
   delimiter sets (two roles at a time, every printable ASCII character each, against a stream
   carrying one record of every modeled type plus an unsupported one), the refusal is
   **biconditional** with the old serializer losing a type letter: zero over-refusals and zero
@@ -49,9 +53,14 @@ this file is maintained by hand (Changesets handles the version bump and publish
   previously read back as something other than the records that produced them, **303 of them accepted
   by `{ strict: true }`**; all 750 are now refused and the remaining 2,940 are byte-unchanged.
 
-  This is a **narrowing on a published package**, in exactly the cases that were being corrupted: a
-  caller passing such a set (including via `serializeAstmRecords(msg, msg.delimiters)`) now gets a
-  typed error where it previously got a stream that re-read as different records. The three
+  This is a **narrowing on a published package**, in exactly the cases that were being corrupted.
+  **It is a transcoding condition, not a judgement on the set the caller passed, so it fires with no
+  delimiter argument at all** and "emit against the canonical delimiters" is not a remedy for it: a
+  stream whose header declares a vendor set and which carries one garbled line beginning `|` parses
+  to an unsupported record whose type letter is `|`, and the canonical set escapes that `|` away, so
+  `serializeAstmRecords(msg)`, `serializeAstmRecord(record)` and `serializeFramedAstm(msg)` all
+  refuse it where the base emitted a record whose `rawType` came back as `&`. Callers passing a set
+  explicitly (`serializeAstmRecords(msg, msg.delimiters)`) reach it too. The three
   set-level conditions are unchanged and still raise `ASTM_EMIT_INVALID_DELIMITERS`; this is a
   separate, per-record check because whether a set collides depends on which record is being written.
   **What it does not promise, stated rather than left to be found:** it guarantees a record re-reads

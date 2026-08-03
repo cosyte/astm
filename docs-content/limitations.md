@@ -79,9 +79,12 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
 - **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
   does **not** decide whether a value is "critical" or act on a correction/cancel.
 - **No proof that an arbitrary delimiter set round-trips.** Emit refuses a set that fails one of the
-  three conditions readback requires, and refuses any record whose own type letter that set would
-  escape away (`ASTM_EMIT_TYPE_LETTER_COLLISION`), so an emitted stream re-reads as the same record
-  **types**. That is not a guarantee that every field lands where it did: an escape sequence whose
+  three conditions readback requires, and refuses any record whose own type letter the set being
+  written with would escape away (`ASTM_EMIT_TYPE_LETTER_COLLISION`), so an emitted stream re-reads
+  as the same record **types**. The second refusal is a transcoding condition rather than a
+  judgement on the set you passed, so it also fires with **no** delimiter argument: a record read
+  under a vendor's own set can carry a type letter the canonical set escapes away, and
+  `serializeFramedAstm` refuses it too. That is not a guarantee that every field lands where it did: an escape sequence whose
   body is itself a delimiter is read as one opaque atom, so that delimiter never becomes a boundary
   and the fields after it shift, reported on the parse side as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The
   low-level `encodeComponent` and `serializeField` helpers take no record and so carry neither

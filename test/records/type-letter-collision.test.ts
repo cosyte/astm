@@ -26,10 +26,12 @@ import {
   AstmSerializeError,
   AstmStrictError,
   defineAstmProfile,
+  encodeComponent,
   parseAstmRecords,
   results,
   serializeAstmRecords,
   serializeField,
+  serializeFramedAstm,
   type AstmMessage,
   type AstmRecord,
   type Delimiters,
@@ -123,10 +125,91 @@ describe("the loud branch: the type letter is escaped away and the record become
       expect(err).toBeInstanceOf(AstmSerializeError);
       expect((err as AstmSerializeError).code).toBe("ASTM_EMIT_TYPE_LETTER_COLLISION");
       expect((err as AstmSerializeError).recordIndex).toBe(1);
-      // Value-free: the message names the record type letter, the same datum every
-      // warning already carries as its `recordType` position, and nothing else.
-      expect((err as AstmSerializeError).message).not.toContain("28.6");
-      expect((err as AstmSerializeError).message).not.toContain("U/L");
+      // The message quotes nothing from the record: not a value, and not the type
+      // letter either. On an unsupported record that letter is a byte off the wire,
+      // and `assertEmittableDelimiters` refuses to echo a caller-supplied character
+      // for the same reason. The message is a constant.
+      const message = (err as AstmSerializeError).message;
+      expect(message).not.toContain("28.6");
+      expect(message).not.toContain("U/L");
+      const unsupported = parseAstmRecords("H*~:#\r|1|GARBLED\rL*1\r");
+      try {
+        serializeAstmRecords(unsupported);
+        expect.unreachable("expected the garbled record to be refused");
+      } catch (other) {
+        expect((other as AstmSerializeError).message).toBe(message);
+        expect(message).not.toContain("|");
+      }
+    }
+  });
+});
+
+describe("it is a TRANSCODING condition, so it fires with no delimiter argument", () => {
+  // A vendor analyzer declaring its own set, plus one garbled line: the lenient-parse
+  // population this library exists to serve. The record's type letter is `|`, which the
+  // CANONICAL set escapes away, so the default emit refuses it. "Pass the canonical
+  // delimiters instead" is therefore not a remedy, and every surface describing this
+  // refusal has to say so.
+  const VENDOR_STREAM =
+    "H*~:#|||ANALYZER|||||LIS||P|1|20260803120000\r" +
+    "P*1**LAB-0001*PRAC-0002***19800101*F\r" +
+    "R*1*:::687*28.6*U/L**N**F\r" +
+    "|1|CONTINUATION FROM A DROPPED FRAME\r" +
+    "L*1*N\r";
+
+  it("refuses on the default canonical path, and through the frame layer too", () => {
+    const msg = parseAstmRecords(VENDOR_STREAM);
+    expect(msg.records.map(typeLetter)).toEqual(["H", "P", "R", "|", "L"]);
+
+    for (const emit of [
+      (): unknown => serializeAstmRecords(msg), // no `d` argument at all
+      (): unknown => serializeFramedAstm(msg), // passes no set of its own either
+    ]) {
+      try {
+        emit();
+        expect.unreachable("expected the default canonical emit to be refused");
+      } catch (err) {
+        expect((err as AstmSerializeError).code).toBe("ASTM_EMIT_TYPE_LETTER_COLLISION");
+        expect((err as AstmSerializeError).recordIndex).toBe(3);
+      }
+    }
+  });
+
+  it("is what the old serializer silently relabeled", () => {
+    // The base emitted this record with its `rawType` changed from `|` to `&`, so the
+    // guard is earning its keep here rather than over-refusing: `rawType` is a
+    // surfaced field.
+    const msg = parseAstmRecords(VENDOR_STREAM);
+    const reread = parseAstmRecords(legacyStream(msg, CANONICAL));
+    expect(reread.records.map(typeLetter)).toEqual(["H", "P", "R", "&", "L"]);
+  });
+});
+
+describe("a type letter equal to the ESCAPE character is accepted for the OUTCOME, not for a formula", () => {
+  it("does not always encode as letter + E + letter, and the guard does not depend on that", () => {
+    // The familiar shape holds only while no other role names one of the `E`/`F`/`S`
+    // mnemonics: `encodeLeaf` protects the escape character it introduces and not
+    // those. Pinned because the first draft of this slice's prose claimed the general
+    // form and claimed the type field decodes back to the letter.
+    expect(encodeComponent("R", { field: "|", repeat: "\\", component: "^", escape: "R" })).toBe(
+      "RER",
+    );
+    expect(encodeComponent("R", { field: "E", repeat: "\\", component: "^", escape: "R" })).toBe(
+      "RRFRR",
+    );
+    expect(encodeComponent("R", { field: "|", repeat: "\\", component: "E", escape: "R" })).toBe(
+      "RRSRR",
+    );
+  });
+
+  it("still round-trips the record TYPE under those sets, which is all that is checked", () => {
+    const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
+    for (const d of [
+      { field: "E", repeat: "\\", component: "^", escape: "R" },
+      { field: "|", repeat: "\\", component: "E", escape: "R" },
+    ] satisfies Delimiters[]) {
+      const reread = parseAstmRecords(serializeAstmRecords(msg, d));
+      expect(reread.records.map(typeLetter)).toEqual(["H", "R", "L"]);
     }
   });
 });

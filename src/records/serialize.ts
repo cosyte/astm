@@ -69,7 +69,9 @@
  * **set alone**, so they are not a readback guarantee on their own: a set can pass all
  * three and still collide with a particular record's type letter, which is why that is
  * checked per record, on the bytes actually written
- * (`ASTM_EMIT_TYPE_LETTER_COLLISION`, see {@link assertTypeLetterSurvives}).
+ * (`ASTM_EMIT_TYPE_LETTER_COLLISION`). That one is a **transcoding** condition, not
+ * merely a caller's choice of set, so it is reachable on the default canonical path
+ * too, when a record was read under a set other than the one being emitted.
  *
  * **What is still not guaranteed.** Together the two checks guarantee that every
  * record re-reads as its own *type*. They do not guarantee that every *field* of it
@@ -112,7 +114,8 @@ export class AstmSerializeError extends Error {
   /**
    * Stable discriminant. `ASTM_EMIT_UNENCODABLE_VALUE` for a `CR`/`LF` in a value;
    * `ASTM_EMIT_INVALID_DELIMITERS` for a delimiter set that cannot be emitted
-   * reversibly.
+   * reversibly; `ASTM_EMIT_TYPE_LETTER_COLLISION` for a record whose own type
+   * letter the set being emitted with would escape away.
    */
   public readonly code: AstmSerializeErrorCode;
   /** 0-based ordinal of the record within the message, when known. */
@@ -142,7 +145,9 @@ export class AstmSerializeError extends Error {
  * - `ASTM_EMIT_TYPE_LETTER_COLLISION`: this record's type letter would not be the
  *   first character of its own emitted line, so the record would read back as a
  *   **different** record. Raised per record rather than per set, because whether
- *   a set collides depends on which record is being written.
+ *   a set collides depends on which record is being written: a record read under
+ *   one delimiter set and written under another can hit it with **no** set passed
+ *   at all, so it is not avoided by emitting on the default canonical path.
  *
  * @example
  * ```ts
@@ -207,7 +212,7 @@ const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
  * that depends on *which record* is being written: a separator equal to a record's
  * type letter (`field` of `R`) satisfies all three and still escapes that letter
  * away. That is checked per record instead, against the bytes actually produced,
- * by {@link assertTypeLetterSurvives} (`ASTM_EMIT_TYPE_LETTER_COLLISION`). Keep
+ * against the bytes actually produced (`ASTM_EMIT_TYPE_LETTER_COLLISION`). Keep
  * the two apart: this one answers "could any record survive this set", and a
  * caller of {@link encodeComponent} or {@link serializeField}, which hold no
  * record, gets only this one.
@@ -341,7 +346,9 @@ function encodeField(
  *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`), or when this record's type
  *   letter would not be the first character of its own emitted line
  *   (`ASTM_EMIT_TYPE_LETTER_COLLISION`), which would make it read back as a
- *   different record.
+ *   different record. That last one is a transcoding condition and needs no `d`
+ *   argument to fire: a record read under a different delimiter set can carry a
+ *   type letter the canonical set escapes away.
  * @example
  * ```ts
  * import { serializeAstmRecord, parseAstmRecords } from "@cosyte/astm";
@@ -375,8 +382,11 @@ function serializeRecordText(record: AstmRecord, d: Delimiters): string {
  * The letter this record must re-read as: `record.type` for every modeled type,
  * and the verbatim wire letter for an unsupported one. It is the same datum the
  * parser reads (the first character of the line) and the same datum every warning
- * already carries as its `recordType` position, so it is structural rather than a
- * value, and naming it in an error message puts no data into a log.
+ * already carries as its `recordType` position. For an **unsupported** record it is
+ * nonetheless a byte taken straight off the wire, so it is compared against but
+ * never quoted into the error message: `assertEmittableDelimiters` above refuses to
+ * echo a caller-supplied character for the same reason, and a warning carries the
+ * letter as a structured `position` field rather than inside its text.
  */
 function recordTypeLetter(record: AstmRecord): string {
   return record.type === "unsupported" ? record.rawType : record.type;
@@ -420,11 +430,28 @@ function recordTypeLetter(record: AstmRecord): string {
  * tokenization: true of the parse, and no protection at all when the emit is what
  * chose the character.
  *
- * **The escape role is exempt, measured rather than assumed.** A type letter that
- * equals the escape character encodes to `letter` + `E` + `letter`, whose first
- * character is the letter itself, so the record re-reads as its own type and its
- * type field decodes back to the letter. This check accepts it because the output
- * is correct, which is the advantage of testing the output.
+ * **A type letter equal to the ESCAPE character is accepted, and the reason is the
+ * outcome, not a formula.** In the ordinary case `encodeLeaf` writes such a letter
+ * as `letter` + `E` + `letter`, whose first character is the letter itself. That
+ * shape is *not* general: the encoder protects the escape character it introduces
+ * but not the `E` / `F` / `S` mnemonics it introduces, so a set that also names one
+ * of those in another role re-escapes them and the same letter encodes to, for
+ * instance, `RRFRR` under `{ field: "E", escape: "R" }`. What holds across every
+ * such set is the only thing this check tests: the first character written is still
+ * the letter, so the record re-reads as its own type. Do not restate this as "the
+ * type field decodes back to the letter", which is false in that region, and do not
+ * turn the check into a rule over the four roles: the acceptance is a property of
+ * the bytes, which is the advantage of testing the bytes.
+ *
+ * **When it fires, and it is NOT only a caller's choice of delimiter set.** The
+ * condition is a *transcoding* one, so it is reachable with no `d` argument at all:
+ * a record read under one set and written under another. A stream whose header
+ * declares `H*~:#` and which carries one garbled line beginning `|` parses to an
+ * unsupported record whose type letter is `|`, and emitting it on the **default
+ * canonical** path escapes that `|` to `&F&`, so the record would come back with a
+ * different `rawType`. `serializeAstmRecords(msg)`, `serializeAstmRecord(record)`
+ * and `serializeFramedAstm(msg)` all refuse it. Every surface that describes this
+ * refusal must say so: "pass the canonical set instead" is not a remedy for it.
  *
  * **What it does not reach**, stated rather than left to be found. It is a check
  * on the *type letter*, not a readback guarantee for the whole record: a set that
@@ -433,11 +460,11 @@ function recordTypeLetter(record: AstmRecord): string {
  * caller assembling a line out of those two is not covered by it.
  */
 function assertTypeLetterSurvives(text: string, record: AstmRecord): string {
-  const letter = recordTypeLetter(record);
-  if (text.charAt(0) === letter) return text;
+  if (text.charAt(0) === recordTypeLetter(record)) return text;
   throw new AstmSerializeError(
-    `Cannot emit this ${letter} record against these delimiters: its type letter is not the ` +
-      `first character of the emitted record, so the record would read back as a different record.`,
+    "A record's type letter is escaped away by the delimiters being emitted with, so the record " +
+      "would read back as a different record. The record's index is on the error; the letter " +
+      "itself is not quoted, because on an unsupported record it is a byte off the wire.",
     record.recordIndex,
     "ASTM_EMIT_TYPE_LETTER_COLLISION",
   );
@@ -644,7 +671,10 @@ function declarationResidual(header: HeaderRecord, d: Delimiters): string {
  *   (`ASTM_EMIT_UNENCODABLE_VALUE`), when `d` fails one of the three conditions
  *   readback requires (`ASTM_EMIT_INVALID_DELIMITERS`), or when a record's type
  *   letter would not be the first character of its own emitted line
- *   (`ASTM_EMIT_TYPE_LETTER_COLLISION`).
+ *   (`ASTM_EMIT_TYPE_LETTER_COLLISION`). The last of the three fires on the
+ *   **default** canonical path as well: it compares each record against the set
+ *   being emitted with, so a record read under a different set can carry a type
+ *   letter the canonical set escapes away. Omitting `d` is not a way around it.
  * @example
  * ```ts
  * import { parseAstmRecords, serializeAstmRecords } from "@cosyte/astm";

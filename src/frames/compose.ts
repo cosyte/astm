@@ -95,7 +95,11 @@ export function parseFramedAstm(
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
  * @param options - Frame-encode options.
  * @returns The framed byte stream.
- * @throws {@link AstmSerializeError} when a value contains an unencodable `CR`/`LF`.
+ * @throws {@link AstmSerializeError} when a value contains an unencodable `CR`/`LF`
+ *   (`ASTM_EMIT_UNENCODABLE_VALUE`), or when a record's own type letter would not
+ *   survive being written in the canonical set this function serializes with
+ *   (`ASTM_EMIT_TYPE_LETTER_COLLISION`). The second reaches messages parsed under a
+ *   **different** delimiter set, since this function passes no set of its own.
  * @throws {@link AstmFrameEncodeError} when there are no records to frame
  *   (`ASTM_FRAME_EMPTY_RECORD`), a value holds a character above `U+00FF`
  *   (`ASTM_FRAME_UNENCODABLE_CHARACTER`), or a record holds an `STX`, `ETB` or
