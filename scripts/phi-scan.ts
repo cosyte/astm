@@ -79,9 +79,20 @@
  * still excludes a gitignored entry (the same rule that already excludes a
  * gitignored file), and `--staged` still only looks at `test/fixtures/**` and
  * `src/**.ts`. This narrows what those scopes ADMIT; it does not widen the
- * scopes. The ONE place a link is held to a stricter rule than a file is the
- * `.md` exemption, and that is deliberate: see `walk` below for why a name is
- * no evidence about what is on the other side of a link.
+ * scopes. Two excuses that work for a FILE do not work for a link, both
+ * deliberately, and both fail safe. The walk's `.md` exemption: see `walk` below
+ * for why a name is no evidence about what is on the other side of a link. And
+ * `--allow-fixture` ON THE `--staged` ROUTE, because a refusal is raised while
+ * that route's target list is being built and the whole-file bypass is applied
+ * to the finished list afterwards. That second one is scoped to `--staged` on
+ * purpose: passing `--allow-fixture` with no positional path switches the run
+ * into paths mode, so the WALK does not run at all, for a file and for a link
+ * alike. That is pre-existing, and it is not a link-versus-file asymmetry.
+ *
+ * Note also that a walk ROOT is handed to `existsSync`/`readdirSync` directly
+ * and is never classified as a `Dirent`, so a root that is itself a link is
+ * followed and read through. "Follow nothing" is a rule about the entries a
+ * walk enumerates, not about the two roots it is pointed at. Pre-existing.
  *
  * A refusal names the entry's own repo-relative path and an engine-owned token
  * for its kind. IT NEVER REPORTS THE LINK TARGET, which is text off the working
