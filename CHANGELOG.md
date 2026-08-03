@@ -29,8 +29,11 @@ this file is maintained by hand (Changesets handles the version bump and publish
   vanished, `results()` returning `[]` where the input carried one. **An embedded `ETB` reaches the
   same silence by the other door**, which the defect record did not have: it leaves the record open,
   so the _next_ record's text is appended to the truncated one and two records read back as one, with
-  every field of the result hanging off the comment. The precondition is a coincidence in two bytes
-  (about 1 in 256, trivially constructible on purpose), which bounds the likelihood, not the harm.
+  every field of the result hanging off the comment. The precondition is a coincidence in the two
+  bytes that follow: they must both read as hex digits and must equal the truncated frame's checksum,
+  which is about 1 in 34,600 for uniform-random bytes (1 in 256 once they are hex digits, which is
+  where the earlier 1-in-256 figure came from), and trivially constructible on purpose. That bounds
+  the likelihood, not the harm.
   Both silent branches, and the loud ones, are pinned in `test/frames/reserved-structure-byte.test.ts`
   asserted on what the old encoder produced, so a weakened guard reds a test rather than passing
   unnoticed.
@@ -48,11 +51,20 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
   **The record layer is deliberately UNCHANGED, and that was the cost this slice turned on.**
   Refusing the byte in `serializeAstmRecord` would refuse a byte the caller genuinely supplied, for
-  consumers who never frame anything. Measured: at the record layer all three bytes round-trip
-  through parse → serialize → parse byte for byte, value, units and status intact, byte-stable,
-  `warnings: []` on both generations. There is nothing there to fix; the byte becomes structure only
-  when a frame is built, and `composeAstmFrames` is the total gate on that route, including through
+  consumers who never frame anything. Measured, in every field the record model carries: all three
+  bytes round-trip through parse → serialize → parse byte for byte, value, units and status intact,
+  byte-stable, `warnings: []` on both generations. The byte becomes structure only when a frame is
+  built, and `composeAstmFrames` is the total gate on that route, including through
   `serializeFramedAstm`. `CR`/`LF` remain the record layer's own refusal, because they end a _record_.
+
+  **That claim is about VALUES, and one position on a record line is not a value.** The surplus of a
+  header's delimiter declaration drops any control character silently on emit, so a header that
+  arrived as `H|\^&` + `ETX` goes back out without it, `warnings: []`, byte-stable, and the
+  round-trip is not byte-exact there. `PRE-EXISTING` and deliberately unchanged: that rule is argued
+  at `declarationResidual` and long predates the frame-layer refusal, and it is the better of the two
+  dispositions now, since carrying the byte through would turn a spec-clean header into a refused
+  stream. Pinned in `test/frames/reserved-structure-byte.test.ts` so the scoped sentence stays
+  measured. Found by the `conformance-refuter` grading this slice.
 
   **What this does not close.** A delimiter colliding with a record's type letter still frames and
   de-frames byte-exactly and re-reads as a different record; framing integrity is not record-layer

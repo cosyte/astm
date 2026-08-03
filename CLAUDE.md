@@ -414,10 +414,15 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
    form: unlike the `U+00FF` refusal beside it there is **no bytes-instead escape hatch**, because
    the byte is unframable however it arrives.
    **The cost this slice turned on was whether to refuse it in `serializeAstmRecord`, and the answer
-   is no, measured.** At the record layer all three bytes round-trip through parse → serialize →
-   parse byte for byte, value/units/status intact, byte-stable, `warnings: []` on both generations,
-   so there is nothing there to fix and refusing would take a byte a raw-transport consumer
-   genuinely supplied. The byte becomes structure only when a frame is built, and
+   is no, measured.** In every field the record model carries, all three bytes round-trip through
+   parse → serialize → parse byte for byte, value/units/status intact, byte-stable, `warnings: []`
+   on both generations, so refusing would take a byte a raw-transport consumer genuinely supplied.
+   **That is a claim about VALUES and the refuter narrowed it to one:** the surplus of a header's
+   delimiter declaration is not a modeled value, and `declarationResidual` drops any control
+   character from it silently, so `H|\^&` + `ETX` emits without the byte, `warnings: []`,
+   byte-stable. `PRE-EXISTING`, argued at its own site, and now the better disposition of the two
+   (carrying it through would turn a spec-clean header into a refused stream). Pinned, so the scoped
+   sentence stays measured. The byte becomes structure only when a frame is built, and
    `composeAstmFrames` is the total gate on that route including `serializeFramedAstm`.
    **The three bytes are derived from what `decodeAstmFrames` READS as structure, not from a
    control-character class**: `CR`/`LF` are deliberately absent (read only _after_ the checksum; a

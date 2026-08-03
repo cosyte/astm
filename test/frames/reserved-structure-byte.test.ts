@@ -236,6 +236,21 @@ describe("the RECORD layer is deliberately left alone, and this is why", () => {
     }
   });
 
+  it("does NOT keep the byte in a header's declaration surplus, which is not a modeled value", () => {
+    // The scope of the claim above, pinned. `declarationResidual` drops every
+    // control character from the surplus of a delimiter declaration, silently,
+    // and that rule predates the frame-layer refusal and is argued at its own
+    // site. So "the record layer carries these bytes" is a statement about
+    // values, not about every byte of every line. PRE-EXISTING, unchanged here.
+    for (const ch of [STX, ETB, ETX]) {
+      const msg = parseAstmRecords(`H|\\^&${ch}|LAB^1\rL|1\r`);
+      expect(msg.warnings).toEqual([]);
+      const emitted = serializeAstmRecords(msg);
+      expect(emitted).not.toContain(ch); // dropped, with no warning and no error
+      expect(serializeAstmRecords(parseAstmRecords(emitted))).toBe(emitted); // byte-stable
+    }
+  });
+
   it("leaves serializeAstmRecords returning the string, unrefused", () => {
     const msg = parseAstmRecords(`H|\\^&\rR|1|^^^687|28.6|${ETX}|N||F\rL|1\r`);
     expect(serializeAstmRecords(msg)).toContain(ETX);
