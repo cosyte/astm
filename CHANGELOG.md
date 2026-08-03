@@ -71,6 +71,13 @@ this file is maintained by hand (Changesets handles the version bump and publish
   which is a scope decision rather than this one. A tracked file **absent from the worktree** is
   still caught at `git add` time only.
 
+  **And this scanner still has no rule that a sweep observing ZERO targets must refuse**, which is
+  worth naming rather than leaving to be discovered. Measured: run from a tree with no `src/` and no
+  `test/fixtures/`, all-mode prints `OK: no hits` and exits 0, so a clean report can be a report
+  about a tree the scan never looked at. Sibling scanners carry that rule and this one does not. It
+  is unchanged by this slice in either direction, and adding it is its own slice, because the
+  threshold is a judgement about this repo's corpus rather than a consequence of anything here.
+
   **The enumerate-then-read race is deliberately NOT closed here, and the deferral is measured
   rather than assumed.** The scanner still has no tolerance for a file that vanishes between
   enumeration and read, so a transient appearing under a walk root can refuse a whole sweep (exit 2,

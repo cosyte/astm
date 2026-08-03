@@ -77,9 +77,11 @@
  *
  * "In scope" is each route's own existing boundary, not a new one: the walk
  * still excludes a gitignored entry (the same rule that already excludes a
- * gitignored file, so links do not get a second, stricter boundary of their
- * own), and `--staged` still only looks at `test/fixtures/**` and `src/**.ts`.
- * This narrows what those scopes ADMIT; it does not widen the scopes.
+ * gitignored file), and `--staged` still only looks at `test/fixtures/**` and
+ * `src/**.ts`. This narrows what those scopes ADMIT; it does not widen the
+ * scopes. The ONE place a link is held to a stricter rule than a file is the
+ * `.md` exemption, and that is deliberate: see `walk` below for why a name is
+ * no evidence about what is on the other side of a link.
  *
  * A refusal names the entry's own repo-relative path and an engine-owned token
  * for its kind. IT NEVER REPORTS THE LINK TARGET, which is text off the working
@@ -87,6 +89,14 @@
  * `../patients/<surname>-<given>-<dob>.txt` is the whole reason. The shape is
  * written out rather than an example, because a diagnostic ABOUT a PHI leak is
  * itself a PHI surface, and that applies to the prose explaining it too.
+ *
+ * NOT CLOSED HERE, AND STATED SO IT IS NOT MISTAKEN FOR CLOSED: this scanner has
+ * no rule that an all-mode sweep observing ZERO targets must refuse. Measured:
+ * run from a tree with no `src/` and no `test/fixtures/` it prints `OK: no hits`
+ * and exits 0, which is a clean report over a tree it never looked at. Siblings
+ * (`ccda`, `hl7`, `mllp`, `ncpdp`, `synth`) carry that rule and this one does
+ * not; adding it is its own slice, because the threshold is a judgement about
+ * this repo's corpus rather than a consequence of anything above.
  * ---------------------------------------------------------------------------
  */
 

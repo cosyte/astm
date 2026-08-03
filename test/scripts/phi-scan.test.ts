@@ -353,6 +353,7 @@ describe("phi-scan: the all-mode walk refuses a non-regular entry", () => {
     const r = runIn(root, []);
     expect(r.code, `stderr: ${r.stderr}`).toBe(2);
     expect(r.stderr).toContain("src/leak.ts");
+    expectNoPhi(r.stderr);
   });
 });
 
