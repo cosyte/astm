@@ -1,14 +1,20 @@
 # @cosyte/astm: agent notes
 
 The narrative half of this repo's `CLAUDE.md`, relocated here **verbatim** on 2026-08-04 so that
-`CLAUDE.md` fits the 90,000-byte cap the meta-repo puts on a submodule's always-read guide. Nothing
-was deleted. Every trap that lived in a paragraph here still lives in `CLAUDE.md` as a one-line
-imperative that points back at its section, and the reasoning, the measurements and the refuted
-claims are all below, word for word.
+`CLAUDE.md` fits the write-time cap the meta-repo puts on a submodule's always-read guide (a per-repo
+ratchet in `.claude/hooks/doc-budget.mjs`, which must be lowered as relocations land: read the number
+there, never one quoted in prose). Nothing was deleted. Every trap that lived in a paragraph here
+still lives in `CLAUDE.md` as a one-line imperative that points back at its section, and the
+reasoning, the measurements and the refuted claims are all below, word for word.
 
 Read this file when a `CLAUDE.md` line tells you to, and before you touch the code it guards. These
 are clinical-safety lessons: each paragraph cost a defect to learn, and several record a claim that
 was measured **false** after it shipped. Correct the record here rather than dropping it.
+
+**Corrections are ANNOTATIONS, not edits.** Every paragraph below is the text as it stood, so a
+correction is added beside the claim (in a `> **Correction, <date>:**` block) rather than rewritten
+over it. That is the house pattern this repo already uses: an entry that measured false is annotated,
+not removed, because the correction is usually the lesson.
 
 ## Contents
 
@@ -129,6 +135,19 @@ of the roadmap.
   without**, which is what an earlier draft did and what the refuter deleted: the warning transform
   runs after the records are built, so that comparison is identical for every code and passes for a
   code that should never be tolerable. The comparison is exercised on pairs that must fail.
+
+  > **Correction, 2026-08-04 (`CLAUDE-MD-AUDIT`):** "the list was four and is now three", and the
+  > "three named above", are a snapshot of **2026-08-01** and are not the list today.
+  > `ASTM_UNPAIRED_ESCAPE_CHARACTER` was **added** to `TOLERABLE_CODES` on 2026-08-02 by defect 8's
+  > fix, so the shipped list is **four**: `ASTM_NONSTANDARD_DELIMITERS`,
+  > `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_UNPAIRED_ESCAPE_CHARACTER`,
+  > `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`. The paragraph enumerates all four correctly two
+  > sentences earlier and then miscounts them, which is why **no count for this list may be quoted
+  > anywhere: read `src/profiles/safety.ts`.** Nothing else in the paragraph changes: the removal of
+  > `ASTM_RECORD_UNKNOWN_TYPE` stands, the two-clause admission test stands, and the direction of the
+  > failure is still safe because the gate is default-deny. Found by the `conformance-refuter`
+  > grading this relocation.
+
   **The gate is enforced twice, and the second point is the load-bearing one**: `applyAstmProfile`
   re-checks `isSafetyCriticalCode` before downgrading, because `AstmProfile` is a plain interface
   and a hand-authored literal never passes through `defineAstmProfile`. See known defect 2.

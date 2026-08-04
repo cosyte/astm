@@ -5,7 +5,10 @@
 > the section that records how it was measured, kept **verbatim**: read that section before you touch
 > the code it guards. These are clinical-safety lessons, and several of them record a claim that was
 > measured **false** after it shipped. Nothing was deleted when this file was split on 2026-08-04.
-> This file is capped at 90,000 bytes by the meta-repo; the remedy for a breach is to move more
+> The meta-repo caps this file at write time, as a **per-repo ratchet** in
+> `.claude/hooks/doc-budget.mjs` (a uniform 90,000 was built first and reversed the same day), and
+> the ratchet **must be lowered as relocations land**, so read the number there rather than quoting
+> one here: headroom in it is not a budget to spend. The remedy for a breach is to move more
 > narrative into the notes file, **never** to drop a trap.
 
 ## Project
@@ -49,9 +52,18 @@ per-directory >= 90 coverage, a proven publish shape). `src/` is `common/` (valu
   **reasoned from this package's own reader**, not cited. The OSS corpus cannot ground them either
   (python-astm and senaite hardcode `|\^&`). Why: `documentation/agent-notes.md#status-history`,
   `#defect-6`, `#defect-7`.
-- **The profile safety gate is default-deny and total, and its tolerable list is THREE codes, not
-  four.** `ASTM_RECORD_UNKNOWN_TYPE` was removed 2026-08-01. Any new warning code is safety-critical
-  **by default** until argued in. Why: `documentation/agent-notes.md#status-history`.
+- **The profile safety gate is default-deny, and total over THREE registries**: every record,
+  frame (`ASTM_FRAME_*`) and LTP (`ASTM_LTP_*`) code is safety-critical unless it is on
+  `TOLERABLE_CODES`, and any new one is safety-critical **by default** until argued in. The fourth
+  registry, `ASTM_LIVD_*`, sits **outside** the gate's universe by design (`src/terminology/warnings.ts`),
+  so it is refused as *unknown* rather than as *safety-critical*. **Never quote a count for the
+  tolerable list: read `src/profiles/safety.ts`.** As of 2026-08-04 it is
+  `ASTM_NONSTANDARD_DELIMITERS`, `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_UNPAIRED_ESCAPE_CHARACTER`,
+  `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`. **`ASTM_RECORD_UNKNOWN_TYPE` was removed from it
+  2026-08-01 and must not return**; `ASTM_UNPAIRED_ESCAPE_CHARACTER` was **added** 2026-08-02 by
+  defect 8's fix, which is why the relocated note's "the list was four and is now three" is a
+  snapshot of 2026-08-01 and not the list today. Why:
+  `documentation/agent-notes.md#status-history` and `#defect-8`.
 - **The admission test has TWO clauses, and the second is a claim about the whole library**: a
   tolerable code cannot alter, drop or fabricate an extracted value, **and nothing else in this
   package may read the condition the warning reports**. There is deliberately no automatic check for
@@ -143,7 +155,11 @@ every measurement and every refuted formulation:
    into a rule over the four delimiter roles**: a role list over-refuses, and the byte check survived
    the encoder being rewritten underneath it. **The `letter`+`E`+`letter` caveat is RETIRED.** **It is
    a transcoding condition and fires with no `d` argument, so "pass the canonical set instead" is not
-   a remedy.** `documentation/agent-notes.md#defect-5`
+   a remedy.** The refusal is a **narrowing on a published package reaching the lenient-parse
+   population** (300,000 fuzzed streams on the default path: 2,316 new throws, 621 of them where base
+   genuinely relabeled a modeled record type), **so say so wherever the refusal is described.** It
+   promises a record re-reads as its own **type**, not that every field lands where it did.
+   `documentation/agent-notes.md#defect-5`
 6. **CLOSED 2026-08-03. It WAS a stop-the-line because its worst branch was SILENT**: an embedded
    `ETX` whose following two bytes happened to be a valid checksum made a short frame verify, merging
    the next record into a comment's free text and losing a result, `warnings: []` at both layers. An
@@ -151,7 +167,13 @@ every measurement and every refuted formulation:
    `ASTM_FRAME_RESERVED_BYTE`, with **no bytes-instead escape hatch**. **The record layer is
    deliberately untouched**, measured: all three bytes round-trip through parse/serialize/parse in a
    modeled value. The three bytes are derived from what `decodeAstmFrames` reads as structure, **not**
-   from a control-character class. `documentation/agent-notes.md#defect-6`
+   from a control-character class. **Neither this refusal nor defect 7's is total, and the bound is
+   stated rather than left to be found:** both are on the declared `Uint8Array | string` signature, so
+   a JavaScript caller passing some other typed array (a `Uint16Array`) still gets the old low-byte
+   corruption from `Uint8Array.from`, `warnings: []`. Never write either refusal as covering it, and
+   never "tidy" the scoped doc comment into an unqualified one: **a false sentence in a comment that
+   compiles into `dist/index.d.ts` is worse than the silence it replaced.**
+   `documentation/agent-notes.md#defect-6`
 7. **CLOSED 2026-08-02. Recorded as LOUD; the larger half was SILENT.** `charCodeAt(i) & 0xff`
    truncated every character to its low byte, so `28.6|μmol/L` read back in `¼mol/L` and `GRAżYNA`
    **split across two fields** (`U+017C` low byte is the field separator), shifting every following
@@ -166,7 +188,10 @@ every measurement and every refuted formulation:
    and decoder sharing one definition. **Scope the sentence to the character the code reports, never
    to "the record"**: the atom rule is unchanged, so an `&X&` whose body is a delimiter still swallows
    it (that is defect 11). **That is the third time on this family that the claim, not the guard, was
-   the defect.** `documentation/agent-notes.md#defect-8`
+   the defect.** The mangled-header fixture in `test/profiles/unknown-record-type-safety.test.ts` now
+   reports a **second, incidental** code because its declaration is read as data: **that is not a
+   second reader of the mangled header, and nothing may start treating it as one.**
+   `documentation/agent-notes.md#defect-8`
 9. **Open.** `inline-loinc-candidate` is asserted with no LOINC evidence: any non-empty first component
    is tagged, so `Glucose` reports as a LOINC candidate. **Do not answer it inside another module's
    slice**; it wants its own. `documentation/agent-notes.md#defect-9`
@@ -187,11 +212,15 @@ every measurement and every refuted formulation:
     atom is what keeps `&F&` one token). **Schedule it rather than parking it.**
     `documentation/agent-notes.md#defect-11`
 12. **CLOSED 2026-08-04.** `encodeLeaf` ran as four chained whole-string substitutions, so an accepted
-    set naming `E`/`F`/`S`/`R` in another role altered values: 9,287 of 50,400 accepted sets were
+    set naming `E`/`F`/`S`/`R` in another role altered values: over P(18,4) = 73,440 four-role sets
+    on a stated 18-character alphabet, against the `STREAM` constant in
+    `test/records/escape-mnemonic-roles.test.ts`, 9,287 of the 50,400 accepted sets were
     strict-accepted under a gate-legal profile with an altered field tree. It is now one left-to-right
-    pass, the exact inverse of `decodeEscapes`. **Write the space down with any figure you quote, and
-    name the corpus by a constant that is IN THE TREE**: the predecessor entry's numbers were
-    discarded because nobody wrote the space down. **"0 silent" is a weak measure here** (a
+    pass, the exact inverse of `decodeEscapes`. **Never quote any of those figures without that space
+    and that corpus constant, because the corpus moves every one of them**, and name the corpus by a
+    constant that is IN THE TREE: the predecessor entry's numbers were discarded because nobody wrote
+    the space down, and this entry was refuted on its second pass for describing a scratch-file corpus
+    as `STREAM`. **"0 silent" is a weak measure here** (a
     non-canonical set always reports `ASTM_NONSTANDARD_DELIMITERS`, which is tolerable, so
     `warnings: []` was unreachable); the tier that discriminates is
     strict-accepted-under-a-gate-legal-profile. **Never replace the narrow "what is not guaranteed"
@@ -269,9 +298,10 @@ Full text, with every measurement: `documentation/agent-notes.md#attw`.
   that ships types it means a **broken publish reported as a pass**. A false red costs an hour; **a
   false green merges.**
 - **The race only supplies the condition, and the defect is not the race.** Reproduced with zero
-  concurrency; `tsup` leaves a 1,887 ms window here where `dist/` holds JS and no declarations. So the
-  answer is **not** a lock, a lease or a build queue: the gate must be able to say its own inputs were
-  missing, whatever removed them.
+  concurrency; timed on **one** real `tsup` run of this package, `dist/` held JS and no declarations
+  for 1,887 ms (an n=1 measurement, not a standing property of every build). So the answer is **not**
+  a lock, a lease or a build queue: the gate must be able to say its own inputs were missing, whatever
+  removed them.
 - **`scripts/attw.mjs` carries two nets that catch different things**: a preflight that every relative
   path `package.json` promises exists and is non-empty (catches the build window, names the file), and
   a post-check on the untyped sentence (catches declarations on disk but excluded from the tarball).
