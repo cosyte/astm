@@ -262,18 +262,27 @@ Canonical means canonical for the **whole** stream. A message that arrived under
 set comes back with every record in the canonical set, including the free-form `M` and `S` rows: the
 header can never declare one set while the rows below it use another, because re-reading that stream
 would collapse those rows' fields into one. `M`/`S` bytes are reproduced exactly as they arrived
-whenever they are already in the delimiters being emitted, so a canonical message is unchanged
-byte-for-byte; only the delimiters between values ever change, never the values.
+whenever they are already in the delimiters being emitted. A canonical message that was already
+spec-clean comes back byte-for-byte. Bytes can still differ without anything being lost: emit writes
+the spec-clean form of what was read, so a value the parser kept as a literal is escaped on the way
+out, and `O&BRIEN` comes back as `O&E&BRIEN`.
 
 Pass a second argument to emit against a different set: `serializeAstmRecords(msg, msg.delimiters)`
 puts a message back out in the delimiters it arrived under, and the header declares that set. Only
 three characters of a header's declaration carry a role (repeat, component, escape); a declaration
 that carries more keeps the surplus on emit rather than losing it, so `H|\^&#` comes back as
 `H|\^&#`. That holds on the default canonical path too: normalizing replaces the four roles, and the
-surplus holds none of them. It does **not** hold when a message is emitted into a _different_
-delimiter set than the one it arrived under: there the surplus belonged to the declaration being
-replaced and is dropped, along with any surplus carrying the field separator or a control
-character.
+surplus holds none of them.
+
+Two things drop a surplus, and the second one is **not** confined to transcoding. A message emitted
+into a _different_ delimiter set than the one it arrived under loses it, because the surplus belonged
+to the declaration being replaced. And a surplus that could not be read back as a surplus is dropped
+on **every** path, the default canonical one included: that means a surplus carrying the field
+separator, or carrying any control character. Of the 33 C0 and `DEL` characters, 31 can reach a
+surplus and every one of them costs it; the other two are `CR` and `LF`, which end the record as it is
+read, so no surplus ever holds them. **The whole surplus goes, not just the offending character**, so
+`H|\^&#` plus a control character plus `$` comes back as plain `H|\^&`. Keeping part of it would mean
+emitting a declaration nobody wrote. Nothing reports it: emit returns a plain string.
 
 The set you pass is checked before any bytes are written. Each separator must be exactly one
 character, none may be a `CR`/`LF`, and no two may be the same character: otherwise the stream

@@ -17,7 +17,12 @@
  * new refusal, so the file keeps saying what was wrong if the guard is ever
  * weakened. The old output is rebuilt from the shipped `serializeField`, which
  * takes no record and is therefore outside the guard by construction, so nothing
- * is transcribed twice. All content is synthetic.
+ * is transcribed twice. Read that precisely: what `legacyStream` reproduces is
+ * **this** serializer with the type-letter guard removed, not a historical build of
+ * it. The escape encoder underneath has since changed (see
+ * `escape-mnemonic-roles.test.ts`), and the guard needed no change when it did,
+ * which is the point of checking the bytes rather than the delimiter set.
+ * All content is synthetic.
  */
 
 import { describe, expect, it } from "vitest";
@@ -186,20 +191,24 @@ describe("it is a TRANSCODING condition, so it fires with no delimiter argument"
 });
 
 describe("a type letter equal to the ESCAPE character is accepted for the OUTCOME, not for a formula", () => {
-  it("does not always encode as letter + E + letter, and the guard does not depend on that", () => {
-    // The familiar shape holds only while no other role names one of the `E`/`F`/`S`
-    // mnemonics: `encodeLeaf` protects the escape character it introduces and not
-    // those. Pinned because the first draft of this slice's prose claimed the general
-    // form and claimed the type field decodes back to the letter.
-    expect(encodeComponent("R", { field: "|", repeat: "\\", component: "^", escape: "R" })).toBe(
-      "RER",
-    );
-    expect(encodeComponent("R", { field: "E", repeat: "\\", component: "^", escape: "R" })).toBe(
-      "RRFRR",
-    );
-    expect(encodeComponent("R", { field: "|", repeat: "\\", component: "E", escape: "R" })).toBe(
-      "RRSRR",
-    );
+  it("encodes as letter + E + letter, and the guard still does not depend on that", () => {
+    // This assertion USED to pin the opposite for the second and third sets, which
+    // encoded to `RRFRR` and `RRSRR`: the encoder ran as four chained substitutions
+    // and protected only the escape character it introduced, so a set naming one of
+    // the `E`/`F`/`S` mnemonics in another role re-escaped a mnemonic the encoder had
+    // just written. The encoder is a single left-to-right pass now, so the familiar
+    // shape holds for every set, and the type field decodes back to the letter.
+    //
+    // The guard is deliberately NOT rewritten as a rule over the four roles even so.
+    // It reads the first character actually written, which is why it needed no change
+    // when the encoder underneath it did.
+    for (const d of [
+      { field: "|", repeat: "\\", component: "^", escape: "R" },
+      { field: "E", repeat: "\\", component: "^", escape: "R" },
+      { field: "|", repeat: "\\", component: "E", escape: "R" },
+    ] satisfies Delimiters[]) {
+      expect(encodeComponent("R", d)).toBe("RER");
+    }
   });
 
   it("still round-trips the record TYPE under those sets, which is all that is checked", () => {

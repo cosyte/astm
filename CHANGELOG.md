@@ -11,6 +11,54 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Fixed
 
+- **The escape encoder protected the escape character it introduced but not the `E`/`F`/`S`/`R`
+  mnemonics, so a delimiter set naming one of those letters in another role altered the values it
+  emitted** (`ASTM-FRAME-RESIDUALS` follow-up, defect 12). `PRE-EXISTING`, byte-identical on
+  `4bb62f1`. `encodeLeaf` ran as four chained whole-string substitutions (escape, then field,
+  component, repeat), and each pass could see what the previous ones had written. Going first
+  protected the escape character; nothing protected the mnemonic letters. Under
+  `{ field: "E", escape: "R" }` a leaf of `R` went out as `RRFRR` and read back as `RER`.
+
+  **Re-measured here rather than carried over, because the recorded figures came from a sweep whose
+  parameters were not written down.** Over the whole four-role space drawn from the 18-character
+  alphabet `|` `\` `^` `&` `E` `F` `S` `R` `*` `~` `:` `#` `+` `@` `!` `$` `%` `/` (the four
+  canonical delimiters, the four mnemonic letters, a common vendor set, neutral punctuation), that is
+  P(18,4) = 73,440 sets, against **exactly the `STREAM` constant in
+  `test/records/escape-mnemonic-roles.test.ts`**, a synthetic ten-record
+  `H`/`P`/`O`/`R`/`R`/`R`/`C`/`M`/`S`/`L` message that parses with `warnings: []`, the serializer
+  refused 23,040 and accepted **50,400**. Of those, **10,450** emitted
+  a stream this library re-read with a **different field tree**, and **9,287** reported nothing
+  outside `TOLERABLE_CODES`, so a gate-legal profile plus `{ strict: true }` accepted an altered
+  value.
+
+  **The "0 silent" reading is confirmed and is weaker than it looks, which is worth more than the
+  number.** Zero of the 10,450 re-parsed with `warnings: []`, but a non-canonical set always reports
+  `ASTM_NONSTANDARD_DELIMITERS`, and that code is itself tolerable, so `warnings: []` was never
+  reachable for any set that could exhibit this defect. Silence was not available as a measure here.
+  The tier that does discriminate is the strict-accepted one above.
+
+  **The fix is one left-to-right pass.** Each character is read once and written either as itself or
+  as a whole `escape` + mnemonic + `escape` triple, and nothing the encoder writes is examined again,
+  which makes it the **exact** inverse of `decodeEscapes` rather than approximately so. No accepted
+  set in that sweep diverges after it. Bytes change for **exactly** the 10,450 sets that were
+  diverging and for no others (measured both directions: 0 sets diverged with unchanged bytes, 0 sets
+  changed bytes without having diverged), so a canonical stream and any set naming none of the four
+  mnemonic letters is byte-identical. The accept/refuse partition is unchanged over all 73,440 sets:
+  `ASTM_EMIT_TYPE_LETTER_COLLISION` reads the first character actually written, so it needed no
+  change when the encoder underneath it did, which is the argument for testing bytes rather than
+  enumerating dangerous roles. **No clause is claimed**: the grounding is this package's own decoder.
+
+  Pinned in `test/records/escape-mnemonic-roles.test.ts`, which transcribes the four chained
+  substitutions (nothing shipped still reproduces them) and **checks that transcription against the
+  shipped encoder on all 1,680 sets where the two must agree**, so it cannot decay into a strawman.
+  8 of its assertions are red against a `git archive` of `4bb62f1`. Five of them pin the **emitted bytes as literals**, each derived in a comment rather than snapshotted, because every other assertion here reads the stream back through this package's own parser and so cannot see an encoder and decoder that agree with each other and are both wrong. The committed test pins a
+  12-character subspace (P(12,4) = 11,880) rather than the 18, because the full space costs about a
+  minute of suite time and the extra six characters are neutral punctuation already represented. The
+  corpus is the same in both: the 73,440-set figures above differ from the test's only by alphabet. The claim in
+  `test/records/type-letter-collision.test.ts` that a type letter equal to the escape character
+  "does not always encode as letter + E + letter" was pinned to `RRFRR`/`RRSRR` and is now false:
+  it encodes that way for every set, and the assertion was updated to say so rather than deleted.
+
 - **`composeAstmFrames` wrote an out-of-range `startFrameNumber` straight into the frame-number
   position, so a value that was not a frame number produced a stream whose records the decoder
   refused to emit** (`ASTM-FRAME-RESIDUALS`, defect 13). `PRE-EXISTING`, byte-identical on `64c2fd5`.
@@ -391,6 +439,34 @@ this file is maintained by hand (Changesets handles the version bump and publish
   net go quietly slack, and it carries a negative control plus a real `attw` failure, because a gate
   that only ever fails is not a gate and one that swallows the status is not one either. **No
   runtime code changed and the built output is identical.**
+
+### Documented
+
+- **A header delimiter-declaration surplus loses all 31 of the C0/`DEL` characters that can reach
+  it, and the published surfaces stated the preservation rule without that exception.**
+  `PRE-EXISTING`; the
+  behaviour is unchanged and argued at `declarationResidual`. What changed is that it is measured,
+  pinned and stated, and that **one of the recorded reasons for it is now known to be false**:
+  "carrying the byte through would turn a spec-clean header into a stream the frame layer refuses"
+  holds for `STX`, `ETX` and `ETB` only. Measured, the other **28 of the 31** round-trip byte-exactly
+  through `composeAstmFrames` into `decodeAstmFrames` with `warnings: []`, and all 31 round-trip at
+  the record layer. The disposition still stands, on the reason the code site actually gives: rather
+  than enumerate the bytes each layer happens to reserve and re-derive that list every time a layer
+  is added, no control character is carried at all. Do not restate the frame-layer reason. Probing one character at a time in the surplus of an otherwise spec-clean
+  `H|\^&` header: **31 of the 33** C0/`DEL` characters reach the rule and are dropped, each with
+  `warnings: []` and no error; the other two are `CR` and `LF`, which end the record while it is being
+  read, so no surplus ever holds them. The drop is **all-or-nothing**, so a surplus of `#` + `US` + `$`
+  loses the `#` and the `$` as well, and that is deliberate: a subsequence of an opaque run whose
+  meaning is unresolved is a different run, not a shorter version of the same one, and choosing which
+  characters to keep is the guess this library declines everywhere else. `docs-content/quickstart.md`
+  attached the control-character drop to the transcoding case alone, which is wrong: it fires on the
+  **default canonical path** too. The `serializeAstmRecords` and `serializeAstmRecord` doc comments
+  and this module's own doc block, all of which compile into the published declarations, stated the
+  preservation rule unqualified. All are
+  widened rather than rewritten, and `docs-content/limitations.md`, which already disclosed the drop,
+  gains the all-or-nothing shape and the count. Pinned in
+  `test/records/declaration-surplus-residual.test.ts`, which passes on `4bb62f1` by design: it
+  measures behaviour this entry does not change.
 
 ### Added
 

@@ -75,7 +75,11 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   library refuses rather than substituting or deleting one. The **record** layer deliberately still
   carries such a byte in every modeled value, and round-trips it exactly: only framing reserves it.
   The one position that does not keep it is the surplus of a header's delimiter declaration, which is
-  not a modeled value and from which every control character is dropped on emit.
+  not a modeled value and from which every control character is dropped on emit. Measured, 31 of the
+  33 C0/`DEL` characters can reach that surplus and all 31 cost it; `CR` and `LF` end the record while
+  it is being read, so no surplus ever holds them. The **whole** surplus is dropped rather than the
+  offending character alone, because a subsequence of an opaque run is a different run, and none of it
+  is reported, because emit returns a plain string.
 - **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
   does **not** decide whether a value is "critical" or act on a correction/cancel.
 - **No proof that an arbitrary delimiter set round-trips.** Emit refuses a set that fails one of the
