@@ -13,7 +13,10 @@
  * set (a non-canonical source is normalized to `H|\^&` by default). Normalizing sets the
  * four delimiter **roles**; it does not delete a declaration's surplus characters, so a
  * canonically-declared header that arrived carrying surplus keeps it on the default path
- * too.
+ * too, **except where that surplus could not be read back as surplus, when all of it is
+ * dropped** (see `declarationResidual` below). Emit re-encodes what it read, so bytes
+ * can differ without anything being lost: `O&BRIEN` in a canonical stream goes out as
+ * `O&E&BRIEN`.
  *
  * **One delimiter set for the whole stream.** Every record (including `H`, `M` and `S`)
  * is emitted against the delimiters being emitted with, and the header declares that same
@@ -34,7 +37,11 @@
  * `H|\^&#` rather than losing the `#`. That holds on the **default** canonical path as
  * well as when a set is passed explicitly: the surplus of a canonically-declared header
  * survives normalization, because normalization is about the four roles and the surplus
- * has none.
+ * has none. It stops holding where the surplus itself could not be read back, and then
+ * **the whole surplus is dropped, not the offending character alone**, on the default
+ * path as much as any other: `declarationResidual` states which surpluses those are and
+ * why an all-or-nothing drop is the only one of the available answers that invents
+ * nothing.
  *
  * **Never break framing.** A component leaf that contains a record terminator
  * (`CR`/`LF`) cannot be escaped by the ASTM escape codec (only the four declared
@@ -55,10 +62,15 @@
  * output, which is why they are refused at this one.
  *
  * **One position is not a modeled value and does not keep the byte:** the surplus
- * of a header's delimiter declaration, where any control character is dropped
+ * of a header's delimiter declaration, where a control character is dropped
  * silently (see `declarationResidual` below, where that disposition is argued and
  * where it long predates the frame-layer refusal). So "the record layer carries
  * these bytes" is a statement about values, not about every byte of every line.
+ * Measured, one character at a time in the surplus of an otherwise spec-clean
+ * `H|\^&` header: **31 of the 33 C0/`DEL` characters reach that rule and are
+ * dropped**, with `warnings: []` and no error. The two that do not are `CR` and
+ * `LF`, which never reach it at all, because they end the record while it is being
+ * read and so are never part of any surplus the model carries.
  *
  * **Check the delimiter set before writing.** Three conditions are required for the
  * emitted bytes to read back as the records that produced them (each separator exactly
@@ -261,10 +273,12 @@ function assertEmittableDelimiters(d: Delimiters, recordIndex?: number): void {
 
 /**
  * Escape-encode one component leaf for spec-clean emit: the inverse of
- * `decodeEscapes`. The **escape character itself is encoded first** (`&` → `&E&`)
- * so a later delimiter substitution can never double-encode the `&` it just
- * introduced; then the field / component / repeat delimiters map to their
- * mnemonics.
+ * `decodeEscapes`. Each character is read **once**, in one left-to-right pass, and
+ * written either as itself or as a whole `escape` + mnemonic + `escape` triple
+ * (`&` → `&E&`, the field / component / repeat delimiters → `&F&` / `&S&` / `&R&`).
+ * Nothing this encoder writes is examined again, which is what makes it the exact
+ * inverse of the decoder: the decoder reads the same output one token at a time,
+ * so every triple it meets is a triple this encoder wrote.
  *
  * A `CR`/`LF` in the leaf has no escape mnemonic and would break framing, so it
  * is rejected with an {@link AstmSerializeError} rather than emitted raw, as is a
@@ -292,9 +306,46 @@ export function encodeComponent(leaf: string, d: Delimiters, recordIndex?: numbe
 }
 
 /**
+ * The mnemonic that stands for `ch` under `d`, or `undefined` when `ch` holds no
+ * delimiter role and is emitted as itself. The four roles are mutually distinct by
+ * the time any leaf is encoded ({@link assertEmittableDelimiters}), so at most one
+ * arm can match and the order they are tested in changes no outcome.
+ */
+function escapeMnemonic(ch: string, d: Delimiters): string | undefined {
+  if (ch === d.escape) return "E";
+  if (ch === d.field) return "F";
+  if (ch === d.component) return "S";
+  if (ch === d.repeat) return "R";
+  return undefined;
+}
+
+/**
  * The escape encoder proper, for callers that have already checked `d`. Kept
  * separate so the delimiter check runs once per public call rather than once per
  * component leaf.
+ *
+ * **One left-to-right pass, and that is the correctness property, not a
+ * micro-optimization.** Each input character is examined once and written as
+ * either itself or a whole `escape` + mnemonic + `escape` triple, and nothing
+ * this function writes is ever examined again. That makes it the exact inverse of
+ * `decodeEscapes`, which reads the same output one token at a time: a character
+ * that is not the escape character is a literal, and one that is heads a
+ * three-character sequence.
+ *
+ * **What it replaced, and why the replacement was needed.** This used to be four
+ * chained whole-string substitutions (escape first, then field, component and
+ * repeat), and each pass could see the characters the previous ones had written.
+ * The escape character was protected by going first, but the `E` / `F` / `S` / `R`
+ * mnemonics were not, so a delimiter set naming one of those letters in another
+ * role re-escaped a mnemonic this function had just introduced and the value
+ * changed. Measured on a stream emitted under `{ field: "E", escape: "R" }`, a
+ * leaf of `R` went out as `RRFRR` and read back as `RER`. Sweeping a synthetic
+ * ten-record message over every ordered four-role set drawn from an 18-character
+ * alphabet, 10,450 of the 50,400 sets the serializer accepted read back with a
+ * different field tree, and 9,287 of those reported nothing outside the profile
+ * safety gate's tolerable allow-list, so `{ strict: true }` under a gate-legal
+ * profile accepted the altered value. After this change no set in that sweep
+ * diverges.
  */
 function encodeLeaf(leaf: string, d: Delimiters, recordIndex?: number): string {
   if (leaf.includes("\r") || leaf.includes("\n")) {
@@ -303,16 +354,13 @@ function encodeLeaf(leaf: string, d: Delimiters, recordIndex?: number): string {
       recordIndex,
     );
   }
-  // Escape the escape char first, then the three structural delimiters.
-  return leaf
-    .split(d.escape)
-    .join(d.escape + "E" + d.escape)
-    .split(d.field)
-    .join(d.escape + "F" + d.escape)
-    .split(d.component)
-    .join(d.escape + "S" + d.escape)
-    .split(d.repeat)
-    .join(d.escape + "R" + d.escape);
+  let out = "";
+  for (let i = 0; i < leaf.length; i += 1) {
+    const ch = leaf.charAt(i);
+    const mnemonic = escapeMnemonic(ch, d);
+    out += mnemonic === undefined ? ch : d.escape + mnemonic + d.escape;
+  }
+  return out;
 }
 
 /** Encode one field from its decoded repeat/component tree, re-escaping each leaf. */
@@ -333,7 +381,11 @@ function encodeField(
  * The header (`H`) is special-cased: its delimiter-definition field is emitted as
  * the **literal** declaration of `d`, never escaped, escaping it would corrupt the
  * very declaration a reader depends on, followed by any characters the modeled
- * declaration carried beyond the three a reader takes its roles from. Manufacturer
+ * declaration carried beyond the three a reader takes its roles from. Those surplus
+ * characters are kept unless the surplus could not be read back as surplus, when
+ * **all** of it is dropped: that covers a surplus carrying the field delimiter or
+ * any control character, and it is silent, because emit has no warning channel.
+ * Manufacturer
  * (`M`) and scientific (`S`) records are reproduced **byte-identically** from their
  * preserved `rawLine` when they are already in `d`, and re-encoded from their fields
  * when they are not, so their fields never collapse into one on the next read.
@@ -431,17 +483,20 @@ function recordTypeLetter(record: AstmRecord): string {
  * chose the character.
  *
  * **A type letter equal to the ESCAPE character is accepted, and the reason is the
- * outcome, not a formula.** In the ordinary case `encodeLeaf` writes such a letter
- * as `letter` + `E` + `letter`, whose first character is the letter itself. That
- * shape is *not* general: the encoder protects the escape character it introduces
- * but not the `E` / `F` / `S` mnemonics it introduces, so a set that also names one
- * of those in another role re-escapes them and the same letter encodes to, for
- * instance, `RRFRR` under `{ field: "E", escape: "R" }`. What holds across every
- * such set is the only thing this check tests: the first character written is still
- * the letter, so the record re-reads as its own type. Do not restate this as "the
- * type field decodes back to the letter", which is false in that region, and do not
- * turn the check into a rule over the four roles: the acceptance is a property of
- * the bytes, which is the advantage of testing the bytes.
+ * outcome, not a formula.** `encodeLeaf` writes such a letter as `letter` + `E` +
+ * `letter`, whose first character is the letter itself. **That shape used not to be
+ * general, and the exception is now closed rather than merely described**: while the
+ * encoder ran as four chained substitutions it protected the escape character it
+ * introduced but not the `E` / `F` / `S` mnemonics, so a set naming one of those in
+ * another role re-escaped them and the same letter went out as `RRFRR` under
+ * `{ field: "E", escape: "R" }`, decoding back to `RER` rather than `R`. The encoder
+ * is a single pass now, so it encodes to `RER` and decodes back to `R`.
+ *
+ * **Do not turn this check into a rule over the four roles even so.** The
+ * acceptance is a property of the bytes written, which is what let the check stay
+ * correct across that encoder change without being touched: it needs no list of
+ * which roles are dangerous and it cannot drift out of step with `encodeLeaf`. A
+ * role list would have had to be re-derived, and it would refuse sets that work.
  *
  * **When it fires, and it is NOT only a caller's choice of delimiter set.** The
  * condition is a *transcoding* one, so it is reachable with no `d` argument at all:
@@ -583,6 +638,26 @@ function serializeHeader(header: HeaderRecord, d: Delimiters): string {
  * the surplus belonged to the old declaration) or the surplus is not inert on
  * the wire: it contains the field delimiter, or **any control character**.
  *
+ * **The drop is all-or-nothing, and that is a decision rather than an
+ * implementation detail.** A surplus of `#` + `US` + `$` loses the `#` and the `$`
+ * as well as the control character, so ordinary printable bytes go with it. Keeping
+ * them would mean emitting a declaration the sender never wrote: the surplus is an
+ * opaque run whose meaning is unresolved, and a subsequence of an opaque run is a
+ * different run, not a shorter version of the same one. Choosing which characters
+ * of it to keep is the same guess this library declines everywhere else, so the
+ * whole surplus goes or none of it does.
+ *
+ * **What that costs, measured** rather than described. Probing every C0 and `DEL`
+ * character one at a time as the surplus of an otherwise spec-clean `H|\^&` header:
+ * **31 of the 33 reach this rule and are dropped**, each with `warnings: []` on the
+ * parse and no error on the emit, so the round trip is not byte-exact and nothing
+ * says so. The other two are `CR` and `LF`, which cannot appear in a surplus at all:
+ * they end the record while it is being read, so the declaration the model carries
+ * stops before them. The field-delimiter arm above is likewise unreachable from a
+ * header parsed under the set being emitted (the reader ends the declaration at the
+ * first field delimiter); it is reachable through a transcode or a hand-built model,
+ * which is why it stays.
+ *
  * The control-character rule is wider than the record layer alone needs, and
  * deliberately so. A `CR`/`LF` would end the record and shift every data field
  * along, but this text is also handed to the **frame** layer by
@@ -643,7 +718,11 @@ function declarationResidual(header: HeaderRecord, d: Delimiters): string {
  * re-parsing it recovers every field. Passing `d` explicitly emits against that set
  * instead, and the header declares it. Normalization replaces the four delimiter
  * **roles**; a header declaration carrying characters beyond the three that hold a
- * role keeps them, on this path as on any other, rather than being truncated.
+ * role keeps them, on this path as on any other, rather than being truncated. The
+ * exception is a surplus that could not be read back as one, carrying the field
+ * delimiter or any control character: there the **whole** surplus is dropped, on
+ * every path including the default one, and silently, because emit returns a bare
+ * string with no channel to say so.
  *
  * **`d` is checked before anything is written.** Each of the four separators must be
  * exactly one character, none may be a record terminator, and no two may share a
