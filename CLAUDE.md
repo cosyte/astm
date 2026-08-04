@@ -56,7 +56,7 @@ per-directory >= 90 coverage, a proven publish shape). `src/` is `common/` (valu
   frame (`ASTM_FRAME_*`) and LTP (`ASTM_LTP_*`) code is safety-critical unless it is on
   `TOLERABLE_CODES`, and any new one is safety-critical **by default** until argued in. The fourth
   registry, `ASTM_LIVD_*`, sits **outside** the gate's universe by design (`src/terminology/warnings.ts`),
-  so it is refused as *unknown* rather than as *safety-critical*. **Never quote a count for the
+  so it is refused as _unknown_ rather than as _safety-critical_. **Never quote a count for the
   tolerable list: read `src/profiles/safety.ts`.** As of 2026-08-04 it is
   `ASTM_NONSTANDARD_DELIMITERS`, `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_UNPAIRED_ESCAPE_CHARACTER`,
   `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`. **`ASTM_RECORD_UNKNOWN_TYPE` was removed from it
