@@ -170,7 +170,11 @@ every measurement and every refuted formulation:
    from a control-character class. **Neither this refusal nor defect 7's is total, and the bound is
    stated rather than left to be found:** both are on the declared `Uint8Array | string` signature, so
    a JavaScript caller passing some other typed array (a `Uint16Array`) still gets the old low-byte
-   corruption from `Uint8Array.from`, `warnings: []`. Never write either refusal as covering it, and
+   corruption from `Uint8Array.from`. **The two residues were measured separately and do not share an
+   outcome:** defect 7's is silent (`U+03BC` reads back `¼`, `warnings: []`), while defect 6's
+   (`0x0102`/`0x0103`/`0x0117`) is framed and then lost at decode, silent **only** where the two bytes
+   after it happen to be the short frame's checksum and reported as
+   `ASTM_FRAME_BAD_CHECKSUM` otherwise. Never write either refusal as covering it, and
    never "tidy" the scoped doc comment into an unqualified one: **a false sentence in a comment that
    compiles into `dist/index.d.ts` is worse than the silence it replaced.**
    `documentation/agent-notes.md#defect-6`
@@ -213,7 +217,9 @@ every measurement and every refuted formulation:
     `documentation/agent-notes.md#defect-11`
 12. **CLOSED 2026-08-04.** `encodeLeaf` ran as four chained whole-string substitutions, so an accepted
     set naming `E`/`F`/`S`/`R` in another role altered values: over P(18,4) = 73,440 four-role sets
-    on a stated 18-character alphabet, against the `STREAM` constant in
+    on the 18-character alphabet **enumerated in the notes** (the committed test pins the
+    12-character subspace, P(12,4) = 11,880, on the same corpus, so **do not re-derive these figures
+    from the test file's own space**), against the `STREAM` constant in
     `test/records/escape-mnemonic-roles.test.ts`, 9,287 of the 50,400 accepted sets were
     strict-accepted under a gate-legal profile with an altered field tree. It is now one left-to-right
     pass, the exact inverse of `decodeEscapes`. **Never quote any of those figures without that space

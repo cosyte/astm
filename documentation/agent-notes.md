@@ -139,9 +139,11 @@ of the roadmap.
   > **Correction, 2026-08-04 (`CLAUDE-MD-AUDIT`):** "the list was four and is now three", and the
   > "three named above", are a snapshot of **2026-08-01** and are not the list today.
   > `ASTM_UNPAIRED_ESCAPE_CHARACTER` was **added** to `TOLERABLE_CODES` on 2026-08-02 by defect 8's
-  > fix, so the shipped list is **four**: `ASTM_NONSTANDARD_DELIMITERS`,
-  > `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_UNPAIRED_ESCAPE_CHARACTER`,
-  > `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`. The paragraph enumerates all four correctly two
+  > fix. On the date of this annotation the members are `ASTM_NONSTANDARD_DELIMITERS`,
+  > `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_UNPAIRED_ESCAPE_CHARACTER` and
+  > `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`, and this annotation deliberately states **no count**
+  > either, because a count is the shape that went stale here: `src/profiles/safety.ts` is the only
+  > thing that carries the list. The paragraph enumerates all four correctly two
   > sentences earlier and then miscounts them, which is why **no count for this list may be quoted
   > anywhere: read `src/profiles/safety.ts`.** Nothing else in the paragraph changes: the removal of
   > `ASTM_RECORD_UNKNOWN_TYPE` stands, the two-clause admission test stands, and the direction of the
