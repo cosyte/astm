@@ -1,9 +1,10 @@
 # @cosyte/astm: agent notes
 
 The narrative half of this repo's `CLAUDE.md`, relocated here **verbatim** on 2026-08-04 so that
-`CLAUDE.md` fits the write-time cap the meta-repo puts on a submodule's always-read guide (a per-repo
-ratchet in `.claude/hooks/doc-budget.mjs`, which must be lowered as relocations land: read the number
-there, never one quoted in prose). Nothing was deleted. Every trap that lived in a paragraph here
+`CLAUDE.md` fits the write-time bound the meta-repo puts on a submodule's always-read guide (its
+entry in `REPO_CLAUDE`, `.claude/hooks/doc-budget.mjs`, argued in ADR 0023: a per-repo ratchet whose
+entries are lowered as relocations land). **No number for it is quoted in either file on purpose**;
+read the entry. Nothing was deleted. Every trap that lived in a paragraph here
 still lives in `CLAUDE.md` as a one-line imperative that points back at its section, and the
 reasoning, the measurements and the refuted claims are all below, word for word.
 

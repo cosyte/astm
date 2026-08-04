@@ -5,11 +5,13 @@
 > the section that records how it was measured, kept **verbatim**: read that section before you touch
 > the code it guards. These are clinical-safety lessons, and several of them record a claim that was
 > measured **false** after it shipped. Nothing was deleted when this file was split on 2026-08-04.
-> The meta-repo caps this file at write time, as a **per-repo ratchet** in
-> `.claude/hooks/doc-budget.mjs` (a uniform 90,000 was built first and reversed the same day), and
-> the ratchet **must be lowered as relocations land**, so read the number there rather than quoting
-> one here: headroom in it is not a budget to spend. The remedy for a breach is to move more
-> narrative into the notes file, **never** to drop a trap.
+> The meta-repo bounds this file at write time through **its entry in `REPO_CLAUDE`**
+> (`.claude/hooks/doc-budget.mjs`, argued in ADR 0023), a per-repo ratchet whose entries are
+> **lowered as relocations land**. **No number for it is written here on purpose**: the bound that
+> preceded it was quoted into documents and went stale inside a day, which is the failure this split
+> exists to fix. Read the entry, and treat headroom in it as slack to give back rather than a budget
+> to spend, because the real cost is tokens per worker, not bytes on disk. The remedy for a breach is
+> to move more narrative into the notes file, **never** to drop a trap.
 
 ## Project
 
@@ -138,10 +140,14 @@ every measurement and every refuted formulation:
    downstream costs are closed without inferring the letter (`ASTM_RECORD_FIELDS_UNSEPARATED`, keyed
    on the **observed collapse** rather than on the mangled header; and `classifyMessage` declining to
    `indeterminate`). **The furthest-reaching variant is a `P`-less second message**, which
-   `assertSinglePatient` cannot see. `documentation/agent-notes.md#defect-2`
+   `assertSinglePatient` cannot see. A header is exempt from `ASTM_RECORD_FIELDS_UNSEPARATED`
+   **by construction, not by exception** (`tokenizeHeader` always yields type letter + declaration).
+   `documentation/agent-notes.md#defect-2`
 3. **Open.** `msg.classification` is folded over the whole STREAM but documented per-message. The
    dangerous direction is closed (`Q` dominates) and the over-trigger warns. Derive the per-message
-   answer with `classifyMessage(m.records)`. `documentation/agent-notes.md#defect-3`
+   answer with `classifyMessage(m.records)`. **`AstmStreamMessage` deliberately carries NO
+   `classification` field**: that omission is the fix, not an oversight, so do not "complete the type"
+   by adding one. `documentation/agent-notes.md#defect-3`
 4. **Open, parse-side.** `readDelimiters` accepts a declaration it cannot reverse (`H|^^&`, `H|\&&`)
    with **zero warnings**; emit now refuses such a set, which is what makes the hole visible. **Do not
    fold this into an emit or frame slice**: it adds a **parse-path** warning code, which lands on the
@@ -158,8 +164,9 @@ every measurement and every refuted formulation:
    a remedy.** The refusal is a **narrowing on a published package reaching the lenient-parse
    population** (300,000 fuzzed streams on the default path: 2,316 new throws, 621 of them where base
    genuinely relabeled a modeled record type), **so say so wherever the refusal is described.** It
-   promises a record re-reads as its own **type**, not that every field lands where it did.
-   `documentation/agent-notes.md#defect-5`
+   promises a record re-reads as its own **type**, not that every field lands where it did, and
+   `encodeComponent` / `serializeField` are **outside the check by construction** because they take
+   no record. That is deliberate, not a gap to plug. `documentation/agent-notes.md#defect-5`
 6. **CLOSED 2026-08-03. It WAS a stop-the-line because its worst branch was SILENT**: an embedded
    `ETX` whose following two bytes happened to be a valid checksum made a short frame verify, merging
    the next record into a comment's free text and losing a result, `warnings: []` at both layers. An
@@ -167,7 +174,9 @@ every measurement and every refuted formulation:
    `ASTM_FRAME_RESERVED_BYTE`, with **no bytes-instead escape hatch**. **The record layer is
    deliberately untouched**, measured: all three bytes round-trip through parse/serialize/parse in a
    modeled value. The three bytes are derived from what `decodeAstmFrames` reads as structure, **not**
-   from a control-character class. **Neither this refusal nor defect 7's is total, and the bound is
+   from a control-character class, so **`CR`/`LF` and `ENQ`/`ACK`/`NAK`/`EOT` are deliberately NOT in
+   the set** (measured to round-trip byte-exactly inside a frame). Do not "complete" it to the control
+   characters. **Neither this refusal nor defect 7's is total, and the bound is
    stated rather than left to be found:** both are on the declared `Uint8Array | string` signature, so
    a JavaScript caller passing some other typed array (a `Uint16Array`) still gets the old low-byte
    corruption from `Uint8Array.from`. **The two residues were measured separately and do not share an
@@ -182,7 +191,8 @@ every measurement and every refuted formulation:
    truncated every character to its low byte, so `28.6|μmol/L` read back in `¼mol/L` and `GRAżYNA`
    **split across two fields** (`U+017C` low byte is the field separator), shifting every following
    field. `composeAstmFrames` now throws `ASTM_FRAME_UNENCODABLE_CHARACTER`; **UTF-8 was considered and
-   rejected** (it picks a code page the sender never declared). **The lesson generalizes past this
+   rejected** (it picks a code page the sender never declared); the read side is **deliberately**
+   Latin-1 (`String.fromCharCode` per byte), which is half the grounding. **The lesson generalizes past this
    defect: a claim of "loud in every case" is a claim about the input space, not about the cases you
    ran.** `documentation/agent-notes.md#defect-7`
 8. **CLOSED 2026-08-02. It WAS a stop-the-line, and the UNITS decided it**: a lone escape character
@@ -240,8 +250,10 @@ every measurement and every refuted formulation:
     start composes a continuation, measured byte-identical. **Do not reintroduce a rule for what a
     standalone continuation does: three successive formulations measured false, and the disposition at
     the ADR 0016 cap was a CUT, not a fourth rewrite.** The one statement that generalizes is that the
-    record layer never reports the loss, so **read `frameWarnings`.**
-    `documentation/agent-notes.md#defect-13`
+    record layer never reports the loss, so **read `frameWarnings`.** Its error message **names the
+    value received, deliberately**, and is the one message in this class that quotes anything (a
+    `startFrameNumber` is the caller's own option, never stream content): do not "fix" it to
+    value-free. `documentation/agent-notes.md#defect-13`
 14. **Open, measured, pinned and disclosed 2026-08-04.** `serializeAstmRecords` silently drops a header
     delimiter-declaration surplus it could not read back: 31 of the 33 C0/`DEL` characters, each with
     `warnings: []`. **The behaviour stays, but one recorded reason for it measured FALSE and must not
@@ -376,6 +388,8 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`,
    - **Do not partition a scan on the NUL byte.** A genuine UTF-8 test file embeds a literal NUL and
      held 8 em dashes a NUL-partitioned census missed. Partition on **UTF-8 decodability**, never on
      grep's `-I` heuristic.
+   - **The backslash-u arm is deliberately case-SENSITIVE** while the entity and URL arms are not: a
+     case-blind arm there reds an ordinary Windows path. Do not "make it consistent".
    - **The gate is BOUNDED and the bound is written down**: no ES6 braced escape, no non-UTF-8
      encoding, and the script's own prose may hold an encoded form. All three are accepted, not
      oversights. **Do not widen the pattern to chase them.**
