@@ -290,8 +290,8 @@ every measurement and every refuted formulation:
     sender's `F` lands in the status slot: units `&U/L` and status **`final`**, both FABRICATED, on
     a tolerable code.
     (b) `H|F^&` with `28.6&S&F&U/L` gains a REPEAT boundary, TRUNCATING the value to `28.6^`,
-    dropping `&U/L`. **NOT the units or the status**: 8 fields, neither slot present under any
-    alignment; that reading measured FALSE.
+    dropping `&U/L`. **NOT the units or status**: a REPEAT boundary shifts no field, so both
+    read them empty. That measured FALSE.
     **▶ COUNTING THE CONTESTED PAIR DOES NOT CLOSE (b). DO NOT RE-PROPOSE IT.** It refuses
     **well-formed** streams: under `HF\^&`, `28.6&F&F&F&U/L` is two recognized sequences around the
     separator they escape, raises nothing, and ties. It refuses half of all escape-clean streams.

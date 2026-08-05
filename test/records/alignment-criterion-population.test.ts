@@ -115,11 +115,16 @@ const TAIL_SUFFIXES = [
  * working exactly as it is meant to, so refusing one of these is an over-refusal whatever else is
  * true of the stream.
  *
- * **The alignment code is deliberately NOT in this list, and that is what makes the measurement a
- * measurement.** Escape-clean has to be defined independently of the criterion being weighed, or
- * "no escape-clean tuple is reported today" is the shipped criterion agreeing with itself and could
- * not have come out any other way. Defining it on the other three codes leaves it free to fail, and
- * the population is the same 96 tuples either way.
+ * **The alignment code is deliberately NOT in this list**, so escape-clean does not consult the
+ * criterion it is used to judge. The population is the same 96 tuples either way, so the
+ * independence costs nothing.
+ *
+ * **It does not follow that "no escape-clean tuple is reported today" is a free result, and it must
+ * not be read as evidence about the shipped criterion.** It is still entailed one layer down: the
+ * alignment sink is gated on a non-mnemonic body, and the same body always drives the unknown-escape
+ * sink, so a stream raising the alignment code can never be escape-clean. What the zero does
+ * discriminate is the **candidate** criterion from the shipped one, which is what this file needs it
+ * for, and what the candidate does to this population is the finding below.
  *
  * **What escape-clean does NOT mean.** It says nothing about the decoded value, which legitimately
  * holds the literal delimiter an escape sequence stood for: `&F&` decoding to the field separator is
@@ -334,7 +339,9 @@ describe("why the candidate is rejected rather than shipped", () => {
     // THE FINDING. A third of the tuples the candidate moves are escape-clean: every escape
     // character in them heads a sequence this codec recognizes, and no delimiter went missing
     // inside an unreadable body. Today none of them is reported, on a definition that does not
-    // consult the alignment code and so was free to come out otherwise. Under the candidate, every
+    // consult the alignment code (though see that definition for why the zero is still entailed
+    // rather than observed, and is evidence about the candidate, not about the shipped criterion).
+    // Under the candidate, every
     // escape-clean tuple whose declared set names a mnemonic letter as a splitting delimiter would
     // be refused by a code no profile may tolerate.
     const moved = corpus.filter((t) => t.acceptedNow && !t.acceptedUnderCandidate);
@@ -374,10 +381,10 @@ describe("why the candidate is rejected rather than shipped", () => {
   it("leaves the open case open, and pins what the gained boundary actually costs", () => {
     // What stays broken by rejecting the candidate, stated rather than left implied, and stated
     // CORRECTLY. Under `H|F^&` the contested delimiter is the REPEAT role, so the gained boundary
-    // divides one field and cannot shift any other: the units and status slots read empty under
-    // every alignment of these bytes, because this record has eight fields and neither slot is one
-    // of them. Saying the gained boundary "costs the units and the status" attributes to it what
-    // the record's own shape already decided, and that reading was measured false here.
+    // divides one field and reaches nothing outside it: the units and status slots read empty under
+    // every alignment of these bytes, and the role is the reason that generalizes, not the field
+    // count. Saying the gained boundary "costs the units and the status" attributes to it something
+    // it cannot reach, and that reading was measured false here.
     const harm = "H|F^&\rP|1||LAB-0001\rR|1|^^^687|28.6&S&F&U/L||||F\rL|1|N\r";
     expect(codes(harm)).toEqual([
       WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,

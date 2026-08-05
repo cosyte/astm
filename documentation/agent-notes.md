@@ -1250,16 +1250,18 @@ roles against the same bodies and tails and finds the two criteria identical tup
 15's own figures (144 tuples, 24 firing, 108 strict-accepted against 93) are untouched for the same
 reason: on that corpus the count reduces to the recognition test exactly.
 
-**▶ "ESCAPE-CLEAN" IS DEFINED WITHOUT THE ALIGNMENT CODE, DELIBERATELY, AND THAT IS WHAT MAKES THE
-ZERO A MEASUREMENT.** It is the absence of `ASTM_UNKNOWN_ESCAPE_SEQUENCE`,
+**▶ "ESCAPE-CLEAN" IS DEFINED WITHOUT THE ALIGNMENT CODE, DELIBERATELY, THOUGH THAT DOES NOT MAKE
+THE ZERO FREE.** It is the absence of `ASTM_UNKNOWN_ESCAPE_SEQUENCE`,
 `ASTM_UNPAIRED_ESCAPE_CHARACTER` and `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, and **not** of
-`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`. Folding the alignment code in would make "no escape-clean
-tuple is reported today" the shipped criterion agreeing with itself: unfailable by construction, in
-a file whose entire lesson is that a structurally forced zero certifies nothing. The population is
-the same 96 tuples either way, measured, so nothing is bought by the shortcut and the independence
-is free. **Escape-clean says nothing about the decoded value**, which legitimately carries the
-literal delimiter a sequence stood for: `&F&` decoding to the field separator is the mechanism
-working, not a residue of it.
+`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, so it does not consult the criterion it is used to judge.
+The population is the same 96 tuples either way, measured, so the independence costs nothing.
+**But "no escape-clean tuple is reported today" is still entailed rather than observed, one layer
+down, and it must not be read as evidence about the shipped criterion**: the alignment sink is gated
+on a non-mnemonic body, and the same body always drives the unknown-escape sink, so a stream raising
+the alignment code can never be escape-clean. What the zero does discriminate is the **candidate**
+from the shipped criterion, which is what this file needs it for. **Escape-clean also says nothing
+about the decoded value**, which legitimately carries the literal delimiter a sequence stood for:
+`&F&` decoding to the field separator is the mechanism working, not a residue of it.
 
 <a id="defect-17-harm"></a>
 
@@ -1276,9 +1278,12 @@ a gained **repeat** or **component** boundary divides one field and can do nothi
 `R|1|^^^687|28.6&F&|&U/L||||F` gains a **field** boundary, so the record reads **9** fields where
 the competing alignment reads 8, and every field after the gain is shifted one place: the sender's
 own trailing `F` lands in the **result status** slot. The reading taken hands back units `&U/L` and
-status **`final`**; the competing alignment hands back no units and status `unspecified`. The only
-warning either way is the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so the widest gate-legal
-profile accepts it. **A fabricated `final` on a result is the harm this repo exists to prevent.** The
+status **`final`**; the competing alignment hands back no units and status `unspecified`. The reading
+taken raises only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so the widest gate-legal profile
+accepts it. **Nothing is claimed here about what the competing alignment would raise**: it is a
+reading nobody's bytes produce, so its warning set is not a measurement of anything, and the entry
+above already records that it carries two deviations to the reading taken's one.
+**A fabricated `final` on a result is the harm this repo exists to prevent.** The
 entry above lists that `final` among the values read, which is why nobody noticed it is a
 **consequence of the ambiguity** rather than something the sender wrote in that slot: the competing
 alignment of the same bytes puts no status there at all. Running only the reading taken cannot show
@@ -1287,9 +1292,10 @@ that, and nothing had run the other one.
 **▶ (b) DOES NOT COST THE UNITS OR THE STATUS, AND SAYING SO WAS AN ATTRIBUTION ERROR.** Under
 `H|F^&` the contested delimiter is the **repeat** role, so the gained boundary cannot shift a field.
 Measured, on `R|1|^^^687|28.6&S&F&U/L||||F`: **both** alignments read **8** fields, and under both
-the units slot is empty and the status is `unspecified`, because that record has eight fields and
-neither slot is one of them. The absence was decided by the record's own shape, not by the
-alignment. **What the gained boundary does cost is the VALUE**: the reading taken splits the value
+the units slot is empty and the status is `unspecified`. **The reason that generalizes is the repeat
+role**, not the field count: the units slot is present and empty in this record and the status slot
+is absent, and neither fact is anything the gained boundary could have changed, because a repeat
+boundary divides one field and reaches nothing outside it. **What the gained boundary does cost is the VALUE**: the reading taken splits the value
 field into the two repeats `28.6^` and `&U/L`, every value extractor reads the first, and `&U/L`
 leaves the result entirely, while the competing alignment reads one repeat carrying all of it. That
 is a real silent loss and it is the thing a future criterion has to be validated against. Both
