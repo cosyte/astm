@@ -303,7 +303,7 @@ every measurement and every refuted formulation:
     `dist/index.d.ts`. NEVER write "a repeat or component boundary cannot move a modeled slot" nor
     "EVERY gained boundary moves a slot": a claim about the component LIST is not one about a
     MODELED SLOT, which needs the model's ARITY.**
-    All three, 864 tuples: 96 fire, 32 move, **0 back, 0 escape-clean** (the pair
+    Each, 864 tuples: 96 fire, 32 move, **0 back, 0 escape-clean** (the pair
     count refused 48), disjoint. **(b) and (c) carry index axes the corpus FIXES: SWEEP THEM.** **RESIDUE for all three: an UNRECOGNIZED tail costs the same and is SILENT** (it
     would report a boundary the bytes prefer). **ONE CONSTRUCT deep; no re-emit reaches any.**
     **▶ DO NOT RE-PROPOSE THE PAIR COUNT.** It is LOCAL, so it TIES on **well-formed** streams and
