@@ -88,7 +88,10 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
         "tolerating this code no longer hides it. The same holds for the mirror case, where a " +
         "sequence ends where another could have begun and a delimiter splits that the other " +
         "alignment would have held: that raises ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT, which " +
-        "this profile cannot tolerate either.",
+        "this profile cannot tolerate either. Where that gained boundary is a field boundary and " +
+        "the reading taken resumes on an escape character heading no sequence, every later field " +
+        "shifts and a result's units and status move with it, which raises " +
+        "ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS, untolerable here as well.",
     },
   ],
 });

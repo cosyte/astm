@@ -104,6 +104,8 @@ const neutralStream = (body: string, next: string): string =>
 
 /** The three splitting roles of the canonical set, named rather than counted. */
 const SPLITTING_ROLES = ["|", "\\", "^"] as const;
+/** The canonical field separator: the only role the later shift report is wired to. */
+const FIELD_SEPARATOR = "|";
 /** The four recognized escape mnemonics: a body this codec can interpret, which the exclusion turns on. */
 const MNEMONICS = ["F", "S", "R", "E"] as const;
 
@@ -116,8 +118,13 @@ describe("the measured fixture: a boundary the leftmost alignment gained", () =>
     expect(only?.units).toBe("&U/L");
     expect(only?.status.meaning).toBe("final");
 
+    // The gained boundary here is a FIELD boundary and the reading resumes on a bare escape
+    // character, so the later shift report fires alongside this one. Neither is a widening of the
+    // other: this code answers whether the codec's vocabulary prefers the reading taken AT the
+    // contested position, that one answers what the reading makes of the bytes AFTER it.
     expect(codes(GAINED)).toEqual([
       WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT,
+      WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS,
       WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
       WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
     ]);
@@ -135,8 +142,11 @@ describe("the measured fixture: a boundary the leftmost alignment gained", () =>
       expect.unreachable("the new code must escalate");
     } catch (err) {
       const escalating = (err as AstmStrictError).warnings.map((x) => x.code);
-      // The two tolerated ones are re-badged and do not escalate; only the new one does.
-      expect(escalating).toEqual([WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT]);
+      // The two tolerated ones are re-badged and do not escalate; the two untolerable ones do.
+      expect(escalating).toEqual([
+        WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT,
+        WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS,
+      ]);
     }
   });
 
@@ -204,6 +214,11 @@ describe("the sweep over the committed alignment alphabet", () => {
   });
 
   it("moves exactly the tuples a gate-legal profile used to accept, and no others", () => {
+    // ── READ THIS BEFORE TOUCHING A NUMBER HERE. These figures measure what THIS code moved, and
+    // a LATER code (ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS) refuses some of the same tuples on a
+    // different test. A figure quoted against a moving base goes stale without anyone being wrong,
+    // so the later code is held out of the tier explicitly rather than the numbers being re-cut
+    // each time one lands. Held out, every figure below is the one this slice measured.
     let acceptedNow = 0;
     let newlyRefused = 0;
     for (const body of ALIGNMENT_ALPHABET) {
@@ -211,15 +226,19 @@ describe("the sweep over the committed alignment alphabet", () => {
         const raw = neutralStream(body, next);
         const seen = codes(raw);
         const fired = seen.includes(WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT);
+        const heldOut = seen.filter(
+          (c) => c !== WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS,
+        );
         // What the parse would have been before this code existed: the slice is purely additive, so
         // dropping the new code from the list reconstructs the previous warning set exactly.
-        const acceptedBefore = seen
+        const acceptedBefore = heldOut
           .filter((c) => c !== WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT)
           .every((c) => TOLERABLE_CODES.has(c));
-        if (acceptedUnderMaximalTolerance(raw)) acceptedNow += 1;
+        const acceptedOnThisCode = heldOut.every((c) => TOLERABLE_CODES.has(c));
+        if (acceptedOnThisCode) acceptedNow += 1;
         if (acceptedBefore && fired) newlyRefused += 1;
         // Acceptance moved on exactly the tuples this code fired on AND nothing else already refused.
-        expect(acceptedUnderMaximalTolerance(raw)).toBe(acceptedBefore && !fired);
+        expect(acceptedOnThisCode).toBe(acceptedBefore && !fired);
       }
     }
     const total = ALIGNMENT_ALPHABET.length * ALIGNMENT_ALPHABET.length;
@@ -231,6 +250,40 @@ describe("the sweep over the committed alignment alphabet", () => {
     expect(newlyRefused).toBe(15);
     expect(acceptedNow).toBe(93);
     expect(acceptedNow + newlyRefused).toBe(108);
+  });
+
+  it("shares this corpus with the later shift report, whose own delta is measured separately", () => {
+    // The later code's effect on the SAME corpus, so the two are never read as one number. It is
+    // wired to the field split only, so it can fire on exactly one column of this square: the one
+    // where the character the competing alignment would have held is the field separator. Every
+    // count is derived from the committed alphabet inside the assertion.
+    const fires: string[] = [];
+    let newlyRefusedByShift = 0;
+    for (const body of ALIGNMENT_ALPHABET) {
+      for (const next of ALIGNMENT_ALPHABET) {
+        const raw = neutralStream(body, next);
+        const seen = codes(raw);
+        if (seen.includes(WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS))
+          fires.push(body + next);
+        const acceptedHoldingItOut = seen
+          .filter((c) => c !== WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS)
+          .every((c) => TOLERABLE_CODES.has(c));
+        if (
+          acceptedHoldingItOut &&
+          seen.includes(WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS)
+        ) {
+          newlyRefusedByShift += 1;
+        }
+      }
+    }
+    // One column, every body: the tail in this carrier is always a bare escape character.
+    expect(fires).toHaveLength(ALIGNMENT_ALPHABET.length);
+    for (const t of fires) expect(t.endsWith(FIELD_SEPARATOR)).toBe(true);
+    // Of that column, the tuples a gate-legal profile still accepted are exactly the four
+    // recognized mnemonic bodies: on every unrecognized body THIS file's code already fired, and it
+    // is untolerable, so those tuples were refused before the shift report existed. The four the
+    // shift report moves are precisely the ones this code's recognized-body exclusion left silent.
+    expect(newlyRefusedByShift).toBe(MNEMONICS.length);
   });
 
   it("reads every tuple into the same bytes, so only the reporting changed", () => {
@@ -248,22 +301,30 @@ describe("the sweep over the committed alignment alphabet", () => {
 });
 
 describe("what it deliberately does not report", () => {
-  it("leaves a recognized mnemonic alone, and the exclusion is wider than that argument", () => {
-    // Silent because the reading taken interprets a construct (`&F&` is the sender escaping a field
-    // separator) while the competitor's body is a delimiter character this codec cannot interpret,
-    // so its own vocabulary prefers the reading taken. Reporting it would report the mechanism
-    // working. It does NOT follow that the reading taken is conformant: it carries a bare escape
-    // character, which this package reports as a deviation of its own, and the value it hands back
-    // holds a raw field separator. That residue is recorded rather than closed by widening this
-    // test, and it is pinned here so a widening cannot land silently.
+  it("leaves a recognized mnemonic alone, and a SECOND code now covers what that left open", () => {
+    // THIS code is still silent here, and deliberately so: the reading taken interprets a construct
+    // (`&F&` is the sender escaping a field separator) while the competitor's body is a delimiter
+    // character this codec cannot interpret, so its own vocabulary prefers the reading taken, and
+    // reporting it would report the mechanism working. That exclusion is unchanged by the later
+    // slice and is pinned here so a widening of THIS test cannot land silently.
     const raw = "H|\\^&\rP|1||LAB-0001\rR|1|^^^687|28.6&F&|&U/L||||F\rL|1|N\r";
-    expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
+    expect(codes(raw)).not.toContain(WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT);
+    // What it never followed from that argument is that the reading taken is CONFORMANT. It is not:
+    // it carries a bare escape character, the value holds a raw field separator, and the gained
+    // FIELD boundary shifts every later field, so the sender's trailing `F` is read out of the
+    // result-status slot. That is answered by a different question about the same position, and
+    // therefore by a different code, not by widening the test above.
+    expect(codes(raw)).toEqual([
+      WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS,
+      WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+    ]);
     const [only] = results(parseAstmRecords(raw));
     expect(only?.value).toBe("28.6|");
     expect(only?.units).toBe("&U/L");
-    // The whole reason it is a residue and not a curiosity: only tolerable codes fire, so the
-    // widest gate-legal profile still accepts it.
-    expect(acceptedUnderMaximalTolerance(raw)).toBe(true);
+    // The reading is UNCHANGED by that second code: it reports, it does not repair.
+    expect(only?.status.meaning).toBe("final");
+    // And the reason it stopped being a residue: a gate-legal profile no longer accepts it.
+    expect(acceptedUnderMaximalTolerance(raw)).toBe(false);
   });
 
   it("stays silent where BOTH alignments interpret a construct, which nothing privileges", () => {

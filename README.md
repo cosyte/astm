@@ -213,11 +213,30 @@ delimiter character the codec usually cannot interpret, so its own vocabulary pr
 taken. That is **not** the same as the reading taken being conformant, and the exclusion is wider
 than that argument: `28.6&F&|&U/L` reads a value of `28.6|` and units of `&U/L` while raising only
 the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, and a declared set naming a mnemonic letter as a
-splitting delimiter makes both alignments interpret one construct each with neither preferred. Those
-two are measured and recorded as open residues, not covered here. The other exclusion is a delimiter
-with no escape character two positions past it, which is no competing alignment at all. What does
-fire is a subset of what already raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. It does not survive a
-re-emit either, for the same reason as its mirror: catch it on the first read.
+splitting delimiter makes both alignments interpret one construct each with neither preferred. The
+first of those is covered by a second code, below; the second is measured and recorded as an open
+residue. The other exclusion is a delimiter with no escape character two positions past it, which is
+no competing alignment at all. What does fire is a subset of what already raises
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE`. It does not survive a re-emit either, for the same reason as its
+mirror: catch it on the first read.
+
+**And where that gained boundary is a FIELD boundary, it moves a result's status, which is a
+different question and so a different code.** The two alignments resume one character apart, so they
+disagree about every byte after the boundary, not only about it. Where the escape character the
+reading taken resumes on heads no sequence at all, that reading bought the boundary with a byte it
+cannot read while the competing alignment is the one that can use it. On the field separator that
+matters clinically: `R|1|^^^687|28.6&F&|&U/L||||F` reads **nine** fields under the alignment taken
+and **eight** under the other, so the sender's trailing `F` lands in field 9, the result status,
+under the first and in no field at all under the second. The parse hands back units of `&U/L` and a
+status of **`final`**, and both are consequences of the alignment rather than values the sender put
+in those slots. That raises `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, which **no profile may
+tolerate**; before it existed the only warning on that stream was the tolerable
+`ASTM_UNPAIRED_ESCAPE_CHARACTER`, so a strict parse under a legal profile accepted it. The reading is
+unchanged: it reports the shift rather than repairing it. It is wired to the **field** separator
+only, because a gained repeat or component boundary divides one field and cannot move a modeled slot,
+and it is silent where that trailing escape character heads a sequence of its own, recognized or not.
+That last case still shifts the fields, and is the recorded residue. It does not survive a re-emit
+either: catch it on the first read.
 
 ### A header that names one character in two delimiter roles
 
@@ -313,7 +332,10 @@ outside it:
   alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The split itself is unchanged. Its mirror,
   where the leftmost alignment lets a delimiter split that a competing alignment would have held,
   gains a boundary instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also
-  not tolerable.
+  not tolerable. Where that gained boundary is a **field** boundary and the reading taken resumes on
+  an escape character heading no sequence, every later field shifts one place and a result's units
+  and status are read out of slots the other alignment does not put them in: that raises
+  `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable either.
 
 All are accepted limits, for two different reasons: widening the field-separator check would mean
 deciding which set a record ought to have had, which is the same guess the parser declines to make

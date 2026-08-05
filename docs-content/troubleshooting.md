@@ -112,16 +112,46 @@ whatever profile is in force. Two cases are outside it, deliberately. A **recogn
 before the delimiter is silent, because the reading taken interprets a construct (`&F&` is an escaped
 separator, which is what the mechanism is for) while the competitor's body is a delimiter character
 the parser usually cannot interpret, so it prefers the reading taken. **That is not a promise that
-the reading taken is conformant**, and two cases fall in the gap, both measured and both still open:
-`28.6&F&|&U/L` reads a value of `28.6|` and units of `&U/L` while raising only the tolerable
-`ASTM_UNPAIRED_ESCAPE_CHARACTER`, and a declared set naming a mnemonic letter as a splitting
-delimiter leaves both alignments interpreting one construct each with neither preferred. Treat a
-bare escape character next to a delimiter as worth reading the raw line for, whether or not this code
-fired. The other excluded case is a delimiter with no escape character two positions past it, which
-is no competing alignment at all. What does fire is a subset of what already raises
-`ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its mirror above it does not survive a re-emit: catch it on the
-first read of the wire bytes. **What to do:** ask the sender to escape a literal escape character as
-`&E&`, which removes the competing alignment at the source.
+the reading taken is conformant**, and the worse half of that gap is now covered by a second code,
+described in the next section. The other excluded case is a delimiter with no escape character two
+positions past it, which is no competing alignment at all. What does fire is a subset of what already
+raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its mirror above it does not survive a re-emit: catch it
+on the first read of the wire bytes. **What to do:** ask the sender to escape a literal escape
+character as `&E&`, which removes the competing alignment at the source.
+
+## A competing alignment shifted every field after it, and a result status with them
+
+`ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` answers a different question about the same position as the
+code above: not whether the parser's own vocabulary prefers the alignment taken, but what that
+alignment makes of the bytes **after** the boundary. The two readings resume one character apart, so
+they disagree about the whole rest of the record. Where the escape character the reading taken
+resumes on heads no sequence at all, that reading bought a field boundary with a byte it cannot read,
+while the competing alignment is exactly the reading that can use it, as the close of its own
+sequence.
+
+**On the field separator that matters clinically, because a gained field boundary shifts every later
+field one place.** `R|1|^^^687|28.6&F&|&U/L||||F` reads **nine** fields under the alignment taken and
+**eight** under the other, so the sender's trailing `F` is read out of field 9, the result status,
+under the first and out of no field at all under the second. The parse hands back units of `&U/L` and
+a status of `final`, and both are consequences of the alignment rather than values the sender placed
+in those slots. **Do not act on a `final` from a record carrying this code.** Before this code
+existed the only warning on that stream was the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so a
+strict parse under the widest legal profile accepted it.
+
+The reading is unchanged: this reports the shift, it does not repair it, because taking the other
+alignment would be a different guess with no more evidence behind it. It is not tolerable, so a
+strict parse refuses the record whatever profile is in force, and it fires alongside the code above
+rather than instead of it.
+
+Two bounds, both deliberate. It is wired to the **field** separator only: a gained repeat or
+component boundary divides one field and cannot move a modeled slot (it costs the value instead,
+which this code does not report). And where the escape character past the boundary heads a
+sequence, recognized or not, it stays silent, because the reading taken is then the one making sense
+of those bytes: under a set naming the field separator `F`, `28.6&F&F&F&U/L` is that separator
+escaped, written, and escaped again, which is entirely well formed. The case where that trailing
+sequence has an unrecognized body still shifts the fields and is still silent here. Like the codes
+above it does not survive a re-emit: catch it on the first read of the wire bytes. **What to do:**
+read the raw line, and ask the sender to escape a literal escape character as `&E&`.
 
 ## A header declared one character in two delimiter roles
 

@@ -1,17 +1,15 @@
 # @cosyte/astm: Project Guide for Claude
 
 > **The narrative lives in [`documentation/agent-notes.md`](documentation/agent-notes.md).** This
-> file is the cursor, the rules, and the traps, one line each. Every trap below ends in a pointer to
-> the section that records how it was measured, kept **verbatim**: read that section before you touch
-> the code it guards. **A bare `#anchor` anywhere below is an anchor in that file.** These are clinical-safety lessons, and several of them record a claim that was
-> measured **false** after it shipped. Nothing has ever been deleted from it: the 2026-08-04 split
-> and every relocation since moved narrative to the notes and left the traps here.
+> file is the cursor, the rules, and the traps, one line each; **a bare `#anchor` below is an anchor
+> in that file**, and every trap points at the section recording how it was measured, kept
+> **verbatim**. Read that section before you touch the code it guards: these are clinical-safety
+> lessons, and several record a claim that measured **false** after it shipped.
 > The meta-repo bounds this file at write time through **its entry in `REPO_CLAUDE`**
-> (`.claude/hooks/doc-budget.mjs`, argued in ADR 0023), a per-repo ratchet whose entries are
-> **lowered as relocations land**. **No number for it is written here on purpose**: read the entry,
-> and treat headroom in it as slack to give back rather than a budget to spend, because the real cost
-> is tokens per worker, not bytes on disk. The remedy for a breach is to move more narrative into the
-> notes file, **never** to drop a trap.
+> (`.claude/hooks/doc-budget.mjs`, argued in ADR 0023), a per-repo ratchet **lowered as relocations
+> land**. **No number for it is written here on purpose**: read the entry, and treat headroom as
+> slack to give back rather than a budget to spend. The remedy for a breach is to move more narrative
+> into the notes, **never** to drop a trap. Why, and what was relocated: `#claude-md-size`.
 
 ## Project
 
@@ -285,10 +283,16 @@ every measurement and every refuted formulation:
     **The fatal CODE is unchanged and no stream's disposition moved**: a second fatal code was
     considered and **REJECTED**, as a breaking change bought for a sentence. **Do not delete the
     unreachable branch.** `#defect-16`
-17. **OPEN. The obvious criterion was MEASURED AND REJECTED 2026-08-05.**
-    (a) is WORSE than recorded: `28.6&F&|&U/L` gains a FIELD boundary, later fields shift, and the
-    sender's `F` lands in the status slot: units `&U/L` and status **`final`**, both FABRICATED, on
-    a tolerable code.
+17. **🩺 (a) CLOSED 2026-08-05 as a REPORT; (b) OPEN; the pair-count criterion stays REJECTED.**
+    (a) `28.6&F&|&U/L` gains a FIELD boundary, every later field shifts, and the sender's `F` lands
+    in the status slot: units `&U/L` and status **`final`**, both FABRICATED, on a tolerable code.
+    Now `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable, **FIELD role only** and only where the
+    escape character the reading resumes on heads **NO sequence**. **A SECOND code, NOT a widening:
+    15's exclusion is untouched.** **A REPORT: the status still reads `final`; withholding the
+    shifted slots was weighed and DEFERRED.** 864 tuples: fires 96, moves 32, **0 back, 0
+    escape-clean** (the rejected criterion refused 48). **RESIDUE: an UNRECOGNIZED-sequence tail
+    shifts the same and is SILENT** (firing there reports a boundary the bytes prefer). **The tail is
+    weighed ONE CONSTRUCT deep, not to end of record.** **No re-emit reaches either code.**
     (b) `H|F^&` with `28.6&S&F&U/L` gains a REPEAT boundary, TRUNCATING the value to `28.6^`,
     dropping `&U/L`. **NOT the units or status**: a REPEAT boundary shifts no field, so both
     read them empty. That measured FALSE.
@@ -310,22 +314,14 @@ This repo inherits the canonical toolchain by depending on the published `@cosyt
 not by copying files. The source of truth is the meta-repo's `documentation/conventions.md`: this is
 a summary.
 
-- **Language:** TypeScript (strict, full rigor set incl. `noUncheckedIndexedAccess`) via
-  `@cosyte/tsconfig`. **Target ES2023**, `NodeNext`. TypeScript 5.9.x, exact-pinned.
-- **Build:** dual ESM + CJS + `.d.ts` via `tsup` (`@cosyte/tsup-config`); `attw` is a publish gate
-  (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`). The `attw` script is
-  **`scripts/attw.mjs`, not the bare CLI**: see the guardrail below, because the CLI reports a
-  missing `dist/` as "does not contain types" and **exits 0**.
-- **Node:** **>= 22** (CI matrix 22 + 24).
-- **Package manager:** `pnpm@10`.
-- **Lint/format:** **ESLint 10** + unified `typescript-eslint` (type-checked) via
-  `@cosyte/eslint-config`; Prettier via `@cosyte/prettier-config`. Lint at `--max-warnings=0`.
-- **Testing:** **Vitest 4** + v8 coverage (`@cosyte/vitest-config`), per-directory >= 90 gates; the
-  property-based conformance invariants come from `@cosyte/test-utils` (round-trip, lenient-mode,
-  immutability, warning-code stability), the format-specific arbitraries stay in this repo.
-- **CI/CD:** thin callers of the reusable `cosyte/.github` workflows.
-- **Runtime deps:** **Zero.** Node stdlib only.
-- **License:** MIT.
+**Node >= 22** (CI matrix 22 + 24), `pnpm@10`, TypeScript 5.9.x exact-pinned (strict, full rigor set)
+targeting **ES2023** / `NodeNext`, **ESLint 10** at `--max-warnings=0`, **Vitest 4** with
+per-directory >= 90 coverage gates, dual ESM + CJS + `.d.ts` via `tsup`, CI as thin callers of
+`cosyte/.github`, **zero runtime deps**, MIT. Per-item detail, including which config package supplies
+each: `#tech-stack`.
+
+- **The one trap: the `attw` script is `scripts/attw.mjs`, NOT the bare CLI**, which reports a missing
+  `dist/` as "does not contain types" and **exits 0**. Guardrail below.
 
 ## Engineering Guardrails
 

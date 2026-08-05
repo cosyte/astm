@@ -149,6 +149,53 @@ export const WARNING_CODES = {
    * bytes. The first read of the wire bytes is the only place the ambiguity exists to be caught.
    */
   ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT: "ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT",
+  /**
+   * Two escape alignments of the same bytes disagreed about a **field** boundary, the reading taken
+   * kept it, and the escape character that reading resumes on **heads no sequence at all**, so the
+   * boundary was bought with a byte this reading cannot read while the competing alignment is
+   * exactly the reading that can. Every field after that point sits one place further right than the
+   * competing alignment puts it.
+   *
+   * **The shift is the harm, and on a result record it reaches the status slot.** Measured on the
+   * canonical set, `R|1|^^^687|28.6&F&|&U/L||||F` reads **9** fields under the reading taken and
+   * **8** under the competing one, so the sender's trailing `F` lands in field 9 (the result status)
+   * under the first and in no field at all under the second. The parse hands back units `&U/L` and a
+   * status of **`final`**, and both are consequences of the alignment rather than values the sender
+   * placed in those slots. A downstream system reading `final` would act on a result the bytes do
+   * not say was finalised. Before this code the only warning on that stream was the **tolerable**
+   * {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}, so the widest gate-legal profile plus
+   * `{ strict: true }` accepted it.
+   *
+   * **It is a report, not a repair.** The split is unchanged, every decoded byte is identical, and
+   * the units and status read are the ones that were always read. Picking the other alignment would
+   * be a different guess with no more evidence behind it, and it would change values on a published
+   * package. What is new is that the shift is reported by a code no profile may tolerate.
+   *
+   * **It fires alongside {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT}, not instead
+   * of it, and neither test is a widening of the other.** That code asks whether this codec's
+   * vocabulary prefers the reading taken *at* the contested position, and is silent where the
+   * earlier body is a recognized mnemonic. This one asks what the reading taken makes of the bytes
+   * *after* the boundary, and does not consult the earlier body at all.
+   *
+   * **Two deliberate bounds, both stated rather than left to be found.**
+   * - **Only the field role.** A gained repeat or component boundary divides one field and reaches
+   *   nothing outside it, so it cannot move a modeled slot. It costs the **value** instead, which
+   *   this code does not report and does not claim to.
+   * - **The tail is weighed one construct deep.** Where the escape character the reading taken
+   *   resumes on heads a sequence this codec *recognizes*, the reading taken interprets it and the
+   *   competing alignment would leave it bare, so the bytes prefer the reading taken: under a set
+   *   naming the field separator `F`, `28.6&F&F&F&U/L` is that separator escaped, written, and
+   *   escaped again, and refusing it would be an over-refusal of a well-formed stream. Where it
+   *   heads a sequence whose body is *unrecognized*, the reading taken still consumes it while the
+   *   competing alignment would leave **two** escape characters bare, so the preference is stronger
+   *   again, and this stays silent there even though the field shift is real. That last case is the
+   *   named residue: measured, not overlooked.
+   *
+   * **Catch it on the first read.** Emit rewrites the preserved sequences into recognized mnemonics,
+   * and those bytes carry the reading that was taken unambiguously, so a second-generation read is
+   * silent and is correct about its own bytes. A clean re-read is not evidence.
+   */
+  ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS: "ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS",
   /** An escape sequence body was not one of `&F&`/`&S&`/`&R&`/`&E&`: preserved verbatim. */
   ASTM_UNKNOWN_ESCAPE_SEQUENCE: "ASTM_UNKNOWN_ESCAPE_SEQUENCE",
   /**
@@ -454,6 +501,39 @@ export function ambiguousEscapeAlignment(position: AstmPosition): AstmRecordWarn
       "An unrecognized escape sequence ended where another one could have begun, so a delimiter " +
       "that ended a field, repeat or component here sits inside a sequence under the other " +
       "alignment. The leftmost alignment was kept, every byte is preserved, and nothing is re-split.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` warning. Emitted when a competing escape
+ * alignment decided a **field** boundary and the escape character the reading taken resumes on
+ * heads no sequence of its own, so every field after that point sits one place further right than
+ * the competing alignment puts it. On a result record that reaches the units and the **result
+ * status**: a trailing status letter lands in field 9 under the reading taken and in no field at
+ * all under the competing one.
+ *
+ * A profile may **not** tolerate this code. It fires alongside
+ * {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}, which remains tolerable and reports the
+ * strictly weaker fact that one escape character was read as a literal, and alongside
+ * {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} where that also applies. The reading
+ * is unchanged: this reports the shift, it does not repair it.
+ *
+ * @example
+ * ```ts
+ * import { alignmentShiftedFields } from "@cosyte/astm";
+ * alignmentShiftedFields({ recordIndex: 2, recordType: "R", fieldIndex: 4 });
+ * ```
+ */
+export function alignmentShiftedFields(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS,
+    message:
+      "A field boundary here is one of two escape alignments the bytes carry, and the reading that " +
+      "took it resumes on an escape character heading no sequence, which the other alignment uses " +
+      "to close one. Every later field is one place further right than the other reading puts it, " +
+      "so a result's units and status may be read out of slots the sender did not put them in. The " +
+      "reading was kept and every byte is preserved.",
     position,
   };
 }

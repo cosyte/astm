@@ -96,8 +96,14 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Its mirror is outside the guarantee too: sequences are matched
   leftmost, so one can end where another could have begun and the delimiter between them splits
   where the competing alignment would have held it, gaining a boundary rather than losing one and
-  reported as `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` (also not tolerable). **Neither report
-  survives emitting**: this package rewrites the preserved characters into recognized mnemonics, so
+  reported as `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` (also not tolerable). Where that gained
+  boundary is a **field** boundary and the reading taken resumes on an escape character heading no
+  sequence, every later field shifts one place and a result's units and **status** are read out of
+  slots the competing alignment does not put them in, up to a status of `final` the sender never
+  wrote there; that is `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` (not tolerable either). It stays
+  silent where that trailing escape character heads a sequence whose body is unrecognized, which
+  shifts the fields just the same: a measured, deliberate bound, not an oversight. **None of these
+  reports survives emitting**: this package rewrites the preserved characters into recognized mnemonics, so
   a re-emitted stream carries the reading that was taken with nothing ambiguous left in it. The
   low-level `encodeComponent` and `serializeField` helpers take no record and so carry neither
   guarantee. If you emit against a set of your own choosing rather than the canonical one, verify the

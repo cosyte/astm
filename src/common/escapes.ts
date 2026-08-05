@@ -65,6 +65,21 @@
  * reported, and the reason is narrower than it looks, so read
  * {@link AmbiguousAlignmentSink} before widening it.
  *
+ * **A second question is asked at the same position, and it is a different one,
+ * which is why it is a second code and not a widening of the first.** That report
+ * asks whether this codec's vocabulary prefers the reading taken *at* the contested
+ * position. It says nothing about what the reading taken makes of the bytes *after*
+ * the boundary, and that is where the two alignments really diverge: they resume
+ * one character apart, so they disagree about the whole tail. Where the escape
+ * character the reading taken resumes on heads no sequence at all, the boundary was
+ * bought with a byte this reading cannot read, while the competing alignment is
+ * precisely the reading that can. On the **field** separator that gained boundary
+ * shifts every later field one place, so a result record's units and **result
+ * status** are read out of slots the competing alignment does not put them in, and
+ * a status of `final` can be a consequence of the alignment rather than something
+ * the sender wrote there. That is `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`; see
+ * {@link ShiftedFieldsSink}, including the tail it deliberately stays silent on.
+ *
  * Re-escaping (the inverse, for spec-clean emit) lives in the serializer and is
  * deliberately not implemented here.
  */
@@ -151,6 +166,64 @@ export type SwallowedDelimiterSink = () => void;
  *   already knows the field index and ignores this.
  */
 export type AmbiguousAlignmentSink = (segmentIndex: number) => void;
+
+/**
+ * A callback the split calls when a competing escape alignment decided a boundary
+ * **and the reading taken cannot read the byte immediately past it**: the escape
+ * character the leftmost reading resumes on heads no escape sequence at all, so it
+ * is kept as a bare literal (reported separately as
+ * `ASTM_UNPAIRED_ESCAPE_CHARACTER`), while the competing alignment is exactly the
+ * reading that gives that character a job, as the close of its own triple.
+ *
+ * Wired **only to the split taken on the field separator**, because that is the
+ * whole of its claim: a gained *field* boundary shifts every later field one place,
+ * so a record's modeled slots after it are decided by the alignment rather than by
+ * the sender's own positions. On a result record that is the units slot and the
+ * **result status** slot: the sender's trailing letter lands in field 9 under the
+ * reading taken and in no field at all under the competing one, so a status of
+ * `final` can be a consequence of the alignment rather than something the sender
+ * put there. A gained *repeat* or *component* boundary divides one field and
+ * reaches nothing outside it, so it cannot move a modeled slot and is deliberately
+ * outside this. The callback lets the parser surface a value-free
+ * `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` warning. Optional so the split can be used
+ * purely.
+ *
+ * **It is a report, not a repair.** The split is unchanged, every decoded byte is
+ * identical, and the status read is the status that was always read. What is new is
+ * that the shift is reported by a code no profile may tolerate, where before it was
+ * covered only by tolerable ones.
+ *
+ * **This is independent of {@link AmbiguousAlignmentSink}, and fires alongside it
+ * rather than instead of it.** That one asks whether the codec's vocabulary prefers
+ * the reading taken *at* the contested position and is silent where the earlier
+ * body is a recognized mnemonic; this one asks what the reading taken makes of the
+ * bytes *after* the boundary and does not consult the earlier body at all. The two
+ * questions are different, so neither test is widened to answer the other.
+ *
+ * **The tail is weighed one construct deep, and that bound is stated rather than
+ * left to be found.** Two tails are excluded, with the same reason: the bytes past
+ * the boundary prefer the reading taken.
+ *
+ * - **The escape character heads a sequence this codec recognizes.** Then the
+ *   reading taken interprets it and leaves nothing bare, while the competing
+ *   alignment would leave it bare. Under a set naming the field separator `F`,
+ *   `28.6&F&F&F&U/L` is the sender escaping that separator, writing it, and
+ *   escaping it again: entirely well formed, and refusing it is the over-refusal
+ *   that sank the preceding candidate criterion for this family.
+ * - **The escape character heads a sequence whose body this codec does not
+ *   recognize.** Then the reading taken still consumes it as a sequence and carries
+ *   one unreadable body, while the competing alignment would leave *two* escape
+ *   characters bare. The preference is stronger there, not weaker.
+ *
+ * What that bound leaves open is the second of those tails, where the field shift
+ * is real and this stays silent. It is measured and named rather than closed by
+ * widening the test, because widening it would report a boundary the bytes prefer.
+ *
+ * @param segmentIndex - The 0-based index of the field being accumulated when the
+ *   shifting boundary was taken. Every field after it is one place further right
+ *   than the competing alignment puts it.
+ */
+export type ShiftedFieldsSink = (segmentIndex: number) => void;
 
 /**
  * Whether an escape sequence starts at `i`: the escape character, exactly one body
@@ -317,6 +390,11 @@ function escapeBody(body: string, d: Delimiters): string | undefined {
  * @param onAmbiguousAlignment - Called once per unrecognized escape sequence whose
  *   closing escape character could instead have opened a sequence holding this
  *   delimiter, so the boundary taken here is not the only reading of the bytes.
+ * @param onShiftedFields - Called once per contested boundary where the escape
+ *   character this reading resumes on heads no sequence of its own, so the boundary
+ *   was bought with a byte the reading cannot read. Wired only by the split taken on
+ *   the field separator: see {@link ShiftedFieldsSink} for why, and for the tail it
+ *   deliberately does not report.
  * @returns The raw segments, in order.
  * @example
  * ```ts
@@ -331,6 +409,7 @@ export function splitEscapeAware(
   delimiter: string,
   escape: string,
   onAmbiguousAlignment?: AmbiguousAlignmentSink,
+  onShiftedFields?: ShiftedFieldsSink,
 ): string[] {
   if (text.length === 0) return [""];
   const out: string[] = [];
@@ -342,12 +421,20 @@ export function splitEscapeAware(
       // The closing escape character of this triple could have been the opening one of the next.
       // Where the alternative alignment would have held THIS delimiter, the two readings differ by
       // a boundary, and the leftmost one is a choice rather than a reading of the bytes.
-      if (
-        !isMnemonicBody(text.charAt(i + 1)) &&
-        text.charAt(i + 3) === delimiter &&
-        text.charAt(i + 4) === escape
-      ) {
+      const contested = text.charAt(i + 3) === delimiter && text.charAt(i + 4) === escape;
+      if (contested && !isMnemonicBody(text.charAt(i + 1))) {
         onAmbiguousAlignment?.(out.length);
+      }
+      // The other question about the same position, and it is not the same question: what does the
+      // reading taken make of the bytes AFTER the boundary it just took? It resumes on the escape
+      // character at i+4, which is the one the competing alignment needs to close its own triple.
+      // Where that character heads no sequence, the reading taken bought a boundary and cannot read
+      // the very byte it paid with; where it heads one, the reading taken interprets it and the
+      // competing alignment is the one left holding a bare escape character. Only the first is
+      // reported, and only the caller splitting on the FIELD separator wires this, because only a
+      // gained field boundary shifts a later field into a modeled slot.
+      if (contested && !isEscapeSequenceAt(text, i + 4, escape)) {
+        onShiftedFields?.(out.length);
       }
       // Copy the whole escape sequence verbatim; do not inspect it for delimiters.
       current += text.slice(i, i + 3);
