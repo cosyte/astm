@@ -22,6 +22,7 @@ import { parseAstmDate, type AstmDate } from "../common/dates.js";
 import { recognizeUniversalTestId } from "../common/coding-system.js";
 import {
   alignmentShiftedFields,
+  alignmentTruncatedField,
   ambiguousEscapeAlignment,
   ambiguousMessageKind,
   ambiguousValueSplit,
@@ -380,6 +381,16 @@ function buildRecord(
       alignmentShiftedFields({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
     );
   };
+  // The same contested position and the same tail test again, on the REPEAT separator, where the
+  // cost is not a shift. Nothing moves between field-indexed slots: what the gained boundary takes
+  // is the reading of the field it divides, because a field is modeled out of its FIRST REPEAT
+  // alone. So a value truncates, and a Universal Test ID or a patient name comes back holding only
+  // the components that sat before the boundary. Fires alongside the others, never instead of them.
+  const onAlignmentTruncatedField = (fieldIndex: number): void => {
+    warnings.push(
+      alignmentTruncatedField({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+    );
+  };
   // The header needs its own tokenizer: all three non-field delimiters sit literally inside the
   // delimiter declaration, so the generic tokenizer would split the declaration on its own repeat
   // and component characters and report its escape character as unpaired.
@@ -393,6 +404,7 @@ function buildRecord(
           onSwallowedDelimiter,
           onAmbiguousAlignment,
           onAlignmentShiftedFields,
+          onAlignmentTruncatedField,
         )
       : tokenizeRecord(
           line,
@@ -402,6 +414,7 @@ function buildRecord(
           onSwallowedDelimiter,
           onAmbiguousAlignment,
           onAlignmentShiftedFields,
+          onAlignmentTruncatedField,
         );
 
   // A record that carries content beyond its type letter but yields exactly ONE field contains no

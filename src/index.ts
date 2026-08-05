@@ -151,6 +151,7 @@ export {
   delimiterSwallowedByEscape,
   ambiguousEscapeAlignment,
   alignmentShiftedFields,
+  alignmentTruncatedField,
   unreadableRedeclaration,
   profileQuirkApplied,
 } from "./common/warnings.js";
@@ -176,6 +177,7 @@ export type {
   SwallowedDelimiterSink,
   AmbiguousAlignmentSink,
   ShiftedFieldsSink,
+  TruncatedFieldSink,
 } from "./common/escapes.js";
 export { parseAstmDate, astmDateToLocalISO } from "./common/dates.js";
 export type { AstmDate, AstmDatePrecision } from "./common/dates.js";

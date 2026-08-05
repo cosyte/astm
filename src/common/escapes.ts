@@ -78,9 +78,19 @@
  * status** are read out of slots the competing alignment does not put them in, and
  * a status of `final` can be a consequence of the alignment rather than something
  * the sender wrote there. That is `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`; see
- * {@link ShiftedFieldsSink}, including the tail and the two other delimiter roles it
- * deliberately stays silent on, and why neither silence is a claim that nothing was
- * lost there.
+ * {@link ShiftedFieldsSink}, including the tail it deliberately stays silent on, and
+ * why that silence is not a claim that nothing was lost there.
+ *
+ * **The same question asked on the repeat separator has a different answer, so it
+ * has a code of its own.** A gained repeat boundary moves no field-indexed slot, and
+ * where it is the **first** boundary in the field it still reaches a modeled slot,
+ * because a field's modeled reading is taken from its first repeat alone: everything
+ * past that boundary leaves the record, so a result value truncates and a Universal
+ * Test ID or a patient name loses the components that sat after it. That is
+ * `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`; see {@link TruncatedFieldSink}, including
+ * what it does at a later boundary, where it fires and no modeled slot moves. The
+ * **component** separator is a third question again and is deliberately not answered
+ * here, because there the components do not disappear, they shift.
  *
  * Re-escaping (the inverse, for spec-clean emit) lives in the serializer and is
  * deliberately not implemented here.
@@ -188,11 +198,14 @@ export type AmbiguousAlignmentSink = (segmentIndex: number) => void;
  * reaches nothing outside it, so it moves no **field-indexed** slot and is
  * deliberately outside this. **That bound is a choice, not a consequence, and the
  * difference matters**: components are modeled *inside* a field (a Universal Test
- * ID's coding scheme and local code, a patient name's parts), so a gained component
- * boundary does move a modeled slot. That is measured, unreported by anything, and
- * open, not something this sink covers. The callback lets the parser surface a
- * value-free `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` warning. Optional so the split
- * can be used purely.
+ * ID's coding scheme and local code, a patient name's parts), so a gained repeat or
+ * component boundary does reach a modeled slot. The **repeat** half of that is
+ * reported by {@link TruncatedFieldSink}, on the same tail test and under its own
+ * code, because what it costs is a different thing. The **component** half is
+ * measured, reported by nothing, and open: not something either sink covers. The
+ * callback lets the parser surface a value-free
+ * `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` warning. Optional so the split can be used
+ * purely.
  *
  * **It is a report, not a repair.** The split is unchanged, every decoded byte is
  * identical, and the status read is the status that was always read. What is new is
@@ -230,6 +243,69 @@ export type AmbiguousAlignmentSink = (segmentIndex: number) => void;
  *   than the competing alignment puts it.
  */
 export type ShiftedFieldsSink = (segmentIndex: number) => void;
+
+/**
+ * A callback the split calls on **exactly the condition {@link ShiftedFieldsSink}
+ * reports**, wired instead to the split taken on the **repeat** separator. The two
+ * sinks test the same predicate, because the predicate is about the bytes and the
+ * split does not know which role it is being taken on; they are separate so the
+ * caller that does know can name what the gained boundary costs, which is not the
+ * same thing in the two roles. Do not "simplify" them into one: the codes would then
+ * have to make one claim covering both, and the claim is different.
+ *
+ * **What a gained repeat boundary costs, and it is not a shift.** No field-indexed
+ * slot moves: the units slot and the result-status slot are read out of the same
+ * field numbers under either alignment. What the report says is that **the field is
+ * read as more repeats than the competing alignment gives it**, and that is true
+ * wherever it fires. What that costs depends on **which** boundary was gained, and
+ * the two cases are stated separately rather than folded into one claim:
+ *
+ * - **The gained boundary is the FIRST in the field, and then a modeled slot is
+ *   lost.** A field's modeled value and its components are taken from its **first
+ *   repeat alone**, so everything past the boundary is still on the wire, still in
+ *   `repeats`, and gone from every modeled slot. Under a set naming the repeat
+ *   separator `F`, the value `28.6&S&F&U/L` reads as the two repeats `28.6^` and
+ *   `&U/L`, and every value extractor answers `28.6^`, while the competing alignment
+ *   reads one repeat carrying all of it. The same boundary inside a Universal Test ID
+ *   field leaves the components of the first repeat only, so a UTID whose bytes carry
+ *   a test code can come back as a single component holding a decoded delimiter, with
+ *   the coding scheme and local code read from nothing at all. A patient name loses
+ *   its given and middle names the same way.
+ * - **The gained boundary is a LATER one, and then no modeled slot moves.** The first
+ *   repeat is identical under both alignments, so the value, the components and every
+ *   slot taken from them read the same either way; what differs is the repeat
+ *   structure after the first. **This still fires there, deliberately and measurably**
+ *   (`5.0F28.6&S&F&U/L` under that same set), because the boundary is still one the
+ *   bytes do not force and a consumer reading `repeats` is still reading an alignment
+ *   guess. Relative to the modeled slots that is **over-reporting, never
+ *   under-reporting**, which is the direction this package errs in. Narrowing the sink
+ *   to the first boundary would change which streams a published package refuses and
+ *   wants its own measurement, so the bound is written down instead of guessed at.
+ *
+ * **It is a report, not a repair.** The split is unchanged, every decoded byte is
+ * identical, `repeats` still carries every one of them, and the value read is the
+ * value that was always read. What is new is that the gained boundary is reported by
+ * a code no profile may tolerate, where before it was covered only by tolerable ones.
+ *
+ * **The tail is weighed one construct deep, exactly as in {@link ShiftedFieldsSink},
+ * and for the same reason.** Where the escape character the reading taken resumes on
+ * heads a sequence this codec recognizes, the bytes prefer the reading taken and the
+ * two repeats are the ones the sender wrote: under a set naming the repeat separator
+ * `F`, `28.6&F&F&F&U/L` is that separator escaped, written, and escaped again.
+ * Refusing that is the over-refusal that sank an earlier candidate criterion for this
+ * family. Where it heads a sequence whose body is *unrecognized*, the competing
+ * alignment would leave two escape characters bare, so the preference is stronger
+ * again. **The truncation in that second case is real and this stays silent about
+ * it**: a named residue, measured, not overlooked, and not closed by widening the
+ * test, because widening it would report a boundary the bytes prefer.
+ *
+ * @param segmentIndex - The 0-based index of the repeat being accumulated when the
+ *   gained boundary was taken, so `0` is the boundary that ends the first repeat and
+ *   is the one that reaches a modeled slot. It is **not** a field index: the caller
+ *   splitting one field into repeats already knows which field it is in, and reports
+ *   that.
+ */
+export type TruncatedFieldSink = (segmentIndex: number) => void;
 
 /**
  * Whether an escape sequence starts at `i`: the escape character, exactly one body
@@ -401,6 +477,11 @@ function escapeBody(body: string, d: Delimiters): string | undefined {
  *   was bought with a byte the reading cannot read. Wired only by the split taken on
  *   the field separator: see {@link ShiftedFieldsSink} for why, and for the tail it
  *   deliberately does not report.
+ * @param onTruncatedField - Called on that same condition, wired only by the split
+ *   taken on the repeat separator, where the cost is not a shift but a field read as
+ *   more repeats than the competing alignment gives it. Where that boundary is the
+ *   **first** in the field the field's modeled reading stops at it; at a later one
+ *   nothing modeled moves and this still fires. See {@link TruncatedFieldSink}.
  * @returns The raw segments, in order.
  * @example
  * ```ts
@@ -416,6 +497,7 @@ export function splitEscapeAware(
   escape: string,
   onAmbiguousAlignment?: AmbiguousAlignmentSink,
   onShiftedFields?: ShiftedFieldsSink,
+  onTruncatedField?: TruncatedFieldSink,
 ): string[] {
   if (text.length === 0) return [""];
   const out: string[] = [];
@@ -437,10 +519,21 @@ export function splitEscapeAware(
       // Where that character heads no sequence, the reading taken bought a boundary and cannot read
       // the very byte it paid with; where it heads one, the reading taken interprets it and the
       // competing alignment is the one left holding a bare escape character. Only the first is
-      // reported, and only the caller splitting on the FIELD separator wires this, because only a
-      // gained field boundary shifts a later field into a modeled slot.
+      // reported.
+      //
+      // ONE predicate, TWO sinks, deliberately. This split does not know which delimiter role it is
+      // being taken on, and the role decides what the gained boundary costs: on the FIELD separator
+      // every later field shifts, so a modeled slot changes hands; on the REPEAT separator nothing
+      // shifts, and where the gained boundary is the FIRST one in the field the field's own modeled
+      // reading stops at it, because a field is modeled out of its FIRST REPEAT alone. At a later
+      // boundary nothing modeled moves and it fires anyway, which is over-reporting relative to
+      // those slots and never under. The caller wires whichever sink names its role. The
+      // COMPONENT separator is wired to neither: there the components neither shift out of the
+      // record nor vanish from it, they move one slot along, which is a third question and has no
+      // code yet.
       if (contested && !isEscapeSequenceAt(text, i + 4, escape)) {
         onShiftedFields?.(out.length);
+        onTruncatedField?.(out.length);
       }
       // Copy the whole escape sequence verbatim; do not inspect it for delimiters.
       current += text.slice(i, i + 3);

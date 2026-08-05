@@ -55,6 +55,12 @@ import {
 
 const SHIFT = WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS;
 const ALIGNMENT = WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT;
+/**
+ * The code that landed after this one, asking the same tail question on the repeat split. It is
+ * held out of this file's tier on both sides, so the figures below stay the delta this code caused
+ * rather than a mixed base. Its own delta is measured in its own file.
+ */
+const LATER_TAIL_CODE = WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD;
 
 const codes = (raw: string) => parseAstmRecords(raw).warnings.map((w) => w.code);
 
@@ -253,9 +259,12 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
     // repeat boundary divides one field and reaches nothing outside it, so no FIELD-indexed slot
     // changes hands. Under `H|F^&` both alignments read 8 fields, the units slot is empty under both
     // and the status is `unspecified` under both. What that gained boundary costs is the VALUE,
-    // which this code does not report and does not claim to. It is a different defect and stays open.
+    // which this code does not report and does not claim to. That is a different defect, and it has
+    // since been closed by a different code on the same tail test: asserted here so this file's
+    // silence stays a statement about THIS code rather than a stale claim that nothing reports it.
     const repeatRole = "H|F^&\rP|1||LAB-0001\rR|1|^^^687|28.6&S&F&U/L||||F\rL|1|N\r";
     expect(codes(repeatRole)).not.toContain(SHIFT);
+    expect(codes(repeatRole)).toContain(WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD);
     const [only] = results(parseAstmRecords(repeatRole));
     expect(only?.value).toBe("28.6^");
     expect(only?.units).toBeUndefined();
@@ -399,7 +408,7 @@ interface Tuple {
   readonly reportsShift: boolean;
   /** Accepted on the tier with this code held out: the disposition before it shipped. */
   readonly acceptedBefore: boolean;
-  /** Accepted on the tier as the package now stands. Observed. */
+  /** Accepted on the tier with this code in force: the disposition after it shipped. */
   readonly acceptedNow: boolean;
   /** No code says anything is wrong with this stream's escaping. */
   readonly escapeClean: boolean;
@@ -418,10 +427,20 @@ const corpus: readonly Tuple[] = DECLARATION_ALPHABET.flatMap((declaration) =>
           tail: tail.name,
           raw,
           reportsShift: seen.includes(SHIFT),
-          // Purely additive, so dropping this code from the observed list reconstructs the previous
-          // warning set exactly. Nothing here is predicted from a model of the old package.
-          acceptedBefore: seen.filter((c) => c !== SHIFT).every((c) => TOLERABLE_CODES.has(c)),
-          acceptedNow: acceptedUnderMaximalTolerance(raw),
+          // Purely additive, so dropping a code from the observed list reconstructs the warning set
+          // as it was without it. Nothing here is predicted from a model of the old package.
+          //
+          // A LATER code on the same tail test, wired to the repeat split, is held out of BOTH
+          // sides, so this pair stays the delta THIS code caused rather than drifting into a mixed
+          // base. It fires on a disjoint column, so holding it out of both moves no figure below;
+          // what it does is keep both fields meaning what they say. The observed strict parse is
+          // still what every fixture assertion above is taken on.
+          acceptedBefore: seen
+            .filter((c) => c !== SHIFT && c !== LATER_TAIL_CODE)
+            .every((c) => TOLERABLE_CODES.has(c)),
+          acceptedNow: seen
+            .filter((c) => c !== LATER_TAIL_CODE)
+            .every((c) => TOLERABLE_CODES.has(c)),
           escapeClean: !seen.some((c) => (ESCAPE_DEVIATION_CODES as readonly string[]).includes(c)),
         };
       }),

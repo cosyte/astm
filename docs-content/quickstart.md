@@ -140,7 +140,10 @@ for (const w of warnings) {
 > character heading no sequence, every later field shifts one place, so a result's units and status
 > are read out of slots the other alignment does not put them in and a status can read `final` where
 > the sender wrote nothing in that slot: `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable
-> either. All are
+> either. Where it is a **repeat** boundary nothing shifts, and the field can still be read short,
+> because its modeled value and components come from its first repeat alone: a gained **first**
+> boundary truncates a value and costs a Universal Test ID or a patient name the components that sat
+> after it. That is `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either. All are
 > accepted limits: widening the field-separator check would mean deciding which set a record ought
 > to have had, which is a guess this parser does not make, and narrowing the escape atom would break
 > the guarantee it exists for, so the boundary is documented instead. If delimiter drift is a real
@@ -338,7 +341,10 @@ may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, and its mi
 leftmost alignment let split where a competing alignment would have held it) as
 `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, with `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` on the subset
 of that where the gained boundary is a **field** boundary and the reading taken resumes on an escape
-character heading no sequence, so a result's units and status move with it. Emitting normalizes all
+character heading no sequence, so a result's units and status move with it, and
+`ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` on the subset where it is a **repeat** boundary, where no
+field moves and the field it divides is instead read out of its first repeat alone. Emitting
+normalizes all
 of them away rather than preserving them, so none reaches a second generation: catch them on the
 first read. The low-level
 `encodeComponent` and `serializeField` helpers take no record and carry neither guarantee. If you
