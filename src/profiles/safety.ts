@@ -134,6 +134,29 @@
  * the entry above already turns on: each of them re-badges the code it names and no
  * other, and what this condition now raises is a code no profile may name.
  *
+ * **`ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` completes the set, on the same
+ * contested position and the same tail test, wired to the third and last splitting
+ * role.** It reports a contested alignment deciding a **component** boundary. Nothing
+ * shifts between fields and nothing leaves the record, which is why neither of the two
+ * above could cover it: components are modeled **inside** a field, so every component
+ * after the gained boundary is one place further right than the competing alignment
+ * puts it. That indexes into named slots. A Universal Test ID's four components are the
+ * LOINC-candidate slot, the test name, the **coding scheme** and the **local code**, so
+ * `&F&^&GLU^L^687` reads `687` as the vendor's local code under the reading taken and
+ * as the **coding scheme** under the competing one; a patient name's three are last,
+ * first and middle, so `DOE&F&^&JANE^A` reads `A` as the middle name under the reading
+ * taken and as the **given** name under the other. Until it existed the only warning on
+ * those streams was `ASTM_UNPAIRED_ESCAPE_CHARACTER`, on the list below, so the widest
+ * gate-legal profile plus `{ strict: true }` accepted a test identity and a patient name
+ * whose parts were decided by the alignment. **Unlike the repeat role, every gained
+ * boundary in a repeat moves those slots and not only the first**, because the shift
+ * propagates to the end of the component list; **inside a later repeat nothing modeled
+ * moves and it fires anyway**, which is over-reporting relative to those slots and never
+ * under-reporting, measured on a sweep of that axis rather than on the shared corpus,
+ * which holds it fixed. It is safety-critical by construction and must never be
+ * admitted. Re-reading the survivors against it moved no admission, for the reason the
+ * two entries above already turn on.
+ *
  * **So the ones that remain are recorded with the reading each one survives**, not
  * merely with the value it preserves. Each was re-derived against **every** reader of
  * record structure named above (this sentence deliberately names no count: it has
@@ -235,10 +258,12 @@
  *   alignment code together, and `28.6&Z&|&U&L` raises the alignment code with no
  *   unpaired character anywhere in it.
  *
- *   **The two TAIL readers are a different matter, and "no reader sees it" is
- *   therefore FALSE of this entry and must not be restored.** Both
- *   `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` and
- *   `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` fire on `!isEscapeSequenceAt(text, i + 4,
+ *   **The TAIL readers are a different matter, and "no reader sees it" is
+ *   therefore FALSE of this entry and must not be restored.** There are three of them
+ *   now, one per splitting role: `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`,
+ *   `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` and
+ *   `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` all fire on
+ *   `!isEscapeSequenceAt(text, i + 4,
  *   escape)`, which is exactly the question this code answers, asked about the
  *   character just past a contested boundary. That is a reader of the reported
  *   condition, so this entry survives on the same narrower claim the unknown-sequence
@@ -260,6 +285,7 @@
  * declaration naming one character in two roles, a delimiter an unrecognized escape
  * sequence kept out of the split, a boundary a competing escape alignment disagrees
  * about, a field whose modeled reading stops at a boundary only one alignment has,
+ * a component list only one alignment aligns that way,
  * a bad frame checksum / sequence gap / unterminated
  * / oversize frame, an ambiguous transport, an unexpected protocol event, or a
  * rejected frame: is forbidden.
@@ -321,6 +347,15 @@ import type { AnyAstmWarningCode } from "./types.js";
  * read from bytes that are no longer in any modeled slot. Reporting a value that is
  * not the whole of what the sender wrote fails the first half of the two-clause test
  * outright.
+ *
+ * `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` is not on this list and must not be added
+ * to it either. It reports the same contested alignment deciding a **component**
+ * boundary, where nothing leaves the record and no field number changes, and every
+ * component after it moves one slot along instead: a Universal Test ID's coding scheme
+ * and local code, and a patient's given and middle names, are read out of positions the
+ * competing alignment does not put them in. Reporting a code system, a vendor's local
+ * code or a given name that the bytes do not unambiguously carry fails the first half of
+ * the two-clause test outright.
  *
  * @example
  * ```ts

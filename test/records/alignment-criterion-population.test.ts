@@ -243,21 +243,24 @@ const sets = DECLARATION_ALPHABET.length * SPLITTING_ROLES.length;
 /** The one tail whose bytes carry no escape deviation of their own. */
 const cleanTails = 1;
 /**
- * **The base under this corpus has moved twice since these figures were first taken, and it moved
- * on purpose both times.** Two codes shipped afterwards, each asking a different question about the
- * same contested position: what does the reading taken make of the bytes AFTER the boundary.
- * `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` is wired to the **field** split, and
- * `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` to the **repeat** split. Both fire only where the escape
- * character the reading resumes on heads no sequence, so each covers exactly one role and one tail
- * of this corpus, and the two columns are disjoint. Both counts are derived from the corpus
- * constants rather than written down, so a later axis moves them with it.
+ * **The base under this corpus has moved three times since these figures were first taken, and it
+ * moved on purpose every time.** Three codes shipped afterwards, each asking a different question
+ * about the same contested position: what does the reading taken make of the bytes AFTER the
+ * boundary. `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` is wired to the **field** split,
+ * `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` to the **repeat** split, and
+ * `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` to the **component** split. All three fire only where
+ * the escape character the reading resumes on heads no sequence, so each covers exactly one role
+ * and one tail of this corpus, and the three columns are mutually disjoint. Every count is derived
+ * from the corpus constants rather than written down, so a later axis moves them with it. **All
+ * three splitting roles are wired now, so this constant has reached its ceiling: there is no fourth
+ * role, because nothing splits on the escape role.**
  *
  * Every figure below that names an acceptance is re-derived against that, rather than left quoting
  * a base that no longer exists. **Never quote one of these numbers against a different sha.**
  * **These are the base, not the candidate**: the candidate is still the predicate transcribed in
  * this file and it still ships nowhere.
  */
-const tailRoles = 2;
+const tailRoles = SPLITTING_ROLES.length;
 const tailTails = 1;
 
 describe("the corpus, and the axis that decides the answer", () => {

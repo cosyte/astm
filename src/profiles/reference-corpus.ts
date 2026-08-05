@@ -94,7 +94,12 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
         "ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS, untolerable here as well. Where that same gained " +
         "boundary is a repeat boundary, nothing shifts but the field is read out of its first " +
         "repeat alone, so a value truncates and a test identity empties, which raises " +
-        "ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD, untolerable here too. Both of those carry the " +
+        "ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD, untolerable here too. Where it is a component " +
+        "boundary, nothing leaves the record and no field number changes, and every component " +
+        "after it moves one slot along, so a test identity's coding scheme and local code and a " +
+        "patient's given and middle names are read out of positions the other alignment does not " +
+        "put them in, which raises ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS, untolerable here as " +
+        "well. All three of those carry the " +
         "same tail bound and stay silent where the escape character past the boundary heads a " +
         "sequence of its own, recognized or not, which is much of this corpus: tolerating this " +
         "code does not quiet them, but their absence is not a statement that nothing was lost.",

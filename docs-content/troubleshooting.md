@@ -115,11 +115,11 @@ the parser usually cannot interpret, so it prefers the reading taken. **That is 
 the reading taken is conformant**, and two cases fall in the gap. The first, on the field separator,
 is now covered by a second code, described in the next section. The second is covered only where that
 code reaches: a declared set naming a mnemonic letter as a splitting delimiter leaves both alignments
-interpreting one construct each with **neither preferred**, and on the field separator with a bare
-escape character past the boundary the next section's code now fires. Everywhere else, meaning a
-repeat or component role, or an escape character past the boundary that heads a sequence of its own,
-**nothing reports it at all** (on the repeat separator with a bare escape character past the
-boundary, the section after next now fires). Treat a bare escape character next to a
+interpreting one construct each with **neither preferred**, and where a bare escape character sits
+past the boundary one of the next three sections' codes now fires, one per splitting role: the field
+separator, then the repeat separator, then the component separator. What is left is the tail: where
+the escape character past the boundary heads a sequence of its own, recognized or not,
+**nothing reports it at all**. Treat a bare escape character next to a
 delimiter as worth reading the raw line for, **whether or not either code fired**. The other excluded
 case is a delimiter with no escape character two positions past it, which is no competing alignment
 at all. What does fire is a subset of what already raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its
@@ -155,13 +155,8 @@ Two bounds, both deliberate, and **neither is a promise that nothing was lost ou
 wired to the **field** separator only, because a gained repeat or component boundary divides one
 field and so moves no field-indexed slot: the units and the status stay put. That is a choice, not a
 consequence. Components are modeled _inside_ a field, so a gained **component** boundary does move a
-modeled slot: in `R|1|&F&^&GLU^L^687|28.6|U/L||||F` the Universal Test ID reads a coding scheme of
-`L` and a local code of `687` under the alignment taken, and `687` as the **coding scheme** under the
-other, and `DOE&F&^&JANE^A` reads `&JANE` as a first name under one alignment and `A` under the other.
-Nothing reports that: only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` fires, so a strict parse
-under a legal profile accepts it. It is a separate open condition, disclosed here rather than left to
-be found, and wiring this code to another delimiter role would be a different criterion needing its
-own measurement. On the repeat role the cost is the **value** and the field's components, reported
+modeled slot, and that is reported by its own code two sections below rather than by this one. On the
+repeat role the cost is the **value** and the field's components, reported
 by its own code in the next section. And where the
 escape character past the boundary heads a
 sequence, recognized or not, it stays silent, because the reading taken is then the one making sense
@@ -204,7 +199,7 @@ is wrong**.
 
 Two further bounds, both deliberate. It is wired to the **repeat** separator only: a gained **component**
 boundary reaches a modeled slot too, and differently, moving it one slot along rather than dropping
-it, which is the separate open condition described in the section above. And the tail bound is that
+it, which is the next section's code. And the tail bound is the previous
 section's, for the same reason: where the escape character past the boundary heads a sequence,
 recognized or not, this stays silent, because `28.6&R&\&R&U/L` is the repeat separator escaped,
 written, and escaped again, and refusing it would refuse a well-formed stream. The unrecognized-tail
@@ -212,6 +207,45 @@ case still truncates and is still silent here. Like the codes above it does not 
 catch it on the first read of the wire bytes. **What to do:** read the raw line, check `repeats` on
 the field the warning names before trusting its value, and ask the sender to escape a literal escape
 character as `&E&`.
+
+## A competing alignment split one field into components, so a code system and a name moved
+
+`ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` asks the same question as the two codes above, on the
+**component** separator, which is the third and last role a split is taken on. Nothing shifts between
+fields and nothing leaves the record, which is why neither of the other two can see it: components
+are modeled _inside_ a field, so every component after the gained boundary sits **one place further
+right** than the competing alignment puts it. The slots that indexes into are named things.
+
+Both are reachable on the **canonical** set, so no unusual declaration is needed:
+
+- **A code system and a vendor's local code swap places.** `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a
+  Universal Test ID of four components, so `L` is the coding scheme and `687` the local code. The
+  competing alignment reads three, and `687` is the **coding scheme**. A code-system selector and a
+  vendor's local code are not the same thing, so a consumer routing on either is routing on the
+  alignment.
+- **A given name and a middle name shift along.** `P|1||MRN-0001||DOE&F&^&JANE^A||19700101|F` reads a
+  given name of `&JANE` and a middle name of `A`. Under the competing alignment `A` is the **given**
+  name and there is no middle name at all.
+
+Before this code existed the only warning on either stream was the tolerable
+`ASTM_UNPAIRED_ESCAPE_CHARACTER`, so a strict parse under the widest legal profile accepted both. The
+reading is unchanged: this reports the moved slots, it does not repair them, and it fires alongside
+the codes above rather than instead of them.
+
+**Every gained boundary in a repeat moves those slots, not only the first**, because the shift
+propagates from it to the end of the component list. That is the one place this differs structurally
+from the repeat-separator code above, where only the first gained boundary reaches a modeled slot.
+**Inside a later repeat nothing modeled moves and this still fires**, because a field's components
+are read from its first repeat alone; that is deliberate over-reporting, never under-reporting, so
+**check `repeats` on the field the warning names rather than assuming the components are wrong**.
+
+The tail bound is the one the other two carry, for the same reason: where the escape character past
+the boundary heads a sequence, recognized or not, this stays silent, because `&F&^&F&GLU` is a field
+separator escaped, a component separator written, and a field separator escaped again, which is
+entirely well formed. The unrecognized-tail case still moves the components and is still silent here.
+Like the codes above it does not survive a re-emit: catch it on the first read of the wire bytes.
+**What to do:** read the raw line, check the field's components against the raw bytes before trusting
+a coding scheme or a name part, and ask the sender to escape a literal escape character as `&E&`.
 
 ## A header declared one character in two delimiter roles
 

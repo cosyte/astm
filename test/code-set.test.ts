@@ -20,6 +20,7 @@ describe("stable code surface", () => {
     expect(sortedCodeSet(WARNING_CODES)).toMatchInlineSnapshot(`
       [
         "ASTM_NONSTANDARD_DELIMITERS",
+        "ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS",
         "ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS",
         "ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD",
         "ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT",

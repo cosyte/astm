@@ -108,6 +108,8 @@ const SPLITTING_ROLES = ["|", "\\", "^"] as const;
 const FIELD_SEPARATOR = "|";
 /** The canonical repeat separator: the only role the later truncation report is wired to. */
 const REPEAT_SEPARATOR = "\\";
+/** The canonical component separator: the only role the later component report is wired to. */
+const COMPONENT_SEPARATOR = "^";
 /** The four recognized escape mnemonics: a body this codec can interpret, which the exclusion turns on. */
 const MNEMONICS = ["F", "S", "R", "E"] as const;
 
@@ -121,6 +123,7 @@ const MNEMONICS = ["F", "S", "R", "E"] as const;
 const LATER_TAIL_CODES = [
   WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS,
   WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD,
+  WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS,
 ] as const;
 
 describe("the measured fixture: a boundary the leftmost alignment gained", () => {
@@ -326,6 +329,41 @@ describe("the sweep over the committed alignment alphabet", () => {
     // Of that column the four recognized mnemonic bodies are what moves, for the same reason as the
     // shift report: on every unrecognized body THIS file's code already fired and is untolerable.
     expect(newlyRefusedByTruncation).toBe(MNEMONICS.length);
+  });
+
+  it("shares it with the later component report too, and the three columns partition the roles", () => {
+    // The third later code on the SAME corpus, measured on its own so the four are never read as
+    // one number. It is wired to the component split only, so it fires on exactly one column of
+    // this square: the one where the character the competing alignment would have held is the
+    // canonical component separator. Every count is derived from the committed alphabet inside the
+    // assertion.
+    const fires: string[] = [];
+    let newlyRefusedByComponents = 0;
+    for (const body of ALIGNMENT_ALPHABET) {
+      for (const next of ALIGNMENT_ALPHABET) {
+        const raw = neutralStream(body, next);
+        const seen = codes(raw);
+        const fired = seen.includes(WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS);
+        if (fired) fires.push(body + next);
+        const acceptedHoldingItOut = seen
+          .filter((c) => c !== WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS)
+          .every((c) => TOLERABLE_CODES.has(c));
+        if (acceptedHoldingItOut && fired) newlyRefusedByComponents += 1;
+      }
+    }
+    // One column, every body: the tail in this carrier is always a bare escape character.
+    expect(fires).toHaveLength(ALIGNMENT_ALPHABET.length);
+    for (const t of fires) expect(t.endsWith(COMPONENT_SEPARATOR)).toBe(true);
+    // And no tuple is shared with either of the other two later codes: three disjoint columns, one
+    // per splitting role, which is now the whole of that axis.
+    for (const t of fires) {
+      expect(t.endsWith(FIELD_SEPARATOR)).toBe(false);
+      expect(t.endsWith(REPEAT_SEPARATOR)).toBe(false);
+    }
+    expect(SPLITTING_ROLES).toHaveLength(3);
+    // Of that column the four recognized mnemonic bodies are what moves, for the same reason as the
+    // other two: on every unrecognized body THIS file's code already fired and is untolerable.
+    expect(newlyRefusedByComponents).toBe(MNEMONICS.length);
   });
 
   it("reads every tuple into the same bytes, so only the reporting changed", () => {

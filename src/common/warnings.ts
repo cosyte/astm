@@ -185,15 +185,15 @@ export const WARNING_CODES = {
    *   modeled *inside* a field: a Universal Test ID's four components are the LOINC-candidate slot,
    *   the test name, the **coding scheme** and the **local code**, and a patient name's three are
    *   last, first and middle. A gained component boundary shifts those, so a local code can be read
-   *   as a coding scheme and a given name as a middle name. Measured, and **where the earlier body is
-   *   a recognized mnemonic, reported by nothing** (only the tolerable
-   *   {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} fires, so a gate-legal profile accepts it).
-   *   An **unrecognized** earlier body raises
-   *   {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} there and is refused, which is the
-   *   same split this code's own exclusion takes. It is a separate, open condition rather than something this
-   *   code covers, because wiring this sink to another split is a different criterion needing its own
-   *   population measurement. The repeat role costs the **value**, which this code does not report
-   *   either.
+   *   as a coding scheme and a given name as a middle name. Measured, and it used to be reported by
+   *   nothing where the earlier body was a recognized mnemonic (only the tolerable
+   *   {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} fired, so a gate-legal profile accepted
+   *   it). It is now reported by
+   *   {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS}, a separate code on the same
+   *   tail test wired to the component split, because wiring this sink to another split is a
+   *   different criterion needing its own population measurement. It is still not something **this**
+   *   code covers. The repeat role costs the **value**, which this code does not report either, and
+   *   which {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD} reports.
    * - **The tail is weighed one construct deep.** Where the escape character the reading taken
    *   resumes on heads a sequence this codec *recognizes*, the reading taken interprets it and the
    *   competing alignment would leave it bare, so the bytes prefer the reading taken: under a set
@@ -258,9 +258,10 @@ export const WARNING_CODES = {
    * **Two further deliberate bounds, both stated rather than left to be found.**
    * - **Only the repeat role.** The **component** role reaches a modeled slot too, and differently:
    *   there the components stay in the record and move one slot along, so a local code reads as a
-   *   coding scheme and a given name as a middle name. That is measured, reported by nothing where
-   *   the earlier body is a recognized mnemonic, and open. It is not covered here, because wiring a
-   *   sink to another split is another criterion wanting its own population measurement.
+   *   coding scheme and a given name as a middle name. That is measured and is now reported by
+   *   {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS}, a third code on the same tail
+   *   test wired to the component split. It is still not covered **here**, because wiring a sink to
+   *   another split is another criterion, which is why it took its own population measurement.
    * - **The tail is weighed one construct deep**, exactly as for the shift report. Where the escape
    *   character the reading resumes on heads a sequence this codec *recognizes*, the bytes prefer
    *   the reading taken and the repeats are the ones the sender wrote: under a set naming the
@@ -276,6 +277,71 @@ export const WARNING_CODES = {
    * evidence.
    */
   ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD: "ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD",
+  /**
+   * Two escape alignments of the same bytes disagreed about a **component** boundary, the reading
+   * taken kept it, and the escape character that reading resumes on **heads no sequence at all**.
+   * Same contested position and same tail test as
+   * {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS} and
+   * {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD}, on the third and last splitting
+   * role, and what it costs is a third thing again, which is why it is a third code.
+   *
+   * **The components are neither shifted out of the record nor dropped from it: they MOVE one slot
+   * along.** A field's components are modeled *inside* it, so a gained component boundary shifts
+   * every component after it exactly as a gained field boundary shifts every later field. Nothing
+   * leaves the record and nothing changes field number; what changes is which modeled slot each
+   * component lands in, and those slots are named things:
+   *
+   * - **A Universal Test ID's coding scheme and local code.** Under the canonical set,
+   *   `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads four components, so `L` is the coding scheme and
+   *   `687` the vendor's local code. The competing alignment reads three, so `L` is the test name
+   *   and **`687` is the coding scheme**. A local code and a code-system selector are not the same
+   *   thing, and a consumer routing on one of them routes on the alignment.
+   * - **A patient's given and middle names.** `P|1||MRN-0001||DOE&F&^&JANE^A||19700101|F` reads a
+   *   given name of `&JANE` and a middle name of `A` under the reading taken, and under the
+   *   competing one `A` is the **given** name with no middle name at all.
+   *
+   * Before this code the only warning on those streams was the **tolerable**
+   * {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}, so the widest gate-legal profile plus
+   * `{ strict: true }` accepted a test identity and a patient name whose parts were decided by the
+   * alignment rather than by the sender.
+   *
+   * **Every gained component boundary in a repeat moves a slot, not only the first, and that is the
+   * difference from the repeat role.** There the field is modeled out of its first repeat alone, so
+   * only the first gained boundary reaches a modeled slot; here every component after the gained
+   * boundary is one place further right, wherever in the repeat that boundary sits.
+   *
+   * **Where the contested boundary sits in a LATER repeat, no modeled slot moves and this still
+   * fires.** `components` is the first repeat, so a component boundary gained inside the second or
+   * a later repeat changes nothing any modeled slot is read from; what it changes is `repeats[n]`
+   * for that `n`. It fires there deliberately, because the boundary is still one the bytes do not
+   * force and a consumer reading `repeats` is still reading an alignment guess. Relative to the
+   * modeled slots that is **over-reporting, never under-reporting**, which is the direction this
+   * package errs in, and the axis is swept on its own rather than left to the shared corpus, which
+   * holds it fixed. Narrowing it to the first repeat would change which streams a published package
+   * refuses and wants its own measurement, so the bound is written down instead.
+   *
+   * **It is a report, not a repair.** The split is unchanged, every decoded byte is identical, and
+   * the components read are the components that were always read. Picking the other alignment would
+   * be a different guess with no more evidence behind it, on a published package. **Withholding the
+   * moved slots is a separate question and is deliberately not answered here**, for the reason the
+   * shift report already gives: declining to model a slot changes an extracted value for every
+   * consumer of a package already on the registry.
+   *
+   * **The tail is weighed one construct deep**, exactly as for the other two. Where the escape
+   * character the reading resumes on heads a sequence this codec *recognizes*, the bytes prefer the
+   * reading taken and the components are the ones the sender wrote: under a set naming the component
+   * separator `F`, `GLU&F&F&F&L` is that separator escaped, written, and escaped again, and refusing
+   * it would be an over-refusal of a well-formed stream. Where it heads a sequence whose body is
+   * *unrecognized*, the competing alignment would leave **two** escape characters bare, so the
+   * preference is stronger again, and this stays silent there even though the moved slot is real.
+   * That last case is the named residue: measured, not overlooked.
+   *
+   * **Catch it on the first read.** Emit rewrites the preserved sequences into recognized
+   * mnemonics, and those bytes carry the reading that was taken unambiguously, so a
+   * second-generation read is silent and is correct about its own bytes. A clean re-read is not
+   * evidence.
+   */
+  ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS: "ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS",
   /** An escape sequence body was not one of `&F&`/`&S&`/`&R&`/`&E&`: preserved verbatim. */
   ASTM_UNKNOWN_ESCAPE_SEQUENCE: "ASTM_UNKNOWN_ESCAPE_SEQUENCE",
   /**
@@ -653,6 +719,45 @@ export function alignmentTruncatedField(position: AstmPosition): AstmRecordWarni
       "modeled value and components are taken from the first repeat alone, so where that boundary " +
       "is the first one the rest of the field leaves every modeled slot. The reading was kept and " +
       "every byte is preserved.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` warning. Emitted when a competing escape
+ * alignment decided a **component** boundary and the escape character the reading taken resumes on
+ * heads no sequence of its own, so every component after that point sits one place further right
+ * than the competing alignment puts it. No field number changes and nothing leaves the record, and
+ * that is the difference from {@link alignmentShiftedFields} and {@link alignmentTruncatedField}:
+ * what moves is which modeled slot each component lands in, so a Universal Test ID's coding scheme
+ * and local code, or a patient's given and middle names, are read out of positions the competing
+ * alignment does not put them in. **Every gained boundary in a repeat moves those slots, not only
+ * the first**; where the boundary sits in a **later repeat** nothing modeled moves and this still
+ * fires, which is over-reporting relative to those slots and never under-reporting. See
+ * {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS}.
+ *
+ * A profile may **not** tolerate this code. It fires alongside
+ * {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}, which remains tolerable and reports the
+ * strictly weaker fact that one escape character was read as a literal, and alongside
+ * {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} where that also applies. The reading
+ * is unchanged: this reports the moved components, it does not repair them.
+ *
+ * @example
+ * ```ts
+ * import { alignmentShiftedComponents } from "@cosyte/astm";
+ * alignmentShiftedComponents({ recordIndex: 2, recordType: "R", fieldIndex: 3 });
+ * ```
+ */
+export function alignmentShiftedComponents(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS,
+    message:
+      "A component boundary here is one of two escape alignments the bytes carry, and the reading " +
+      "that took it resumes on an escape character heading no sequence, which the other alignment " +
+      "uses to close one. Every later component of this field sits one place further right than " +
+      "the other reading puts it, so a test identity's coding scheme and local code, or a " +
+      "patient's given and middle names, may be read out of slots the sender did not put them in. " +
+      "The reading was kept and every byte is preserved.",
     position,
   };
 }

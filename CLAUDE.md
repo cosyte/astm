@@ -228,12 +228,10 @@ every measurement and every refuted formulation:
     those bytes say that value unambiguously. Catch it on the **first** read.
     `#defect-11`
 12. **CLOSED 2026-08-04.** `encodeLeaf` ran as four chained whole-string substitutions, so an accepted
-    set naming `E`/`F`/`S`/`R` in another role altered values: over P(18,4) = 73,440 four-role sets
-    on the 18-character alphabet **enumerated in the notes** (the committed test pins the
-    12-character subspace, P(12,4) = 11,880, on the same corpus, so **do not re-derive these figures
-    from the test file's own space**), against the `STREAM` constant in
-    `test/records/escape-mnemonic-roles.test.ts`, 9,287 of the 50,400 accepted sets were
-    strict-accepted under a gate-legal profile with an altered field tree. It is now one left-to-right
+    set naming `E`/`F`/`S`/`R` in another role altered values: the space, the alphabet and every
+    figure are in the notes (the committed test pins a **smaller** subspace on the same corpus, so
+    **do not re-derive these figures from the test file's own space**), measured against the `STREAM`
+    constant in `test/records/escape-mnemonic-roles.test.ts`. It is now one left-to-right
     pass, the exact inverse of `decodeEscapes`. **Never quote any of those figures without that space
     and that corpus constant, because the corpus moves every one of them**, and name the corpus by a
     constant that is IN THE TREE: the predecessor entry's numbers were discarded because nobody wrote
@@ -281,30 +279,32 @@ every measurement and every refuted formulation:
     **The fatal CODE is unchanged and no stream's disposition moved**: a second fatal code was
     considered and **REJECTED**, as a breaking change bought for a sentence. **Do not delete the
     unreachable branch.** `#defect-16`
-17. **🩺 (a) and (b) CLOSED 2026-08-05 as REPORTS by weighing the TAIL; (c) OPEN; the
+17. **🩺 (a), (b) AND (c) ALL CLOSED 2026-08-05 as REPORTS by weighing the TAIL; the
     pair-count criterion stays REJECTED.** ONE predicate, wired per role, never widened into each
     other: a contested alignment resuming on an escape character heading **NO sequence**. 15's
-    exclusion untouched by both.
+    exclusion untouched.
     (a) `28.6&F&|&U/L` gains a FIELD boundary, every later field shifts, the sender's `F` lands in
-    the status slot: units `&U/L` and status **`final`**, both FABRICATED, on a tolerable code. Now
+    the status slot: units and status **`final`** both FABRICATED, on a tolerable code. Now
     `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`. **Status still reads `final`; withholding the shifted
     slots was weighed and DEFERRED.**
-    (b) `28.6&S&\&U/L` gains a REPEAT boundary. **Nothing shifts and the field is STILL read short**,
-    because a field is modeled from `repeats[0]`: the value truncates to `28.6^`, AND a UTID's
-    components are DELETED (`&F&\&687` reads `components === ["|"]`). Now
+    (b) `28.6&S&\&U/L` gains a REPEAT boundary. **Nothing shifts and the field is STILL read
+    short**, because a field is modeled from `repeats[0]`: the value truncates to `28.6^` and a
+    UTID's components are DELETED (`&F&\&687` reads `components === ["|"]`). Now
     `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, **reachable on the CANONICAL set**. It costs **NOT the
-    units or status**: a REPEAT boundary shifts no field, so both alignments read them empty; the
-    units-and-status reading measured FALSE. **Only the FIRST boundary reaches a modeled slot; at a
-    LATER one it fires and nothing modeled moves** (over-reports, never under). Own sweep: the main corpus
-    FIXES that axis.
-    Each, 864 tuples: fires 96, moves 32, **0 back, 0 escape-clean** (the rejected criterion refused
-    48), disjoint columns. **RESIDUE for both: an UNRECOGNIZED tail costs the same and is SILENT**
-    (firing reports a boundary the bytes prefer). **ONE CONSTRUCT deep. No re-emit reaches either.**
-    (c) **`PRE-EXISTING`, DISCLOSED not fixed: a gained COMPONENT boundary MOVES a modeled slot one
-    place** (a UTID's coding scheme and local code; a given name), silent, strict-accepted.
-    **Repeat DROPS, component MOVES: a third code, not a wiring.** **The role bound is a CHOICE:
-    NEVER write "a repeat or component boundary cannot move a modeled slot"** (it
-    shipped into `dist/index.d.ts` and the gate refuted it).
+    units or status** (both alignments read them empty): that reading measured FALSE. **Only the FIRST boundary reaches a modeled slot; at a
+    LATER one it fires and nothing modeled moves** (over-reports, never under).
+    (c) `&F&^&GLU^L^687` gains a COMPONENT boundary. **Nothing leaves the record; the slots MOVE
+    one place**: a UTID's coding scheme and local code, a given name. Now
+    `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`. **Repeat DROPS, component MOVES: a third code, not
+    a wiring.** **EVERY boundary in a repeat moves a slot, not just the first (UNLIKE (b)); in a
+    LATER repeat nothing moves and it fires anyway.** **All THREE roles wired; NO fourth.**
+    **The role bound is a CHOICE: NEVER write "a repeat or component boundary cannot move a modeled
+    slot"** (it shipped into `dist/index.d.ts` and the gate refuted it).
+    Each of the three, 864 tuples: fires 96, moves 32, **0 back, 0 escape-clean** (the rejected
+    criterion refused 48), disjoint. **(b) and (c) each carry an index axis the corpus
+    FIXES: SWEEP IT BESIDE.** **RESIDUE for all three: an UNRECOGNIZED tail costs the same and is
+    SILENT** (firing reports a boundary the bytes prefer). **ONE CONSTRUCT deep. No re-emit
+    reaches any.**
     **▶ COUNTING THE CONTESTED PAIR STAYS REJECTED. DO NOT RE-PROPOSE IT.** It refuses
     **well-formed** streams: under `HF\^&`, `28.6&F&F&F&U/L` is two recognized sequences around the
     separator they escape, raises nothing, and ties. It refuses half of all escape-clean streams.

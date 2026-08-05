@@ -235,7 +235,8 @@ tolerate**; before it existed the only warning on that stream was the tolerable
 unchanged: it reports the shift rather than repairing it. It is wired to the **field** separator
 only, because a gained repeat or component boundary divides one field and so moves no field-indexed
 slot. **That bound is a choice, not a consequence**: components are modeled inside a field, so a
-gained repeat or component boundary does reach a modeled slot. It is also silent where the trailing
+gained repeat or component boundary does reach a modeled slot, and each of those two has a code of
+its own below. It is also silent where the trailing
 escape character heads a sequence of its own, recognized or not; that case still shifts the fields
 and is the recorded residue. It does not survive a re-emit either: catch it on the first read.
 
@@ -255,10 +256,26 @@ slot moves**, because the first repeat is then the same under both readings; tha
 relative to the modeled slots and never under-reporting, and it is measured rather than assumed. Its
 tail bound is the shift report's, for the same reason: `28.6&R&\&R&U/L` is the repeat separator
 escaped, written, and escaped again, and refusing it would refuse a well-formed stream. It is wired to the **repeat** separator only; a gained
-**component** boundary reaches a modeled slot differently, moving it one slot along rather than
-dropping it (`R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads `687` as a local code under one alignment and
-as the coding scheme under the other, with only a tolerable code raised), and that is a separate
-open condition. It does not survive a re-emit either: catch it on the first read.
+**component** boundary reaches a modeled slot differently, and has its own code below. It does not
+survive a re-emit either: catch it on the first read.
+
+**And where that gained boundary is a COMPONENT boundary, nothing leaves the record and the slots
+MOVE.** Components are modeled inside a field, so every component after the gained boundary sits one
+place further right than the competing alignment puts it. On the canonical set,
+`R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal Test ID of four components, so `L` is the coding
+scheme and `687` the vendor's local code; the competing alignment reads three, and `687` is the
+**coding scheme**. A code-system selector and a vendor's local code are not the same thing.
+`P|1||MRN-0001||DOE&F&^&JANE^A||19700101|F` reads a given name of `&JANE` and a middle name of `A`,
+where the competing alignment makes `A` the **given** name with no middle name at all. That raises
+`ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, which **no profile may tolerate**; before it existed the
+only warning on either stream was the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so a strict parse
+under a legal profile accepted both. The reading is unchanged: it reports the moved slots rather than
+repairing them. **Every gained boundary in a repeat moves them, not only the first**, because the
+shift propagates to the end of the component list, which is where this differs from the repeat role;
+**inside a later repeat nothing modeled moves and it fires anyway**, over-reporting relative to those
+slots and never under. Its tail bound is the other two reports', for the same reason. It does not
+survive a re-emit either: catch it on the first read. With this the three splitting roles are all
+wired, and there is no fourth: nothing splits on the escape role.
 
 ### A header that names one character in two delimiter roles
 
@@ -360,7 +377,11 @@ outside it:
   `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable either. Where it is a **repeat** boundary
   nothing shifts, but the field is read out of its first repeat alone, so a gained first boundary
   truncates a value and costs a test identity or a patient name the components that sat after it:
-  that raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either.
+  that raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either. Where it is a
+  **component** boundary nothing leaves the record and every component after it moves one slot
+  along, so a coding scheme, a vendor local code or a given name is read out of a position the other
+  alignment does not put it in: that raises `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, not
+  tolerable either.
 
 All are accepted limits, for two different reasons: widening the field-separator check would mean
 deciding which set a record ought to have had, which is the same guess the parser declines to make

@@ -43,7 +43,14 @@ import type { AstmField } from "./types.js";
  *   Where that boundary is the **first** in the field the field's own modeled reading
  *   stops at it, because a field is modeled out of its first repeat alone; at a later
  *   one nothing modeled moves and this still fires. See {@link TruncatedFieldSink}.
- *   The component split is wired to neither, deliberately.
+ * @param onAlignmentShiftedComponents - Called (with the 0-based field index) for that same
+ *   condition on the **component** split, where no field-indexed slot moves and nothing leaves the
+ *   record: every component after the boundary is one place further right than the competing
+ *   alignment puts it, so a Universal Test ID's coding scheme and local code, and a patient's given
+ *   and middle names, are read out of positions the sender did not put them in. Every gained
+ *   boundary in a repeat moves those slots, not only the first. Inside a **later** repeat nothing
+ *   modeled moves and this still fires. See {@link ShiftedComponentsSink}. All three splitting
+ *   roles are wired now.
  * @returns The record's fields.
  * @example
  * ```ts
@@ -61,6 +68,7 @@ export function tokenizeRecord(
   onAmbiguousAlignment?: (fieldIndex: number) => void,
   onAlignmentShiftedFields?: (fieldIndex: number) => void,
   onAlignmentTruncatedField?: (fieldIndex: number) => void,
+  onAlignmentShiftedComponents?: (fieldIndex: number) => void,
 ): AstmField[] {
   // The field split reports the ambiguity itself: the segment index it hands back IS the field
   // index, because a gained field boundary is not visible from inside either field it made. The
@@ -85,6 +93,9 @@ export function tokenizeRecord(
       // discarded: what a caller needs is which field carries the contested boundary, and that is
       // the index this map is already iterating.
       () => onAlignmentTruncatedField?.(fieldIndex),
+      // Likewise for the component split, which runs inside one repeat of one field: the index it
+      // hands back is a component index and is discarded for the same reason.
+      () => onAlignmentShiftedComponents?.(fieldIndex),
     ),
   );
 }
@@ -127,6 +138,9 @@ export function tokenizeRecord(
  * @param onAlignmentTruncatedField - Called with the 0-based whole-record field index
  *   for each contested **repeat** boundary in the data portion on that same tail
  *   test. The declaration is opaque, so it never reports here either.
+ * @param onAlignmentShiftedComponents - Called with the 0-based whole-record field index for each
+ *   contested **component** boundary in the data portion on that same tail test. The declaration is
+ *   opaque, so it never reports here either.
  * @returns The header's fields.
  * @example
  * ```ts
@@ -145,6 +159,7 @@ export function tokenizeHeader(
   onAmbiguousAlignment?: (fieldIndex: number) => void,
   onAlignmentShiftedFields?: (fieldIndex: number) => void,
   onAlignmentTruncatedField?: (fieldIndex: number) => void,
+  onAlignmentShiftedComponents?: (fieldIndex: number) => void,
 ): AstmField[] {
   // The delimiter-definition field runs from index 2 to the next field separator.
   const defEnd = record.indexOf(d.field, 2);
@@ -161,6 +176,7 @@ export function tokenizeHeader(
     (i) => onAmbiguousAlignment?.(i + 2),
     (i) => onAlignmentShiftedFields?.(i + 2),
     (i) => onAlignmentTruncatedField?.(i + 2),
+    (i) => onAlignmentShiftedComponents?.(i + 2),
   );
   return [...head, ...data];
 }
@@ -179,6 +195,7 @@ function toField(
   onSwallowedDelimiter: () => void,
   onAmbiguousAlignment: () => void,
   onAlignmentTruncatedField: () => void,
+  onAlignmentShiftedComponents: () => void,
 ): AstmField {
   // Each split reports the competing alignments that would have held ITS delimiter, so a role is
   // asked about exactly once: a character that is a delimiter in a later role survives into the
@@ -188,9 +205,17 @@ function toField(
   // so a FIRST repeat boundary this reading gained and the competing alignment does not have takes
   // every modeled slot of this field with it: the value, and a UTID's or a name's components. At a
   // later boundary `repeats[0]` is the same under both readings, so nothing modeled moves and the
-  // report fires anyway, over-reporting relative to those slots and never under. The component
-  // split is deliberately not wired: a gained component boundary keeps the components in the
-  // record and moves them one slot along, which is a different cost with no code yet.
+  // report fires anyway, over-reporting relative to those slots and never under.
+  //
+  // The component split below is wired to the THIRD sink on that same predicate, and what it costs
+  // is neither of the other two: nothing leaves the record and no field number changes, and every
+  // component after the gained boundary moves one slot along, because `components` IS a component
+  // list. So a Universal Test ID's coding scheme and local code, and a patient name's given and
+  // middle parts, are read out of positions the competing alignment does not put them in. Unlike
+  // the repeat case EVERY gained boundary in a repeat moves those slots, not only the first,
+  // because the shift propagates to the end of the list. Inside a LATER repeat nothing modeled
+  // moves, since `components` is `repeats[0]`, and it fires there anyway: over-reporting relative
+  // to those slots and never under, the same direction as above.
   const rawRepeats = splitEscapeAware(
     raw,
     d.repeat,
@@ -204,9 +229,19 @@ function toField(
     },
   );
   const repeats = rawRepeats.map((rep) =>
-    splitEscapeAware(rep, d.component, d.escape, () => {
-      onAmbiguousAlignment();
-    }).map((comp) =>
+    splitEscapeAware(
+      rep,
+      d.component,
+      d.escape,
+      () => {
+        onAmbiguousAlignment();
+      },
+      undefined,
+      undefined,
+      () => {
+        onAlignmentShiftedComponents();
+      },
+    ).map((comp) =>
       decodeEscapes(comp, d, onUnknownEscape, onUnpairedEscape, onSwallowedDelimiter),
     ),
   );

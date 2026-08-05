@@ -244,7 +244,7 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
   **Two further bounds, both deliberate.** It is wired to the **repeat** separator only: a gained
   **component** boundary reaches a modeled slot too, and differently, moving it one slot along rather
-  than dropping it, and that stays the separate open condition disclosed above. And the tail is
+  than dropping it, which is the entry below. And the tail is
   weighed **one construct deep**, on the same test the shift report uses: where the escape character
   past the boundary heads a **recognized** sequence the bytes prefer the reading taken and the two
   repeats are the ones the sender wrote (`28.6&R&\&R&U/L` is the canonical repeat separator
@@ -275,6 +275,85 @@ this file is maintained by hand (Changesets handles the version bump and publish
   public surface: `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, the `alignmentTruncatedField` warning
   factory, the `TruncatedFieldSink` type, and a further trailing optional sink parameter on
   `splitEscapeAware`, `tokenizeRecord` and `tokenizeHeader`.
+
+- **A parse-path warning code for components a competing escape alignment moved one slot along**
+  (`ASTM-FRAME-RESIDUALS`, defect 17c). `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` fires where two
+  escape alignments of the same bytes disagree about a **component** boundary, the reading taken
+  keeps it, and the escape character that reading resumes on heads **no sequence at all**. It lands
+  on the profile safety gate, so `{ strict: true }` refuses a stream carrying it whatever profile is
+  in force. With it the three roles a split is taken on are all wired; there is no fourth, because
+  nothing splits on the escape role.
+
+  **Nothing shifts between fields and nothing leaves the record: the slots MOVE.** That is the third
+  answer to the one question the two entries above ask, and it is why neither of them could carry it.
+  Components are modeled **inside** a field, so every component after the gained boundary sits one
+  place further right than the competing alignment puts it, and the slots that indexes into are named
+  things. Both costs are reachable on the **canonical** set, so no unusual declaration is needed:
+  - **A code system and a vendor's local code swap places.** `R|1|&F&^&GLU^L^687|28.6|U/L||||F`
+    reads a Universal Test ID of four components, so `L` is the coding scheme and `687` the local
+    code; the competing alignment reads three, and `687` is the **coding scheme**. A code-system
+    selector and a vendor's local code are not the same thing, so a consumer routing on either is
+    routing on the alignment.
+  - **A given name and a middle name shift along.** `P|1||MRN-0001||DOE&F&^&JANE^A||19700101|F`
+    reads a given name of `&JANE` and a middle name of `A`; under the competing alignment `A` is the
+    **given** name and there is no middle name at all.
+
+  Before this code the only warning on either stream was the tolerable
+  `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so the widest gate-legal profile plus `{ strict: true }` accepted
+  both. **This closes a claim that had been recorded as false and shipped**: "a gained repeat or
+  component boundary divides one field and reaches nothing outside it, so it cannot move a modeled
+  slot". The first clause is true and the inference is not.
+
+  **Every gained boundary in a repeat moves those slots, not only the first**, because the shift
+  propagates from it to the end of the component list. That is the one structural asymmetry with the
+  repeat-separator code above, where a field is modeled out of its first repeat alone and only the
+  first gained boundary reaches a modeled slot. **Inside a LATER repeat nothing modeled moves and
+  this fires anyway**, because `components` is the first repeat: over-reporting relative to those
+  slots and never under-reporting, measured rather than assumed. Narrowing the sink to the first
+  repeat would change which streams a published package refuses and wants its own measurement, so the
+  bound is written down instead.
+
+  **Additive, and the split is unchanged.** Every decoded byte is identical and the components read
+  are the components that were always read: this reports the moved slots, it does not repair them.
+  Picking the other alignment was rejected for the same reason as before, on a published package, and
+  **withholding the moved slots stays a separate question**: declining to model a slot changes an
+  extracted value for every consumer already on the registry.
+
+  **The tail is weighed one construct deep**, on the same test the two codes above use. Where the
+  escape character past the boundary heads a **recognized** sequence the bytes prefer the reading
+  taken and the components are the ones the sender wrote (`&F&^&F&GLU` is a field separator escaped,
+  a component separator written, and a field separator escaped again, which raises no warning at all,
+  and refusing it is the over-refusal that sank a criterion measured for this same family); where it
+  heads an **unrecognized** one the competing alignment would leave two escape characters bare, so
+  the preference is stronger again. That second case still moves the components and is silent here:
+  recorded as a residue, measured, not overlooked.
+
+  **Measured against the corpus constants committed with the test**, on the same
+  strict-accepted-under-a-gate-legal-profile tier and the same **864 tuples** as the three
+  measurements before it, in `test/records/alignment-shifted-components.test.ts`: the code fires on
+  **96**, moves **32** from accepted to refused under a profile built from the whole tolerable
+  allow-list, moves **0** back, and fires on **none** of the 96 escape-clean tuples. The pair-count
+  criterion measured and rejected on this same corpus would have refused 48 of them, which is why the
+  tail is what gets weighed. Its column is **disjoint from both** earlier tail reports, asserted on
+  the shared corpus rather than reasoned from the wiring: the three partition the splitting roles.
+
+  **The index axes that corpus holds fixed are swept beside it, because a criterion measured only
+  there inherits its blind spot.** Across every component position of the first repeat the reading
+  taken reads exactly one component more than the competing alignment, so the harm is not bounded to
+  the first boundary. And the identical 864-tuple alphabet re-run with a clean first repeat in front
+  of the contested construct gives the same column and the same delta (**96 fire, 32 move, 0 back, 0
+  escape-clean**) while on **all 96** the modeled component list is identical under both alignments,
+  which states the over-reporting bound as a measurement rather than as prose.
+
+  **It does not survive a re-emit**, the same residue its siblings disclosed: the serializer rewrites
+  the preserved characters into recognized mnemonics, so a second-generation read is silent and is
+  correct about its own bytes. Catch it on the first read of the wire bytes.
+
+  This is a **narrowing on a published package**, on the strict path only: a lenient parse of the
+  same stream returns the same records, with the same values, and one more warning on them. New
+  public surface: `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, the `alignmentShiftedComponents`
+  warning factory, the `ShiftedComponentsSink` type, and a further trailing optional sink parameter
+  on `splitEscapeAware`, `tokenizeRecord` and `tokenizeHeader`.
 
 ### Fixed
 

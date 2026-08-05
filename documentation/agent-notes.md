@@ -1346,8 +1346,8 @@ on **heads no escape sequence at all**, which is exactly the character the compe
 to close its own triple. `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` is **untouched**: its
 recognized-body exclusion is exactly as it was, and the two fire alongside each other where both
 apply. **They ask different questions, which is the whole reason this is a second code**: that one
-asks whether this codec's vocabulary prefers the reading taken *at* the contested position, this one
-asks what the reading taken makes of the bytes *after* the boundary. Widening the first to answer the
+asks whether this codec's vocabulary prefers the reading taken _at_ the contested position, this one
+asks what the reading taken makes of the bytes _after_ the boundary. Widening the first to answer the
 second is the move that was rejected.
 
 **▶ WHY THE TAIL AND NOT THE PAIR.** The alignments resume one character apart (leftmost at `i+4`,
@@ -1369,7 +1369,7 @@ report does close is the tier this repo measures on: a gate-legal profile no lon
 CONSEQUENCE AND WAS REFUTED FOR IT.** Wired to the **field** split only. A gained repeat or component
 boundary divides one field and reaches nothing outside it, so it moves no **field-indexed** slot: the
 units and the status stay put. **It does not follow that it moves no modeled slot at all.** Components
-are modeled *inside* a field, so a gained **component** boundary shifts them exactly as a gained field
+are modeled _inside_ a field, so a gained **component** boundary shifts them exactly as a gained field
 boundary shifts fields. That is **defect 17(c)**, `PRE-EXISTING`, measured byte-identical on this
 slice's base, reported by **nothing** (only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` fires, so a
 gate-legal profile accepts it), and pinned in `test/records/alignment-shifted-fields.test.ts`:
@@ -1451,7 +1451,7 @@ population was not:
   Universal Test ID whose `components` is `["|"]`: one component holding a **decoded field
   separator**, tagged `inline-loinc-candidate`, with the local code `687` in no modeled slot at all.
   `P|1||MRN-0001||DOE&S&\&JANE^A||19700101|F` reads a last name and **no given or middle name**.
-  This half is what 17(a)'s sink could not reach, because components are modeled *inside* a field.
+  This half is what 17(a)'s sink could not reach, because components are modeled _inside_ a field.
 
 Both raised only tolerable codes before (`ASTM_UNPAIRED_ESCAPE_CHARACTER`, plus
 `ASTM_NONSTANDARD_DELIMITERS` where the set is not canonical), so the widest gate-legal profile plus
@@ -1498,12 +1498,13 @@ reading taken consumes that character as a sequence head while the competing ali
 **two** bare, so the bytes prefer the reading taken more strongly there, not less. Firing would
 report a boundary the bytes prefer.
 
-**▶ WHAT IS STILL OPEN, AND WAS NOT TAKEN.** **17(c)**, the gained **component** boundary, is
-untouched and stays `PRE-EXISTING`. It is a different cost, and the difference is worth keeping
-straight: a gained repeat boundary **drops** components out of the record, a gained component
-boundary **moves** them one slot along (`687` read as a coding scheme, `A` read as a middle name).
-Closing it means wiring a sink to a third split, which is another criterion and wants its own
-population measurement. **Defect 9** was not touched either.
+**▶ WHAT WAS STILL OPEN AND WAS NOT TAKEN HERE.** **17(c)**, the gained **component** boundary, was
+untouched by this slice and stayed `PRE-EXISTING`. It is a different cost, and the difference is
+worth keeping straight: a gained repeat boundary **drops** components out of the record, a gained
+component boundary **moves** them one slot along (`687` read as a coding scheme, `A` read as a middle
+name). Closing it meant wiring a sink to a third split, which is another criterion and took its own
+population measurement: **it has since been closed, and its section follows this one.** **Defect 9**
+was not touched either and is still open.
 
 **▶ THREE PRE-EXISTING MEASUREMENT FILES WERE RE-DERIVED, NOT RE-CUT, AND THE THIRD WAS ONLY
 FOUND BY THE GATE.** `test/records/alignment-shifted-fields.test.ts` was missed on the first pass:
@@ -1534,6 +1535,127 @@ tarball**, so this is the class of error that is corrected only by superseding a
 it was. It does **not** reach through a re-emit: emit rewrites the preserved characters into
 recognized mnemonics and generation 2 is silent and correct about its own bytes. **Catch it on the
 FIRST read; a clean re-read is not evidence.**
+
+<a id="defect-17c"></a>
+
+### Defect 17(c): CLOSED 2026-08-05, as a REPORT, by the SAME tail test on the component split
+
+**What shipped, and it is a third code rather than a widening of either of the other two.**
+`ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, not tolerable, fires on exactly the predicate 17(a) and
+17(b) fire on (a contested alignment whose reading resumes on an escape character heading no
+sequence) wired to the **component** split. That completes the family: field, repeat, component are
+the three roles a split is taken on, and **there is no fourth, because nothing splits on the escape
+role.** One predicate, three sinks, called from the same `if` in `splitEscapeAware`, because the
+split cannot know which role it is being taken on and the caller can.
+
+**▶ THIS IS THE DEFECT THE FALSE SENTENCE CREATED, SO CLOSING IT CLOSES THAT LOOP.** 17(a)'s first
+draft justified its role bound as a consequence: "a gained repeat or component boundary divides one
+field and reaches nothing outside it, **so it cannot move a modeled slot**." The first clause is
+true; the inference is false, because **components are modeled INSIDE a field**; and it had reached
+`dist/index.d.ts`. It was filed as 17(c) with a committed pin rather than reworded away, and this
+slice is the pin being discharged. **The trap stays in `CLAUDE.md` verbatim: never write that
+sentence again.**
+
+**▶ WHAT A GAINED COMPONENT BOUNDARY COSTS, AND IT IS A THIRD THING.** Nothing shifts between fields
+and nothing leaves the record. Every component after the gained boundary sits one place further right
+than the competing alignment puts it, and the slots that indexes into are named. Both reachable on
+the **canonical** set:
+
+- `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal Test ID of four components, so `L` is the
+  coding scheme and `687` the vendor's local code. The competing alignment reads three, and `687` is
+  the **coding scheme**. A code-system selector and a vendor's local code are not the same thing.
+- `P|1||MRN-0001||DOE&F&^&JANE^A||19700101|F` reads a given name of `&JANE` and a middle name of `A`.
+  The competing alignment makes `A` the **given** name, with no middle name at all.
+
+Before this code the only warning on either stream was the **tolerable**
+`ASTM_UNPAIRED_ESCAPE_CHARACTER`, so the widest gate-legal profile plus `{ strict: true }` accepted
+both. `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` is silent on both, by its recognized-body exclusion,
+which is untouched: that is the silence this closes.
+
+**▶ IT IS A REPORT, NOT A REPAIR.** The split is unchanged, every decoded byte is identical, and the
+components read are the components that were always read. **Withholding the moved slots was weighed
+and DEFERRED**, for 17(a)'s reason: declining to model a slot changes an extracted value for every
+consumer of a package already on the registry.
+
+**▶ THE ASYMMETRY WITH 17(b) IS THE PART THAT IS NOT GUESSABLE, AND IT RUNS BOTH WAYS.** On the
+repeat role only the **first** gained boundary reaches a modeled slot, because a field is modeled out
+of `repeats[0]`. Here **every** gained boundary in a repeat moves a slot, wherever in the component
+list it sits, because the shift propagates to the end of the list. In the other direction, a
+contested boundary inside a **later repeat** moves nothing modeled (again because `components` is
+`repeats[0]`) and **it fires there anyway**: over-reporting relative to those slots and never under,
+the direction this package errs in. Narrowing it to the first repeat would change which streams a
+published package refuses and wants its own measurement, so the bound is written down instead.
+
+**▶ THE MEASUREMENT, on the same 864-tuple corpus and the same committed constants as the three
+before it** (`DECLARATION_ALPHABET`, `SPLITTING_ROLES`, `BODY_ALPHABET`, `TAIL_SUFFIXES`,
+re-committed in `test/records/alignment-shifted-components.test.ts`), tier
+strict-accepted-under-a-gate-legal-profile, every figure derived from a constant inside its
+assertion. **Fires on 96. Moves 32 accepted -> refused. 0 move back. Fires on 0 of the 96
+escape-clean tuples, and cannot**, because firing requires an escape character heading no sequence,
+which is itself `ASTM_UNPAIRED_ESCAPE_CHARACTER`. **The rejected pair-count criterion refused 48 of
+those 96.** The column is **disjoint from both** earlier tail reports, asserted on the shared corpus
+rather than reasoned from the wiring. Identical shape to 17(a)'s and 17(b)'s figures, on the third
+disjoint column.
+
+**▶ 🩺 THE INDEX AXES WERE SWEPT BESIDE THE CORPUS, WHICH IS THE REUSABLE PART.** The 864-tuple
+corpus puts the contested construct at the head of the field every time, so it fixes both index axes
+by design and a criterion measured only there inherits the blind spot. Two sweeps beside it: across
+every component position of the first repeat the reading taken reads exactly **one component more**
+than the competing alignment, so the harm is not bounded to the first boundary; and the identical
+alphabet re-run with a clean first repeat in front of the contested construct gives the **same column
+and the same delta (96 fire, 32 move, 0 back, 0 escape-clean)** while on **all 96** the modeled
+component list is identical under both alignments. That is the over-reporting bound stated as a
+measurement rather than as prose.
+
+**▶ THE RESIDUE, MEASURED AND NAMED, and it is 17(a)'s and 17(b)'s residue exactly.** Where the escape
+character past the boundary heads a sequence whose body is **unrecognized**, the slots move just the
+same and this is **silent** (`&F&^&Z&GLU^L^687` reads four components against the competing
+alignment's three, raises only the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, and is still accepted).
+The reading taken consumes that character as a sequence head and carries one unreadable body, while
+the competing alignment would leave **two** bare, so the bytes prefer the reading taken more strongly
+there, not less. Firing would report a boundary the bytes prefer. And where the tail heads a
+**recognized** sequence, `&F&^&F&GLU` is a field separator escaped, a component separator written and
+a field separator escaped again: **zero warnings of any kind**, entirely well formed, and refusing it
+is the over-refusal that sank the pair-count criterion.
+
+**▶ FOUR PRE-EXISTING MEASUREMENT FILES WERE RE-DERIVED, NOT RE-CUT.**
+`test/records/alignment-criterion-population.test.ts` had `tailRoles` generalized from a literal `2`
+to `SPLITTING_ROLES.length`, which is the ceiling: all three roles are wired, so that constant cannot
+grow again. `test/records/escape-alignment-ambiguity.test.ts` holds all three tail codes out of its
+tier through one named constant, so defect 15's 144/24/108/93/15 are still that slice's numbers, and
+it gained a third parallel delta (one column, every body, four moving, asserted disjoint from the
+other two columns). `test/records/alignment-shifted-fields.test.ts` generalized its single held-out
+constant to a list. And `test/records/alignment-truncated-field.test.ts` **had the defect its own
+notes warned about**: its `acceptedNow` was a live parse while `acceptedBefore` held out one code, so
+this code's column would silently have stopped meaning what it says. Both sides now hold the later
+code out through a named constant. **Applying that file's own recorded lesson before it bit a second
+time is the point: a claim inherited from the file you are editing is not evidence, and neither is a
+tier that was correct when it was written.**
+
+**▶ THE TWO PINS BECAME CLOSURE ASSERTIONS RATHER THAN BEING DELETED.** Both 17(a)'s and 17(b)'s
+files carried a `stays silent on a gained COMPONENT boundary` test asserting the streams raised only
+a tolerable code and were accepted. Those now assert the code fires and the tier refuses, while still
+asserting **their own** code's silence, so each file's silence stays a statement about that code
+rather than a stale claim that nothing reports the stream.
+
+**▶ THE NEGATIVE CONTROL WAS RUN, NOT JUST DECLARED.** The measurement harness was pointed at the
+wrong code (the field-role report in place of the component-role one) and at the wrong fixture
+(17(a)'s field-role harm case in place of the component-role one), and **failed loudly both times**
+(7 and 4 assertions respectively). A harness that cannot fail against the wrong input is not
+measuring anything. The `maximalTolerance` profile is the standing control, built by spreading this
+package's own `TOLERABLE_CODES` so a copy pointed at a sibling parser fails on the spread.
+
+**▶ `astm/CLAUDE.md` WAS OVER ITS ENTRY BY 279 BYTES AND WAS BROUGHT BACK BY RELOCATION, NOT BY
+RAISING THE CEILING.** What moved: defect 12's figure recitation (P(18,4) = 73,440, the 18-character
+alphabet, P(12,4) = 11,880, 9,287 of 50,400), which **already existed verbatim in this file** and was
+replaced there by a pointer to it, with **all four of that entry's traps kept** (do not re-derive
+from the test file's own space; never quote a figure without the space and a corpus constant in the
+tree; "0 silent" is weak here; never replace the "what is not guaranteed" prose with a positive
+guarantee). Entry 17's own connective prose was tightened and its shared measurement line folded to
+cover all three branches. **No trap was dropped from either entry, and the ceiling was not raised:**
+that is a deliberate act needing its own commit and its own argument, and it is not this slice's to
+take. **`CLAUDE.md` now stands at 34,340 of its 34,345 entry, 5 bytes.** The next append there
+relocates first.
 
 <a id="defects-closed-elsewhere"></a>
 
