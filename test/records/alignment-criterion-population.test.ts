@@ -1,0 +1,396 @@
+/**
+ * The population a candidate criterion for `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` would move, and
+ * the reason that candidate is **not** the one this package ships.
+ *
+ * **Nothing here changes behaviour.** Every criterion below other than the shipped one is a predicate
+ * written out in this file and evaluated against the corpus. The package is measured, never modified,
+ * because the thing being measured is which streams a **published** package refuses under
+ * `{ strict: true }`, and that is not a number to move on an argument.
+ *
+ * **The open question this answers.** The shipped report fires where two escape alignments of the
+ * same bytes disagree about one boundary and the leftmost triple's body is **not** a recognized
+ * mnemonic. That exclusion is wider than the argument for it: where the declared set names one of the
+ * four mnemonic letters as a splitting delimiter, *both* alignments interpret a construct at the
+ * contested position, nothing prefers either, and the report is silent while a gained boundary can
+ * cost a result its units and its status. The obvious repair is to swap the recognition test for a
+ * **count** of what each alignment interprets there, and fire unless the alignment taken interprets
+ * strictly more. This file measures that candidate, and **rejects it**.
+ *
+ * **Why it is rejected, in one sentence:** the count is taken over the two contested triples only,
+ * while the two alignments also disagree about every byte that follows, so a stream whose escaping is
+ * entirely well-formed can be scored a tie and refused. The corpus below carries a `tail` axis
+ * precisely so that class is inside it. A measurement whose corpus cannot contain the counterexample
+ * certifies nothing, and an earlier corpus for this question could not.
+ *
+ * **The tier is strict-accepted-under-a-gate-legal-profile**, as everywhere else in this suite:
+ * "0 silent" has no discriminating power here, because anything that can exhibit this at all already
+ * raises a tolerable code, so an empty warning list is structurally unreachable. **Every count is
+ * derived from the alphabet constants in this file inside the assertion that uses it.**
+ *
+ * All fixtures are **synthetic**. No clause of ASTM E1394 / CLSI LIS01 / LIS02 is claimed anywhere
+ * here: the atom rule, the mnemonic set, the leftmost match and every criterion weighed below are
+ * this package's own codec, and nothing rests on standards text this repo cannot read.
+ */
+
+import { describe, expect, it } from "vitest";
+
+import {
+  AstmStrictError,
+  defineAstmProfile,
+  parseAstmRecords,
+  TOLERABLE_CODES,
+  WARNING_CODES,
+} from "../../src/index.js";
+
+const ALIGNMENT = WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT;
+
+/**
+ * The widest profile the safety gate permits, built **from** the allow-list so it cannot drift out
+ * of step with it. Acceptance under this profile is the strongest form of "a gate-legal profile
+ * accepts it", which is the tier this whole file is measured on.
+ */
+const maximalTolerance = defineAstmProfile({
+  name: "maximalTolerance",
+  description:
+    "Every code the safety gate permits a profile to tolerate, so acceptance here is the widest a " +
+    "gate-legal profile can be. A measurement instrument, not a shipped profile.",
+  tolerate: [...TOLERABLE_CODES].map((code) => ({
+    code,
+    rationale: "Measurement instrument: the widest tolerance the safety gate permits.",
+  })),
+});
+
+const codes = (raw: string) => parseAstmRecords(raw).warnings.map((w) => w.code);
+
+const acceptedUnderMaximalTolerance = (raw: string): boolean => {
+  try {
+    parseAstmRecords(raw, { strict: true, profile: maximalTolerance });
+    return true;
+  } catch (err) {
+    if (err instanceof AstmStrictError) return false;
+    throw err;
+  }
+};
+
+/** The four recognized escape mnemonics. Every criterion weighed here is written in terms of these. */
+const MNEMONICS = ["F", "S", "R", "E"] as const;
+const isMnemonic = (ch: string): boolean => (MNEMONICS as readonly string[]).includes(ch);
+
+/**
+ * The committed declaration alphabet: the four mnemonic letters, which are the whole reason this
+ * corpus differs from the canonical one, and four characters that are delimiters in no vocabulary.
+ * None of them collides with the roles held fixed below, so every set here resolves.
+ */
+const DECLARATION_ALPHABET = ["F", "S", "R", "E", "~", ":", "#", "*"] as const;
+
+/** The three roles a split is taken on. The escape role is held fixed: nothing splits on it. */
+const SPLITTING_ROLES = ["field", "repeat", "component"] as const;
+
+/**
+ * The committed body alphabet: the four mnemonics, the four canonical delimiter characters, and
+ * four characters that are neither. This is the character the leftmost alignment's triple holds.
+ */
+const BODY_ALPHABET = ["F", "S", "R", "E", "|", "\\", "^", "&", "~", ":", "#", "*"] as const;
+
+/**
+ * **The axis an earlier corpus for this question did not have, and the one that decides the answer.**
+ * The two alignments disagree about the contested boundary AND about every byte after it, so what
+ * follows the boundary is not a free variable. Three tails, each a different thing for the escape
+ * character just past the boundary to be: heading nothing (a bare escape character, which is a
+ * deviation of its own), heading a sequence this codec recognizes (the escape mechanism working),
+ * and heading one it does not. A corpus fixing this to the first cannot contain a stream whose
+ * escaping is well-formed, and therefore cannot see a criterion over-refusing one.
+ */
+const TAIL_SUFFIXES = [
+  { name: "a bare escape character", suffix: "U/L" },
+  { name: "a recognized sequence", suffix: "F&U/L" },
+  { name: "an unrecognized sequence", suffix: "Z&U/L" },
+] as const;
+
+/**
+ * The codes that say this package saw something wrong with a stream's escaping. A tuple raising none
+ * of them is **escape-clean**: every escape character in it heads a sequence this codec recognizes,
+ * which is the escape mechanism working exactly as it is meant to. Refusing one of those is an
+ * over-refusal, whatever else is true of the stream.
+ */
+const ESCAPE_DEVIATION_CODES = [
+  WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
+  WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+  WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE,
+  ALIGNMENT,
+] as const;
+
+interface DeclaredSet {
+  readonly header: string;
+  readonly field: string;
+}
+
+/**
+ * One declared set per (character, role) pair: the swept character takes that role and the other
+ * three keep canonical characters, so the only thing varying between sets is which role the swept
+ * character holds. The escape character is `&` throughout, because the condition needs an escape
+ * character on both sides of the contested delimiter and varying it varies nothing else.
+ */
+const declaredSet = (ch: string, role: (typeof SPLITTING_ROLES)[number]): DeclaredSet => {
+  if (role === "field") return { header: `H${ch}\\^&`, field: ch };
+  if (role === "repeat") return { header: `H|${ch}^&`, field: "|" };
+  return { header: `H|\\${ch}&`, field: "|" };
+};
+
+/**
+ * The committed corpus stream: a comment record, whose text field carries components and repeats
+ * without any of them meaning anything clinically, so the only codes a tuple raises are the escape
+ * codes and the declaration's own. The contested delimiter is the swept character itself, placed
+ * immediately after a triple and followed by the escape character, which is the shape that makes two
+ * alignments exist at all.
+ */
+const corpusStream = (
+  set: DeclaredSet,
+  contested: string,
+  body: string,
+  suffix: string,
+): string => {
+  const f = set.field;
+  return (
+    `${set.header}\r` +
+    `P${f}1${f}${f}LAB-0001\r` +
+    `C${f}1${f}I${f}28.6&${body}&${contested}&${suffix}${f}G\r` +
+    `L${f}1${f}N\r`
+  );
+};
+
+interface Tuple {
+  readonly declaration: string;
+  readonly role: (typeof SPLITTING_ROLES)[number];
+  readonly body: string;
+  readonly tail: (typeof TAIL_SUFFIXES)[number]["name"];
+  readonly raw: string;
+  /** What the shipped package reports today. Observed, never predicted. */
+  readonly reportsAlignment: boolean;
+  /** What the candidate criterion would report. A predicate in this file; nothing ships it. */
+  readonly candidateReports: boolean;
+  /** Accepted today, on the tier. Observed. */
+  readonly acceptedNow: boolean;
+  /**
+   * Accepted if the candidate were in force. The candidate would change only which tuples raise the
+   * alignment code, so the observed list with that code dropped, plus the candidate's own answer,
+   * reconstructs the disposition exactly.
+   */
+  readonly acceptedUnderCandidate: boolean;
+  /** No code says anything is wrong with this stream's escaping. */
+  readonly escapeClean: boolean;
+}
+
+/**
+ * **The candidate criterion, transcribed and not shipped.** It counts the constructs each alignment
+ * interprets at the contested position: the leftmost side interprets one where its body is a
+ * recognized mnemonic, the competing side interprets one where the delimiter is. It reports unless
+ * the leftmost side reads strictly more. The structural precondition (a delimiter with an escape
+ * character two positions past it) holds by construction everywhere in this corpus.
+ */
+const candidateReports = (body: string, contested: string): boolean =>
+  (isMnemonic(body) ? 1 : 0) <= (isMnemonic(contested) ? 1 : 0);
+
+const corpus: readonly Tuple[] = DECLARATION_ALPHABET.flatMap((declaration) =>
+  SPLITTING_ROLES.flatMap((role) =>
+    BODY_ALPHABET.flatMap((body) =>
+      TAIL_SUFFIXES.map((tail): Tuple => {
+        const set = declaredSet(declaration, role);
+        const raw = corpusStream(set, declaration, body, tail.suffix);
+        const seen = codes(raw);
+        const candidate = candidateReports(body, declaration);
+        const othersTolerable = seen
+          .filter((c) => c !== ALIGNMENT)
+          .every((c) => TOLERABLE_CODES.has(c));
+        return {
+          declaration,
+          role,
+          body,
+          tail: tail.name,
+          raw,
+          reportsAlignment: seen.includes(ALIGNMENT),
+          candidateReports: candidate,
+          acceptedNow: acceptedUnderMaximalTolerance(raw),
+          acceptedUnderCandidate: othersTolerable && !candidate,
+          escapeClean: !seen.some((c) => (ESCAPE_DEVIATION_CODES as readonly string[]).includes(c)),
+        };
+      }),
+    ),
+  ),
+);
+
+const mnemonicDeclarations = DECLARATION_ALPHABET.filter(isMnemonic).length;
+const otherDeclarations = DECLARATION_ALPHABET.length - mnemonicDeclarations;
+const mnemonicBodies = BODY_ALPHABET.filter(isMnemonic).length;
+const otherBodies = BODY_ALPHABET.length - mnemonicBodies;
+const sets = DECLARATION_ALPHABET.length * SPLITTING_ROLES.length;
+/** The one tail whose bytes carry no escape deviation of their own. */
+const cleanTails = 1;
+
+describe("the corpus, and the axis that decides the answer", () => {
+  it("sweeps every declared set, every body and every tail, and every set resolves", () => {
+    expect(corpus).toHaveLength(sets * BODY_ALPHABET.length * TAIL_SUFFIXES.length);
+    // A declaration this reader could not resolve throws rather than parsing, so building the corpus
+    // at all is the proof every set resolved. What is asserted here is that each stream reached the
+    // carrier record and was read with the set it declared.
+    for (const t of corpus) {
+      const parsed = parseAstmRecords(t.raw);
+      expect(parsed.records).toHaveLength(4);
+      expect(parsed.records[2]?.type).toBe("C");
+      expect(codes(t.raw)).not.toContain(WARNING_CODES.ASTM_RECORD_FIELDS_UNSEPARATED);
+    }
+  });
+
+  it("contains streams whose escaping is entirely well-formed, which is what the tail axis is for", () => {
+    // The negative control, and the finding that rejected the candidate. Escape-clean means both
+    // triples are recognized and no escape character is left bare: exactly a mnemonic body against
+    // the recognized tail, whatever the declared set. A corpus fixing the tail to a bare escape
+    // character has NONE of these, so it cannot observe a criterion refusing one, and would report a
+    // comforting zero rather than a wrong answer.
+    const clean = corpus.filter((t) => t.escapeClean);
+    expect(clean).toHaveLength(sets * mnemonicBodies * cleanTails);
+    for (const t of clean) {
+      expect(isMnemonic(t.body)).toBe(true);
+      expect(t.tail).toBe("a recognized sequence");
+    }
+    // Today not one of them is reported, which is the property a candidate must not break.
+    expect(clean.filter((t) => t.reportsAlignment)).toHaveLength(0);
+  });
+
+  it("checks the transcribed candidate against the shipped reader where they must agree", () => {
+    // The anti-strawman check. Wherever the contested delimiter is not a mnemonic letter the
+    // competing alignment interprets nothing, the candidate's count reduces to the shipped
+    // recognition test, and the two must give the same answer on every tuple. If the transcription
+    // had drifted, every delta below would be an artifact of this file rather than of the package.
+    const mustAgree = corpus.filter((t) => !isMnemonic(t.declaration));
+    expect(mustAgree).toHaveLength(
+      otherDeclarations * SPLITTING_ROLES.length * BODY_ALPHABET.length * TAIL_SUFFIXES.length,
+    );
+    for (const t of mustAgree) {
+      expect(t.reportsAlignment).toBe(t.candidateReports);
+    }
+    // And it must disagree somewhere, or there is nothing to measure.
+    expect(corpus.some((t) => t.reportsAlignment !== t.candidateReports)).toBe(true);
+  });
+});
+
+describe("the population the candidate criterion would move, on the strict-accepted tier", () => {
+  it("is a strict superset of what is reported today: nothing would stop being reported", () => {
+    for (const t of corpus) {
+      if (t.reportsAlignment) expect(t.candidateReports).toBe(true);
+    }
+    expect(corpus.filter((t) => t.reportsAlignment)).toHaveLength(
+      sets * otherBodies * TAIL_SUFFIXES.length,
+    );
+    expect(corpus.filter((t) => t.candidateReports)).toHaveLength(
+      (mnemonicDeclarations * SPLITTING_ROLES.length * BODY_ALPHABET.length +
+        otherDeclarations * SPLITTING_ROLES.length * otherBodies) *
+        TAIL_SUFFIXES.length,
+    );
+  });
+
+  it("moves exactly the tuples where both contested triples are recognized, and none back", () => {
+    const moved = corpus.filter((t) => t.acceptedNow && !t.acceptedUnderCandidate);
+    const back = corpus.filter((t) => !t.acceptedNow && t.acceptedUnderCandidate);
+    expect(corpus.filter((t) => t.acceptedNow)).toHaveLength(
+      sets * mnemonicBodies * TAIL_SUFFIXES.length,
+    );
+    expect(corpus.filter((t) => t.acceptedUnderCandidate)).toHaveLength(
+      otherDeclarations * SPLITTING_ROLES.length * mnemonicBodies * TAIL_SUFFIXES.length,
+    );
+    expect(moved).toHaveLength(
+      mnemonicDeclarations * SPLITTING_ROLES.length * mnemonicBodies * TAIL_SUFFIXES.length,
+    );
+    expect(back).toHaveLength(0);
+    for (const t of moved) {
+      expect(isMnemonic(t.declaration)).toBe(true);
+      expect(isMnemonic(t.body)).toBe(true);
+    }
+  });
+
+  it("cannot be reached without a nonstandard declaration, which is the one bound that held", () => {
+    // The part of the candidate's case that survived. Reaching the moved population at all requires
+    // declaring a mnemonic letter as a splitting delimiter, so no sender on the canonical set is
+    // affected either way.
+    for (const t of corpus.filter((x) => x.acceptedNow && !x.acceptedUnderCandidate)) {
+      expect(codes(t.raw)).toContain(WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS);
+    }
+  });
+});
+
+describe("why the candidate is rejected rather than shipped", () => {
+  it("would refuse streams whose escaping is entirely well-formed, and here is how many", () => {
+    // THE FINDING. A third of the tuples the candidate moves are escape-clean: every escape
+    // character in them heads a sequence this codec recognizes, and the value handed back holds no
+    // raw delimiter and no bare escape character. Today none of them is reported. Under the
+    // candidate, every escape-clean tuple whose declared set names a mnemonic letter as a splitting
+    // delimiter would be refused by a code no profile may tolerate.
+    const moved = corpus.filter((t) => t.acceptedNow && !t.acceptedUnderCandidate);
+    const overRefused = moved.filter((t) => t.escapeClean);
+    expect(overRefused).toHaveLength(
+      mnemonicDeclarations * SPLITTING_ROLES.length * mnemonicBodies * cleanTails,
+    );
+    // Which is exactly half of every escape-clean stream in the corpus.
+    expect(overRefused).toHaveLength(corpus.filter((t) => t.escapeClean).length / 2);
+    for (const t of overRefused) {
+      expect(t.tail).toBe("a recognized sequence");
+      expect(t.reportsAlignment).toBe(false);
+    }
+  });
+
+  it("scores a tie on bytes where the leftmost alignment plainly reads more of them", () => {
+    // The named counterexample, pinned so the argument cannot be re-derived from memory. Under
+    // `HF\^&`, where `F` is the FIELD separator, the value carries `&F&` (the sender escaping that
+    // separator) then the separator itself then `&F&` again. The leftmost alignment interprets two
+    // recognized sequences and leaves no escape character bare; the competing alignment interprets
+    // one and leaves two bare, plus a raw separator inside the value. Nothing about that is a tie,
+    // and the parse raises no escape deviation at all, yet the candidate's count reads 1 against 1
+    // and would refuse it.
+    const wellFormed = "HF\\^&\rPF1FFLAB-0001\rCF1FIF28.6&F&F&F&U/LFG\rLF1FN\r";
+    expect(codes(wellFormed)).toEqual([WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS]);
+    expect(acceptedUnderMaximalTolerance(wellFormed)).toBe(true);
+    expect(candidateReports("F", "F")).toBe(true);
+    // The count is taken over the two contested triples only, while the alignments also disagree
+    // about every byte after the boundary. That is the defect in the criterion, not in the corpus.
+    expect(corpus.some((t) => t.raw === wellFormed)).toBe(true);
+  });
+
+  it("leaves the open case open, and names what a criterion would have to weigh instead", () => {
+    // What stays broken by rejecting the candidate, stated rather than left implied. Under a set
+    // naming a mnemonic letter as a splitting delimiter, a gained boundary still costs a result its
+    // units and its status in silence, and the widest gate-legal profile still accepts it.
+    const harm = "H|F^&\rP|1||LAB-0001\rR|1|^^^687|28.6&S&F&U/L||||F\rL|1|N\r";
+    expect(codes(harm)).toEqual([
+      WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
+      WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+    ]);
+    expect(acceptedUnderMaximalTolerance(harm)).toBe(true);
+    // The candidate would have caught this one. What separates it from the counterexample above is
+    // not the contested pair, which is a tie in both, but the tail: here the escape character past
+    // the boundary heads nothing, there it heads a recognized sequence. So a criterion that closes
+    // this without over-refusing has to weigh what each alignment makes of the bytes AFTER the
+    // boundary as well, which is a different and larger reader than a count over one position.
+    expect(candidateReports("S", "F")).toBe(true);
+    expect(codes(harm)).toContain(WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER);
+  });
+});
+
+describe("the canonical set is untouched by either criterion, tuple for tuple", () => {
+  /** The canonical set's three splitting roles. None of them is a mnemonic letter, which is the point. */
+  const CANONICAL_SPLITTING = ["|", "\\", "^"] as const;
+
+  it("gives the same answer under both, so nothing a canonical sender writes is in question", () => {
+    let checked = 0;
+    for (const contested of CANONICAL_SPLITTING) {
+      for (const body of BODY_ALPHABET) {
+        for (const tail of TAIL_SUFFIXES) {
+          const raw = `H|\\^&\rP|1||LAB-0001\rC|1|I|28.6&${body}&${contested}&${tail.suffix}|G\rL|1|N\r`;
+          expect(codes(raw).includes(ALIGNMENT)).toBe(candidateReports(body, contested));
+          checked += 1;
+        }
+      }
+    }
+    expect(checked).toBe(CANONICAL_SPLITTING.length * BODY_ALPHABET.length * TAIL_SUFFIXES.length);
+    expect(CANONICAL_SPLITTING.filter(isMnemonic)).toHaveLength(0);
+  });
+});

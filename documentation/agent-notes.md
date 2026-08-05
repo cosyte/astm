@@ -1181,6 +1181,68 @@ discover. **Do not close this by widening the mnemonic test in place**: read the
 measure the population before and after, on the same
 strict-accepted-under-a-gate-legal-profile tier.
 
+### Defect 17, continued: the criterion that was measured, and REJECTED (2026-08-05)
+
+**That measurement was taken by `ASTM-FRAME-RESIDUALS` and its answer was no.** The criterion the
+entry above names, and the one anybody reading it will reach for, is a **count over the contested
+pair**: each alignment takes exactly one triple at the contested position, so score the leftmost side
+one where its body is a recognized mnemonic and the competing side one where the **delimiter** is,
+and report unless the leftmost side reads strictly more. It closes (b), and **it is not shippable**,
+and both halves of that are now measured and committed as
+`test/records/alignment-criterion-population.test.ts`. **Nothing in this package's behaviour was
+changed by that slice.** The criterion lives in the test as a predicate; the package is measured,
+never modified, because what is being measured is which streams a **published** package refuses.
+
+**▶ IT REFUSES STREAMS WHOSE ESCAPING IS ENTIRELY WELL-FORMED, WHICH IS WHAT KILLED IT.** The
+counterexample, pinned in the test: under `HF\^&`, where `F` is the **field** separator, the value
+`28.6&F&F&F&U/L` is the sender escaping that separator, then the separator, then escaping it again.
+The leftmost alignment interprets **two** recognized sequences and leaves no escape character bare;
+the competing alignment interprets one, leaves two bare, and puts a raw separator inside the value.
+Nothing about that is a tie. The parse raises no escape deviation at all, only the tolerable
+`ASTM_NONSTANDARD_DELIMITERS`. The count still reads one against one and would refuse it, under a
+code no profile may tolerate. **The same sentence that justified silence became the justification for
+firing, with no argument in between**, which is this family's recurring failure: the claim, not the
+guard, is the defect.
+
+**▶ WHY, AND IT GENERALIZES: THE COUNT IS LOCAL AND THE DISAGREEMENT IS NOT.** The two alignments
+consume different numbers of bytes at the contested position (the leftmost resumes at `i+4`, the
+competitor at `i+5`), so they disagree about **every byte after the boundary**, not only about the
+pair. That tail is exactly what separates (b) from the counterexample: in (b) the escape character
+past the boundary heads nothing and is a deviation, in the counterexample it heads a recognized
+sequence. **Any criterion that closes (b) without over-refusing has to weigh the tail**, which is a
+materially larger reader than one comparison, and it will move the population again and want its own
+measurement. That is the shape of the next attempt, and it is a slice of its own.
+
+**▶ THE MEASUREMENT, AND THE AXIS THE FIRST CORPUS DID NOT HAVE.** Committed constants
+`DECLARATION_ALPHABET` (`F` `S` `R` `E` `~` `:` `#` `*`), `SPLITTING_ROLES` (field, repeat,
+component), `BODY_ALPHABET` (defect 15's twelve) and **`TAIL_SUFFIXES`** (the escape character past
+the boundary heading nothing, heading a recognized sequence, heading an unrecognized one), on the
+same comment-record carrier: **864 tuples**. Tier: strict-accepted-under-a-gate-legal-profile, the
+instrument built from `TOLERABLE_CODES` itself, because "0 silent" is structurally unreachable here.
+Every figure derives from those constants inside the assertion that uses it. **576 are reported
+today, 720 would be under the candidate. 288 are strict-accepted, 144 would be. 144 tuples move,
+0 move back. 48 of the 144 are escape-clean**, which is **exactly half** of the 96 escape-clean
+tuples in the corpus, and **0 escape-clean tuples are reported today**. The candidate is a strict
+superset of what fires today, so its failure is over-refusal and never a lost report.
+
+**▶ THE FIRST CORPUS FOR THIS QUESTION FIXED THE TAIL TO A BARE ESCAPE CHARACTER AND THEREFORE
+CONTAINED NO ESCAPE-CLEAN STREAM AT ALL.** It measured 288 tuples, 48 moved, and reported no
+over-refusal, because it could not hold one. **A measurement whose corpus cannot contain the
+counterexample certifies nothing**, and this one was caught by the `conformance-refuter` grading the
+slice rather than by the sweep. The committed file now asserts up front that its corpus **does**
+contain escape-clean streams and that the two criteria **do** disagree somewhere, so a corpus that
+loses either property fails loudly instead of reporting a comforting zero. It also transcribes the
+candidate and checks it against the shipped reader on every tuple where the two must agree, so no
+delta can be an artifact of the transcription.
+
+**▶ WHAT SURVIVED OF THE CANDIDATE'S CASE, and it is worth keeping for the next attempt.** The
+population it moves is unreachable without a **mnemonic letter declared as a splitting delimiter**,
+so every moved tuple also raises `ASTM_NONSTANDARD_DELIMITERS` and **no canonical-set stream is in
+question either way**. A canonical control in the same file sweeps the three canonical splitting
+roles against the same bodies and tails and finds the two criteria identical tuple for tuple. Defect
+15's own figures (144 tuples, 24 firing, 108 strict-accepted against 93) are untouched for the same
+reason: on that corpus the count reduces to the recognition test exactly.
+
 <a id="defects-closed-elsewhere"></a>
 
 ### Two further defects, closed and folded away
