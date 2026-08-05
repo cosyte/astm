@@ -64,6 +64,22 @@
  * field separator was absent outright, so it is a reader of record structure that
  * cannot be relied on as a sweep.
  *
+ * **A fourth and a fifth reader of record structure landed together, and the
+ * allow-list was re-derived against them.** `ASTM_RECORD_DELIMITER_ROLE_COLLISION`
+ * reports a header declaring one character in two of the repeat / component /
+ * escape roles, so the boundary between those two roles is not in the bytes;
+ * `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` reports an unrecognized escape body
+ * that is itself a splitting delimiter, so the atom rule kept it out of the split.
+ * Both are safety-critical by construction, because that side is computed rather
+ * than listed. What they required was re-reading the survivors below against them,
+ * and two of the four needed their arguments rewritten rather than merely
+ * re-checked: each was, on its own, the *only* warning a stream exhibiting one of
+ * these conditions raised. That is the state this file exists to prevent, and it is
+ * why the remedy in both cases was a **second, narrower, non-tolerable code**
+ * rather than striking the tolerable one off. Striking it off would have changed
+ * behavior for every profile naming it while still leaving the two conditions
+ * reported by codes that also fire on cases costing nothing.
+ *
  * **So the ones that remain are recorded with the reading each one survives**, not
  * merely with the value it preserves. Each was re-derived against both readers of
  * record structure above, plus the single-message / single-patient guards:
@@ -78,6 +94,16 @@
  *   force. A stream may be wholly non-canonical and split perfectly, and a wholly
  *   canonical stream can still carry a record that does not split, so tolerating the
  *   first can never quiet the second.
+ *
+ *   **Its admission was resting on a set of declarations it does not distinguish,
+ *   and no longer is.** A declaration naming one character in two roles is
+ *   necessarily non-canonical, so this code fired on it, and until
+ *   `ASTM_RECORD_DELIMITER_ROLE_COLLISION` existed it was the *only* warning such a
+ *   stream raised: tolerating "the declared set is unusual" therefore quieted
+ *   "the declared set cannot express the boundary it was read with". That second
+ *   condition now has its own code, which is not tolerable, so what is left here is
+ *   the honest statement it always meant to be: the set differs from the canonical
+ *   one and was honored.
  * - `ASTM_UNKNOWN_ESCAPE_SEQUENCE`: an unrecognized escape body is **preserved
  *   byte-for-byte** in the decoded value (the escape codec does not guess at one),
  *   so the value is identical with or without the profile. No reader sees it
@@ -85,22 +111,28 @@
  *   letter is read before decoding, and the split reader counts fields, which the
  *   escape-aware tokenizer has already finished dividing before any body is decoded.
  *
- *   **This entry is on the list and is recorded as questionable, deliberately.**
- *   The argument above is about the *decoded value*, and it holds. What it does not
- *   cover is that the escape-aware split itself treats an `&X&` triple as opaque, so
- *   where `X` is a delimiter that delimiter never became a boundary: the split the
- *   argument says has "already finished dividing" divided one time too few, and this
- *   code is the only report of it. Measured on the canonical set:
+ *   **This entry used to be recorded as questionable, and what made it questionable
+ *   is now a separate code that is not on this list.** The argument above is about
+ *   the *decoded value*, and it holds. What it did not cover is that the
+ *   escape-aware split itself treats an `&X&` triple as opaque, so where `X` is a
+ *   delimiter that delimiter never became a boundary: the split the argument says
+ *   has "already finished dividing" divided one time too few, and this code was the
+ *   only report of it. Measured on the canonical set:
  *   `R|1|^^^687|28.6&|&U/L||||F` yields a value of `28.6&|&U/L`, no units, and status
- *   `unspecified` rather than `final`, with this as the sole warning, so a profile
- *   tolerating it (the shipped `referenceCorpus` does) lets `{ strict: true }` accept
- *   it. That fails part 1 of the two-clause test on the reading, not on the value.
- *   It is **left on the list on purpose**: removing it would change behavior for
- *   every profile naming it, and what should report a swallowed boundary instead, and
- *   at what severity, is a question this file cannot settle on its own. Do not read
- *   this bullet as an endorsement; read it as the open question it is, and do not
- *   close it by narrowing the atom, which is what keeps `&F&` one token under a
- *   delimiter set that names `F` as a delimiter.
+ *   `unspecified` rather than `final`, and this was the sole warning, so a profile
+ *   tolerating it (the shipped `referenceCorpus` does) let `{ strict: true }` accept
+ *   it. That failed part 1 of the two-clause test on the reading, not on the value.
+ *   `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` now fires **alongside** this code on
+ *   exactly that subset and is safety-critical, so the lost boundary is reported by
+ *   something no profile may tolerate and that same stream is refused under
+ *   `{ strict: true }`. This code was **not** removed, for two reasons: removing it
+ *   changes behavior for every profile naming it, and it remains true and benign of
+ *   every unrecognized body that is not a delimiter in force, where the sequence is
+ *   preserved byte-for-byte and no boundary is lost. What is scoped away here is a
+ *   claim, not a guard. Do not close the underlying condition by narrowing the atom,
+ *   which is what keeps `&F&` one token under a delimiter set that names `F` as a
+ *   delimiter, and do not read the new code as a repair: the value is byte-identical
+ *   to what it was, and only the reporting changed.
  * - `ASTM_UNPAIRED_ESCAPE_CHARACTER`: an escape character heading no escape
  *   sequence, read as the **literal character it is** and kept byte-for-byte in the
  *   decoded value, so the value is identical with or without the profile. Note what
@@ -124,8 +156,10 @@
  * undefined abnormal flag or result status, an unparseable reference range, absent
  * units, a mis-attached comment, a partial timestamp, a query-vs-result ambiguity,
  * an unrecognized record type, a record the delimiters in force could not split, a
- * bad frame checksum / sequence gap / unterminated / oversize frame, an ambiguous
- * transport, an unexpected protocol event, or a rejected frame: is forbidden.
+ * declaration naming one character in two roles, a delimiter an unrecognized escape
+ * sequence kept out of the split, a bad frame checksum / sequence gap / unterminated
+ * / oversize frame, an ambiguous transport, an unexpected protocol event, or a
+ * rejected frame: is forbidden.
  *
  * **What this file cannot do for you.** Part 2 is a review obligation, not a
  * mechanical one. There is no honest automatic check for "nothing load-bearing
@@ -161,6 +195,12 @@ import type { AnyAstmWarningCode } from "./types.js";
  * `ASTM_RECORD_FIELDS_UNSEPARATED` is not on this list either, and never was. It
  * reports a record the delimiters in force could not split, so every modeled field
  * of that record is missing: it fails the first half of the test outright.
+ *
+ * `ASTM_RECORD_DELIMITER_ROLE_COLLISION` and
+ * `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` are not on this list and must not be
+ * added to it. Each reports a boundary that is not in the reading, and each exists
+ * precisely because the only warning its condition previously raised was one of the
+ * four below.
  *
  * @example
  * ```ts

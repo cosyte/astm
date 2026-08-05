@@ -66,6 +66,14 @@ per-directory >= 90 coverage, a proven publish shape). `src/` is `common/` (valu
   defect 8's fix, which is why the relocated note's "the list was four and is now three" is a
   snapshot of 2026-08-01 and not the list today. Why:
   `documentation/agent-notes.md#status-history` and `#defect-8`.
+- **The remedy when a tolerable code is the only report of a real loss is a SECOND, NARROWER code,
+  not striking the first off.** Defects 4 and 11 both had that shape and both were closed that way
+  2026-08-05: `ASTM_RECORD_DELIMITER_ROLE_COLLISION` and `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`
+  are safety-critical by default and **must not be added to the list**, while
+  `ASTM_NONSTANDARD_DELIMITERS` and `ASTM_UNKNOWN_ESCAPE_SEQUENCE` stay on it, still true of the
+  cases that cost nothing. Striking either off would change behaviour for every profile naming it
+  and still leave the loss reported by a code that also fires where there is none. Why:
+  `documentation/agent-notes.md#defect-4` and `#defect-11`.
 - **The admission test has TWO clauses, and the second is a claim about the whole library**: a
   tolerable code cannot alter, drop or fabricate an extracted value, **and nothing else in this
   package may read the condition the warning reports**. There is deliberately no automatic check for
@@ -148,11 +156,14 @@ every measurement and every refuted formulation:
    answer with `classifyMessage(m.records)`. **`AstmStreamMessage` deliberately carries NO
    `classification` field**: that omission is the fix, not an oversight, so do not "complete the type"
    by adding one. `documentation/agent-notes.md#defect-3`
-4. **Open, parse-side.** `readDelimiters` accepts a declaration it cannot reverse (`H|^^&`, `H|\&&`)
-   with **zero warnings**; emit now refuses such a set, which is what makes the hole visible. **Do not
-   fold this into an emit or frame slice**: it adds a **parse-path** warning code, which lands on the
-   safety gate and therefore on every consumer profile. It wants its own slice.
-   `documentation/agent-notes.md#defect-4`
+4. **CLOSED 2026-08-05.** `readDelimiters` accepted a declaration it cannot reverse (`H|^^&`,
+   `H|\&&`) and the only warning was the **tolerable** `ASTM_NONSTANDARD_DELIMITERS`, which every
+   such set raises anyway, so a gate-legal profile left `{ strict: true }` accepting it. Now
+   `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, not tolerable. **The set is still honored and no record is
+   dropped** (refusing would drop records the sender did send), so this is a **report, not a repair**:
+   under `H|^^&` `A^B^C^D` still reads as four repeats of one component each. **The field role is not
+   in it** (that declaration does not resolve at all); it covers the three pairs among the rest,
+   **repeat/component, repeat/escape, component/escape**. `documentation/agent-notes.md#defect-4`
 5. **CLOSED 2026-08-03.** Emit could escape a record's own type letter away, and the worse branch was
    **silent**: a `P` emitted under `{ field: "P", escape: "R" }` came back as an **`R` record** whose
    value was the patient's lab ID, so `results()` returned a fabricated final result built out of
@@ -213,17 +224,20 @@ every measurement and every refuted formulation:
     `ASTM_RECORD_FIELDS_UNSEPARATED` tests one delimiter role in its total form only. A foreign field
     separator that occurs anywhere in the line still splits on the wrong boundaries with zero warnings,
     **including inside a run of these warnings**, so a run is not a sweep. A differing repeat /
-    component / escape role loses test identity or (defect 11) the value. **Not fixed on purpose**:
+    component / escape role loses test identity or (defect 11, now reported) the value. **Not fixed on purpose**:
     widening means deciding which set a record ought to have had. **If you ever make one of those
     "limits" tests go green by widening the guard, the prose in three published places has to move with
     it.** `documentation/agent-notes.md#defect-10`
-11. **🩺 Open.** `ASTM_UNKNOWN_ESCAPE_SEQUENCE` is on `TOLERABLE_CODES` while being the only report
-    that a field separator was swallowed, so `{ strict: true }` under the shipped `referenceCorpus`
-    profile **accepts** a record with no units and status `unspecified`. **Not a stop-the-line only
-    because the first parse of the wire bytes warns. Do not add "and the round trip is stable" to that
-    argument**: stability is what makes it worse, because emit launders it in one hop into a
-    spec-clean line that re-parses with `warnings: []`. **Do not close it by narrowing the atom** (the
-    atom is what keeps `&F&` one token). **Schedule it rather than parking it.**
+11. **🩺 CLOSED 2026-08-05, as a REPORT.** `ASTM_UNKNOWN_ESCAPE_SEQUENCE` was the only report that a
+    field separator was swallowed and it is tolerable, so `{ strict: true }` under `referenceCorpus`
+    **accepted** a record with no units and status `unspecified`. Now
+    `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` fires **alongside** it, not instead of it, on the
+    subset whose unrecognized body is one of the **three splitting roles** (the escape role is
+    excluded on purpose: nothing splits on it). **The atom was NOT narrowed and the value is
+    byte-identical** (the atom is what keeps `&F&` one token), so nothing was repaired. **The
+    laundering hop is NOT closed and must not be described as closed**: emit rewrites the sequence
+    into mnemonics and generation 2 reads `warnings: []`, correctly, because those bytes say that
+    value unambiguously. The catch point is the **first** read of the wire bytes.
     `documentation/agent-notes.md#defect-11`
 12. **CLOSED 2026-08-04.** `encodeLeaf` ran as four chained whole-string substitutions, so an accepted
     set naming `E`/`F`/`S`/`R` in another role altered values: over P(18,4) = 73,440 four-role sets

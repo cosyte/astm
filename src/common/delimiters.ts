@@ -84,6 +84,12 @@ export type DelimiterReadResult =
  * and an `ASTM_RECORD_UNREADABLE_REDECLARATION` warning is raised instead; a set is
  * never guessed and no record is dropped.
  *
+ * **A set two of whose other three roles share a character is resolved, not
+ * refused**, because the stream is still readable and refusing it would drop
+ * records the sender did send. What it costs is the boundary between those two
+ * roles, which the bytes no longer carry: see {@link hasCollidingRoles}, which
+ * the parse path calls to report it (`ASTM_RECORD_DELIMITER_ROLE_COLLISION`).
+ *
  * This function does not throw: delimiter resolution and the escalation decision are
  * kept separate so the reader stays pure and testable.
  *
@@ -116,6 +122,41 @@ export function readDelimiters(headerRecord: string): Delimiters | undefined {
   if (field === repeat || field === component || field === escape) return undefined;
 
   return { field, repeat, component, escape };
+}
+
+/**
+ * Whether a resolved set names one character in two roles, so the boundary
+ * between those two roles cannot be recovered from the bytes.
+ *
+ * {@link readDelimiters} already refuses a declaration whose **field** separator
+ * is one of the other three (it returns `undefined`, which is the
+ * `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal on the first header and the
+ * `ASTM_RECORD_UNREADABLE_REDECLARATION` warning on a later one), so what is left
+ * to test here is the three unordered pairs among the remaining roles:
+ * **repeat/component, repeat/escape, and component/escape**. Three pairs, named
+ * rather than counted, because the count is only meaningful with the list.
+ *
+ * Such a declaration is read and honored (nothing is guessed, no record is
+ * dropped) and the loss it causes is real and was previously silent. Measured on
+ * the canonical-looking `H|^^&`, where the repeat and component roles are both
+ * `^`: the field `A^B^C^D` reads back as **four repeats of one component each**,
+ * so a two-repeats-of-two-components reading is unrecoverable and `components`
+ * holds only `A`. On `H|\&&`, where the component and escape roles are both `&`,
+ * the same character splits (`A&B` reads as two components) or opens an atom
+ * (`A&F&B` reads as the single component `A|B`) depending only on what follows
+ * it. Emit refuses such a set outright (`ASTM_EMIT_INVALID_DELIMITERS`).
+ *
+ * @param d - A resolved delimiter set.
+ * @returns `true` iff two of the repeat / component / escape roles share a character.
+ * @example
+ * ```ts
+ * import { hasCollidingRoles, readDelimiters } from "@cosyte/astm";
+ * hasCollidingRoles(readDelimiters("H|\\^&")!); // false
+ * hasCollidingRoles(readDelimiters("H|^^&")!); // true (repeat === component)
+ * ```
+ */
+export function hasCollidingRoles(d: Delimiters): boolean {
+  return d.repeat === d.component || d.repeat === d.escape || d.component === d.escape;
 }
 
 /**

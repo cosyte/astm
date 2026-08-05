@@ -9,6 +9,67 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ## [Unreleased]
 
+### Added
+
+- **Two parse-path warning codes for two readings the parser could not defend, both landing on the
+  profile safety gate** (`ASTM-FRAME-RESIDUALS`, defects 4 and 11). Both are additive: no existing
+  warning was removed or renamed, no split changed, and every extracted value is byte-identical to
+  what it was. What changed is that each condition is now reported by a code **no profile may
+  tolerate**, so `{ strict: true }` refuses a stream carrying it whatever profile is in force.
+  - `ASTM_RECORD_DELIMITER_ROLE_COLLISION`: an `H` record declared one character in two of the
+    repeat, component and escape roles, so the boundary between those two roles is not in the bytes.
+    A declaration whose **field** separator is one of the other three was already refused (the
+    `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal on the first header, `ASTM_RECORD_UNREADABLE_REDECLARATION`
+    on a later one), so this covers the three unordered pairs among the rest: repeat/component,
+    repeat/escape, component/escape. The declaration is still honored and no record is dropped.
+    Measured: under `H|^^&` the field `A^B^C^D` reads back as four repeats of one component each, so
+    a two-repeats-of-two-components reading is unrecoverable; under `H|\&&` the same character
+    splits (`A&B` is two components) or opens an atom (`A&F&B` is the single component `A|B`)
+    depending only on what follows it. Emit has always refused these sets
+    (`ASTM_EMIT_INVALID_DELIMITERS`), which is how the gap became visible from the outside.
+  - `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`: an escape sequence whose body was **not** a
+    recognized mnemonic held a character that is one of the three splitting delimiters in force, so
+    the atom rule kept it out of the split and the record was read with one fewer division than its
+    bytes carry. Measured on the canonical set: `R|1|^^^687|28.6&|&U/L||||F` reads a value of
+    `28.6&|&U/L`, with **no units** and status `unspecified` rather than `final`. It fires alongside
+    `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, which stays and stays tolerable, because it remains true and
+    benign of every unrecognized body that is not a delimiter in force.
+
+  **The measure that discriminates is strict-accepted-under-a-gate-legal-profile, and "silent" was
+  never available here.** Both conditions always raised a tolerable code already
+  (`ASTM_NONSTANDARD_DELIMITERS` for the first, since any colliding set is by definition
+  non-canonical; `ASTM_UNKNOWN_ESCAPE_SEQUENCE` for the second), so `warnings: []` was structurally
+  unreachable for either class and "it is never silent" was true and told you nothing. What it hid is
+  that a profile tolerating the weaker code left a strict parse accepting the reading.
+
+  Measured against the corpus constants committed with the tests, not against a sweep whose
+  parameters are not in the tree. Over `DELIMITER_ALPHABET` and `sweepStream` in
+  `test/records/delimiter-role-collision.test.ts` (the twelve characters `|` `\` `^` `&` `~` `:` `#`
+  `*` `!` `@` `$` `%`, a header plus a terminator), 15,972 of the 20,736 four-role tuples resolve;
+  4,092 of those name one character in two roles and 11,880 do not. Under a gate-legal profile
+  tolerating `ASTM_NONSTANDARD_DELIMITERS` and `{ strict: true }`, **4,092 of the 4,092 were accepted
+  before and 0 are now**, while all 11,880 non-colliding sets are accepted exactly as before. Over
+  `BODY_ALPHABET` and `bodyStream` in `test/records/swallowed-delimiter.test.ts` (the same twelve
+  characters as escape bodies in one spec-clean result record, read identically in all twelve cases),
+  **3 report the new code, enumerated as `|`, `\` and `^`**, the field, repeat and component roles of
+  the canonical set; the escape role `&` is deliberately not among them, because nothing splits on
+  it, and the other eight are not delimiters at all. Under `referenceCorpus` and `{ strict: true }`,
+  12 of 12 were accepted before and 9 are now.
+
+  **Two things these codes do not do, stated so they are not read into them.** Neither repairs a
+  reading: the atom rule is unchanged, because it is what keeps `&F&` one token under a set that
+  names `F` as a delimiter, and a colliding declaration is still honored rather than refused. And the
+  second does not survive a re-emit: the serializer rewrites the preserved sequence into recognized
+  mnemonics, and that stream says the same value unambiguously, so a second-generation read is silent
+  and is correct about its own bytes. The first read of the wire bytes is where the condition exists
+  to be caught, and that is where the refusal lands.
+
+  This is a **narrowing on a published package**, on the strict path only: a lenient parse of the
+  same stream returns the same records with one more warning on them. New public surface:
+  `hasCollidingRoles`, the `delimiterRoleCollision` and `delimiterSwallowedByEscape` warning
+  factories, the `SwallowedDelimiterSink` type, and a trailing optional sink parameter on
+  `decodeEscapes`, `tokenizeRecord` and `tokenizeHeader`.
+
 ### Fixed
 
 - **The escape encoder protected the escape character it introduced but not the `E`/`F`/`S`/`R`

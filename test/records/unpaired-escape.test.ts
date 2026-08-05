@@ -197,11 +197,20 @@ describe("the boundary of what this fixed: an `&X&` atom still swallows a delimi
     expect(only?.units).toBeUndefined();
     expect(only?.status.meaning).toBe("unspecified");
 
-    // Never silent, but the only report is a tolerable code, so a profile expecting it lets a
-    // strict parse accept the record. Recorded as a known defect, not closed here.
-    expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE]);
+    // The split is unchanged, so the value, units and status above are byte-identical to what
+    // they were. What changed is the reporting: the tolerable unknown-sequence code still fires,
+    // and a second, narrower code fires with it, saying the delimiter never became a boundary.
+    // That second one is not tolerable, so a profile can no longer leave a strict parse accepting
+    // this record.
+    expect(codes(raw)).toEqual([
+      WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
+      WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE,
+    ]);
     expect(unpaired(raw)).toBe(0);
     expect(TOLERABLE_CODES.has(WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE)).toBe(true);
+    expect(TOLERABLE_CODES.has(WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE)).toBe(
+      false,
+    );
   });
 
   it("and the atom rule it comes from is exactly why it is not narrowed", () => {

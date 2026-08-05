@@ -418,7 +418,7 @@ the per-message answer and is documented on `queries`. Found by the `conformance
 
 <a id="defect-4"></a>
 
-### Defect 4: The reader accepts delimiter declarations it cannot reverse, and says nothing (open)
+### Defect 4: The reader accepts delimiter declarations it cannot reverse, and says nothing (CLOSED 2026-08-05)
 
 **The parser reads delimiter declarations it cannot reverse, and says nothing.** `readDelimiters`
 checks only that the field separator differs from the other three, so a header declaring `H|^^&`
@@ -439,6 +439,37 @@ slice): that one refuses an **encoder option** whose domain is a single byte on 
 no profile can see; this one adds a **parse-path warning code**, which every consumer profile has
 to be re-derived against. Same repo, opposite blast radius. It still wants its own slice.
 Found while grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
+
+**CLOSED 2026-08-05 by `ASTM-FRAME-RESIDUALS`, as a REPORT and not as a refusal.** The declaration
+is still read and honored and no record is dropped, because refusing it would drop records the
+sender did send; what is new is `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, raised at the header that
+declared it, once per header rather than once per colliding pair, and **not** on `TOLERABLE_CODES`.
+
+**▶ THE FIELD ROLE IS NOT IN IT, AND SAYING "FOUR ROLES" HERE IS WRONG.** A declaration naming the
+field separator in another role does not resolve at all (`readDelimiters` returns `undefined`), so
+it is the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal on the first header and
+`ASTM_RECORD_UNREADABLE_REDECLARATION` on a later one. What this code covers is the **three**
+unordered pairs among the rest, enumerated: **repeat/component, repeat/escape, component/escape**.
+
+**▶ THE MEASURE IS STRICT-ACCEPTED-UNDER-A-GATE-LEGAL-PROFILE, AND "SILENT" WAS NEVER AVAILABLE
+HERE.** Every colliding set is by definition non-canonical, so it always raised the tolerable
+`ASTM_NONSTANDARD_DELIMITERS`: `warnings: []` was structurally unreachable for the whole class, so
+"it is never silent" was true and discriminated nothing. Measured over the committed corpus
+constants `DELIMITER_ALPHABET` and `sweepStream` in `test/records/delimiter-role-collision.test.ts`
+(the twelve characters `|` `\` `^` `&` `~` `:` `#` `*` `!` `@` `$` `%`, one header plus one
+terminator): of the 20,736 four-role tuples, **15,972 resolve**, of which **4,092 collide** and
+**11,880 do not**. Under a gate-legal profile tolerating `ASTM_NONSTANDARD_DELIMITERS` plus
+`{ strict: true }`, **4,092 of the 4,092 were accepted on `3107273` and 0 are now**, while all
+11,880 non-colliding sets are accepted exactly as before. The base figure was measured against
+`origin/main`'s `src/`, not inferred. **Every count here is derived from the alphabet constant in
+the test itself**, so moving the alphabet moves the numbers.
+
+**▶ IT IS A REPORT, NOT A REPAIR, AND THE PROSE MUST NOT DRIFT INTO CLAIMING OTHERWISE.** Under
+`H|^^&` the field `A^B^C^D` still reads back as four repeats of one component each, `components`
+still holds only `A`, and `serializeAstmRecords(msg, msg.delimiters)` still throws
+`ASTM_EMIT_INVALID_DELIMITERS`. Measured on `H|\&&` (component and escape both `&`): `A&B` splits
+into two components while `A&F&B` reads as the single component `A|B`, so the same character means
+two different things depending on what follows it. Both are pinned.
 
 <a id="defect-5"></a>
 
@@ -706,7 +737,7 @@ places has to move with it.** Found by the `conformance-refuter` grading
 
 <a id="defect-11"></a>
 
-### Defect 11: `ASTM_UNKNOWN_ESCAPE_SEQUENCE` is tolerable while being the only report that a field separator was swallowed (open)
+### Defect 11: `ASTM_UNKNOWN_ESCAPE_SEQUENCE` is tolerable while being the only report that a field separator was swallowed (CLOSED 2026-08-05)
 
 **🩺 `ASTM_UNKNOWN_ESCAPE_SEQUENCE` IS TOLERABLE WHILE BEING THE ONLY REPORT THAT A FIELD
 SEPARATOR WAS SWALLOWED.** `splitEscapeAware` treats an `&X&` triple as an opaque atom, so where
@@ -738,6 +769,38 @@ question is what should report it and at what severity, and that is a behavior c
 consumer profile naming the code, so it wants its own slice. Pinned in
 `test/records/unseparated-fields.test.ts` and `test/records/unpaired-escape.test.ts`. Found by
 the `conformance-refuter` grading `ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL` 2026-08-02.
+
+**CLOSED 2026-08-05 by `ASTM-FRAME-RESIDUALS`, and closed as a REPORT.** The atom was **not**
+narrowed, the split is unchanged, and the decoded value is byte-identical: `28.6&|&U/L`, no units,
+status `unspecified`, exactly as before. What is new is
+`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, raised **alongside** `ASTM_UNKNOWN_ESCAPE_SEQUENCE`
+rather than instead of it, on the subset where the unrecognized body is one of the three splitting
+roles in force. It is not on `TOLERABLE_CODES`, so `{ strict: true }` under the shipped
+`referenceCorpus` now refuses that record.
+
+**▶ THE TOLERABLE CODE WAS KEPT ON THE LIST DELIBERATELY.** Striking
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE` off would change behaviour for every profile naming it while still
+leaving the loss reported by a code that also fires on bodies that cost nothing. What was scoped
+away in `src/profiles/safety.ts` is a **claim**, not a guard: its bullet now says the questionable
+half is carried by a separate, non-tolerable code.
+
+**▶ THE ESCAPE ROLE IS EXCLUDED ON PURPOSE, AND SO IS EVERY RECOGNIZED MNEMONIC.** Nothing splits
+on the escape character, so `&&&` costs no boundary; and `&F&` under a set naming `F` as the repeat
+delimiter is the sender escaping the field separator on purpose, so reporting a swallowed repeat
+boundary there would report the escape mechanism working as a defect. Both are pinned.
+
+**▶ THE LAUNDERING HOP IS NOT CLOSED, AND MUST NEVER BE WRITTEN AS CLOSED.** Emit still rewrites
+the preserved sequence into recognized mnemonics (`28.6&E&&F&&E&U/L`), and generation 2 reads
+`warnings: []` with the same wrong value. That is **correct** about generation 2's own bytes, which
+say that value unambiguously; the misreading is inherited from generation 1. So the catch point is
+the first read of the wire bytes, and there is no guard on the round trip.
+
+**▶ MEASURED, base against head, over the committed constants `BODY_ALPHABET` and `bodyStream` in
+`test/records/swallowed-delimiter.test.ts`** (the same twelve characters as escape bodies in one
+spec-clean result record, whose field layout is identical in all twelve cases so the only variable
+is the reporting): **3 of the 12 raise the new code, enumerated as `|`, `\` and `^`**, the field,
+repeat and component roles of the canonical set. Under `referenceCorpus` plus `{ strict: true }`,
+**12 of 12 were accepted on `3107273` and 9 are now**.
 
 <a id="defect-12"></a>
 

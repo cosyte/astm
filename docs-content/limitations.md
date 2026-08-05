@@ -90,7 +90,9 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   under a vendor's own set can carry a type letter the canonical set escapes away, and
   `serializeFramedAstm` refuses it too. That is not a guarantee that every field lands where it did: an escape sequence whose
   body is itself a delimiter is read as one opaque atom, so that delimiter never becomes a boundary
-  and the fields after it shift, reported on the parse side as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The
+  and the fields after it shift, reported on the parse side as
+  `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` (not tolerable) alongside the tolerable
+  `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The
   low-level `encodeComponent` and `serializeField` helpers take no record and so carry neither
   guarantee. If you emit against a set of your own choosing rather than the canonical one, verify the
   round-trip on your own traffic.

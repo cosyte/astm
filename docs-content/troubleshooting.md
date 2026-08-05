@@ -86,8 +86,25 @@ character as `&E&`, so a stream it produced never raises the code.
 by design (that is what keeps `&F&` one token under a set naming `F` as a delimiter), so a sequence
 whose body is itself a delimiter swallows that delimiter: `R|1|^^^687|28.6&|&U/L||||F` reads a value
 of `28.6&|&U/L` with no units and status `unspecified`. That case raises
-`ASTM_UNKNOWN_ESCAPE_SEQUENCE` instead, which is also tolerable, so if you tolerate it, check for it
-in the values rather than expecting a stricter parse to catch it.
+`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` as well as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Only the
+second of those is tolerable, so a strict parse refuses the record whatever profile is in force. The
+reading itself is unchanged, and it does not survive a re-emit: this package rewrites the preserved
+sequence into recognized mnemonics, and the resulting stream says that value unambiguously, so a
+second-generation read is silent. Catch it on the first read of the wire bytes.
+
+## A header declared one character in two delimiter roles
+
+`ASTM_RECORD_DELIMITER_ROLE_COLLISION` says the `H` record named the same character in two of the
+repeat, component and escape roles, so the boundary between those two roles is not in the bytes. The
+declaration is still honored and no record is dropped: under `H|^^&` a field a canonical sender would
+have written as two repeats of two components reads back as four repeats of one component each.
+
+The code is **not** tolerable, deliberately. Every such set is by definition non-canonical, so before
+this code existed the only warning it raised was the tolerable `ASTM_NONSTANDARD_DELIMITERS`, and a
+profile expecting an ordinary vendor set left a strict parse accepting it. Emit refuses the same sets
+with `ASTM_EMIT_INVALID_DELIMITERS`, so `serializeAstmRecords(msg, msg.delimiters)` throws on such a
+message. If you own the sending side, fix the declaration; if you do not, treat the affected
+records' repeat and component structure as unrecoverable rather than as read.
 
 ## A framed stream lost a frame, or a checksum is wrong
 
