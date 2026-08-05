@@ -106,8 +106,22 @@ const neutralStream = (body: string, next: string): string =>
 const SPLITTING_ROLES = ["|", "\\", "^"] as const;
 /** The canonical field separator: the only role the later shift report is wired to. */
 const FIELD_SEPARATOR = "|";
+/** The canonical repeat separator: the only role the later truncation report is wired to. */
+const REPEAT_SEPARATOR = "\\";
 /** The four recognized escape mnemonics: a body this codec can interpret, which the exclusion turns on. */
 const MNEMONICS = ["F", "S", "R", "E"] as const;
+
+/**
+ * The codes that landed **after** this one and ask a different question about the same contested
+ * position: what the reading taken makes of the bytes past the boundary. They are held out of this
+ * file's tier wherever it measures what THIS code moved, so those figures stay the ones this slice
+ * took rather than being re-cut every time another code lands on the same corpus. Each one's own
+ * delta is measured separately, below.
+ */
+const LATER_TAIL_CODES = [
+  WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS,
+  WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD,
+] as const;
 
 describe("the measured fixture: a boundary the leftmost alignment gained", () => {
   it("reads a value and units the bytes do not unambiguously carry, and now says so", () => {
@@ -215,10 +229,11 @@ describe("the sweep over the committed alignment alphabet", () => {
 
   it("moves exactly the tuples a gate-legal profile used to accept, and no others", () => {
     // ── READ THIS BEFORE TOUCHING A NUMBER HERE. These figures measure what THIS code moved, and
-    // a LATER code (ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS) refuses some of the same tuples on a
-    // different test. A figure quoted against a moving base goes stale without anyone being wrong,
-    // so the later code is held out of the tier explicitly rather than the numbers being re-cut
-    // each time one lands. Held out, every figure below is the one this slice measured.
+    // LATER codes refuse some of the same tuples on a different test. A figure quoted against a
+    // moving base goes stale without anyone being wrong, so every later code is held out of the
+    // tier explicitly rather than the numbers being re-cut each time one lands. Held out, every
+    // figure below is the one this slice measured. The list is derived rather than typed twice:
+    // both later codes ask about the same contested position and are named together below.
     let acceptedNow = 0;
     let newlyRefused = 0;
     for (const body of ALIGNMENT_ALPHABET) {
@@ -226,9 +241,7 @@ describe("the sweep over the committed alignment alphabet", () => {
         const raw = neutralStream(body, next);
         const seen = codes(raw);
         const fired = seen.includes(WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT);
-        const heldOut = seen.filter(
-          (c) => c !== WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS,
-        );
+        const heldOut = seen.filter((c) => !(LATER_TAIL_CODES as readonly string[]).includes(c));
         // What the parse would have been before this code existed: the slice is purely additive, so
         // dropping the new code from the list reconstructs the previous warning set exactly.
         const acceptedBefore = heldOut
@@ -286,6 +299,35 @@ describe("the sweep over the committed alignment alphabet", () => {
     expect(newlyRefusedByShift).toBe(MNEMONICS.length);
   });
 
+  it("shares it with the later truncation report too, whose delta is the same size", () => {
+    // The second later code on the SAME corpus, measured on its own so the three are never read as
+    // one number. It is wired to the repeat split only, so it fires on exactly one column of this
+    // square: the one where the character the competing alignment would have held is the canonical
+    // repeat separator. Every count is derived from the committed alphabet inside the assertion.
+    const fires: string[] = [];
+    let newlyRefusedByTruncation = 0;
+    for (const body of ALIGNMENT_ALPHABET) {
+      for (const next of ALIGNMENT_ALPHABET) {
+        const raw = neutralStream(body, next);
+        const seen = codes(raw);
+        const fired = seen.includes(WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD);
+        if (fired) fires.push(body + next);
+        const acceptedHoldingItOut = seen
+          .filter((c) => c !== WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD)
+          .every((c) => TOLERABLE_CODES.has(c));
+        if (acceptedHoldingItOut && fired) newlyRefusedByTruncation += 1;
+      }
+    }
+    // One column, every body: the tail in this carrier is always a bare escape character.
+    expect(fires).toHaveLength(ALIGNMENT_ALPHABET.length);
+    for (const t of fires) expect(t.endsWith(REPEAT_SEPARATOR)).toBe(true);
+    // And the two later codes never fire on the same tuple: different columns, by construction.
+    for (const t of fires) expect(t.endsWith(FIELD_SEPARATOR)).toBe(false);
+    // Of that column the four recognized mnemonic bodies are what moves, for the same reason as the
+    // shift report: on every unrecognized body THIS file's code already fired and is untolerable.
+    expect(newlyRefusedByTruncation).toBe(MNEMONICS.length);
+  });
+
   it("reads every tuple into the same bytes, so only the reporting changed", () => {
     for (const body of ALIGNMENT_ALPHABET) {
       for (const next of ALIGNMENT_ALPHABET) {
@@ -327,23 +369,30 @@ describe("what it deliberately does not report", () => {
     expect(acceptedUnderMaximalTolerance(raw)).toBe(false);
   });
 
-  it("stays silent where BOTH alignments interpret a construct, which nothing privileges", () => {
+  it("stays silent where BOTH alignments interpret a construct, and a THIRD code covers it", () => {
     // Under a set naming a mnemonic letter as a splitting delimiter the competitor's body is
     // recognized too, so each alignment interprets exactly one construct and neither is preferred.
-    // The exclusion silences it anyway. Measured, pinned, and recorded as a residue: closing it
-    // means a different criterion (counting what each alignment interprets), which moves which
-    // streams a published package refuses and wants its own slice.
+    // THIS code's exclusion silences it anyway, and that exclusion is unchanged: it is pinned here
+    // so a widening of this test cannot land silently. What answers the case is the same tail
+    // question the shift report asks, taken on the repeat split instead, which is a third code.
     const raw = "H|F^&\rP|1||LAB-0001\rR|1|^^^687|28.6&S&F&U/L||||F\rL|1|N\r";
+    expect(codes(raw)).not.toContain(WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT);
     expect(codes(raw)).toEqual([
       WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
+      WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD,
       WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
     ]);
     const [only] = results(parseAstmRecords(raw));
-    // The gained repeat boundary costs the units and the status, the same signature as its sibling.
+    // What the gained REPEAT boundary costs is the VALUE, and only the value. It reaches no
+    // field-indexed slot: the units slot is empty and the status is `unspecified` under BOTH
+    // alignments of these bytes, decided by the record's own eight-field shape. Reading those two
+    // as a cost of the boundary was measured false, and the reading is unchanged by the new code:
+    // it reports, it does not repair.
     expect(only?.value).toBe("28.6^");
     expect(only?.units).toBeUndefined();
     expect(only?.status.meaning).toBe("unspecified");
-    expect(acceptedUnderMaximalTolerance(raw)).toBe(true);
+    // And the reason it stopped being a residue: a gate-legal profile no longer accepts it.
+    expect(acceptedUnderMaximalTolerance(raw)).toBe(false);
   });
 
   it("stays silent where no competing alignment exists at all", () => {

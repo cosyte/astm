@@ -113,6 +113,27 @@
  * in a value alters no boundary at all), and the case where it accompanies a shifted
  * field is now reported by a code no profile may re-badge.
  *
+ * **`ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` landed next, on the same contested
+ * position and the same tail test, and it reaches a modeled slot by the other
+ * route.** It reports a contested alignment deciding a **repeat** boundary. Nothing
+ * shifts: no field-indexed slot moves, which is exactly why the shift report could
+ * not cover it. What it reports is that the field is read as more repeats than the
+ * competing alignment gives it, and **where that gained boundary is the first one in
+ * the field** it reaches a modeled slot, because a field's modeled value and
+ * components are taken from its **first repeat alone**: everything past it stays in
+ * `repeats` and leaves every modeled slot, so a result value truncates and a
+ * Universal Test ID or a patient name comes back holding only the components that sat
+ * before it. Until it existed the warnings on those streams were
+ * `ASTM_NONSTANDARD_DELIMITERS` and `ASTM_UNPAIRED_ESCAPE_CHARACTER`, both on the list
+ * below, so the widest gate-legal profile plus `{ strict: true }` accepted a truncated
+ * value and an emptied test identity. **At a later boundary it fires and no modeled
+ * slot moves**, which is over-reporting relative to those slots and never
+ * under-reporting: measured, and stated on the code itself rather than left to be
+ * found. It is safety-critical by construction and must never be admitted.
+ * Re-reading the survivors against it moved no admission, and the reason is the one
+ * the entry above already turns on: each of them re-badges the code it names and no
+ * other, and what this condition now raises is a code no profile may name.
+ *
  * **So the ones that remain are recorded with the reading each one survives**, not
  * merely with the value it preserves. Each was re-derived against **every** reader of
  * record structure named above (this sentence deliberately names no count: it has
@@ -198,21 +219,33 @@
  *   decoded value, so the value is identical with or without the profile. Note what
  *   makes this admissible is a property of the *parse*, not of the warning: reading
  *   the character as a literal is unconditional, and tolerating the code changes
- *   nothing about how the record splits. No reader sees it, on the same grounds as
- *   the entry above: the type letter is read before any decoding, the split reader
+ *   nothing about how the record splits. None of the three readers named at the top of
+ *   this file sees it: the type letter is read before any decoding, the split reader
  *   counts fields the escape-aware tokenizer has already finished dividing, and a
- *   decoded value is never cut back into records. Contrast the condition it
+ *   decoded value is never cut back into records. **Two later readers DO see it**, and
+ *   they are named below rather than left out of this bullet. Contrast the condition it
  *   replaced, which **would** have failed part 1: reading the same character as an
  *   unterminated sequence merged every field after it into one, and a code reporting
  *   that would have been a report of lost values.
  *
- *   **The alignment reader is not a reader of this condition, and the distinction is
- *   worth stating rather than leaving to be checked.** It asks whether the character
- *   two positions past a sequence *is* the escape character, never whether that
- *   character heads a sequence of its own, which is the question this code answers.
- *   The two are independent in both directions, measured: `28.6&Z&|&U/L` raises this
- *   code and the alignment code together, and `28.6&Z&|&U&L` raises the alignment
- *   code with no unpaired character anywhere in it.
+ *   **The alignment reader is not a reader of this condition**, and that much still
+ *   holds: it asks whether the character two positions past a sequence *is* the escape
+ *   character, never whether that character heads a sequence of its own. The two are
+ *   independent in both directions, measured: `28.6&Z&|&U/L` raises this code and the
+ *   alignment code together, and `28.6&Z&|&U&L` raises the alignment code with no
+ *   unpaired character anywhere in it.
+ *
+ *   **The two TAIL readers are a different matter, and "no reader sees it" is
+ *   therefore FALSE of this entry and must not be restored.** Both
+ *   `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` and
+ *   `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` fire on `!isEscapeSequenceAt(text, i + 4,
+ *   escape)`, which is exactly the question this code answers, asked about the
+ *   character just past a contested boundary. That is a reader of the reported
+ *   condition, so this entry survives on the same narrower claim the unknown-sequence
+ *   entry above already uses, not on nothing reading it: a profile re-badges the code
+ *   it names and no other, and what those two readers raise is not tolerable in any
+ *   case. If a future reader of this condition ever produces something a profile
+ *   **can** tolerate, this entry stops being admissible and comes off the list.
  * - `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`: a request-information status carried
  *   verbatim as a leaf field on a `Q` record; the code set is paywalled and is not
  *   interpreted, profile or not. Classification reads whether a `Q` record is
@@ -226,7 +259,8 @@
  * an unrecognized record type, a record the delimiters in force could not split, a
  * declaration naming one character in two roles, a delimiter an unrecognized escape
  * sequence kept out of the split, a boundary a competing escape alignment disagrees
- * about, a bad frame checksum / sequence gap / unterminated
+ * about, a field whose modeled reading stops at a boundary only one alignment has,
+ * a bad frame checksum / sequence gap / unterminated
  * / oversize frame, an ambiguous transport, an unexpected protocol event, or a
  * rejected frame: is forbidden.
  *
@@ -278,6 +312,15 @@ import type { AnyAstmWarningCode } from "./types.js";
  * boundary but a modeled slot changing hands, up to and including a result status
  * reading `final` that the competing alignment of the same bytes puts in no field at
  * all.
+ *
+ * `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` is not on this list and must not be added
+ * to it either. It reports the same contested alignment deciding a **repeat**
+ * boundary, where no slot changes hands and a modeled reading is cut off instead: the
+ * field is read out of its first repeat alone, so where that boundary is the first
+ * one a value truncates and a Universal Test ID's coding scheme and local code are
+ * read from bytes that are no longer in any modeled slot. Reporting a value that is
+ * not the whole of what the sender wrote fails the first half of the two-clause test
+ * outright.
  *
  * @example
  * ```ts

@@ -235,12 +235,30 @@ tolerate**; before it existed the only warning on that stream was the tolerable
 unchanged: it reports the shift rather than repairing it. It is wired to the **field** separator
 only, because a gained repeat or component boundary divides one field and so moves no field-indexed
 slot. **That bound is a choice, not a consequence**: components are modeled inside a field, so a
-gained **component** boundary does move a modeled slot, and `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads
-`687` as a local code under one alignment and as the coding scheme under the other, with only a
-tolerable code raised. That is a separate open condition, not something this code covers. It is also
-silent where the trailing escape character heads a sequence of its own, recognized or not; that case
-still shifts the fields and is the recorded residue. It does not survive a re-emit either: catch it
-on the first read.
+gained repeat or component boundary does reach a modeled slot. It is also silent where the trailing
+escape character heads a sequence of its own, recognized or not; that case still shifts the fields
+and is the recorded residue. It does not survive a re-emit either: catch it on the first read.
+
+**And where that gained boundary is a REPEAT boundary, nothing shifts and the field can still be
+read short.** What the report says is that the field is read as more repeats than the competing
+alignment gives it. A field's modeled value and components are taken from its **first repeat
+alone**, so where the gained boundary is the **first** one everything past it stays on the wire,
+stays in `repeats`, and leaves every modeled slot. On the canonical set, `R|1|^^^687|28.6&S&\&U/L|U/L||||F` reads a value of `28.6^`
+and drops `&U/L`, and `R|1|&F&\&687|28.6|U/L||||F` reads a Universal Test ID of one component
+holding a decoded field separator, so the local code `687` is in no modeled slot and the identity
+comes back as a LOINC candidate nobody wrote. A patient name loses its given and middle names the
+same way. That raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, which **no profile may tolerate**;
+before it existed the only warnings on those streams were tolerable ones, so a strict parse under a
+legal profile accepted a truncated value and an emptied test identity. The reading is unchanged: it
+reports the gained boundary rather than repairing it. **At a LATER boundary it fires and no modeled
+slot moves**, because the first repeat is then the same under both readings; that is over-reporting
+relative to the modeled slots and never under-reporting, and it is measured rather than assumed. Its
+tail bound is the shift report's, for the same reason: `28.6&R&\&R&U/L` is the repeat separator
+escaped, written, and escaped again, and refusing it would refuse a well-formed stream. It is wired to the **repeat** separator only; a gained
+**component** boundary reaches a modeled slot differently, moving it one slot along rather than
+dropping it (`R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads `687` as a local code under one alignment and
+as the coding scheme under the other, with only a tolerable code raised), and that is a separate
+open condition. It does not survive a re-emit either: catch it on the first read.
 
 ### A header that names one character in two delimiter roles
 
@@ -339,7 +357,10 @@ outside it:
   not tolerable. Where that gained boundary is a **field** boundary and the reading taken resumes on
   an escape character heading no sequence, every later field shifts one place and a result's units
   and status are read out of slots the other alignment does not put them in: that raises
-  `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable either.
+  `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable either. Where it is a **repeat** boundary
+  nothing shifts, but the field is read out of its first repeat alone, so a gained first boundary
+  truncates a value and costs a test identity or a patient name the components that sat after it:
+  that raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either.
 
 All are accepted limits, for two different reasons: widening the field-separator check would mean
 deciding which set a record ought to have had, which is the same guess the parser declines to make

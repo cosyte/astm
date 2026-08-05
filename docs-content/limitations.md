@@ -102,7 +102,15 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   slots the competing alignment does not put them in, up to a status of `final` the sender never
   wrote there; that is `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` (not tolerable either). It stays
   silent where that trailing escape character heads a sequence whose body is unrecognized, which
-  shifts the fields just the same: a measured, deliberate bound, not an oversight. **None of these
+  shifts the fields just the same: a measured, deliberate bound, not an oversight. Where that gained
+  boundary is a **repeat** boundary nothing shifts, and the field can still be read short: its
+  modeled value and components come from its first repeat alone, so where the gained boundary is the
+  **first** one `28.6&S&\&U/L` reads a value of `28.6^` and a Universal Test ID of `&F&\&687` reads
+  one component holding a decoded field separator, with the local code in no modeled slot. That is
+  `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` (not tolerable either), on the same tail bound; at a later
+  boundary it fires and nothing modeled moves, which is over-reporting and never under-reporting. A gained
+  **component** boundary reaches a modeled slot differently again, moving it one slot along, and is
+  reported by nothing: measured, disclosed, and open. **None of these
   reports survives emitting**: this package rewrites the preserved characters into recognized mnemonics, so
   a re-emitted stream carries the reading that was taken with nothing ambiguous left in it. The
   low-level `encodeComponent` and `serializeField` helpers take no record and so carry neither

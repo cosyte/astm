@@ -91,7 +91,13 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
         "this profile cannot tolerate either. Where that gained boundary is a field boundary and " +
         "the reading taken resumes on an escape character heading no sequence, every later field " +
         "shifts and a result's units and status move with it, which raises " +
-        "ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS, untolerable here as well.",
+        "ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS, untolerable here as well. Where that same gained " +
+        "boundary is a repeat boundary, nothing shifts but the field is read out of its first " +
+        "repeat alone, so a value truncates and a test identity empties, which raises " +
+        "ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD, untolerable here too. Both of those carry the " +
+        "same tail bound and stay silent where the escape character past the boundary heads a " +
+        "sequence of its own, recognized or not, which is much of this corpus: tolerating this " +
+        "code does not quiet them, but their absence is not a statement that nothing was lost.",
     },
   ],
 });

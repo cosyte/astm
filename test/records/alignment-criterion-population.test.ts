@@ -12,9 +12,9 @@
  * mnemonic. That exclusion is wider than the argument for it: where the declared set names one of the
  * four mnemonic letters as a splitting delimiter, *both* alignments interpret a construct at the
  * contested position, nothing prefers either, and the report is silent while a gained boundary can
- * cost a result its units and its status. The obvious repair is to swap the recognition test for a
- * **count** of what each alignment interprets there, and fire unless the alignment taken interprets
- * strictly more. This file measures that candidate, and **rejects it**.
+ * truncate a result's value or empty its test identity. The obvious repair is to swap the
+ * recognition test for a **count** of what each alignment interprets there, and fire unless the
+ * alignment taken interprets strictly more. This file measures that candidate, and **rejects it**.
  *
  * **Why it is rejected, in one sentence:** the count is taken over the two contested triples only,
  * while the two alignments also disagree about every byte that follows, so a stream whose escaping is
@@ -243,18 +243,22 @@ const sets = DECLARATION_ALPHABET.length * SPLITTING_ROLES.length;
 /** The one tail whose bytes carry no escape deviation of their own. */
 const cleanTails = 1;
 /**
- * **The base under this corpus moved after these figures were first taken, and it moved on purpose.**
- * `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` shipped afterwards, asking a different question about the
- * same contested position: what does the reading taken make of the bytes AFTER the boundary. It is
- * wired to the **field** split only and fires only where the escape character the reading resumes
- * on heads no sequence, so on this corpus it covers exactly one role and one tail. Both counts are
- * derived from the corpus constants rather than written down, so a later axis moves them with it.
+ * **The base under this corpus has moved twice since these figures were first taken, and it moved
+ * on purpose both times.** Two codes shipped afterwards, each asking a different question about the
+ * same contested position: what does the reading taken make of the bytes AFTER the boundary.
+ * `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` is wired to the **field** split, and
+ * `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` to the **repeat** split. Both fire only where the escape
+ * character the reading resumes on heads no sequence, so each covers exactly one role and one tail
+ * of this corpus, and the two columns are disjoint. Both counts are derived from the corpus
+ * constants rather than written down, so a later axis moves them with it.
  *
  * Every figure below that names an acceptance is re-derived against that, rather than left quoting
  * a base that no longer exists. **Never quote one of these numbers against a different sha.**
+ * **These are the base, not the candidate**: the candidate is still the predicate transcribed in
+ * this file and it still ships nowhere.
  */
-const shiftRoles = 1;
-const shiftTails = 1;
+const tailRoles = 2;
+const tailTails = 1;
 
 describe("the corpus, and the axis that decides the answer", () => {
   it("sweeps every declared set, every body and every tail, and every set resolves", () => {
@@ -321,20 +325,20 @@ describe("the population the candidate criterion would move, on the strict-accep
   it("moves exactly the tuples where both contested triples are recognized, and none back", () => {
     const moved = corpus.filter((t) => t.acceptedNow && !t.acceptedUnderCandidate);
     const back = corpus.filter((t) => !t.acceptedNow && t.acceptedUnderCandidate);
-    // Each figure is the one this corpus gave before the shift report shipped, LESS the tuples that
-    // report now refuses: its one role against its one tail, on the recognized bodies (the
-    // unrecognized ones were already refused by the alignment code either way).
+    // Each figure is the one this corpus gave before the two tail reports shipped, LESS the tuples
+    // those reports now refuse: their two roles against their one tail, on the recognized bodies
+    // (the unrecognized ones were already refused by the alignment code either way).
     expect(corpus.filter((t) => t.acceptedNow)).toHaveLength(
       sets * mnemonicBodies * TAIL_SUFFIXES.length -
-        DECLARATION_ALPHABET.length * shiftRoles * mnemonicBodies * shiftTails,
+        DECLARATION_ALPHABET.length * tailRoles * mnemonicBodies * tailTails,
     );
     expect(corpus.filter((t) => t.acceptedUnderCandidate)).toHaveLength(
       otherDeclarations * SPLITTING_ROLES.length * mnemonicBodies * TAIL_SUFFIXES.length -
-        otherDeclarations * shiftRoles * mnemonicBodies * shiftTails,
+        otherDeclarations * tailRoles * mnemonicBodies * tailTails,
     );
     expect(moved).toHaveLength(
       mnemonicDeclarations * SPLITTING_ROLES.length * mnemonicBodies * TAIL_SUFFIXES.length -
-        mnemonicDeclarations * shiftRoles * mnemonicBodies * shiftTails,
+        mnemonicDeclarations * tailRoles * mnemonicBodies * tailTails,
     );
     expect(back).toHaveLength(0);
     for (const t of moved) {
@@ -397,38 +401,46 @@ describe("why the candidate is rejected rather than shipped", () => {
     expect(corpus.some((t) => t.raw === wellFormed)).toBe(true);
   });
 
-  it("leaves the open case open, and pins what the gained boundary actually costs", () => {
-    // What stays broken by rejecting the candidate, stated rather than left implied, and stated
-    // CORRECTLY. Under `H|F^&` the contested delimiter is the REPEAT role, so the gained boundary
-    // divides one field and reaches nothing outside it: the units and status slots read empty under
-    // every alignment of these bytes, and the role is the reason that generalizes, not the field
-    // count. Saying the gained boundary "costs the units and the status" attributes to it something
-    // it cannot reach, and that reading was measured false here.
+  it("names the case it left open, WHICH A TAIL-WEIGHING CRITERION HAS SINCE CLOSED", () => {
+    // What rejecting the candidate left broken, and what closed it afterwards. Under `H|F^&` the
+    // contested delimiter is the REPEAT role, so the gained boundary divides one field and reaches
+    // nothing outside it: the units and status slots read empty under every alignment of these
+    // bytes, and the role is the reason that generalizes, not the field count. Saying the gained
+    // boundary "costs the units and the status" attributes to it something it cannot reach, and
+    // that reading was measured false here.
     const harm = "H|F^&\rP|1||LAB-0001\rR|1|^^^687|28.6&S&F&U/L||||F\rL|1|N\r";
-    expect(codes(harm)).toEqual([
-      WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
-      WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
-    ]);
-    expect(acceptedUnderMaximalTolerance(harm)).toBe(true);
     const record = parseAstmRecords(harm).records[2];
     expect(record?.fields).toHaveLength(8);
 
-    // WHAT IT DOES COST IS THE VALUE, and that is the silent loss. The reading taken splits the
+    // WHAT IT DOES COST IS THE VALUE, and that was the silent loss. The reading taken splits the
     // value field into two repeats and every value extractor reads the first, so `&U/L` leaves the
     // result entirely. The competing alignment reads the same bytes as one repeat carrying all of
-    // it. Neither is forced by the bytes, and nothing says so.
+    // it. Neither is forced by the bytes.
     const [only] = results(parseAstmRecords(harm));
     expect(only?.value).toBe("28.6^");
     expect(record?.fields[3]?.repeats).toEqual([["28.6^"], ["&U/L"]]);
     expect(only?.units).toBeUndefined();
     expect(only?.status.meaning).toBe("unspecified");
 
-    // The candidate would have caught it. What separates it from the counterexample above is not
-    // the contested pair, which is a tie in both, but the tail: here the escape character past the
-    // boundary heads nothing, there it heads a recognized sequence. So a criterion that closes this
-    // without over-refusing has to weigh what each alignment makes of the bytes AFTER the boundary
-    // as well, which is a different and larger reader than a count over one position.
+    // ── AND THIS IS NO LONGER SILENT. The criterion that closed it is exactly the one this file's
+    // rejection pointed at: weigh the TAIL rather than the contested pair, taken on the repeat
+    // split, under a code of its own. The reading is untouched (every assertion above still holds
+    // byte for byte), and what changed is that a gate-legal profile no longer accepts it.
+    expect(codes(harm)).toEqual([
+      WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
+      WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD,
+      WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+    ]);
+    expect(acceptedUnderMaximalTolerance(harm)).toBe(false);
+
+    // The candidate would also have caught it, and that is not what was wrong with the candidate.
+    // What separates this case from the counterexample above is not the contested pair, which is a
+    // tie in both, but the tail: here the escape character past the boundary heads nothing, there
+    // it heads a recognized sequence. The counterexample is still accepted, which is the whole
+    // point of having weighed the tail instead of counting the pair.
     expect(candidateReports("S", "F")).toBe(true);
+    const wellFormed = "HF\\^&\rPF1FFLAB-0001\rCF1FIF28.6&F&F&F&U/LFG\rLF1FN\r";
+    expect(acceptedUnderMaximalTolerance(wellFormed)).toBe(true);
   });
 });
 

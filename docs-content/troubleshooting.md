@@ -118,7 +118,8 @@ code reaches: a declared set naming a mnemonic letter as a splitting delimiter l
 interpreting one construct each with **neither preferred**, and on the field separator with a bare
 escape character past the boundary the next section's code now fires. Everywhere else, meaning a
 repeat or component role, or an escape character past the boundary that heads a sequence of its own,
-**nothing reports it at all**. Treat a bare escape character next to a
+**nothing reports it at all** (on the repeat separator with a bare escape character past the
+boundary, the section after next now fires). Treat a bare escape character next to a
 delimiter as worth reading the raw line for, **whether or not either code fired**. The other excluded
 case is a delimiter with no escape character two positions past it, which is no competing alignment
 at all. What does fire is a subset of what already raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its
@@ -160,7 +161,8 @@ other, and `DOE&F&^&JANE^A` reads `&JANE` as a first name under one alignment an
 Nothing reports that: only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` fires, so a strict parse
 under a legal profile accepts it. It is a separate open condition, disclosed here rather than left to
 be found, and wiring this code to another delimiter role would be a different criterion needing its
-own measurement. On the repeat role the cost is the **value**, also not reported here. And where the
+own measurement. On the repeat role the cost is the **value** and the field's components, reported
+by its own code in the next section. And where the
 escape character past the boundary heads a
 sequence, recognized or not, it stays silent, because the reading taken is then the one making sense
 of those bytes: under a set naming the field separator `F`, `28.6&F&F&F&U/L` is that separator
@@ -168,6 +170,48 @@ escaped, written, and escaped again, which is entirely well formed. The case whe
 sequence has an unrecognized body still shifts the fields and is still silent here. Like the codes
 above it does not survive a re-emit: catch it on the first read of the wire bytes. **What to do:**
 read the raw line, and ask the sender to escape a literal escape character as `&E&`.
+
+## A competing alignment split one field into repeats, so its value and identity read short
+
+`ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` asks the same question as the code above, on the **repeat**
+separator instead. Nothing shifts there: the units slot and the result-status slot are read out of
+the same field numbers under either alignment, which is exactly why the shift report cannot see it.
+What it reports is that **the field is read as more repeats than the competing alignment gives it**.
+Where that gained boundary is the **first** one in the field it reaches a modeled slot, because a
+field's modeled value and its components are taken from its first repeat alone: everything past the
+boundary stays on the wire, stays in `repeats`, and leaves every modeled slot.
+
+Both costs are reachable on the **canonical** set, so no unusual declaration is needed:
+
+- **The value truncates.** `R|1|^^^687|28.6&S&\&U/L|U/L||||F` reads a value of `28.6^`, and
+  `&U/L` leaves the result entirely. The competing alignment reads one repeat carrying all of it.
+- **A modeled identity empties.** `R|1|&F&\&687|28.6|U/L||||F` reads a Universal Test ID of one
+  component holding a decoded field separator, so the local code `687` is in no modeled slot at all
+  and the identity comes back as a LOINC candidate the sender never wrote. `DOE&S&\&JANE^A` reads
+  a last name and **no given or middle name**.
+
+Before this code existed the only warnings on those streams were tolerable ones, so a strict parse
+under the widest legal profile accepted a truncated value and an emptied test identity. The reading
+is unchanged: this reports the truncation, it does not repair it, and it fires alongside the codes
+above rather than instead of them.
+
+**At a later boundary this fires and nothing modeled moves**, because the first repeat is then the
+same under both readings and only the repeat structure after it differs. That is deliberate and
+measured: the boundary is still one the bytes do not force, and a consumer reading `repeats` is
+still reading an alignment guess. Relative to the modeled slots it is over-reporting, never
+under-reporting, so **check `repeats` on the field the warning names rather than assuming the value
+is wrong**.
+
+Two further bounds, both deliberate. It is wired to the **repeat** separator only: a gained **component**
+boundary reaches a modeled slot too, and differently, moving it one slot along rather than dropping
+it, which is the separate open condition described in the section above. And the tail bound is that
+section's, for the same reason: where the escape character past the boundary heads a sequence,
+recognized or not, this stays silent, because `28.6&R&\&R&U/L` is the repeat separator escaped,
+written, and escaped again, and refusing it would refuse a well-formed stream. The unrecognized-tail
+case still truncates and is still silent here. Like the codes above it does not survive a re-emit:
+catch it on the first read of the wire bytes. **What to do:** read the raw line, check `repeats` on
+the field the warning names before trusting its value, and ask the sender to escape a literal escape
+character as `&E&`.
 
 ## A header declared one character in two delimiter roles
 

@@ -1412,8 +1412,9 @@ only tolerable codes before.
 
 **▶ THE BASE UNDER THE REJECTED CRITERION'S FIGURES MOVED, AND IT WAS RE-DERIVED RATHER THAN
 RE-QUOTED.** `test/records/alignment-criterion-population.test.ts` measured 288 strict-accepted and
-144 moving; with this code shipped those are **256** and **128**, expressed as formulas over the same
-constants rather than re-typed. Its headline finding is **unchanged** (48 escape-clean tuples
+144 moving; with this code shipped those became **256** and **128**, and with defect 17(b)'s code
+shipped after it they are **224** and **112**, expressed as formulas over the same constants rather
+than re-typed (`tailRoles` is 2 now, not 1). Its headline finding is **unchanged** (48 escape-clean tuples
 over-refused), because this code fires on no clean tail. And
 `test/records/escape-alignment-ambiguity.test.ts` now **holds this code out** of its tier explicitly,
 so defect 15's 144/24/108/93/15 are still the numbers that slice measured rather than numbers that
@@ -1423,6 +1424,116 @@ quietly went stale. **Never quote either set against a different sha.**
 **values** moved. It does **not** reach through a re-emit: emit rewrites the preserved characters
 into recognized mnemonics and generation 2 is silent and correct about its own bytes. **Catch it on
 the FIRST read; a clean re-read is not evidence.**
+
+### Defect 17(b): CLOSED 2026-08-05, as a REPORT, by the SAME tail test on the repeat split
+
+**What shipped.** `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable, fires on **exactly the
+predicate 17(a) uses**, wired to the **repeat** split instead of the field split. One predicate, two
+sinks, and that is structural rather than a comment: `splitEscapeAware` calls both from the same
+`if`, because the split does not know which delimiter role it is being taken on and the role is what
+decides the cost. The caller wires the sink that names its role.
+
+**▶ WHY A SECOND CODE AND NOT A WIRING OF THE FIRST.** `ShiftedFieldsSink`'s whole claim is that a
+modeled slot changed hands because every later field moved. On the repeat role **nothing moves**: the
+units slot and the result-status slot are read out of the same field numbers under either alignment.
+Reusing the code would have made its published sentence false, and a false sentence in
+`dist/index.d.ts` is the failure this family has already committed once.
+
+**▶ THE HARM, AND IT IS WIDER THAN THE DEFECT'S NAME.** A field's modeled reading is
+`repeats[0]` (`toField` in `src/records/tokenize.ts`), so a gained **first** repeat boundary takes
+**everything after it out of every modeled slot** while leaving it on the wire and in `repeats`.
+**Both costs are reachable on the CANONICAL set**, which the rejected pair-count criterion's
+population was not:
+
+- **The value truncates.** `R|1|^^^687|28.6&S&\&U/L|U/L||||F` reads value `28.6^`; `&U/L` leaves the
+  result. This is the case the defect was named for.
+- **A modeled component list is DELETED, not shifted.** `R|1|&F&\&687|28.6|U/L||||F` reads a
+  Universal Test ID whose `components` is `["|"]`: one component holding a **decoded field
+  separator**, tagged `inline-loinc-candidate`, with the local code `687` in no modeled slot at all.
+  `P|1||MRN-0001||DOE&S&\&JANE^A||19700101|F` reads a last name and **no given or middle name**.
+  This half is what 17(a)'s sink could not reach, because components are modeled *inside* a field.
+
+Both raised only tolerable codes before (`ASTM_UNPAIRED_ESCAPE_CHARACTER`, plus
+`ASTM_NONSTANDARD_DELIMITERS` where the set is not canonical), so the widest gate-legal profile plus
+`{ strict: true }` accepted a truncated value and a fabricated test identity.
+
+**▶ THE CLAIM IS BOUNDED TO THE FIRST BOUNDARY, AND THE FIRST DRAFT WROTE IT UNBOUNDED AND WAS
+REFUTED FOR IT.** The sink is called for a contested repeat boundary at **any** repeat index, and
+only the first one reaches a modeled slot. At a later one the first repeat is identical under both
+alignments, so the value and the components read the same either way and only the repeat structure
+after the first differs: `R|1|^^^687|5.0\28.6&S&\&U/L|U/L||||F` reads value `5.0` under both, and
+**this fires and refuses it anyway.** That is deliberate (the boundary is still one the bytes do not
+force, and a consumer reading `repeats` is still reading an alignment guess) and it is
+**over-reporting relative to the modeled slots, never under-reporting**. **The remedy taken was to
+CORRECT THE CLAIM and MEASURE THE AXIS, not to grow the guard**: gating the sink on repeat index 0
+is a behaviour change on a published package and would want its own measurement. The axis is now a
+second sweep beside the main corpus (same alphabets, boundary moved off the front of the field):
+**96 fire, 32 move, 0 back, 0 escape-clean, and on all 96 the first repeat is unchanged between the
+alignments.** **The main 864-tuple corpus fixes that axis** (its carrier contests the first
+boundary), which is the same failure its own `TAIL_SUFFIXES` doc warns about, applied to a different
+axis. It was left fixed on purpose so its figures stay comparable with the two measurements before
+it, and the axis is measured beside it rather than folded into it.
+
+**▶ IT IS A REPORT, NOT A REPAIR.** The split is unchanged, every decoded byte is identical, and
+`repeats` still carries the bytes past the boundary. Picking the other alignment is a different guess
+with no more evidence, on a published package. **Withholding the truncated field was NOT weighed
+here and is not implied by this slice**: it is the same class as 17(a)'s deferred withholding and
+wants the same measured slice of its own.
+
+**▶ THE MEASUREMENT, on the same 864-tuple corpus and the same constants as both measurements before
+it** (`DECLARATION_ALPHABET`, `SPLITTING_ROLES`, `BODY_ALPHABET`, `TAIL_SUFFIXES`, re-committed in
+`test/records/alignment-truncated-field.test.ts`), tier
+strict-accepted-under-a-gate-legal-profile, every figure derived from a constant inside its
+assertion. **Fires on 96. Moves 32 accepted -> refused. 0 move back. Fires on 0 of the 96
+escape-clean tuples, and cannot**, because firing requires an escape character heading no sequence,
+which is itself `ASTM_UNPAIRED_ESCAPE_CHARACTER`. **The rejected pair count refused 48 of those 96.**
+Identical shape to 17(a)'s figures, on a disjoint column: the two codes never fire on the same tuple.
+**And unlike the rejected criterion's population, this one is NOT confined to a set naming a mnemonic
+letter as a delimiter**: the canonical repeat separator reaches it, 12 of 108 canonical tuples swept.
+
+**▶ THE RESIDUE, MEASURED AND NAMED, and it is 17(a)'s residue exactly.** Where the escape character
+past the boundary heads a sequence whose body is **unrecognized**, the truncation is just as real and
+this is **silent** (`28.6&S&\&Z&U/L` reads `28.6^` with only tolerable codes, still accepted). The
+reading taken consumes that character as a sequence head while the competing alignment would leave
+**two** bare, so the bytes prefer the reading taken more strongly there, not less. Firing would
+report a boundary the bytes prefer.
+
+**▶ WHAT IS STILL OPEN, AND WAS NOT TAKEN.** **17(c)**, the gained **component** boundary, is
+untouched and stays `PRE-EXISTING`. It is a different cost, and the difference is worth keeping
+straight: a gained repeat boundary **drops** components out of the record, a gained component
+boundary **moves** them one slot along (`687` read as a coding scheme, `A` read as a middle name).
+Closing it means wiring a sink to a third split, which is another criterion and wants its own
+population measurement. **Defect 9** was not touched either.
+
+**▶ THREE PRE-EXISTING MEASUREMENT FILES WERE RE-DERIVED, NOT RE-CUT, AND THE THIRD WAS ONLY
+FOUND BY THE GATE.** `test/records/alignment-shifted-fields.test.ts` was missed on the first pass:
+its `acceptedBefore` held out only the shift code, so for the 32 repeat-column tuples it silently
+stopped meaning what it says, and a comment in it read "It is a different defect and stays open" of
+the defect this slice closes. It now holds the later code out of **both** sides through a named
+constant, and asserts the closure rather than describing it as open. The other two:
+`test/records/escape-alignment-ambiguity.test.ts` now holds **both** later tail codes out of its tier
+through one named constant, so defect 15's 144/24/108/93/15 are still that slice's numbers, and it
+gained a parallel delta for this code (12 fires on the repeat column, 4 moving, disjoint from the
+shift report's field column). `test/records/alignment-criterion-population.test.ts` had its `shift*`
+constants generalized to `tailRoles = 2`, and **its "leaves the open case open" test is now
+"names the case it left open, WHICH A TAIL-WEIGHING CRITERION HAS SINCE CLOSED"**, asserting the same
+bytes read the same way and a gate-legal profile no longer accepting them, with the pair count's
+counterexample still accepted beside it. **The rejected criterion is still rejected and still ships
+nowhere.**
+
+**▶ A FOURTH THING THE GATE CAUGHT, and it is a house-convention break worth naming.** Every new
+wire example in `README.md`, `docs-content/` and `CHANGELOG.md` first landed with a **doubled**
+backslash inside an inline code span, where Markdown does no escape processing, so the bytes a
+reader would copy did **not** raise the code they were offered as the reproduction of. The base tree
+writes `H|\^&` with one backslash inline and doubles it only inside fenced TypeScript. It came from
+writing those files through a script rather than by hand. **`docs-content/` ships in an immutable
+tarball**, so this is the class of error that is corrected only by superseding a release.
+
+**▶ WHAT DID NOT CHANGE, so it is not read in.** No tolerable code was struck off. No stream's
+**values** moved. `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`'s recognized-body exclusion is exactly as
+it was. It does **not** reach through a re-emit: emit rewrites the preserved characters into
+recognized mnemonics and generation 2 is silent and correct about its own bytes. **Catch it on the
+FIRST read; a clean re-read is not evidence.**
 
 <a id="defects-closed-elsewhere"></a>
 

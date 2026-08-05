@@ -26,8 +26,8 @@ line without reading the spec. Liberal on parse (quirks become warnings), conser
 ## Status
 
 **Published, public, feature-complete.** `@cosyte/astm` is live on npm on the pre-alpha `0.0.x`
-ladder (first published 2026-07-22); the repo is public. Both standing human gates are crossed. All
-ten roadmap phases have shipped, through release hardening. `src/` is `common/` (values), `records/`,
+ladder; the repo is public. Both standing human gates are crossed. All ten roadmap phases have
+shipped, through release hardening. `src/` is `common/` (values), `records/`,
 `frames/`, `ltp/`, `profiles/`, `terminology/`.
 **Full per-phase histories, with what each phase deliberately deferred and why:**
 `#status-history`.
@@ -36,8 +36,8 @@ ten roadmap phases have shipped, through release hardening. `src/` is `common/` 
 
 - **Never name a version in prose** here, in `README.md`, or in `docs-content/`. All four read
   `at 0.0.1` for days after `0.0.2` shipped, and `docs-content/` reaches docs.cosyte.com inside an
-  **immutable** tarball. Derive it: `npm view @cosyte/astm version`. `www.npmjs.com` returns 403 to
-  scripted requests, so it is not a usable check. Why: `#status-history`.
+  **immutable** tarball. Derive it: `npm view @cosyte/astm version`; `www.npmjs.com` 403s scripted
+  requests and is not a usable check. Why: `#status-history`.
 - **`src/index.ts`'s exported `VERSION` is a different thing and IS bound** (`scripts/sync-version.mjs`
   in the release `version` script + an equality assertion in `test/sanity.test.ts`). Never "restore
   consistency" by re-pinning a number into prose. Why: `#status-history`.
@@ -108,11 +108,11 @@ Full text: `#docs-sidebar`.
 
 - **`docs-content/sidebars.json` is a public contract, not a local build detail**, and the release
   asset it is tarred into is **immutable**: a bad sidebar is superseded by a later release, never
-  corrected in place. `v0.0.1`/`v0.0.2` shipped a non-canonical "About" and it rendered at `/astm/`.
+  corrected in place. It has shipped wrong once and rendered that way (`#docs-sidebar`).
 - **Spine: Overview, Installation, Quickstart, Core Concepts, Guides, API Reference,
   Troubleshooting**, enforced upstream by `scripts/check-ia-conformance.ts`, transcribed by
   `test/docs-sidebar-ia.test.ts`. **Transcribed, not imported** (a parser repo cannot depend on the
-  docs site), so the copies can drift and **upstream is the source of truth**.
+  docs site), so copies drift and **upstream is the source of truth**.
 - **Categories are optional** ("if you have it, label and order it canonically"), so `{"docs":
 ["intro"]}` conforms: **never make the test demand a section**. **"API Reference" is injected by
   `cosyte/docs`, never authored here.**
@@ -281,28 +281,35 @@ every measurement and every refuted formulation:
     **The fatal CODE is unchanged and no stream's disposition moved**: a second fatal code was
     considered and **REJECTED**, as a breaking change bought for a sentence. **Do not delete the
     unreachable branch.** `#defect-16`
-17. **🩺 (a) CLOSED 2026-08-05 as a REPORT; (b) and (c) OPEN; the pair-count criterion stays REJECTED.**
-    (a) `28.6&F&|&U/L` gains a FIELD boundary, every later field shifts, and the sender's `F` lands
-    in the status slot: units `&U/L` and status **`final`**, both FABRICATED, on a tolerable code.
-    Now `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable, **FIELD role only** and only where the
-    escape character the reading resumes on heads **NO sequence**. **A SECOND code, NOT a widening:
-    15's exclusion is untouched.** **A REPORT: the status still reads `final`; withholding the
-    shifted slots was weighed and DEFERRED.** 864 tuples: fires 96, moves 32, **0 back, 0
-    escape-clean** (the rejected criterion refused 48). **RESIDUE: an UNRECOGNIZED-sequence tail
-    shifts the same and is SILENT** (firing there reports a boundary the bytes prefer). **The tail is
-    weighed ONE CONSTRUCT deep, not to end of record.** **No re-emit reaches either code.**
-    (c) **`PRE-EXISTING`, DISCLOSED not fixed: a gained COMPONENT boundary DOES move a modeled slot**
-    (a UTID's coding scheme and local code; a patient's given name), silent, strict-accepted. **The
-    field-role bound is a CHOICE, not a consequence: NEVER write "a repeat or component boundary
-    cannot move a modeled slot"** (it shipped into `dist/index.d.ts` and the gate refuted it).
-    (b) `H|F^&` with `28.6&S&F&U/L` gains a REPEAT boundary, TRUNCATING the value to `28.6^`,
-    dropping `&U/L`. **NOT the units or status**: a REPEAT boundary shifts no field, so both
-    read them empty. That measured FALSE.
-    **▶ COUNTING THE CONTESTED PAIR DOES NOT CLOSE (b). DO NOT RE-PROPOSE IT.** It refuses
+17. **🩺 (a) and (b) CLOSED 2026-08-05 as REPORTS by weighing the TAIL; (c) OPEN; the
+    pair-count criterion stays REJECTED.** ONE predicate, wired per role, never widened into each
+    other: a contested alignment resuming on an escape character heading **NO sequence**. 15's
+    exclusion untouched by both.
+    (a) `28.6&F&|&U/L` gains a FIELD boundary, every later field shifts, the sender's `F` lands in
+    the status slot: units `&U/L` and status **`final`**, both FABRICATED, on a tolerable code. Now
+    `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`. **Status still reads `final`; withholding the shifted
+    slots was weighed and DEFERRED.**
+    (b) `28.6&S&\&U/L` gains a REPEAT boundary. **Nothing shifts and the field is STILL read short**,
+    because a field is modeled from `repeats[0]`: the value truncates to `28.6^`, AND a UTID's
+    components are DELETED (`&F&\&687` reads `components === ["|"]`). Now
+    `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, **reachable on the CANONICAL set**. It costs **NOT the
+    units or status**: a REPEAT boundary shifts no field, so both alignments read them empty; the
+    units-and-status reading measured FALSE. **Only the FIRST boundary reaches a modeled slot; at a
+    LATER one it fires and nothing modeled moves** (over-reports, never under). Own sweep: the main corpus
+    FIXES that axis.
+    Each, 864 tuples: fires 96, moves 32, **0 back, 0 escape-clean** (the rejected criterion refused
+    48), disjoint columns. **RESIDUE for both: an UNRECOGNIZED tail costs the same and is SILENT**
+    (firing reports a boundary the bytes prefer). **ONE CONSTRUCT deep. No re-emit reaches either.**
+    (c) **`PRE-EXISTING`, DISCLOSED not fixed: a gained COMPONENT boundary MOVES a modeled slot one
+    place** (a UTID's coding scheme and local code; a given name), silent, strict-accepted.
+    **Repeat DROPS, component MOVES: a third code, not a wiring.** **The role bound is a CHOICE:
+    NEVER write "a repeat or component boundary cannot move a modeled slot"** (it
+    shipped into `dist/index.d.ts` and the gate refuted it).
+    **▶ COUNTING THE CONTESTED PAIR STAYS REJECTED. DO NOT RE-PROPOSE IT.** It refuses
     **well-formed** streams: under `HF\^&`, `28.6&F&F&F&U/L` is two recognized sequences around the
     separator they escape, raises nothing, and ties. It refuses half of all escape-clean streams.
-    **▶ THE COUNT IS LOCAL; the alignments disagree about every byte AFTER the boundary**, so (b)
-    needs the TAIL weighed. **A corpus that FIXES the tail reports a comforting zero.**
+    **The count is LOCAL; the alignments disagree about every byte AFTER the boundary. A corpus that
+    FIXES the tail reports a comforting zero.**
     `#defect-17`
 
 Two further defects were closed and folded away: `#defects-closed-elsewhere`.
@@ -347,13 +354,11 @@ Full text, with every measurement: `#attw`.
 - **▶ `attw` says "does not contain types" and EXITS 0, so the `attw` script is a wrapper, not the
   bare CLI.** `getExitCode.js` opens with `if (!analysis.types) return 0`, so the problem list is
   never consulted and no `--profile`, `--ignore-rules` or config setting reaches it. For a package
-  that ships types it means a **broken publish reported as a pass**. A false red costs an hour; **a
-  false green merges.**
+  that ships types it means a **broken publish reported as a pass**. **A false green merges.**
 - **The race only supplies the condition, and the defect is not the race.** Reproduced with zero
-  concurrency; timed on **one** real `tsup` run of this package, `dist/` held JS and no declarations
-  for 1,887 ms (an n=1 measurement, not a standing property of every build). So the answer is **not**
-  a lock, a lease or a build queue: the gate must be able to say its own inputs were missing, whatever
-  removed them.
+  concurrency, and the build window is n=1, not a standing property (`#attw`). So the answer is
+  **not** a lock, a lease or a build queue: the gate must be able to say its own inputs were missing,
+  whatever removed them.
 - **`scripts/attw.mjs` carries two nets that catch different things**: a preflight that every relative
   path `package.json` promises exists and is non-empty (catches the build window, names the file), and
   a post-check on the untyped sentence (catches declarations on disk but excluded from the tarball).
@@ -368,8 +373,8 @@ Full text, with every measurement: `#attw`.
   root. Every sibling still invoking the CLI keeps the false green, **including
   `config/scripts/parser-template/`, which new parser repos are minted from.**
 - **Do not port the sibling's prose with its code.** Re-take every measured claim here; a first draft
-  shipped two that were not, and the refuter caught both. **Do not quote `terminology`'s 4.95 s**:
-  the build window here is 1,887 ms, measured on this package.
+  shipped two that were not, and the refuter caught both. **Never quote a sibling's timing**: `#attw`
+  carries this package's own.
 
 ## Standing disciplines (every change)
 
@@ -402,8 +407,8 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`,
      rule 1 on the `WORD-N` shape (`ASTM-E1394`, `CLSI-LIS01`, `LIS02-A2`, `POCT1-A` and the `SPEC-7` /
      `ACC-42` sample ids are the reference material a reader came for).
    - **A zero from the gate is not a zero.** The worst finds were English sentences, not identifiers:
-     stale phase prose in `src/index.ts` and `AstmMessage` had **gone false** in the file every
-     consumer receives. The reviewer owns half this rule.
+     prose that had **gone false** in the file every consumer receives. The reviewer owns half this
+     rule.
 5. **No em dash, anywhere** (founder directive, 2026-07-24), **including commit messages**. Gated by
    `pnpm check:no-emdash`, which scans every tracked file, every tracked filename, the gate script
    itself, and on a PR the title, body and commit messages. Rewrite with a comma, a colon, a period, or
@@ -411,17 +416,15 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`,
    - **Never re-encode the character.** The gate matches the entity, numeric-entity, URL and
      backslash-u forms; they are spelled out only inside `scripts/check-no-emdash.sh`, the one file
      excluded from its own scan.
-   - **An em dash can be a semantic VALUE, and a bulk sweep destroys the meaning.** A bare dash meaning
-     "governed by no standard" became a stray colon reading "unstated", on the page whose job is honest
-     disclosure, and **nothing in CI could have caught it**. Convert table cells and list markers by
-     hand first.
-   - **Every registry message separates with a comma now (the count is not written down, because it
-     moves), but do not read that as "a comma is safe and a colon is not":** ASTM delimiters self-declare, so any character can be one. The invariant pinned
-     by `test/records/multi-header-delimiters.test.ts` is that a warning message is a **constant
-     carrying no field data**. Keep the test.
-   - **Do not partition a scan on the NUL byte.** A genuine UTF-8 test file embeds a literal NUL and
-     held 8 em dashes a NUL-partitioned census missed. Partition on **UTF-8 decodability**, never on
-     grep's `-I` heuristic.
+   - **An em dash can be a semantic VALUE, and a bulk sweep destroys the meaning**: a dash meaning
+     "governed by no standard" became a colon reading "unstated", and **nothing in CI could have
+     caught it**. Convert table cells and list markers by hand first.
+   - **Registry messages separate with a comma now; do not read that as "a comma is safe and a
+     colon is not":** ASTM delimiters self-declare, so any character can be one. The pinned
+     invariant is that a warning message is a **constant carrying no field data**
+     (`test/records/multi-header-delimiters.test.ts`). Keep the test.
+   - **Do not partition a scan on the NUL byte** (a real UTF-8 fixture embeds one and hid 8 em
+     dashes): partition on **UTF-8 decodability**, never grep's `-I`. `#no-emdash`.
    - **The backslash-u arm is deliberately case-SENSITIVE** while the entity and URL arms are not: a
      case-blind arm there reds an ordinary Windows path. Do not "make it consistent".
    - **The gate is BOUNDED and the bound is written down**: no ES6 braced escape, no non-UTF-8

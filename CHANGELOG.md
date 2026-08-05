@@ -173,7 +173,7 @@ this file is maintained by hand (Changesets handles the version bump and publish
   profile, and both are **`PRE-EXISTING`** (byte-identical on the base of this slice), so they are
   disclosed here as a separate open condition rather than covered: wiring this sink to another
   delimiter role is a different criterion and wants its own population measurement. On the repeat role
-  what is lost is the value, also not reported here. And the tail is weighed **one construct deep**: where
+  what is lost is the value, not reported by this code and now reported by its own, below. And the tail is weighed **one construct deep**: where
   the escape character past the boundary heads a **recognized** sequence, the alignment taken
   interprets it while the competing one would leave it bare, so the bytes prefer the alignment taken
   (under a set naming the field separator `F`, `28.6&F&F&F&U/L` is that separator escaped, written and
@@ -203,6 +203,78 @@ this file is maintained by hand (Changesets handles the version bump and publish
   surface: `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, the `alignmentShiftedFields` warning factory, the
   `ShiftedFieldsSink` type, and a trailing optional sink parameter on `splitEscapeAware`,
   `tokenizeRecord` and `tokenizeHeader`.
+
+- **A parse-path warning code for a field a competing escape alignment read short**
+  (`ASTM-FRAME-RESIDUALS`, defect 17b). `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` fires where two
+  escape alignments of the same bytes disagree about a **repeat** boundary, the reading taken keeps
+  it, and the escape character that reading resumes on heads **no sequence at all**. It lands on the
+  profile safety gate, so `{ strict: true }` refuses a stream carrying it whatever profile is in
+  force.
+
+  **Nothing shifts, and that is not the same as nothing being lost, which is the correction this
+  entry carries.** No field-indexed slot moves: the units slot and the result-status slot are read
+  out of the same field numbers under either alignment, which is exactly why the shift report above
+  cannot see this. What it reports is that **the field is read as more repeats than the competing
+  alignment gives it**, which is true wherever it fires. **Where that gained boundary is the FIRST
+  one in the field it reaches a modeled slot**, because a field's modeled value and its components
+  are taken from its first repeat alone: everything past the boundary stays on the wire, stays in
+  `repeats`, and leaves every modeled slot. Both costs are reachable on the **canonical** set, so no
+  unusual declaration is needed for either:
+  - **A value truncates.** `R|1|^^^687|28.6&S&\&U/L|U/L||||F` reads a value of `28.6^`, and `&U/L`
+    leaves the result entirely; the competing alignment reads one repeat carrying all of it.
+  - **A modeled identity empties, which is the half the shift report could not reach.**
+    `R|1|&F&\&687|28.6|U/L||||F` reads a Universal Test ID of one component holding a decoded
+    field separator, so the local code `687` is in no modeled slot at all and the identity comes back
+    as a LOINC candidate nobody wrote. `DOE&S&\&JANE^A` reads a last name and **no given or middle
+    name**. Before this code the only warnings on those streams were tolerable ones, so the widest
+    gate-legal profile plus `{ strict: true }` accepted a truncated value and an emptied test
+    identity.
+
+  **At a LATER boundary it fires and no modeled slot moves**, because the first repeat is then
+  identical under both readings, and what differs is the repeat structure after it. That is
+  **over-reporting relative to the modeled slots and never under-reporting**, it is measured on its
+  own sweep beside the main corpus rather than assumed, and it is stated on the code itself.
+  Narrowing the sink to the first boundary would change which streams a published package refuses
+  and wants its own measurement, so the bound is written down instead.
+
+  **Additive, and the split is unchanged.** Every decoded byte is identical, `repeats` still carries
+  every one of them, and the value read is the value that was always read: this reports the gained
+  boundary, it does not repair it. Picking the other alignment was rejected for the same reason as
+  before, on a published package.
+
+  **Two further bounds, both deliberate.** It is wired to the **repeat** separator only: a gained
+  **component** boundary reaches a modeled slot too, and differently, moving it one slot along rather
+  than dropping it, and that stays the separate open condition disclosed above. And the tail is
+  weighed **one construct deep**, on the same test the shift report uses: where the escape character
+  past the boundary heads a **recognized** sequence the bytes prefer the reading taken and the two
+  repeats are the ones the sender wrote (`28.6&R&\&R&U/L` is the canonical repeat separator
+  escaped, written and escaped again, and refusing it is the over-refusal that sank a criterion
+  measured for this same family), and where it heads an **unrecognized** one the competing alignment
+  would leave two escape characters bare, so the preference is stronger again. That second case still
+  truncates and is silent here: recorded as a residue, measured, not overlooked.
+
+  **Measured against the corpus constants committed with the test**, on the same
+  strict-accepted-under-a-gate-legal-profile tier and the same **864 tuples** as the two measurements
+  before it, in `test/records/alignment-truncated-field.test.ts`: the code fires on **96**, moves
+  **32** from accepted to refused under a profile built from the whole tolerable allow-list, moves
+  **0** back, and fires on **none** of the 96 escape-clean tuples. The pair-count criterion measured
+  and rejected on this same corpus would have refused 48 of them, which is why the tail is what gets
+  weighed. **Unlike that rejected criterion's population, this one is not confined to a set naming a
+  mnemonic letter as a delimiter**: the canonical repeat separator reaches it, on 12 of the 108
+  canonical tuples swept. A second sweep beside it moves the contested boundary off the front of the
+  field and measures the same column: **96 fire, 32 move, 0 back, 0 escape-clean**, and on every one
+  of the 96 the first repeat is identical under both alignments, which is the bound on the claim
+  stated as a measurement rather than as prose.
+
+  **It does not survive a re-emit**, the same residue its siblings disclosed: the serializer rewrites
+  the preserved characters into recognized mnemonics, so a second-generation read is silent and is
+  correct about its own bytes. Catch it on the first read of the wire bytes.
+
+  This is a **narrowing on a published package**, on the strict path only: a lenient parse of the
+  same stream returns the same records, with the same values, and one more warning on them. New
+  public surface: `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, the `alignmentTruncatedField` warning
+  factory, the `TruncatedFieldSink` type, and a further trailing optional sink parameter on
+  `splitEscapeAware`, `tokenizeRecord` and `tokenizeHeader`.
 
 ### Fixed
 

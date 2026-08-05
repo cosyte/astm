@@ -209,6 +209,73 @@ export const WARNING_CODES = {
    * silent and is correct about its own bytes. A clean re-read is not evidence.
    */
   ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS: "ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS",
+  /**
+   * Two escape alignments of the same bytes disagreed about a **repeat** boundary, the reading
+   * taken kept it, and the escape character that reading resumes on **heads no sequence at all**.
+   * Same contested position and same tail test as
+   * {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS}, on a different delimiter role, and
+   * what it costs is a different thing, which is why it is a different code.
+   *
+   * **Nothing shifts, and that is not the same as nothing being lost.** No field-indexed slot
+   * moves: the units and the result status are read out of the same field numbers under either
+   * alignment. What this reports is that **the field is read as more repeats than the competing
+   * alignment gives it**, which is true wherever it fires. What that costs depends on **which**
+   * boundary was gained, and the two cases are stated separately rather than folded into one claim.
+   *
+   * **Where it is the FIRST boundary in the field, a modeled slot is lost**, because a field's
+   * modeled value and components are taken from its **first repeat alone**. Everything past the
+   * boundary stays on the wire and stays in `repeats`, and leaves every modeled slot:
+   *
+   * - **A value truncates.** Under `H|F^&`, `R|1|^^^687|28.6&S&F&U/L||||F` reads the value field as
+   *   the two repeats `28.6^` and `&U/L`, so a consumer reads `28.6^` and the rest of the value is
+   *   gone. The competing alignment reads one repeat carrying all of it.
+   * - **A modeled component list is deleted rather than shifted.** The same boundary inside a
+   *   Universal Test ID leaves the components of the first repeat only: under `H|F^&`,
+   *   `R|1|&F&F&687|28.6|U/L||||F` reads a UTID of one component holding a decoded field separator,
+   *   with no coding scheme and no local code, where the bytes carry `687`. A patient name loses
+   *   its given and middle names the same way. That is the half of this condition the shift report
+   *   could not cover, because components are modeled **inside** a field.
+   *
+   * Before this code the only warnings on those streams were **tolerable** ones
+   * ({@link WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS} and, where the tail applies,
+   * {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}), so the widest gate-legal profile plus
+   * `{ strict: true }` accepted a truncated value and an emptied Universal Test ID.
+   *
+   * **Where it is a LATER boundary, no modeled slot moves and this still fires.** The first repeat
+   * is identical under both alignments, so the value, the components and every slot taken from them
+   * read the same either way (`R|1|^^^687|5.0F28.6&S&F&U/L||||F` under `H|F^&` reads a value of
+   * `5.0` under both), and what differs is the repeat structure after the first. It fires there
+   * deliberately: the boundary is still one the bytes do not force and a consumer reading `repeats`
+   * is still reading an alignment guess. Relative to the modeled slots that is **over-reporting,
+   * never under-reporting**. Narrowing it to the first boundary would change which streams a
+   * published package refuses and wants its own measurement, so the bound is written down instead.
+   *
+   * **It is a report, not a repair.** The split is unchanged, every decoded byte is identical,
+   * `repeats` still carries every one of them, and the value read is the value that was always
+   * read. Picking the other alignment would be a different guess with no more evidence behind it,
+   * on a published package.
+   *
+   * **Two further deliberate bounds, both stated rather than left to be found.**
+   * - **Only the repeat role.** The **component** role reaches a modeled slot too, and differently:
+   *   there the components stay in the record and move one slot along, so a local code reads as a
+   *   coding scheme and a given name as a middle name. That is measured, reported by nothing where
+   *   the earlier body is a recognized mnemonic, and open. It is not covered here, because wiring a
+   *   sink to another split is another criterion wanting its own population measurement.
+   * - **The tail is weighed one construct deep**, exactly as for the shift report. Where the escape
+   *   character the reading resumes on heads a sequence this codec *recognizes*, the bytes prefer
+   *   the reading taken and the repeats are the ones the sender wrote: under a set naming the
+   *   repeat separator `F`, `28.6&F&F&F&U/L` is that separator escaped, written, and escaped again,
+   *   and refusing it would be an over-refusal of a well-formed stream. Where it heads a sequence
+   *   whose body is *unrecognized*, the competing alignment would leave **two** escape characters
+   *   bare, so the preference is stronger again, and this stays silent there even though the gained
+   *   boundary is real. That last case is the named residue: measured, not overlooked.
+   *
+   * **Catch it on the first read.** Emit rewrites the preserved sequences into recognized
+   * mnemonics, and those bytes carry the reading that was taken unambiguously, so a
+   * second-generation read is silent and is correct about its own bytes. A clean re-read is not
+   * evidence.
+   */
+  ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD: "ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD",
   /** An escape sequence body was not one of `&F&`/`&S&`/`&R&`/`&E&`: preserved verbatim. */
   ASTM_UNKNOWN_ESCAPE_SEQUENCE: "ASTM_UNKNOWN_ESCAPE_SEQUENCE",
   /**
@@ -547,6 +614,45 @@ export function alignmentShiftedFields(position: AstmPosition): AstmRecordWarnin
       "to close one. Every later field is one place further right than the other reading puts it, " +
       "so a result's units and status may be read out of slots the sender did not put them in. The " +
       "reading was kept and every byte is preserved.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` warning. Emitted when a competing escape
+ * alignment decided a **repeat** boundary and the escape character the reading taken resumes on
+ * heads no sequence of its own, so the field is read as more repeats than the competing alignment
+ * gives it. No field-indexed slot moves, and that is the difference from
+ * {@link alignmentShiftedFields}. Where the gained boundary is the **first** in the field it still
+ * reaches a modeled slot, because a field's modeled value and components are taken from its first
+ * repeat alone: everything past the boundary stays in `repeats` and leaves every modeled slot, so a
+ * result value truncates and a Universal Test ID or a patient name loses the components that sat
+ * after it. At a **later** boundary nothing modeled moves and this still fires, which is
+ * over-reporting relative to those slots and never under-reporting; see
+ * {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD}.
+ *
+ * A profile may **not** tolerate this code. It fires alongside
+ * {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}, which remains tolerable and reports the
+ * strictly weaker fact that one escape character was read as a literal, and alongside
+ * {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} where that also applies. The reading
+ * is unchanged: this reports the gained boundary, it does not repair it.
+ *
+ * @example
+ * ```ts
+ * import { alignmentTruncatedField } from "@cosyte/astm";
+ * alignmentTruncatedField({ recordIndex: 2, recordType: "R", fieldIndex: 4 });
+ * ```
+ */
+export function alignmentTruncatedField(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD,
+    message:
+      "A repeat boundary here is one of two escape alignments the bytes carry, and the reading that " +
+      "took it resumes on an escape character heading no sequence, which the other alignment uses " +
+      "to close one. This field is read as more repeats than the other reading gives it, and its " +
+      "modeled value and components are taken from the first repeat alone, so where that boundary " +
+      "is the first one the rest of the field leaves every modeled slot. The reading was kept and " +
+      "every byte is preserved.",
     position,
   };
 }

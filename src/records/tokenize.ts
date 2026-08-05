@@ -37,6 +37,13 @@ import type { AstmField } from "./types.js";
  *   repeat or component boundary divides one field and so moves no field-indexed
  *   slot. That is a choice and not a consequence, because components are modeled
  *   inside a field; see {@link ShiftedFieldsSink}.
+ * @param onAlignmentTruncatedField - Called (with the 0-based field index) for that
+ *   same condition on the **repeat** split, where no field-indexed slot moves and the
+ *   field is instead read as more repeats than the competing alignment gives it.
+ *   Where that boundary is the **first** in the field the field's own modeled reading
+ *   stops at it, because a field is modeled out of its first repeat alone; at a later
+ *   one nothing modeled moves and this still fires. See {@link TruncatedFieldSink}.
+ *   The component split is wired to neither, deliberately.
  * @returns The record's fields.
  * @example
  * ```ts
@@ -53,6 +60,7 @@ export function tokenizeRecord(
   onSwallowedDelimiter?: (fieldIndex: number) => void,
   onAmbiguousAlignment?: (fieldIndex: number) => void,
   onAlignmentShiftedFields?: (fieldIndex: number) => void,
+  onAlignmentTruncatedField?: (fieldIndex: number) => void,
 ): AstmField[] {
   // The field split reports the ambiguity itself: the segment index it hands back IS the field
   // index, because a gained field boundary is not visible from inside either field it made. The
@@ -73,6 +81,10 @@ export function tokenizeRecord(
       () => onUnpairedEscape?.(fieldIndex),
       () => onSwallowedDelimiter?.(fieldIndex),
       () => onAmbiguousAlignment?.(fieldIndex),
+      // The repeat split runs INSIDE one field, so the index it hands back is a repeat index and is
+      // discarded: what a caller needs is which field carries the contested boundary, and that is
+      // the index this map is already iterating.
+      () => onAlignmentTruncatedField?.(fieldIndex),
     ),
   );
 }
@@ -112,6 +124,9 @@ export function tokenizeRecord(
  *   for each contested field boundary in the data portion whose reading resumes on
  *   an escape character heading no sequence. The declaration is opaque, so it never
  *   reports here either.
+ * @param onAlignmentTruncatedField - Called with the 0-based whole-record field index
+ *   for each contested **repeat** boundary in the data portion on that same tail
+ *   test. The declaration is opaque, so it never reports here either.
  * @returns The header's fields.
  * @example
  * ```ts
@@ -129,6 +144,7 @@ export function tokenizeHeader(
   onSwallowedDelimiter?: (fieldIndex: number) => void,
   onAmbiguousAlignment?: (fieldIndex: number) => void,
   onAlignmentShiftedFields?: (fieldIndex: number) => void,
+  onAlignmentTruncatedField?: (fieldIndex: number) => void,
 ): AstmField[] {
   // The delimiter-definition field runs from index 2 to the next field separator.
   const defEnd = record.indexOf(d.field, 2);
@@ -144,6 +160,7 @@ export function tokenizeHeader(
     (i) => onSwallowedDelimiter?.(i + 2),
     (i) => onAmbiguousAlignment?.(i + 2),
     (i) => onAlignmentShiftedFields?.(i + 2),
+    (i) => onAlignmentTruncatedField?.(i + 2),
   );
   return [...head, ...data];
 }
@@ -161,13 +178,31 @@ function toField(
   onUnpairedEscape: () => void,
   onSwallowedDelimiter: () => void,
   onAmbiguousAlignment: () => void,
+  onAlignmentTruncatedField: () => void,
 ): AstmField {
   // Each split reports the competing alignments that would have held ITS delimiter, so a role is
   // asked about exactly once: a character that is a delimiter in a later role survives into the
   // segment that role's pass reads, and one this pass split on cannot reach a later one.
-  const rawRepeats = splitEscapeAware(raw, d.repeat, d.escape, () => {
-    onAmbiguousAlignment();
-  });
+  //
+  // The truncation report is wired to the REPEAT split only. `components` below is `repeats[0]`,
+  // so a FIRST repeat boundary this reading gained and the competing alignment does not have takes
+  // every modeled slot of this field with it: the value, and a UTID's or a name's components. At a
+  // later boundary `repeats[0]` is the same under both readings, so nothing modeled moves and the
+  // report fires anyway, over-reporting relative to those slots and never under. The component
+  // split is deliberately not wired: a gained component boundary keeps the components in the
+  // record and moves them one slot along, which is a different cost with no code yet.
+  const rawRepeats = splitEscapeAware(
+    raw,
+    d.repeat,
+    d.escape,
+    () => {
+      onAmbiguousAlignment();
+    },
+    undefined,
+    () => {
+      onAlignmentTruncatedField();
+    },
+  );
   const repeats = rawRepeats.map((rep) =>
     splitEscapeAware(rep, d.component, d.escape, () => {
       onAmbiguousAlignment();
