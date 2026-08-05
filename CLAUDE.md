@@ -286,16 +286,17 @@ every measurement and every refuted formulation:
     considered and **REJECTED**, as a breaking change bought for a sentence. **Do not delete the
     unreachable branch.** `#defect-16`
 17. **OPEN. The obvious criterion was MEASURED AND REJECTED 2026-08-05.**
-    (a) A recognized body is not conformance: `28.6&F&|&U/L` reads value `28.6|` (a raw field
-    separator in a result value) on the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` alone.
-    (b) `H|F^&` with `28.6&S&F&U/L` reads `28.6^`, units and status **GONE**, strict-accepted: both
-    alignments interpret one construct and the mnemonic test silences it anyway.
+    (a) is WORSE than recorded: `28.6&F&|&U/L` gains a FIELD boundary, later fields shift, and the
+    sender's `F` lands in the status slot: units `&U/L` and status **`final`**, both FABRICATED, on
+    a tolerable code.
+    (b) `H|F^&` with `28.6&S&F&U/L` gains a REPEAT boundary, TRUNCATING the value to `28.6^`,
+    dropping `&U/L`. **NOT the units or the status**: 8 fields, neither slot present under any
+    alignment; that reading measured FALSE.
     **▶ COUNTING THE CONTESTED PAIR DOES NOT CLOSE (b). DO NOT RE-PROPOSE IT.** It refuses
     **well-formed** streams: under `HF\^&`, `28.6&F&F&F&U/L` is two recognized sequences around the
-    separator they escape, and still ties. Over 864 tuples: **144 accepted -> refused, 0 back, 48
-    escape-clean**, half of all escape-clean streams, **0 of which report today**.
-    **▶ THE COUNT IS LOCAL; the alignments also disagree about every byte AFTER the boundary**, so
-    (b) needs the TAIL weighed. **A corpus that FIXES the tail reports a comforting zero.**
+    separator they escape, raises nothing, and ties. It refuses half of all escape-clean streams.
+    **▶ THE COUNT IS LOCAL; the alignments disagree about every byte AFTER the boundary**, so (b)
+    needs the TAIL weighed. **A corpus that FIXES the tail reports a comforting zero.**
     `#defect-17`
 
 Two further defects were closed and folded away: `#defects-closed-elsewhere`.

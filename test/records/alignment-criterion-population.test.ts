@@ -38,6 +38,7 @@ import {
   AstmStrictError,
   defineAstmProfile,
   parseAstmRecords,
+  results,
   TOLERABLE_CODES,
   WARNING_CODES,
 } from "../../src/index.js";
@@ -108,16 +109,26 @@ const TAIL_SUFFIXES = [
 ] as const;
 
 /**
- * The codes that say this package saw something wrong with a stream's escaping. A tuple raising none
- * of them is **escape-clean**: every escape character in it heads a sequence this codec recognizes,
- * which is the escape mechanism working exactly as it is meant to. Refusing one of those is an
- * over-refusal, whatever else is true of the stream.
+ * The codes that say this package found something wrong with a stream's **escaping**. A tuple raising
+ * none of them is **escape-clean**: every escape character in it heads a sequence this codec
+ * recognizes, and no delimiter went missing inside an unreadable body. That is the escape mechanism
+ * working exactly as it is meant to, so refusing one of these is an over-refusal whatever else is
+ * true of the stream.
+ *
+ * **The alignment code is deliberately NOT in this list, and that is what makes the measurement a
+ * measurement.** Escape-clean has to be defined independently of the criterion being weighed, or
+ * "no escape-clean tuple is reported today" is the shipped criterion agreeing with itself and could
+ * not have come out any other way. Defining it on the other three codes leaves it free to fail, and
+ * the population is the same 96 tuples either way.
+ *
+ * **What escape-clean does NOT mean.** It says nothing about the decoded value, which legitimately
+ * holds the literal delimiter an escape sequence stood for: `&F&` decoding to the field separator is
+ * the whole point of the mechanism, not a residue of it.
  */
 const ESCAPE_DEVIATION_CODES = [
   WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
   WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
   WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE,
-  ALIGNMENT,
 ] as const;
 
 interface DeclaredSet {
@@ -321,10 +332,11 @@ describe("the population the candidate criterion would move, on the strict-accep
 describe("why the candidate is rejected rather than shipped", () => {
   it("would refuse streams whose escaping is entirely well-formed, and here is how many", () => {
     // THE FINDING. A third of the tuples the candidate moves are escape-clean: every escape
-    // character in them heads a sequence this codec recognizes, and the value handed back holds no
-    // raw delimiter and no bare escape character. Today none of them is reported. Under the
-    // candidate, every escape-clean tuple whose declared set names a mnemonic letter as a splitting
-    // delimiter would be refused by a code no profile may tolerate.
+    // character in them heads a sequence this codec recognizes, and no delimiter went missing
+    // inside an unreadable body. Today none of them is reported, on a definition that does not
+    // consult the alignment code and so was free to come out otherwise. Under the candidate, every
+    // escape-clean tuple whose declared set names a mnemonic letter as a splitting delimiter would
+    // be refused by a code no profile may tolerate.
     const moved = corpus.filter((t) => t.acceptedNow && !t.acceptedUnderCandidate);
     const overRefused = moved.filter((t) => t.escapeClean);
     expect(overRefused).toHaveLength(
@@ -340,38 +352,57 @@ describe("why the candidate is rejected rather than shipped", () => {
 
   it("scores a tie on bytes where the leftmost alignment plainly reads more of them", () => {
     // The named counterexample, pinned so the argument cannot be re-derived from memory. Under
-    // `HF\^&`, where `F` is the FIELD separator, the value carries `&F&` (the sender escaping that
-    // separator) then the separator itself then `&F&` again. The leftmost alignment interprets two
-    // recognized sequences and leaves no escape character bare; the competing alignment interprets
-    // one and leaves two bare, plus a raw separator inside the value. Nothing about that is a tie,
-    // and the parse raises no escape deviation at all, yet the candidate's count reads 1 against 1
-    // and would refuse it.
+    // `HF\^&`, where `F` is the FIELD separator, the text carries `&F&` (the sender escaping that
+    // separator), then the separator itself, then `&F&` again. The reading taken interprets BOTH
+    // sequences and leaves no escape character bare, which is why the parse raises no escape
+    // deviation at all. The candidate's count sees only the contested pair, reads one against one,
+    // and would refuse it under a code no profile may tolerate.
     const wellFormed = "HF\\^&\rPF1FFLAB-0001\rCF1FIF28.6&F&F&F&U/LFG\rLF1FN\r";
     expect(codes(wellFormed)).toEqual([WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS]);
     expect(acceptedUnderMaximalTolerance(wellFormed)).toBe(true);
     expect(candidateReports("F", "F")).toBe(true);
+    // Both escape sequences survive into the split, decoded to the separator each stood for, which
+    // is the mechanism working rather than a residue of it.
+    const record = parseAstmRecords(wellFormed).records[2];
+    expect(record?.fields.map((f) => f.raw)).toEqual(["C", "1", "I", "28.6&F&", "&F&U/L", "G"]);
+    expect(record?.fields[3]?.repeats).toEqual([["28.6F"]]);
     // The count is taken over the two contested triples only, while the alignments also disagree
     // about every byte after the boundary. That is the defect in the criterion, not in the corpus.
     expect(corpus.some((t) => t.raw === wellFormed)).toBe(true);
   });
 
-  it("leaves the open case open, and names what a criterion would have to weigh instead", () => {
-    // What stays broken by rejecting the candidate, stated rather than left implied. Under a set
-    // naming a mnemonic letter as a splitting delimiter, a gained boundary still costs a result its
-    // units and its status in silence, and the widest gate-legal profile still accepts it.
+  it("leaves the open case open, and pins what the gained boundary actually costs", () => {
+    // What stays broken by rejecting the candidate, stated rather than left implied, and stated
+    // CORRECTLY. Under `H|F^&` the contested delimiter is the REPEAT role, so the gained boundary
+    // divides one field and cannot shift any other: the units and status slots read empty under
+    // every alignment of these bytes, because this record has eight fields and neither slot is one
+    // of them. Saying the gained boundary "costs the units and the status" attributes to it what
+    // the record's own shape already decided, and that reading was measured false here.
     const harm = "H|F^&\rP|1||LAB-0001\rR|1|^^^687|28.6&S&F&U/L||||F\rL|1|N\r";
     expect(codes(harm)).toEqual([
       WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
       WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
     ]);
     expect(acceptedUnderMaximalTolerance(harm)).toBe(true);
-    // The candidate would have caught this one. What separates it from the counterexample above is
-    // not the contested pair, which is a tie in both, but the tail: here the escape character past
-    // the boundary heads nothing, there it heads a recognized sequence. So a criterion that closes
-    // this without over-refusing has to weigh what each alignment makes of the bytes AFTER the
-    // boundary as well, which is a different and larger reader than a count over one position.
+    const record = parseAstmRecords(harm).records[2];
+    expect(record?.fields).toHaveLength(8);
+
+    // WHAT IT DOES COST IS THE VALUE, and that is the silent loss. The reading taken splits the
+    // value field into two repeats and every value extractor reads the first, so `&U/L` leaves the
+    // result entirely. The competing alignment reads the same bytes as one repeat carrying all of
+    // it. Neither is forced by the bytes, and nothing says so.
+    const [only] = results(parseAstmRecords(harm));
+    expect(only?.value).toBe("28.6^");
+    expect(record?.fields[3]?.repeats).toEqual([["28.6^"], ["&U/L"]]);
+    expect(only?.units).toBeUndefined();
+    expect(only?.status.meaning).toBe("unspecified");
+
+    // The candidate would have caught it. What separates it from the counterexample above is not
+    // the contested pair, which is a tie in both, but the tail: here the escape character past the
+    // boundary heads nothing, there it heads a recognized sequence. So a criterion that closes this
+    // without over-refusing has to weigh what each alignment makes of the bytes AFTER the boundary
+    // as well, which is a different and larger reader than a count over one position.
     expect(candidateReports("S", "F")).toBe(true);
-    expect(codes(harm)).toContain(WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER);
   });
 });
 

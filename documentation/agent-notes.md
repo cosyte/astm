@@ -1170,6 +1170,13 @@ bare escape character, so the vocabulary argument does not pick a winner here at
 `ASTM_NONSTANDARD_DELIMITERS` and `ASTM_UNPAIRED_ESCAPE_CHARACTER`, both tolerable, so this is
 strict-accepted too. It is the harm signature of defect 11, reached by the opposite door.
 
+**THE `because` IN THAT PARAGRAPH IS WRONG AND IS CORRECTED BELOW ("what each gained boundary
+actually costs"), kept here verbatim rather than rewritten.** The missing units and the
+`unspecified` status are decided by the record's own eight-field shape and read the same under
+**both** alignments; what the gained repeat boundary costs is the **value**, which it truncates to
+`28.6^`. The same correction strengthens (a): its gained **field** boundary shifts every later field
+and **fabricates** the `final` it reports.
+
 **▶ WHY IT WAS NOT FOLDED INTO DEFECT 15'S SLICE.** Covering either means a **different criterion**
 (counting the constructs each alignment interprets, rather than asking whether one was recognized),
 and swapping criteria changes which streams a package already on the registry refuses under
@@ -1242,6 +1249,51 @@ question either way**. A canonical control in the same file sweeps the three can
 roles against the same bodies and tails and finds the two criteria identical tuple for tuple. Defect
 15's own figures (144 tuples, 24 firing, 108 strict-accepted against 93) are untouched for the same
 reason: on that corpus the count reduces to the recognition test exactly.
+
+**▶ "ESCAPE-CLEAN" IS DEFINED WITHOUT THE ALIGNMENT CODE, DELIBERATELY, AND THAT IS WHAT MAKES THE
+ZERO A MEASUREMENT.** It is the absence of `ASTM_UNKNOWN_ESCAPE_SEQUENCE`,
+`ASTM_UNPAIRED_ESCAPE_CHARACTER` and `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, and **not** of
+`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`. Folding the alignment code in would make "no escape-clean
+tuple is reported today" the shipped criterion agreeing with itself: unfailable by construction, in
+a file whose entire lesson is that a structurally forced zero certifies nothing. The population is
+the same 96 tuples either way, measured, so nothing is bought by the shortcut and the independence
+is free. **Escape-clean says nothing about the decoded value**, which legitimately carries the
+literal delimiter a sequence stood for: `&F&` decoding to the field separator is the mechanism
+working, not a residue of it.
+
+<a id="defect-17-harm"></a>
+
+### Defect 17: what each gained boundary actually costs, corrected 2026-08-05
+
+**Both harm statements this entry carried were wrong about the mechanism, and the second was wrong
+about the outcome.** They were corrected by the `conformance-refuter` grading the measurement slice,
+against runs of both alignments of both fixtures. **Do not restore either earlier wording.** The
+distinction that governs is **which delimiter role the gained boundary belongs to**: a gained
+**field** boundary shifts every later field and can therefore move data between modeled slots, while
+a gained **repeat** or **component** boundary divides one field and can do nothing outside it.
+
+**▶ (a) IS WORSE THAN IT WAS RECORDED, AND THE WORD IS FABRICATED.** Under the canonical set,
+`R|1|^^^687|28.6&F&|&U/L||||F` gains a **field** boundary, so the record reads **9** fields where
+the competing alignment reads 8, and every field after the gain is shifted one place: the sender's
+own trailing `F` lands in the **result status** slot. The reading taken hands back units `&U/L` and
+status **`final`**; the competing alignment hands back no units and status `unspecified`. The only
+warning either way is the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so the widest gate-legal
+profile accepts it. **A fabricated `final` on a result is the harm this repo exists to prevent.** The
+entry above lists that `final` among the values read, which is why nobody noticed it is a
+**consequence of the ambiguity** rather than something the sender wrote in that slot: the competing
+alignment of the same bytes puts no status there at all. Running only the reading taken cannot show
+that, and nothing had run the other one.
+
+**▶ (b) DOES NOT COST THE UNITS OR THE STATUS, AND SAYING SO WAS AN ATTRIBUTION ERROR.** Under
+`H|F^&` the contested delimiter is the **repeat** role, so the gained boundary cannot shift a field.
+Measured, on `R|1|^^^687|28.6&S&F&U/L||||F`: **both** alignments read **8** fields, and under both
+the units slot is empty and the status is `unspecified`, because that record has eight fields and
+neither slot is one of them. The absence was decided by the record's own shape, not by the
+alignment. **What the gained boundary does cost is the VALUE**: the reading taken splits the value
+field into the two repeats `28.6^` and `&U/L`, every value extractor reads the first, and `&U/L`
+leaves the result entirely, while the competing alignment reads one repeat carrying all of it. That
+is a real silent loss and it is the thing a future criterion has to be validated against. Both
+statements are now pinned in `test/records/alignment-criterion-population.test.ts`.
 
 <a id="defects-closed-elsewhere"></a>
 
