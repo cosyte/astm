@@ -21,6 +21,7 @@ import {
 import { parseAstmDate, type AstmDate } from "../common/dates.js";
 import { recognizeUniversalTestId } from "../common/coding-system.js";
 import {
+  alignmentShiftedFields,
   ambiguousEscapeAlignment,
   ambiguousMessageKind,
   ambiguousValueSplit,
@@ -366,6 +367,19 @@ function buildRecord(
       ambiguousEscapeAlignment({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
     );
   };
+  // The same contested position asked a different question, and it is the one that reaches a
+  // modeled slot. The report above asks whether this codec's vocabulary prefers the reading taken
+  // AT the boundary; this one asks what that reading makes of the bytes AFTER it. Where the escape
+  // character the reading resumes on heads no sequence at all, the boundary was bought with a byte
+  // the reading cannot read, and on the FIELD separator that boundary shifts every later field one
+  // place: on an `R` the sender's trailing status letter lands in field 9 under this reading and in
+  // no field at all under the other, so a `final` can be an artifact of the alignment. Fires
+  // alongside the two above, never instead of them.
+  const onAlignmentShiftedFields = (fieldIndex: number): void => {
+    warnings.push(
+      alignmentShiftedFields({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+    );
+  };
   // The header needs its own tokenizer: all three non-field delimiters sit literally inside the
   // delimiter declaration, so the generic tokenizer would split the declaration on its own repeat
   // and component characters and report its escape character as unpaired.
@@ -378,6 +392,7 @@ function buildRecord(
           onUnpairedEscape,
           onSwallowedDelimiter,
           onAmbiguousAlignment,
+          onAlignmentShiftedFields,
         )
       : tokenizeRecord(
           line,
@@ -386,6 +401,7 @@ function buildRecord(
           onUnpairedEscape,
           onSwallowedDelimiter,
           onAmbiguousAlignment,
+          onAlignmentShiftedFields,
         );
 
   // A record that carries content beyond its type letter but yields exactly ONE field contains no

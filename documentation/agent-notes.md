@@ -1301,6 +1301,129 @@ leaves the result entirely, while the competing alignment reads one repeat carry
 is a real silent loss and it is the thing a future criterion has to be validated against. Both
 statements are now pinned in `test/records/alignment-criterion-population.test.ts`.
 
+<a id="tech-stack"></a>
+
+### The shared `@cosyte/*` toolchain, per item
+
+Relocated verbatim from `CLAUDE.md` 2026-08-05 to make room for a trap. This repo inherits the
+canonical toolchain by depending on the published `@cosyte/*` config packages, not by copying files.
+The source of truth is the meta-repo's `documentation/conventions.md`; this is a summary.
+
+- **Language:** TypeScript (strict, full rigor set incl. `noUncheckedIndexedAccess`) via
+  `@cosyte/tsconfig`. **Target ES2023**, `NodeNext`. TypeScript 5.9.x, exact-pinned.
+- **Build:** dual ESM + CJS + `.d.ts` via `tsup` (`@cosyte/tsup-config`); `attw` is a publish gate
+  (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`). The `attw` script is
+  **`scripts/attw.mjs`, not the bare CLI**, because the CLI reports a missing `dist/` as "does not
+  contain types" and **exits 0**.
+- **Node:** **>= 22** (CI matrix 22 + 24).
+- **Package manager:** `pnpm@10`.
+- **Lint/format:** **ESLint 10** + unified `typescript-eslint` (type-checked) via
+  `@cosyte/eslint-config`; Prettier via `@cosyte/prettier-config`. Lint at `--max-warnings=0`.
+- **Testing:** **Vitest 4** + v8 coverage (`@cosyte/vitest-config`), per-directory >= 90 gates; the
+  property-based conformance invariants come from `@cosyte/test-utils` (round-trip, lenient-mode,
+  immutability, warning-code stability), the format-specific arbitraries stay in this repo.
+- **CI/CD:** thin callers of the reusable `cosyte/.github` workflows.
+- **Runtime deps:** **Zero.** Node stdlib only.
+- **License:** MIT.
+
+<a id="claude-md-size"></a>
+
+### How `CLAUDE.md` stays small, relocated here 2026-08-05 to make room for a trap
+
+Kept verbatim from that file's header, which was compressed rather than reasoned about again.
+**Nothing has ever been deleted from this notes file: the 2026-08-04 split and every relocation
+since moved narrative here and left the traps there.** The per-repo `REPO_CLAUDE` ratchet is a
+ratchet rather than a budget because **the real cost is tokens per worker, not bytes on disk**, so
+headroom in an entry is slack to give back and never room to spend. The remedy for a breach is
+always to move more narrative into this file, **never** to drop a trap to get green.
+
+### Defect 17(a): CLOSED 2026-08-05, as a REPORT, by weighing the TAIL rather than the pair
+
+**What shipped, and it is a second code rather than a criterion swap.**
+`ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable, fires where two escape alignments disagree
+about a **field** boundary, the reading taken keeps it, and the escape character that reading resumes
+on **heads no escape sequence at all**, which is exactly the character the competing alignment needs
+to close its own triple. `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` is **untouched**: its
+recognized-body exclusion is exactly as it was, and the two fire alongside each other where both
+apply. **They ask different questions, which is the whole reason this is a second code**: that one
+asks whether this codec's vocabulary prefers the reading taken *at* the contested position, this one
+asks what the reading taken makes of the bytes *after* the boundary. Widening the first to answer the
+second is the move that was rejected.
+
+**▶ WHY THE TAIL AND NOT THE PAIR.** The alignments resume one character apart (leftmost at `i+4`,
+the competitor at `i+5`), so they disagree about the whole tail, and the pair is a tie in both the
+harm case and the counterexample. One construct past the boundary separates them: in defect 17(a) the
+escape character there heads nothing and is a deviation this package already reports; in the
+counterexample it heads a recognized sequence. **The tail is weighed ONE CONSTRUCT DEEP, not to end
+of record, and that bound is the residue below rather than a claim that it is enough.**
+
+**▶ IT IS A REPORT, NOT A REPAIR, AND THE STATUS STILL READS `final`.** The split is unchanged and
+every decoded byte is identical. **Withholding the shifted slots was weighed and DEFERRED**, not
+overlooked: declining to model a slot changes an extracted value for every consumer of a package
+already on the registry, the shift reaches every field after the boundary and not only the status (so
+scoping it to the status alone would be arbitrary and scoping it to all of them cascades into
+`ASTM_RECORD_UNITS_ABSENT`), and it wants its own measurement of the population it moves. What the
+report does close is the tier this repo measures on: a gate-legal profile no longer accepts it.
+
+**▶ THE BOUND ON THE ROLE IS A CHOICE, NOT A CONSEQUENCE, AND THE FIRST DRAFT WROTE IT AS A
+CONSEQUENCE AND WAS REFUTED FOR IT.** Wired to the **field** split only. A gained repeat or component
+boundary divides one field and reaches nothing outside it, so it moves no **field-indexed** slot: the
+units and the status stay put. **It does not follow that it moves no modeled slot at all.** Components
+are modeled *inside* a field, so a gained **component** boundary shifts them exactly as a gained field
+boundary shifts fields. That is **defect 17(c)**, `PRE-EXISTING`, measured byte-identical on this
+slice's base, reported by **nothing** (only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` fires, so a
+gate-legal profile accepts it), and pinned in `test/records/alignment-shifted-fields.test.ts`:
+
+- `R|1|&F&^&GLU^L^687|28.6|U/L||||F`: the Universal Test ID reads coding scheme `L` and local code
+  `687` under the alignment taken, and `687` as the **coding scheme** under the competing one. A
+  vendor's local code and a code-system selector are not the same thing.
+- `P|1||MRN-0001||DOE&F&^&JANE^A||19700101|F`: the patient's given name reads `&JANE` under one
+  alignment and `A` under the other, with no middle name at all under the second.
+
+**Closing 17(c) means wiring this sink to another split, which is a DIFFERENT CRITERION and wants its
+own population measurement**, exactly as this one did. Do not fold it in. On the repeat role what is
+lost is the **value**, which is defect 17(b) and is **still open** too.
+
+**▶ THE SENTENCE THAT WAS REFUTED, KEPT VERBATIM SO IT IS NOT REWRITTEN BACK IN.** "A gained repeat or
+component boundary divides one field and reaches nothing outside it, **so it cannot move a modeled
+slot**." The first clause is true; the inference is false; and it had reached `dist/index.d.ts`, which
+is the exact failure defect 6 records ("a false sentence in a comment that compiles into
+`dist/index.d.ts` is worse than the silence it replaced"). **Third time in this family that the claim,
+not the guard, was the defect.**
+
+**▶ THE RESIDUE, MEASURED AND NAMED.** Where the escape character past the boundary heads a sequence
+whose body is **unrecognized**, the field shift is just as real and this is **silent**. The reason it
+is excluded rather than covered: the reading taken still consumes that character as a sequence head
+and carries one unreadable body, while the competing alignment would leave **two** escape characters
+bare, so the bytes prefer the reading taken more strongly there, not less. Firing would report a
+boundary the bytes prefer. Pinned in `test/records/alignment-shifted-fields.test.ts`
+(`28.6&F&|&Z&U/L`: 9 fields against 8, `isActiveFinal` true, all codes tolerable, still accepted).
+
+**▶ THE MEASUREMENT, on the same 864-tuple corpus and constants the rejected criterion was measured
+on** (`DECLARATION_ALPHABET`, `SPLITTING_ROLES`, `BODY_ALPHABET`, `TAIL_SUFFIXES`, re-committed in
+`test/records/alignment-shifted-fields.test.ts`), tier
+strict-accepted-under-a-gate-legal-profile, every figure derived from a constant inside its
+assertion. **Fires on 96. Moves 32 accepted -> refused. 0 move back. Fires on 0 of the 96
+escape-clean tuples, and cannot**, because firing requires an escape character heading no sequence,
+which is itself `ASTM_UNPAIRED_ESCAPE_CHARACTER`. **The rejected criterion refused 48 of those 96.**
+That contrast is the whole case for this criterion over that one. The 32 that move are exactly the
+population the alignment code's recognized-body exclusion left silent, and every one of them raised
+only tolerable codes before.
+
+**▶ THE BASE UNDER THE REJECTED CRITERION'S FIGURES MOVED, AND IT WAS RE-DERIVED RATHER THAN
+RE-QUOTED.** `test/records/alignment-criterion-population.test.ts` measured 288 strict-accepted and
+144 moving; with this code shipped those are **256** and **128**, expressed as formulas over the same
+constants rather than re-typed. Its headline finding is **unchanged** (48 escape-clean tuples
+over-refused), because this code fires on no clean tail. And
+`test/records/escape-alignment-ambiguity.test.ts` now **holds this code out** of its tier explicitly,
+so defect 15's 144/24/108/93/15 are still the numbers that slice measured rather than numbers that
+quietly went stale. **Never quote either set against a different sha.**
+
+**▶ WHAT DID NOT CHANGE, so it is not read in.** No tolerable code was struck off. No stream's
+**values** moved. It does **not** reach through a re-emit: emit rewrites the preserved characters
+into recognized mnemonics and generation 2 is silent and correct about its own bytes. **Catch it on
+the FIRST read; a clean re-read is not evidence.**
+
 <a id="defects-closed-elsewhere"></a>
 
 ### Two further defects, closed and folded away

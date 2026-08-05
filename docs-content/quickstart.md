@@ -135,7 +135,12 @@ for (const w of warnings) {
 > the atom case remains, and now raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not
 > tolerable, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Its mirror, where the leftmost
 > alignment lets a delimiter split that a competing alignment would have held, gains a boundary
-> instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also not tolerable. All are
+> instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also not tolerable.
+> Where that gained boundary is a **field** boundary and the reading taken resumes on an escape
+> character heading no sequence, every later field shifts one place, so a result's units and status
+> are read out of slots the other alignment does not put them in and a status can read `final` where
+> the sender wrote nothing in that slot: `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable
+> either. All are
 > accepted limits: widening the field-separator check would mean deciding which set a record ought
 > to have had, which is a guess this parser does not make, and narrowing the escape atom would break
 > the guarantee it exists for, so the boundary is documented instead. If delimiter drift is a real
@@ -331,8 +336,11 @@ read as one opaque atom, so that delimiter never becomes a boundary and the fiel
 That is reported on the parse side as `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which no profile
 may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, and its mirror (a delimiter the
 leftmost alignment let split where a competing alignment would have held it) as
-`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`. Emitting normalizes both away rather than preserving them,
-so neither reaches a second generation: catch them on the first read. The low-level
+`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, with `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` on the subset
+of that where the gained boundary is a **field** boundary and the reading taken resumes on an escape
+character heading no sequence, so a result's units and status move with it. Emitting normalizes all
+of them away rather than preserving them, so none reaches a second generation: catch them on the
+first read. The low-level
 `encodeComponent` and `serializeField` helpers take no record and carry neither guarantee. If you
 emit against a set of your own rather than the canonical one, check the round-trip on your own
 traffic.

@@ -131,6 +131,79 @@ this file is maintained by hand (Changesets handles the version bump and publish
   `AmbiguousAlignmentSink` type, and a trailing optional sink parameter on `splitEscapeAware`,
   `tokenizeRecord` and `tokenizeHeader`.
 
+- **A fourth parse-path warning code, for the first of these that moves a MODELED CLINICAL SLOT
+  rather than a boundary** (`ASTM-FRAME-RESIDUALS`, defect 17(a)).
+  `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` fires where two escape alignments disagree about a **field**
+  boundary, the reading taken keeps it, and the escape character that reading resumes on heads **no
+  escape sequence at all**, which is exactly the character the competing alignment uses to close its
+  own sequence. A gained field boundary shifts every later field one place. It is not tolerable, so
+  `{ strict: true }` refuses such a record whatever profile is in force.
+
+  **What the shift costs, measured on the canonical set.** `R|1|^^^687|28.6&F&|&U/L||||F` reads
+  **nine** fields under the alignment taken and **eight** under the other, so the sender's trailing
+  `F` lands in field 9, the result status, under the first and in **no field at all** under the
+  second. The parse hands back units of `&U/L` and a status of **`final`**, and both are consequences
+  of the alignment rather than values the sender placed in those slots. A downstream system reading
+  `final` acts on a result these bytes do not say was finalised. The only warning on that stream
+  before this code was the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so the widest gate-legal
+  profile plus `{ strict: true }` accepted it. **The predecessor entry above lists that `final` among
+  the values read without saying it is fabricated; this is that correction.**
+
+  **It is a second question about the same position, not a widening of the code above.** That one
+  asks whether this codec's own vocabulary prefers the alignment taken _at_ the contested position,
+  and is silent where the earlier body is a recognized mnemonic. This one asks what the alignment
+  taken makes of the bytes _after_ the boundary, and does not consult the earlier body at all. The
+  earlier code's exclusions are untouched, and the two fire alongside each other where both apply.
+
+  **Additive, and the split is unchanged.** Every decoded byte is identical, including the status,
+  which is still read as `final`: this reports the shift, it does not repair it. Picking the other
+  alignment was rejected for the same reason as before, and withholding the shifted slots was
+  weighed and deferred, because declining to model a slot changes an extracted value on a published
+  package and wants its own measurement of the population it moves.
+
+  **Two bounds, both deliberate, and neither is a claim that nothing was lost outside it.** It is
+  wired to the **field** separator only, because a gained repeat or component boundary divides one
+  field and so moves no **field-indexed** slot: the units and the status stay put. **That is a choice
+  and not a consequence, and stating it as a consequence would be false.** Components are modeled
+  _inside_ a field, so a gained **component** boundary does move a modeled slot:
+  `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal Test ID coding scheme of `L` and local code of
+  `687` under the alignment taken, and `687` as the **coding scheme** under the other, while
+  `DOE&F&^&JANE^A` reads `&JANE` as a first name under one and `A` under the other. Both raise only
+  the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` and are strict-accepted under the widest gate-legal
+  profile, and both are **`PRE-EXISTING`** (byte-identical on the base of this slice), so they are
+  disclosed here as a separate open condition rather than covered: wiring this sink to another
+  delimiter role is a different criterion and wants its own population measurement. On the repeat role
+  what is lost is the value, also not reported here. And the tail is weighed **one construct deep**: where
+  the escape character past the boundary heads a **recognized** sequence, the alignment taken
+  interprets it while the competing one would leave it bare, so the bytes prefer the alignment taken
+  (under a set naming the field separator `F`, `28.6&F&F&F&U/L` is that separator escaped, written and
+  escaped again, entirely well formed, and refusing it is the over-refusal that sank a criterion
+  measured for this same family); and where it heads an **unrecognized** sequence, the alignment taken
+  still consumes it while the competing one would leave two escape characters bare, so the preference
+  is stronger again. That second case still shifts the fields and is silent here. It is recorded as a
+  residue, measured, not overlooked.
+
+  **Measured against the corpus constants committed with the test**, on the same
+  strict-accepted-under-a-gate-legal-profile tier. Over `DECLARATION_ALPHABET`, `SPLITTING_ROLES`,
+  `BODY_ALPHABET` and `TAIL_SUFFIXES` in `test/records/alignment-shifted-fields.test.ts`, **864
+  tuples**: the code fires on **96**, moves **32** from accepted to refused under a profile built from
+  the whole tolerable allow-list, and moves **0** back. It fires on **none** of the 96 escape-clean
+  tuples, and cannot: firing requires an escape character heading no sequence, which this package
+  already reports as a deviation of its own. The criterion measured and rejected on this same corpus
+  would have refused 48 of them. The 32 that move are exactly the population the code above left
+  silent through its recognized-body exclusion.
+
+  **It does not survive a re-emit**, the same residue its siblings disclosed: the serializer rewrites
+  the preserved characters into recognized mnemonics, so a second-generation read is silent and is
+  correct about its own bytes. The first read of the wire bytes is where this exists to be caught, and
+  a clean re-read is not evidence.
+
+  This is a **narrowing on a published package**, on the strict path only: a lenient parse of the same
+  stream returns the same records, with the same values, and one more warning on them. New public
+  surface: `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, the `alignmentShiftedFields` warning factory, the
+  `ShiftedFieldsSink` type, and a trailing optional sink parameter on `splitEscapeAware`,
+  `tokenizeRecord` and `tokenizeHeader`.
+
 ### Fixed
 
 - **A header that is not short no longer reports that it is too short** (`ASTM-FRAME-RESIDUALS`,

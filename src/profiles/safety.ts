@@ -95,6 +95,24 @@
  * the same "a profile re-badges the code it names and no other" reason already
  * written under the two escape entries covers it.
  *
+ * **A further reader landed with `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, and it is
+ * the first one that reaches a MODELED SLOT rather than a boundary.** It reports
+ * that a contested alignment decided a **field** boundary while the reading taken
+ * resumes on an escape character heading no sequence, so every later field sits one
+ * place further right than the competing alignment puts it. On a result record that
+ * moves the units and the **result status**: the sender's trailing letter is read out
+ * of field 9 under the reading taken and out of no field at all under the other, so a
+ * status of `final` can be a consequence of the alignment rather than something the
+ * sender wrote there. Until it existed the only warning on that stream was the
+ * **tolerable** `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so the widest gate-legal profile
+ * plus `{ strict: true }` accepted a fabricated `final` on a lab result. It is
+ * safety-critical by construction and must never be admitted. Re-reading the
+ * survivors against it moved no admission, and the reason is worth stating because it
+ * is not last time's: `ASTM_UNPAIRED_ESCAPE_CHARACTER` stays on the list because it
+ * remains true and benign of every case that costs nothing (a bare escape character
+ * in a value alters no boundary at all), and the case where it accompanies a shifted
+ * field is now reported by a code no profile may re-badge.
+ *
  * **So the ones that remain are recorded with the reading each one survives**, not
  * merely with the value it preserves. Each was re-derived against **every** reader of
  * record structure named above (this sentence deliberately names no count: it has
@@ -254,6 +272,12 @@ import type { AnyAstmWarningCode } from "./types.js";
  * first two a boundary that is not in the reading, the third one that may not be in
  * the bytes), and each exists precisely because the only warnings its condition
  * previously raised were among the four below.
+ *
+ * `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` is not on this list and must not be added
+ * to it either, and it is the strongest case of the four: it reports not merely a
+ * boundary but a modeled slot changing hands, up to and including a result status
+ * reading `final` that the competing alignment of the same bytes puts in no field at
+ * all.
  *
  * @example
  * ```ts

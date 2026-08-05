@@ -30,6 +30,13 @@ import type { AstmField } from "./types.js";
  *   unrecognized escape sequence whose closing escape character could instead have
  *   opened one holding the delimiter that split, so the boundary is one of two
  *   readings the bytes carry.
+ * @param onAlignmentShiftedFields - Called (with the 0-based field index) for each
+ *   contested **field** boundary the reading took while resuming on an escape
+ *   character that heads no sequence, so every later field is one place further
+ *   right than the competing alignment puts it. Wired only to the field split: a
+ *   repeat or component boundary divides one field and so moves no field-indexed
+ *   slot. That is a choice and not a consequence, because components are modeled
+ *   inside a field; see {@link ShiftedFieldsSink}.
  * @returns The record's fields.
  * @example
  * ```ts
@@ -45,11 +52,18 @@ export function tokenizeRecord(
   onUnpairedEscape?: (fieldIndex: number) => void,
   onSwallowedDelimiter?: (fieldIndex: number) => void,
   onAmbiguousAlignment?: (fieldIndex: number) => void,
+  onAlignmentShiftedFields?: (fieldIndex: number) => void,
 ): AstmField[] {
   // The field split reports the ambiguity itself: the segment index it hands back IS the field
-  // index, because a gained field boundary is not visible from inside either field it made.
-  const rawFields = splitEscapeAware(record, d.field, d.escape, (fieldIndex) =>
-    onAmbiguousAlignment?.(fieldIndex),
+  // index, because a gained field boundary is not visible from inside either field it made. The
+  // shift report is wired HERE ONLY, for the same reason read from the other side: only a gained
+  // FIELD boundary moves every later field, so only this split can see a modeled slot change hands.
+  const rawFields = splitEscapeAware(
+    record,
+    d.field,
+    d.escape,
+    (fieldIndex) => onAmbiguousAlignment?.(fieldIndex),
+    (fieldIndex) => onAlignmentShiftedFields?.(fieldIndex),
   );
   return rawFields.map((raw, fieldIndex) =>
     toField(
@@ -94,6 +108,10 @@ export function tokenizeRecord(
  * @param onAmbiguousAlignment - Called with the 0-based whole-record field index for
  *   each competing escape alignment in the data portion. The declaration is opaque,
  *   so the characters it names literally never report here either.
+ * @param onAlignmentShiftedFields - Called with the 0-based whole-record field index
+ *   for each contested field boundary in the data portion whose reading resumes on
+ *   an escape character heading no sequence. The declaration is opaque, so it never
+ *   reports here either.
  * @returns The header's fields.
  * @example
  * ```ts
@@ -110,6 +128,7 @@ export function tokenizeHeader(
   onUnpairedEscape?: (fieldIndex: number) => void,
   onSwallowedDelimiter?: (fieldIndex: number) => void,
   onAmbiguousAlignment?: (fieldIndex: number) => void,
+  onAlignmentShiftedFields?: (fieldIndex: number) => void,
 ): AstmField[] {
   // The delimiter-definition field runs from index 2 to the next field separator.
   const defEnd = record.indexOf(d.field, 2);
@@ -124,6 +143,7 @@ export function tokenizeHeader(
     (i) => onUnpairedEscape?.(i + 2),
     (i) => onSwallowedDelimiter?.(i + 2),
     (i) => onAmbiguousAlignment?.(i + 2),
+    (i) => onAlignmentShiftedFields?.(i + 2),
   );
   return [...head, ...data];
 }
