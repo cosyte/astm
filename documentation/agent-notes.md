@@ -1582,8 +1582,9 @@ IN THE SAME INFERENCE SHAPE THIS DEFECT EXISTS TO RETIRE.** On the repeat role o
 gained boundary reaches a modeled slot, because a field is modeled out of `repeats[0]`. Here the
 shift propagates to the end of the component list, so a gained boundary moves a modeled slot
 **wherever it sits AT OR BEFORE THE LAST MODELED COMPONENT INDEX**. **Pass 1 wrote that as "EVERY
-gained boundary in a repeat moves those slots", which is FALSE**, in ten places including
-`dist/index.d.ts`, `README.md` and the immutable `docs-content/` tarball: first clause true (the
+gained boundary in a repeat moves those slots", which is FALSE**, across every surface the slice
+wrote, including `dist/index.d.ts`, `README.md` and the immutable `docs-content/` tarball: first
+clause true (the
 reading taken does read exactly one component more, wherever the boundary sits), inference false (it
 does not follow that a NAMED slot moved). **A model reads a FIXED number of components: a patient
 name three (last, first, middle), a Universal Test ID four.** Measured counterexample, canonical set,
@@ -1656,7 +1657,12 @@ rather than a stale claim that nothing reports the stream.
 wrong code (the field-role report in place of the component-role one) and at the wrong fixture
 (17(a)'s field-role harm case in place of the component-role one), and **failed loudly both times**
 (7 and 4 assertions respectively). A harness that cannot fail against the wrong input is not
-measuring anything. The `maximalTolerance` profile is the standing control, built by spreading this
+measuring anything. **The arity bound carries its own two-sided control**, which pass 2 required
+after catching the first version being one-sided: both `NAME_ARITY` and `UTID_ARITY` are perturbed
+up **and** down and each of the four perturbations fails. **A prefix of the component list truncated
+at the same constant on both sides is NOT a test of that constant**: it stays green when the arity
+is understated, because it stops short of where the two lists differ. Read the model's own named
+slots instead. The `maximalTolerance` profile is the standing control, built by spreading this
 package's own `TOLERABLE_CODES` so a copy pointed at a sibling parser fails on the spread.
 
 **▶ `astm/CLAUDE.md` WAS OVER ITS ENTRY BY 279 BYTES AND WAS BROUGHT BACK BY RELOCATION, NOT BY
@@ -1665,11 +1671,14 @@ alphabet, P(12,4) = 11,880, 9,287 of 50,400), which **already existed verbatim i
 replaced there by a pointer to it, with **all four of that entry's traps kept** (do not re-derive
 from the test file's own space; never quote a figure without the space and a corpus constant in the
 tree; "0 silent" is weak here; never replace the "what is not guaranteed" prose with a positive
-guarantee). Entry 17's own connective prose was tightened and its shared measurement line folded to
-cover all three branches. **No trap was dropped from either entry, and the ceiling was not raised:**
-that is a deliberate act needing its own commit and its own argument, and it is not this slice's to
-take. **`CLAUDE.md` now stands at 34,340 of its 34,345 entry, 5 bytes.** The next append there
-relocates first.
+guarantee). Entry 17's own connective prose was tightened, its shared measurement line folded to
+cover all three branches, and the pair-count worked example (`HF\^&` / `28.6&F&F&F&U/L`) relocated
+here, where it already stood, leaving the imperative behind. **No trap was dropped from either
+entry, and the ceiling was not raised:** that is a deliberate act needing its own commit and its own
+argument, and it is not this slice's to take. **Do not write the current byte count here**: it was
+recorded once and was stale within the same slice, twice over, because two refuter passes each moved
+the file. **Derive it: `wc -c astm/CLAUDE.md` against that repo's `REPO_CLAUDE` entry.** The next
+append there relocates first.
 
 <a id="defects-closed-elsewhere"></a>
 

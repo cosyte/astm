@@ -35,12 +35,23 @@
  *
  * **One structural difference from the repeat role is worth stating, because it is not symmetric.**
  * There, only the **first** gained boundary in a field reaches a modeled slot, because a field is
- * modeled out of its first repeat alone. Here **every** gained boundary in a repeat moves a slot,
- * wherever in the component list it sits, because the shift propagates from it to the end of the
- * list. What is asymmetric in the other direction is the repeat index: `components` is `repeats[0]`,
- * so a contested boundary inside a **later** repeat moves nothing modeled and this fires anyway.
- * **That axis is swept on its own below**, because the corpus this family is measured on holds it
- * fixed by design and a criterion measured only there inherits the blind spot.
+ * modeled out of its first repeat alone. Here the shift propagates from the gained boundary to the
+ * end of the component list, so **every** boundary **at or before the last modeled component index**
+ * moves a named slot, not only the first.
+ *
+ * **It does NOT follow that every gained boundary moves one, and writing that down was this slice's
+ * own first refutation.** A model reads a **fixed** number of components: a patient name three
+ * (last, first, middle), a Universal Test ID four. A contested boundary further right than that
+ * still shifts the list and leaves every named slot byte-identical under both alignments. "The
+ * components all shift" is a claim about the LIST; a claim about a MODELED SLOT needs the model's
+ * own arity. That is the same inference error this whole defect exists to retire, arriving from the
+ * other side, so it is recorded here rather than quietly corrected.
+ *
+ * **So TWO bounds run the other way, and this fires inside both**, which is over-reporting and never
+ * under-reporting: past the last modeled component index, and inside a **later** repeat, where
+ * `components` is `repeats[0]` and nothing modeled moves at all. **Both axes are swept on their own
+ * below**, because the corpus this family is measured on holds them fixed by design and a criterion
+ * measured only there inherits the blind spot.
  *
  * **It is a report, not a repair.** The split is unchanged, every decoded byte is identical, and the
  * components read are the components that were always read. Picking the other alignment would be a
@@ -386,10 +397,23 @@ describe("the two index axes the shared corpus cannot see", () => {
     // alignments. Asserted per position against the model's arity, not described.
     for (const [index, c] of COMPONENT_PREFIXES.entries()) {
       const raw = axisStream("", c);
-      const taken = parseAstmRecords(raw).records[2]?.fields[2]?.components ?? [];
+      const id = results(parseAstmRecords(raw))[0]?.universalTestId;
       const rival = competingSplit(c + CONTESTED, "^", "&");
-      const named = taken.slice(0, UTID_ARITY);
-      const rivalNamed = rival.slice(0, UTID_ARITY);
+      // Read the MODEL's own named slots, not a prefix of the component list truncated at the same
+      // constant on both sides: that proxy stays green on an UNDER-stated arity, because it would
+      // compare two lists that agree only because it stopped short of where they differ.
+      const named = {
+        loincCandidate: id?.loincCandidate,
+        testName: id?.testName,
+        codingScheme: id?.codingScheme,
+        localCode: id?.localCode,
+      };
+      const rivalNamed = {
+        loincCandidate: rival[0],
+        testName: rival[1],
+        codingScheme: rival[2],
+        localCode: rival[3],
+      };
       // The contested boundary sits at component index `index`, because each prefix entry adds one
       // component in front of it.
       if (index < UTID_ARITY) {

@@ -292,19 +292,19 @@ every measurement and every refuted formulation:
     UTID's components are DELETED (`&F&\&687` reads `["|"]`).
     `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, **reachable on the CANONICAL set**. It costs **NOT the
     units or status** (both read them empty): that reading measured FALSE. **Only the
-    FIRST boundary reaches a modeled slot; at a LATER one it fires and nothing moves.**
+    FIRST boundary reaches a modeled slot; at a LATER one it fires and nothing modeled moves.**
     (c) `&F&^&GLU^L^687` gains a COMPONENT boundary. **Nothing leaves the record; slots MOVE one
     place**: a UTID's coding scheme and local code, a given name.
     `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`. **Repeat DROPS, component MOVES: a third code, not
     a wiring.** **EVERY boundary AT OR BEFORE the model's ARITY moves a slot, not just the first
     (UNLIKE (b)); PAST it nothing NAMED moves (a name models 3, a UTID 4), and in a LATER repeat
-    nothing moves. Fires in both: over-reports, never under.** **All THREE roles wired; NO fourth.**
+    nothing modeled moves. Fires in both: over-reports, never under.** **All THREE roles wired; NO fourth.**
     **🔴 SAME INFERENCE ERROR TWICE, BOTH CAUGHT ONLY BY THE GATE AND ONLY AFTER REACHING
     `dist/index.d.ts`. NEVER write "a repeat or component boundary cannot move a modeled slot" nor
     "EVERY gained boundary moves a slot": a claim about the component LIST is not one about a
     MODELED SLOT, which needs the model's ARITY.**
-    Each of the three, 864 tuples: 96 fire, 32 move, **0 back, 0 escape-clean** (the rejected
-    criterion refused 48), disjoint. **(b) and (c) carry index axes the corpus FIXES: SWEEP THEM.** **RESIDUE for all three: an UNRECOGNIZED tail costs the same and is SILENT** (it
+    All three, 864 tuples: 96 fire, 32 move, **0 back, 0 escape-clean** (the pair
+    count refused 48), disjoint. **(b) and (c) carry index axes the corpus FIXES: SWEEP THEM.** **RESIDUE for all three: an UNRECOGNIZED tail costs the same and is SILENT** (it
     would report a boundary the bytes prefer). **ONE CONSTRUCT deep; no re-emit reaches any.**
     **▶ DO NOT RE-PROPOSE THE PAIR COUNT.** It is LOCAL, so it TIES on **well-formed** streams and
     refuses half of all escape-clean ones; the alignments disagree about every byte AFTER the
