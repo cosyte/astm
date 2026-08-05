@@ -112,12 +112,16 @@ whatever profile is in force. Two cases are outside it, deliberately. A **recogn
 before the delimiter is silent, because the reading taken interprets a construct (`&F&` is an escaped
 separator, which is what the mechanism is for) while the competitor's body is a delimiter character
 the parser usually cannot interpret, so it prefers the reading taken. **That is not a promise that
-the reading taken is conformant**, and the worse half of that gap is now covered by a second code,
-described in the next section. The other excluded case is a delimiter with no escape character two
-positions past it, which is no competing alignment at all. What does fire is a subset of what already
-raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its mirror above it does not survive a re-emit: catch it
-on the first read of the wire bytes. **What to do:** ask the sender to escape a literal escape
-character as `&E&`, which removes the competing alignment at the source.
+the reading taken is conformant**, and two cases fall in the gap. The first, on the field separator,
+is now covered by a second code, described in the next section. The second is not: a declared set
+naming a mnemonic letter as a splitting delimiter leaves both alignments interpreting one construct
+each with **neither preferred**, and nothing reports it. Treat a bare escape character next to a
+delimiter as worth reading the raw line for, **whether or not either code fired**. The other excluded
+case is a delimiter with no escape character two positions past it, which is no competing alignment
+at all. What does fire is a subset of what already raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its
+mirror above it does not survive a re-emit: catch it on the first read of the wire bytes. **What to
+do:** ask the sender to escape a literal escape character as `&E&`, which removes the competing
+alignment at the source.
 
 ## A competing alignment shifted every field after it, and a result status with them
 
@@ -143,9 +147,18 @@ alignment would be a different guess with no more evidence behind it. It is not 
 strict parse refuses the record whatever profile is in force, and it fires alongside the code above
 rather than instead of it.
 
-Two bounds, both deliberate. It is wired to the **field** separator only: a gained repeat or
-component boundary divides one field and cannot move a modeled slot (it costs the value instead,
-which this code does not report). And where the escape character past the boundary heads a
+Two bounds, both deliberate, and **neither is a promise that nothing was lost outside it**. It is
+wired to the **field** separator only, because a gained repeat or component boundary divides one
+field and so moves no field-indexed slot: the units and the status stay put. That is a choice, not a
+consequence. Components are modeled _inside_ a field, so a gained **component** boundary does move a
+modeled slot: in `R|1|&F&^&GLU^L^687|28.6|U/L||||F` the Universal Test ID reads a coding scheme of
+`L` and a local code of `687` under the alignment taken, and `687` as the **coding scheme** under the
+other, and `DOE&F&^&JANE^A` reads `JANE` as a first name under one alignment and `A` under the other.
+Nothing reports that: only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` fires, so a strict parse
+under a legal profile accepts it. It is a separate open condition, disclosed here rather than left to
+be found, and wiring this code to another delimiter role would be a different criterion needing its
+own measurement. On the repeat role the cost is the **value**, also not reported here. And where the
+escape character past the boundary heads a
 sequence, recognized or not, it stays silent, because the reading taken is then the one making sense
 of those bytes: under a set naming the field separator `F`, `28.6&F&F&F&U/L` is that separator
 escaped, written, and escaped again, which is entirely well formed. The case where that trailing

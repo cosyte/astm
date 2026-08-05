@@ -78,7 +78,9 @@
  * status** are read out of slots the competing alignment does not put them in, and
  * a status of `final` can be a consequence of the alignment rather than something
  * the sender wrote there. That is `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`; see
- * {@link ShiftedFieldsSink}, including the tail it deliberately stays silent on.
+ * {@link ShiftedFieldsSink}, including the tail and the two other delimiter roles it
+ * deliberately stays silent on, and why neither silence is a claim that nothing was
+ * lost there.
  *
  * Re-escaping (the inverse, for spec-clean emit) lives in the serializer and is
  * deliberately not implemented here.
@@ -183,10 +185,14 @@ export type AmbiguousAlignmentSink = (segmentIndex: number) => void;
  * reading taken and in no field at all under the competing one, so a status of
  * `final` can be a consequence of the alignment rather than something the sender
  * put there. A gained *repeat* or *component* boundary divides one field and
- * reaches nothing outside it, so it cannot move a modeled slot and is deliberately
- * outside this. The callback lets the parser surface a value-free
- * `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` warning. Optional so the split can be used
- * purely.
+ * reaches nothing outside it, so it moves no **field-indexed** slot and is
+ * deliberately outside this. **That bound is a choice, not a consequence, and the
+ * difference matters**: components are modeled *inside* a field (a Universal Test
+ * ID's coding scheme and local code, a patient name's parts), so a gained component
+ * boundary does move a modeled slot. That is measured, unreported by anything, and
+ * open, not something this sink covers. The callback lets the parser surface a
+ * value-free `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` warning. Optional so the split
+ * can be used purely.
  *
  * **It is a report, not a repair.** The split is unchanged, every decoded byte is
  * identical, and the status read is the status that was always read. What is new is

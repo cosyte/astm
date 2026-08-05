@@ -34,7 +34,9 @@ import type { AstmField } from "./types.js";
  *   contested **field** boundary the reading took while resuming on an escape
  *   character that heads no sequence, so every later field is one place further
  *   right than the competing alignment puts it. Wired only to the field split: a
- *   repeat or component boundary divides one field and moves no modeled slot.
+ *   repeat or component boundary divides one field and so moves no field-indexed
+ *   slot. That is a choice and not a consequence, because components are modeled
+ *   inside a field; see {@link ShiftedFieldsSink}.
  * @returns The record's fields.
  * @example
  * ```ts

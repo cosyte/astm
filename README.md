@@ -233,10 +233,14 @@ in those slots. That raises `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, which **no p
 tolerate**; before it existed the only warning on that stream was the tolerable
 `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so a strict parse under a legal profile accepted it. The reading is
 unchanged: it reports the shift rather than repairing it. It is wired to the **field** separator
-only, because a gained repeat or component boundary divides one field and cannot move a modeled slot,
-and it is silent where that trailing escape character heads a sequence of its own, recognized or not.
-That last case still shifts the fields, and is the recorded residue. It does not survive a re-emit
-either: catch it on the first read.
+only, because a gained repeat or component boundary divides one field and so moves no field-indexed
+slot. **That bound is a choice, not a consequence**: components are modeled inside a field, so a
+gained **component** boundary does move a modeled slot, and `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads
+`687` as a local code under one alignment and as the coding scheme under the other, with only a
+tolerable code raised. That is a separate open condition, not something this code covers. It is also
+silent where the trailing escape character heads a sequence of its own, recognized or not; that case
+still shifts the fields and is the recorded residue. It does not survive a re-emit either: catch it
+on the first read.
 
 ### A header that names one character in two delimiter roles
 

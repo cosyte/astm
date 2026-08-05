@@ -161,9 +161,19 @@ this file is maintained by hand (Changesets handles the version bump and publish
   weighed and deferred, because declining to model a slot changes an extracted value on a published
   package and wants its own measurement of the population it moves.
 
-  **Two bounds, both deliberate.** It is wired to the **field** separator only: a gained repeat or
-  component boundary divides one field and cannot move a modeled slot, and what it costs instead is
-  the value, which this code does not report. And the tail is weighed **one construct deep**: where
+  **Two bounds, both deliberate, and neither is a claim that nothing was lost outside it.** It is
+  wired to the **field** separator only, because a gained repeat or component boundary divides one
+  field and so moves no **field-indexed** slot: the units and the status stay put. **That is a choice
+  and not a consequence, and stating it as a consequence would be false.** Components are modeled
+  _inside_ a field, so a gained **component** boundary does move a modeled slot:
+  `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal Test ID coding scheme of `L` and local code of
+  `687` under the alignment taken, and `687` as the **coding scheme** under the other, while
+  `DOE&F&^&JANE^A` reads `JANE` as a first name under one and `A` under the other. Both raise only
+  the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` and are strict-accepted under the widest gate-legal
+  profile, and both are **`PRE-EXISTING`** (byte-identical on the base of this slice), so they are
+  disclosed here as a separate open condition rather than covered: wiring this sink to another
+  delimiter role is a different criterion and wants its own population measurement. On the repeat role
+  what is lost is the value, also not reported here. And the tail is weighed **one construct deep**: where
   the escape character past the boundary heads a **recognized** sequence, the alignment taken
   interprets it while the competing one would leave it bare, so the bytes prefer the alignment taken
   (under a set naming the field separator `F`, `28.6&F&F&F&U/L` is that separator escaped, written and

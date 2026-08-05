@@ -18,10 +18,9 @@ published under the Cosyte brand. Open-source (MIT). One of the sibling `@cosyte
 parsers that **mirror each other's API**: `@cosyte/hl7` is the reference; this repo deliberately
 copies its shape.
 
-**North star (the archetype):** a developer can parse a real-world, vendor-quirky ASTM message
-and pull useful fields out in one line, without reading the spec. Liberal on parse (quirks become
-warnings), conservative on emit (always spec-clean). The full contract this repo must satisfy is
-"The standard parser archetype" in the meta-repo's `documentation/conventions.md`.
+**North star (the archetype):** parse a real-world, vendor-quirky message and pull fields out in one
+line without reading the spec. Liberal on parse (quirks become warnings), conservative on emit
+(always spec-clean). Full contract: "The standard parser archetype" in `documentation/conventions.md`.
 
 ## Status
 
@@ -106,18 +105,16 @@ ten roadmap phases have shipped, through release hardening. `src/` is `common/` 
 
 Full text: `#docs-sidebar`.
 
-- **`docs-content/sidebars.json` is a public contract, not a local build detail.** `docs-content/` is
-  tarred verbatim into the release asset `cosyte/docs` ingests, and **a released asset is immutable**:
-  a bad sidebar can only be superseded by a later release, never corrected in place. `v0.0.1` and
-  `v0.0.2` both shipped a non-canonical top-level "About" and it rendered live at `/astm/`.
-- **The section spine is Overview, Installation, Quickstart, Core Concepts, Guides, API Reference,
-  Troubleshooting**, enforced upstream by `scripts/check-ia-conformance.ts` and transcribed here by
-  `test/docs-sidebar-ia.test.ts`.
-- **Categories are optional.** The rule is "if you have it, label it canonically and order it
-  canonically", so the minimal `{"docs":["intro"]}` conforms. **Never make the test demand a section.**
-- **"API Reference" is injected by `cosyte/docs`, never authored here.**
-- **The spine is transcribed, not imported** (a parser repo cannot depend on the docs site), so the
-  two copies can drift and **the upstream file is the source of truth**.
+- **`docs-content/sidebars.json` is a public contract, not a local build detail**, and the release
+  asset it is tarred into is **immutable**: a bad sidebar is superseded by a later release, never
+  corrected in place. `v0.0.1`/`v0.0.2` shipped a non-canonical "About" and it rendered at `/astm/`.
+- **Spine: Overview, Installation, Quickstart, Core Concepts, Guides, API Reference,
+  Troubleshooting**, enforced upstream by `scripts/check-ia-conformance.ts`, transcribed by
+  `test/docs-sidebar-ia.test.ts`. **Transcribed, not imported** (a parser repo cannot depend on the
+  docs site), so the copies can drift and **upstream is the source of truth**.
+- **Categories are optional** ("if you have it, label and order it canonically"), so `{"docs":
+["intro"]}` conforms: **never make the test demand a section**. **"API Reference" is injected by
+  `cosyte/docs`, never authored here.**
 
 ## Known defects live on `main`
 
@@ -283,7 +280,7 @@ every measurement and every refuted formulation:
     **The fatal CODE is unchanged and no stream's disposition moved**: a second fatal code was
     considered and **REJECTED**, as a breaking change bought for a sentence. **Do not delete the
     unreachable branch.** `#defect-16`
-17. **🩺 (a) CLOSED 2026-08-05 as a REPORT; (b) OPEN; the pair-count criterion stays REJECTED.**
+17. **🩺 (a) CLOSED 2026-08-05 as a REPORT; (b) and (c) OPEN; the pair-count criterion stays REJECTED.**
     (a) `28.6&F&|&U/L` gains a FIELD boundary, every later field shifts, and the sender's `F` lands
     in the status slot: units `&U/L` and status **`final`**, both FABRICATED, on a tolerable code.
     Now `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable, **FIELD role only** and only where the
@@ -293,6 +290,10 @@ every measurement and every refuted formulation:
     escape-clean** (the rejected criterion refused 48). **RESIDUE: an UNRECOGNIZED-sequence tail
     shifts the same and is SILENT** (firing there reports a boundary the bytes prefer). **The tail is
     weighed ONE CONSTRUCT deep, not to end of record.** **No re-emit reaches either code.**
+    (c) **`PRE-EXISTING`, DISCLOSED not fixed: a gained COMPONENT boundary DOES move a modeled slot**
+    (a UTID's coding scheme and local code; a patient's given name), silent, strict-accepted. **The
+    field-role bound is a CHOICE, not a consequence: NEVER write "a repeat or component boundary
+    cannot move a modeled slot"** (it shipped into `dist/index.d.ts` and the gate refuted it).
     (b) `H|F^&` with `28.6&S&F&U/L` gains a REPEAT boundary, TRUNCATING the value to `28.6^`,
     dropping `&U/L`. **NOT the units or status**: a REPEAT boundary shifts no field, so both
     read them empty. That measured FALSE.

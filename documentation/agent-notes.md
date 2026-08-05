@@ -1365,9 +1365,31 @@ scoping it to the status alone would be arbitrary and scoping it to all of them 
 `ASTM_RECORD_UNITS_ABSENT`), and it wants its own measurement of the population it moves. What the
 report does close is the tier this repo measures on: a gate-legal profile no longer accepts it.
 
-**▶ THE BOUND ON THE ROLE, and it is exactly the claim.** Wired to the **field** split only. A gained
-repeat or component boundary divides one field and reaches nothing outside it, so it cannot move a
-modeled slot; what it costs there is the **value**, which is defect 17(b) and is **still open**.
+**▶ THE BOUND ON THE ROLE IS A CHOICE, NOT A CONSEQUENCE, AND THE FIRST DRAFT WROTE IT AS A
+CONSEQUENCE AND WAS REFUTED FOR IT.** Wired to the **field** split only. A gained repeat or component
+boundary divides one field and reaches nothing outside it, so it moves no **field-indexed** slot: the
+units and the status stay put. **It does not follow that it moves no modeled slot at all.** Components
+are modeled *inside* a field, so a gained **component** boundary shifts them exactly as a gained field
+boundary shifts fields. That is **defect 17(c)**, `PRE-EXISTING`, measured byte-identical on this
+slice's base, reported by **nothing** (only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` fires, so a
+gate-legal profile accepts it), and pinned in `test/records/alignment-shifted-fields.test.ts`:
+
+- `R|1|&F&^&GLU^L^687|28.6|U/L||||F`: the Universal Test ID reads coding scheme `L` and local code
+  `687` under the alignment taken, and `687` as the **coding scheme** under the competing one. A
+  vendor's local code and a code-system selector are not the same thing.
+- `P|1||MRN-0001||DOE&F&^&JANE^A||19700101|F`: the patient's given name reads `&JANE` under one
+  alignment and `A` under the other, with no middle name at all under the second.
+
+**Closing 17(c) means wiring this sink to another split, which is a DIFFERENT CRITERION and wants its
+own population measurement**, exactly as this one did. Do not fold it in. On the repeat role what is
+lost is the **value**, which is defect 17(b) and is **still open** too.
+
+**▶ THE SENTENCE THAT WAS REFUTED, KEPT VERBATIM SO IT IS NOT REWRITTEN BACK IN.** "A gained repeat or
+component boundary divides one field and reaches nothing outside it, **so it cannot move a modeled
+slot**." The first clause is true; the inference is false; and it had reached `dist/index.d.ts`, which
+is the exact failure defect 6 records ("a false sentence in a comment that compiles into
+`dist/index.d.ts` is worse than the silence it replaced"). **Third time in this family that the claim,
+not the guard, was the defect.**
 
 **▶ THE RESIDUE, MEASURED AND NAMED.** Where the escape character past the boundary heads a sequence
 whose body is **unrecognized**, the field shift is just as real and this is **silent**. The reason it

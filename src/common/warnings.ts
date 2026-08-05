@@ -178,9 +178,19 @@ export const WARNING_CODES = {
    * *after* the boundary, and does not consult the earlier body at all.
    *
    * **Two deliberate bounds, both stated rather than left to be found.**
-   * - **Only the field role.** A gained repeat or component boundary divides one field and reaches
-   *   nothing outside it, so it cannot move a modeled slot. It costs the **value** instead, which
-   *   this code does not report and does not claim to.
+   * - **Only the field role, and that bound is a CHOICE rather than a consequence.** A gained repeat
+   *   or component boundary divides one field and reaches nothing outside it, so it moves no
+   *   **field-indexed** slot: the units and the status stay where they were. **It does not follow
+   *   that it moves no modeled slot at all, and writing that down would be false.** Components are
+   *   modeled *inside* a field: a Universal Test ID's four components are the LOINC-candidate slot,
+   *   the test name, the **coding scheme** and the **local code**, and a patient name's three are
+   *   last, first and middle. A gained component boundary shifts those, so a local code can be read
+   *   as a coding scheme and a given name as a middle name. Measured, and **not reported by anything**
+   *   (only the tolerable {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} fires, so a
+   *   gate-legal profile accepts it). It is a separate, open condition rather than something this
+   *   code covers, because wiring this sink to another split is a different criterion needing its own
+   *   population measurement. The repeat role costs the **value**, which this code does not report
+   *   either.
    * - **The tail is weighed one construct deep.** Where the escape character the reading taken
    *   resumes on heads a sequence this codec *recognizes*, the reading taken interprets it and the
    *   competing alignment would leave it bare, so the bytes prefer the reading taken: under a set

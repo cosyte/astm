@@ -25,13 +25,21 @@ every decoded byte is identical, including the status: taking the other alignmen
 different guess with no more evidence behind it, on a package already on the registry. What is new is
 that the shift is reported by a code no profile may tolerate. It fires **alongside**
 `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` where that also applies, and is not a widening of it: that
-code asks whether the codec's own vocabulary prefers the alignment taken *at* the contested position,
-and this one asks what that alignment makes of the bytes *after* it. The earlier code's exclusions are
+code asks whether the codec's own vocabulary prefers the alignment taken _at_ the contested position,
+and this one asks what that alignment makes of the bytes _after_ it. The earlier code's exclusions are
 untouched.
 
-Two bounds are deliberate and are stated rather than left to be found. It is wired to the **field**
-separator only, because a gained repeat or component boundary divides one field and cannot move a
-modeled slot; that case costs the value instead, and is not reported here. And the tail is weighed one
+Two bounds are deliberate and are stated rather than left to be found, and neither is a promise that
+nothing was lost outside it. It is wired to the **field** separator only, because a gained repeat or
+component boundary divides one field and so moves no **field-indexed** slot: the units and the status
+stay put. That is a choice, not a consequence. Components are modeled _inside_ a field, so a gained
+**component** boundary does move a modeled slot: `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal
+Test ID local code of `687` under the alignment taken and reads `687` as the **coding scheme** under
+the other, and `DOE&F&^&JANE^A` reads `JANE` as a first name under one and `A` under the other. Both
+raise only a tolerable code and are strict-accepted, and both behave identically on the release before
+this one, so they are disclosed as a separate open condition rather than covered here: wiring this to
+another delimiter role is a different criterion and wants its own measurement. On the repeat role what
+is lost is the value, also not reported here. And the tail is weighed one
 construct deep: where the escape character past the boundary heads a sequence this codec
 **recognizes**, the alignment taken interprets it while the competing one would leave it bare, so the
 bytes prefer the alignment taken (under a set naming the field separator `F`, `28.6&F&F&F&U/L` is that

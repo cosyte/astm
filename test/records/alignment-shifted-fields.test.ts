@@ -45,6 +45,7 @@ import {
   AstmStrictError,
   defineAstmProfile,
   parseAstmRecords,
+  patient,
   results,
   serializeAstmRecords,
   splitEscapeAware,
@@ -247,18 +248,54 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
     expect(acceptedUnderMaximalTolerance(wellFormed)).toBe(true);
   });
 
-  it("stays silent on a gained REPEAT boundary, which cannot reach a modeled slot", () => {
-    // The sink is wired to the field split only, and the reason is the claim: a repeat boundary
-    // divides one field and reaches nothing outside it, so no modeled slot changes hands. Under
-    // `H|F^&` both alignments read 8 fields, the units slot is empty under both and the status is
-    // `unspecified` under both. What that gained boundary costs is the VALUE, which this code does
-    // not report and does not claim to. It is a different defect and stays open.
+  it("stays silent on a gained REPEAT boundary, which moves no FIELD-indexed slot", () => {
+    // The sink is wired to the field split only, and this is the half of the reason that holds: a
+    // repeat boundary divides one field and reaches nothing outside it, so no FIELD-indexed slot
+    // changes hands. Under `H|F^&` both alignments read 8 fields, the units slot is empty under both
+    // and the status is `unspecified` under both. What that gained boundary costs is the VALUE,
+    // which this code does not report and does not claim to. It is a different defect and stays open.
     const repeatRole = "H|F^&\rP|1||LAB-0001\rR|1|^^^687|28.6&S&F&U/L||||F\rL|1|N\r";
     expect(codes(repeatRole)).not.toContain(SHIFT);
     const [only] = results(parseAstmRecords(repeatRole));
     expect(only?.value).toBe("28.6^");
     expect(only?.units).toBeUndefined();
     expect(only?.status.meaning).toBe("unspecified");
+  });
+
+  it("stays silent on a gained COMPONENT boundary, WHICH DOES MOVE A MODELED SLOT", () => {
+    // ── THE BOUND IS A CHOICE, NOT A CONSEQUENCE, AND WRITING IT AS A CONSEQUENCE WAS FALSE.
+    // "A repeat or component boundary reaches nothing outside its field" is true and says nothing
+    // about modeled slots, because components are modeled INSIDE a field. A Universal Test ID's four
+    // components are the LOINC-candidate slot, the test name, the CODING SCHEME and the LOCAL CODE;
+    // a patient name's three are last, first and middle. A gained component boundary shifts those
+    // exactly as a gained field boundary shifts fields. Both cases below are `PRE-EXISTING` (measured
+    // byte-identical on this slice's base) and are pinned here so the silence is a disclosed
+    // condition rather than an implied guarantee. Closing them means wiring this sink to another
+    // split, which is a different criterion and wants its own population measurement.
+    const utid = "H|\\^&\rP|1||MRN-0001\rR|1|&F&^&GLU^L^687|28.6|U/L||||F\rL|1|N\r";
+    expect(codes(utid)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
+    expect(acceptedUnderMaximalTolerance(utid)).toBe(true);
+    const id = results(parseAstmRecords(utid))[0]?.universalTestId;
+    // Under the alignment taken, `687` is the vendor LOCAL CODE and `L` the coding scheme. Under the
+    // competing alignment the components are one fewer and `687` is read as the CODING SCHEME.
+    expect(id?.codingScheme).toBe("L");
+    expect(id?.localCode).toBe("687");
+    const rival = competingSplit("&F&^&GLU^L^687", "^", "&");
+    expect(rival).toHaveLength((id?.components.length ?? 0) - 1);
+    expect(rival[1]).toBe("L");
+    expect(rival[2]).toBe("687");
+
+    const name = "H|\\^&\rP|1||MRN-0001||DOE&F&^&JANE^A||19700101|F\rL|1|N\r";
+    expect(codes(name)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
+    expect(acceptedUnderMaximalTolerance(name)).toBe(true);
+    expect(patient(parseAstmRecords(name))?.name).toMatchObject({ first: "&JANE", middle: "A" });
+    // The competing alignment reads one component fewer, so `A` is the given name and there is no
+    // middle name at all. A given name decided by an alignment guess, reported by nothing.
+    expect(competingSplit("DOE&F&^&JANE^A", "^", "&")).toEqual(["DOE&F&^&JANE", "A"]);
+
+    // Neither raises the shift report, by construction: it is wired to the field split.
+    expect(codes(utid)).not.toContain(SHIFT);
+    expect(codes(name)).not.toContain(SHIFT);
   });
 
   it("stays silent where the tail heads an UNRECOGNIZED sequence, the named residue", () => {
