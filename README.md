@@ -177,15 +177,48 @@ package's serializer emits, so a stream it produced never trips the code. The co
 so a vendor profile can expect it on a feed that sends bare ampersands and still parse
 `{ strict: true }`.
 
-**One escape shape still costs a field boundary, and it is a different code.** A real three-character
-sequence is opaque by design, which is what keeps `&F&` one token under a set that names `F` as a
-delimiter. So where the body is itself a delimiter (`&|&` under the canonical set) that delimiter
-does not split, and every field after it shifts: `R|1|^^^687|28.6&|&U/L||||F` reads a value of
-`28.6&|&U/L` with no units and status `unspecified`. It is never silent, but the only report is
-`ASTM_UNKNOWN_ESCAPE_SEQUENCE`, which is **tolerable**, so a profile expecting that code (including
-the shipped `referenceCorpus`) will let a `{ strict: true }` parse accept it. Narrowing the atom to
-close this would break the guarantee the atom exists for, so it is written down rather than papered
-over.
+**One escape shape still costs a field boundary, and it has a code of its own.** A real
+three-character sequence is opaque by design, which is what keeps `&F&` one token under a set that
+names `F` as a delimiter. So where the body is an **unrecognized** character that is itself a
+delimiter in force (`&|&` under the canonical set)
+that delimiter does not split, and every field after it shifts: `R|1|^^^687|28.6&|&U/L||||F` reads a
+value of `28.6&|&U/L` with no units and status `unspecified`. That reading is unchanged, and
+narrowing the atom to change it would break the guarantee the atom exists for. What such a record now
+raises, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, is
+`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which **no profile may tolerate**, so a
+`{ strict: true }` parse refuses it even under the shipped `referenceCorpus`. The narrower code fires
+only where the unrecognized body is one of the three splitting roles in force. Two exclusions are
+deliberate: the escape role, because nothing splits on it, and every **recognized** mnemonic, because
+`&F&` under a set naming `F` as the repeat delimiter is the sender escaping the field separator on
+purpose, and reporting that would report the escape mechanism working as a defect.
+
+Read it as a report, not a repair. It also does not survive a re-emit: the serializer rewrites the
+preserved sequence into recognized mnemonics, and that stream says the same value unambiguously, so a
+second-generation read is silent and is right about its own bytes. The first read of the wire bytes
+is where the condition exists to be caught.
+
+### A header that names one character in two delimiter roles
+
+ASTM messages are self-describing: the `H` record declares the four delimiters and a conformant
+reader follows them. A declaration whose **field** separator is also one of the other three is
+refused outright, because the four roles would be indistinguishable. A declaration where two of the
+_remaining_ three agree is still read, because the stream is readable and refusing it would drop
+records the sender did send, but the boundary between those two roles is no longer in the bytes.
+
+Under `H|^^&`, where the repeat and component roles are both `^`, a field a canonical sender would
+have written as two repeats of two components reads back as four repeats of one component each.
+Under `H|\&&`, where the component and escape roles are both `&`, the same character splits
+(`A&B` is two components) or opens an escape atom (`A&F&B` is the single component `A|B`) depending
+only on what follows it.
+
+Such a header now raises `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, at the header that put the set into
+force, once rather than once per colliding pair. A later header restating the set already in force
+warns nothing, on the same rule that governs the other delimiter warnings. The code is **not** tolerable. That matters
+because every such set is by definition non-canonical, so the only warning it used to raise was
+`ASTM_NONSTANDARD_DELIMITERS`, which is tolerable: a profile expecting an ordinary vendor set left a
+`{ strict: true }` parse accepting a declaration whose own field tree cannot be recovered. Emit has
+always refused these sets (`ASTM_EMIT_INVALID_DELIMITERS`), which is how the gap first showed: a
+message that parsed clean threw when it was serialized back against its own declared delimiters.
 
 ### Several messages in one stream
 
@@ -251,9 +284,11 @@ outside it:
   and the damage then varies. A mis-split component can cost a test identity while the value and
   units survive. The escape role's worst case has **narrowed, not gone**: a bare escape character no
   longer merges the rest of the record (it reads as a literal and raises
-  `ASTM_UNPAIRED_ESCAPE_CHARACTER`), but an `&X&` sequence whose body is a delimiter is an opaque
+  `ASTM_UNPAIRED_ESCAPE_CHARACTER`), but an `&X&` sequence whose body is an unrecognized character
+  that is itself a delimiter in force is an opaque
   atom, so that delimiter does not split and the value, the units and the status can still go
-  together. That one is reported only by the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`.
+  together. That one raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not tolerable,
+  alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The split itself is unchanged.
 
 All are accepted limits, for two different reasons: widening the field-separator check would mean
 deciding which set a record ought to have had, which is the same guess the parser declines to make

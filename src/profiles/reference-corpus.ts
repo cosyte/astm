@@ -25,7 +25,9 @@
  * only re-badges the *warning*: no value, flag, status, or identifier is altered
  * or dropped. And by the safety gate in `defineAstmProfile`, it **cannot** tolerate
  * a result value / flag / status / range / units, a patient or comment context, a
- * message-kind ambiguity, an unrecognized record type, or any frame / LTP integrity
+ * message-kind ambiguity, an unrecognized record type, a declaration naming one
+ * character in two delimiter roles, a delimiter an unrecognized
+ * escape sequence kept out of the split, or any frame / LTP integrity
  * warning: those always surface, profile or not. The unrecognized-record-type case
  * matters because message grouping reads a record's type letter, so a letter the
  * reader does not recognize may be a header, and a header read as something else
@@ -57,7 +59,8 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
   description:
     "Non-standard-escape tolerance grounded firsthand in the escape-agnostic OSS reference corpus " +
     "(python-astm / senaite). Mostly syntactic encoding noise, with one measured exception: an " +
-    "escape sequence whose body is itself a delimiter is an opaque atom, so that delimiter does " +
+    "escape sequence whose body is an unrecognized character that is itself a delimiter in force is " +
+    "an opaque atom, so that delimiter does " +
     "not split and a result can lose its units and its status. Read the values; do not rely on " +
     "this profile leaving only cosmetic deviations behind.",
   provenance: {
@@ -77,7 +80,9 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
         "bodies our escape-aware tokenizer flags. The body is preserved byte-for-byte in the value. " +
         "NOT always non-clinical, and this is measured rather than assumed: where the body is a " +
         "delimiter, that delimiter never became a field boundary, so `28.6&|&U/L` reads as one " +
-        "value with no units and no final status. Tolerating this code hides that too.",
+        "value with no units and no final status. That subset now also raises " +
+        "ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE, which this profile cannot tolerate, so " +
+        "tolerating this code no longer hides it.",
     },
   ],
 });

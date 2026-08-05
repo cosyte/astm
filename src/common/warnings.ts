@@ -45,18 +45,71 @@ export const WARNING_CODES = {
    * boundaries, silently, and this can happen to one record inside a run of these warnings); and a
    * set differing in the repeat, component or escape role usually splits into fields normally,
    * where a mis-split component can cost a test identity while the value survives, and where an
-   * `&X&` sequence whose body is a delimiter is an opaque atom, so that delimiter does not split
+   * `&X&` sequence whose body is an unrecognized character that is itself a delimiter in force is an
+   * opaque atom, so that delimiter does not split
    * and every field after it shifts. The escape role's worst case has narrowed and not
    * disappeared: an escape character heading no sequence is now read as a literal and reported
    * under {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} rather than merging the rest of the
-   * record, but a delimiter swallowed inside an `&X&` body is reported only by
-   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, which is tolerable. Treat this code as a
+   * record, and a delimiter swallowed inside an `&X&` body now raises
+   * {@link WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE} as well as the tolerable
+   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, though it still splits the same way. Treat this code as a
    * report that one record definitely lost its fields, never as a sweep that would have fired if
    * any had.
    */
   ASTM_RECORD_FIELDS_UNSEPARATED: "ASTM_RECORD_FIELDS_UNSEPARATED",
   /** The header declared delimiters other than the canonical `H|\^&`: tolerated, noted. */
   ASTM_NONSTANDARD_DELIMITERS: "ASTM_NONSTANDARD_DELIMITERS",
+  /**
+   * A header declared **one character in two roles**, so the boundary between those two roles is
+   * not recoverable from the bytes. The declaration is still read and honored and no record is
+   * dropped: what is gone is a distinction the sender's own bytes no longer carry.
+   *
+   * The field separator is not part of this: a declaration naming it in another role is refused
+   * earlier (the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal on the first header,
+   * {@link WARNING_CODES.ASTM_RECORD_UNREADABLE_REDECLARATION} on a later one). What this code
+   * covers is the three unordered pairs among the rest: **repeat/component, repeat/escape,
+   * component/escape**.
+   *
+   * Measured on `H|^^&` (repeat and component both `^`): the field `A^B^C^D` reads back as four
+   * repeats of one component each, so `components` holds only `A` and a two-repeats-of-two-components
+   * reading cannot be recovered. Measured on `H|\&&` (component and escape both `&`): `A&B` splits
+   * into two components while `A&F&B` reads as the single component `A|B`, so the same character
+   * means two different things depending on what follows it.
+   *
+   * **It is not tolerable**, and the reason is the pair it travels with: such a set is always
+   * non-canonical, so before this code existed the only warning on the stream was
+   * {@link WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS}, which a profile may tolerate. That made a
+   * structurally unreadable declaration indistinguishable, to a strict consumer, from an ordinary
+   * vendor set. Emit refuses the same sets outright (`ASTM_EMIT_INVALID_DELIMITERS`).
+   *
+   * One warning per header that **changes** the set in force into such a set, not one per colliding
+   * pair. A later header restating the colliding set already in force is a no-op and warns nothing,
+   * on the same rule as {@link WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS}: the set it names was
+   * already reported when it came into force.
+   */
+  ASTM_RECORD_DELIMITER_ROLE_COLLISION: "ASTM_RECORD_DELIMITER_ROLE_COLLISION",
+  /**
+   * An escape sequence whose body was **not** a recognized mnemonic held a character that is one of
+   * the three splitting delimiters in force, and the atom rule (an `&X&` triple is opaque) kept it
+   * out of the split, so a boundary the bytes carried never became one. The sequence is preserved
+   * verbatim in the value; nothing is dropped and nothing is re-split.
+   *
+   * Measured on the canonical set: `R|1|^^^687|28.6&|&U/L||||F` reads `value` = `28.6&|&U/L`, with
+   * **no units** and status `unspecified` rather than `final`.
+   *
+   * **This is the code that says a boundary was lost.** The same condition also raises
+   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, which stays and stays tolerable: that code
+   * reports only that a body was not recognized, which is true of bodies that cost nothing. This one
+   * is the narrower, safety-critical half, and no profile may tolerate it.
+   *
+   * **What it does not do is repair anything.** The atom rule is unchanged (it is what keeps `&F&`
+   * one token under a set that names `F` as a delimiter), so the value is byte-identical to what it
+   * was before this code existed. It also cannot see the condition through a re-emit: emit rewrites
+   * the preserved sequence into recognized mnemonics, and the resulting stream says that value
+   * unambiguously, so a second-generation read is silent and correct about its own bytes. The place
+   * to catch this is the first read of the wire bytes, which is where it now refuses a strict parse.
+   */
+  ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE: "ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE",
   /** An escape sequence body was not one of `&F&`/`&S&`/`&R&`/`&E&`: preserved verbatim. */
   ASTM_UNKNOWN_ESCAPE_SEQUENCE: "ASTM_UNKNOWN_ESCAPE_SEQUENCE",
   /**
@@ -78,7 +131,8 @@ export const WARNING_CODES = {
    * *different* escape character in the same record may still head a real three-character sequence,
    * and if that sequence's body happens to be a delimiter (`&|&` under the canonical set) the atom
    * rule means that delimiter does not split. That case is reported separately, under
-   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, and it can still cost a field boundary.
+   * {@link WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE}, and it still costs a field
+   * boundary.
    */
   ASTM_UNPAIRED_ESCAPE_CHARACTER: "ASTM_UNPAIRED_ESCAPE_CHARACTER",
   /**
@@ -284,6 +338,59 @@ export function nonStandardDelimiters(position: AstmPosition): AstmRecordWarning
 }
 
 /**
+ * Build an `ASTM_RECORD_DELIMITER_ROLE_COLLISION` warning. Emitted when a header
+ * declares one character in two of the repeat / component / escape roles. The
+ * declaration is honored and no record is dropped; the message names no character,
+ * because a delimiter is a byte off the wire.
+ *
+ * A profile may **not** tolerate this code: it reports a distinction the bytes no
+ * longer carry, and the only other warning such a set raises
+ * ({@link WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS}) is tolerable.
+ *
+ * @example
+ * ```ts
+ * import { delimiterRoleCollision } from "@cosyte/astm";
+ * delimiterRoleCollision({ recordIndex: 0, recordType: "H" });
+ * ```
+ */
+export function delimiterRoleCollision(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_DELIMITER_ROLE_COLLISION,
+    message:
+      "Header declared one character in two delimiter roles, honored as declared; the boundary " +
+      "between those two roles cannot be recovered from the bytes, and emit refuses such a set.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` warning. Emitted when an
+ * unrecognized escape body is itself a splitting delimiter in force, so the atom
+ * rule kept it out of the split. The value is preserved verbatim and is identical
+ * with the warning and without it; what the warning reports is the boundary that
+ * did not happen.
+ *
+ * A profile may **not** tolerate this code. It fires alongside
+ * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, which remains tolerable and
+ * reports the strictly weaker fact that a body was not recognized.
+ *
+ * @example
+ * ```ts
+ * import { delimiterSwallowedByEscape } from "@cosyte/astm";
+ * delimiterSwallowedByEscape({ recordIndex: 4, recordType: "R", fieldIndex: 4 });
+ * ```
+ */
+export function delimiterSwallowedByEscape(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE,
+    message:
+      "An unrecognized escape sequence held a delimiter in force, so that delimiter did not end a " +
+      "field, repeat or component. The sequence is preserved verbatim and nothing is re-split.",
+    position,
+  };
+}
+
+/**
  * Build an `ASTM_RECORD_DELIMITERS_REDECLARED` warning. Emitted when a later `H`
  * record declares a delimiter set different from the one in force; the new set is
  * honored from that header onward. Positional context only: never the delimiters
@@ -351,8 +458,10 @@ export function unknownEscapeSequence(position: AstmPosition): AstmRecordWarning
  *
  * **It is a statement about that one character, not about the record.** A
  * different escape character in the same record may head a real three-character
- * sequence, and if that sequence's body is a delimiter, that delimiter does not
- * split. See {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER}.
+ * sequence, and if that sequence's body is an unrecognized character that is itself a delimiter in
+ * force, that delimiter does not
+ * split, which is reported separately by
+ * {@link WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE}.
  *
  * A profile **may** tolerate this code: the value it reports is byte-identical
  * with the warning and without it, because reading the character as a literal is

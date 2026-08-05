@@ -147,16 +147,27 @@ export {
   uninterpretedQueryStatus,
   ambiguousMessageKind,
   delimitersRedeclared,
+  delimiterRoleCollision,
+  delimiterSwallowedByEscape,
   unreadableRedeclaration,
   profileQuirkApplied,
 } from "./common/warnings.js";
 export type { WarningCode, AstmRecordWarning } from "./common/warnings.js";
 export type { AstmPosition } from "./common/position.js";
 
-export { CANONICAL_DELIMITERS, readDelimiters, isNonStandard } from "./common/delimiters.js";
+export {
+  CANONICAL_DELIMITERS,
+  readDelimiters,
+  isNonStandard,
+  hasCollidingRoles,
+} from "./common/delimiters.js";
 export type { Delimiters } from "./common/delimiters.js";
 export { decodeEscapes, splitEscapeAware } from "./common/escapes.js";
-export type { UnknownEscapeSink, UnpairedEscapeSink } from "./common/escapes.js";
+export type {
+  UnknownEscapeSink,
+  UnpairedEscapeSink,
+  SwallowedDelimiterSink,
+} from "./common/escapes.js";
 export { parseAstmDate, astmDateToLocalISO } from "./common/dates.js";
 export type { AstmDate, AstmDatePrecision } from "./common/dates.js";
 export { recognizeUniversalTestId, primaryCode } from "./common/coding-system.js";

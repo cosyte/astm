@@ -37,6 +37,16 @@ set they were read with. A header that simply restates the delimiters already in
 warns nothing. If a later header's declaration is unusable, the delimiters already in force are kept
 and you get `ASTM_RECORD_UNREADABLE_REDECLARATION`: no set is ever guessed and no record is dropped.
 
+A declaration that names **one character in two roles** is a third case. If the field separator is
+one of the other three, the declaration is unusable and the two rules above apply. If two of the
+remaining three agree, the set is read and honored, but the boundary between those two roles is gone
+from the bytes, and you get `ASTM_RECORD_DELIMITER_ROLE_COLLISION` at that header. Under `H|^^&`, for
+instance, a field a canonical sender would have written as two repeats of two components reads back
+as four repeats of one component each. That code is **not** tolerable: every such set is
+non-canonical, so before it existed the only warning was the tolerable `ASTM_NONSTANDARD_DELIMITERS`
+and a profile expecting an ordinary vendor set left a strict parse accepting it. Emit refuses the
+same sets (`ASTM_EMIT_INVALID_DELIMITERS`).
+
 Read each header's own set from `header.delimiters`; `msg.delimiters` is the first header's.
 
 ### Reading a stream that carries several messages
@@ -118,10 +128,12 @@ for (const w of warnings) {
 > happen to one record **inside** a run of these warnings, so a run does not mean every record in it
 > was checked. And a set differing in the **repeat, component or escape** role usually splits into
 > fields normally, with the damage varying: a mis-split component can cost a test identity while the
-> value survives, and an `&X&` sequence whose body is a delimiter is an opaque atom, so that
+> value survives, and an `&X&` sequence whose body is an unrecognized character that is itself a
+> delimiter in force is an opaque atom, so that
 > delimiter does not split and the value, units and status can go together. A bare escape character
 > is no longer in that group (it reads as a literal and raises `ASTM_UNPAIRED_ESCAPE_CHARACTER`);
-> the atom case remains, reported only by the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. All are
+> the atom case remains, and now raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not
+> tolerable, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. All are
 > accepted limits: widening the field-separator check would mean deciding which set a record ought
 > to have had, which is a guess this parser does not make, and narrowing the escape atom would break
 > the guarantee it exists for, so the boundary is documented instead. If delimiter drift is a real
@@ -311,9 +323,11 @@ does `serializeFramedAstm(msg)`. "Emit against the canonical delimiters" is ther
 around it: the fix is to drop or repair the record whose type letter cannot be written.
 
 What the two refusals together promise is that every record re-reads as its own **type**. They do not
-promise that every field lands where it did: an escape sequence whose body is itself a delimiter is
+promise that every field lands where it did: an escape sequence whose body is an unrecognized
+character that is itself a delimiter in force is
 read as one opaque atom, so that delimiter never becomes a boundary and the fields after it shift.
-That is reported on the parse side as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The low-level
+That is reported on the parse side as `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which no profile
+may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The low-level
 `encodeComponent` and `serializeField` helpers take no record and carry neither guarantee. If you
 emit against a set of your own rather than the canonical one, check the round-trip on your own
 traffic.

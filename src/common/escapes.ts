@@ -34,14 +34,18 @@
  * next escape character with no bound, which meant a single unescaped `&` in a
  * value merged every field after it into that value, in silence.
  *
- * **The atom rule is unchanged and still costs a boundary in one case.** A triple
- * is opaque by design, so where its body is itself a delimiter (`&|&` under the
- * canonical set) that delimiter does not split. That is deliberate: it is what
- * keeps `&F&` one token under a declared set that names `F` as a delimiter. Where
- * the body is not a recognized mnemonic the parse layer reports it as
- * `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so it is never silent, but that code is
- * tolerable and a field boundary has still gone. Do not "fix" that by narrowing
- * the atom: the narrowing would break the guarantee the atom exists for.
+ * **The atom rule is unchanged and still costs a boundary in one case, which now
+ * has a report of its own.** A triple is opaque by design, so where its body is
+ * itself a delimiter (`&|&` under the canonical set) that delimiter does not
+ * split. That is deliberate: it is what keeps `&F&` one token under a declared
+ * set that names `F` as a delimiter. Where the body is not a recognized mnemonic
+ * the parse layer reports it as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, and where that
+ * unrecognized body is *also* one of the three splitting roles in force it
+ * reports `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` **as well**, which is the
+ * code that says a boundary went missing rather than merely that a body was not
+ * recognized. Do not "fix" this by narrowing the atom: the narrowing would break
+ * the guarantee the atom exists for. The split is unchanged; what changed is that
+ * the loss is now reported by a code no profile may tolerate.
  *
  * Re-escaping (the inverse, for spec-clean emit) lives in the serializer and is
  * deliberately not implemented here.
@@ -64,6 +68,24 @@ export type UnknownEscapeSink = () => void;
  * `ASTM_UNPAIRED_ESCAPE_CHARACTER` warning. Optional so the codec can be used purely.
  */
 export type UnpairedEscapeSink = () => void;
+
+/**
+ * A callback the codec calls when an **unrecognized** escape body is itself one of
+ * the three splitting delimiters in force (field, repeat, component), so the atom
+ * rule kept that character out of the split and a boundary the sender's bytes
+ * carried never became one. The value is preserved verbatim either way; the
+ * callback lets the parser surface a value-free
+ * `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` warning. Optional so the codec can
+ * be used purely.
+ *
+ * The **escape** character is deliberately not in that test: it is not a splitting
+ * role, so `&&&` under the canonical set loses no boundary. A body that is a
+ * *recognized* mnemonic is not in it either, whatever character it is: `&F&` under
+ * a set naming `F` as the repeat delimiter is the escaped field delimiter the
+ * sender wrote, and reading it as a swallowed repeat boundary would report the
+ * escape mechanism working as a defect.
+ */
+export type SwallowedDelimiterSink = () => void;
 
 /**
  * Whether an escape sequence starts at `i`: the escape character, exactly one body
@@ -98,6 +120,8 @@ function isEscapeSequenceAt(text: string, i: number, escape: string): boolean {
  * @param d - The delimiters resolved from the header.
  * @param onUnknown - Called once per unrecognized escape body encountered.
  * @param onUnpaired - Called once per escape character that heads no sequence.
+ * @param onSwallowedDelimiter - Called once per unrecognized escape body that is
+ *   itself a splitting delimiter in force, so that delimiter never split.
  * @returns The decoded string.
  * @example
  * ```ts
@@ -111,6 +135,7 @@ export function decodeEscapes(
   d: Delimiters,
   onUnknown?: UnknownEscapeSink,
   onUnpaired?: UnpairedEscapeSink,
+  onSwallowedDelimiter?: SwallowedDelimiterSink,
 ): string {
   const esc = d.escape;
   if (!leaf.includes(esc)) return leaf;
@@ -138,12 +163,27 @@ export function decodeEscapes(
       // Unrecognized escape: preserve the whole `&X&` verbatim, surface it, never guess.
       out += esc + body + esc;
       onUnknown?.();
+      // ...and if that body is one of the three splitting roles, the atom rule is why it
+      // is sitting here rather than having ended a field/repeat/component. That is a lost
+      // boundary, not merely an unreadable body, so it gets its own report.
+      if (isSplittingDelimiter(body, d)) onSwallowedDelimiter?.();
     } else {
       out += replacement;
     }
     i += 3;
   }
   return out;
+}
+
+/**
+ * Whether `body` is one of the three roles a split is taken on: field, repeat, or
+ * component. The escape role is excluded deliberately, because nothing splits on
+ * it, so an `&&&` costs no boundary. Called only for an **unrecognized** body: a
+ * recognized mnemonic is the sender escaping a delimiter on purpose, which is the
+ * atom rule doing its job.
+ */
+function isSplittingDelimiter(body: string, d: Delimiters): boolean {
+  return body === d.field || body === d.repeat || body === d.component;
 }
 
 /** Map one escape body (the char(s) between the escape delimiters) to its literal, or undefined. */
@@ -179,7 +219,9 @@ function escapeBody(body: string, d: Delimiters): string | undefined {
  * closes is what used to merge the whole remainder of a record into one field.
  * Decoding the resulting leaf is what reports it, so this function stays a pure
  * split. Note the two rules together: a delimiter after such a character does
- * split, and a delimiter sitting inside a real three-character atom does not.
+ * split, and a delimiter sitting inside a real three-character atom does not. The
+ * second of those is reported, from the decode step rather than from here,
+ * whenever the atom's body was not a recognized mnemonic.
  *
  * @param text - The field or repeat string to split.
  * @param delimiter - The delimiter to split on.

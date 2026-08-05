@@ -23,6 +23,9 @@ import type { AstmField } from "./types.js";
  *   unrecognized escape sequence encountered, so the caller can warn.
  * @param onUnpairedEscape - Called (with the 0-based field index) for each escape
  *   character that heads no escape sequence and was therefore read as a literal.
+ * @param onSwallowedDelimiter - Called (with the 0-based field index) for each
+ *   unrecognized escape sequence whose body is a splitting delimiter in force, so
+ *   that delimiter never became a boundary.
  * @returns The record's fields.
  * @example
  * ```ts
@@ -36,6 +39,7 @@ export function tokenizeRecord(
   d: Delimiters,
   onUnknownEscape?: (fieldIndex: number) => void,
   onUnpairedEscape?: (fieldIndex: number) => void,
+  onSwallowedDelimiter?: (fieldIndex: number) => void,
 ): AstmField[] {
   const rawFields = splitEscapeAware(record, d.field, d.escape);
   return rawFields.map((raw, fieldIndex) =>
@@ -44,6 +48,7 @@ export function tokenizeRecord(
       d,
       () => onUnknownEscape?.(fieldIndex),
       () => onUnpairedEscape?.(fieldIndex),
+      () => onSwallowedDelimiter?.(fieldIndex),
     ),
   );
 }
@@ -72,6 +77,10 @@ export function tokenizeRecord(
  * @param onUnpairedEscape - Called with the 0-based whole-record field index for
  *   each unpaired escape character in the data portion. The declaration itself is
  *   opaque, so the escape character it names never reports here.
+ * @param onSwallowedDelimiter - Called with the 0-based whole-record field index
+ *   for each unrecognized escape sequence in the data portion whose body is a
+ *   splitting delimiter in force. The declaration is opaque, so the delimiters it
+ *   names literally never report here.
  * @returns The header's fields.
  * @example
  * ```ts
@@ -86,6 +95,7 @@ export function tokenizeHeader(
   d: Delimiters,
   onUnknownEscape?: (fieldIndex: number) => void,
   onUnpairedEscape?: (fieldIndex: number) => void,
+  onSwallowedDelimiter?: (fieldIndex: number) => void,
 ): AstmField[] {
   // The delimiter-definition field runs from index 2 to the next field separator.
   const defEnd = record.indexOf(d.field, 2);
@@ -98,6 +108,7 @@ export function tokenizeHeader(
     d,
     (i) => onUnknownEscape?.(i + 2),
     (i) => onUnpairedEscape?.(i + 2),
+    (i) => onSwallowedDelimiter?.(i + 2),
   );
   return [...head, ...data];
 }
@@ -113,11 +124,12 @@ function toField(
   d: Delimiters,
   onUnknownEscape: () => void,
   onUnpairedEscape: () => void,
+  onSwallowedDelimiter: () => void,
 ): AstmField {
   const rawRepeats = splitEscapeAware(raw, d.repeat, d.escape);
   const repeats = rawRepeats.map((rep) =>
     splitEscapeAware(rep, d.component, d.escape).map((comp) =>
-      decodeEscapes(comp, d, onUnknownEscape, onUnpairedEscape),
+      decodeEscapes(comp, d, onUnknownEscape, onUnpairedEscape, onSwallowedDelimiter),
     ),
   );
   // `splitEscapeAware` always returns at least one element, so `repeats[0]` is defined.

@@ -172,9 +172,13 @@ describe("what it must never fire on", () => {
  * **The escape role's worst case has NARROWED, and the narrowing is pinned both ways below.** A
  * bare escape character used to merge every field after it, silently; it now reads as a literal and
  * raises `ASTM_UNPAIRED_ESCAPE_CHARACTER`. What did **not** change is the atom rule: an `&X&`
- * sequence whose body is a delimiter still swallows that delimiter, still costs the value, the
- * units and the status together, and is still reported only by the tolerable
- * `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Both are asserted, so neither half of that sentence can drift.
+ * sequence whose body is a delimiter still swallows that delimiter and still costs the value, the
+ * units and the status together. What did change is the reporting, and only for part of that group:
+ * where the body is UNRECOGNIZED it now also raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`,
+ * which is not tolerable, so a profile can no longer leave a strict parse accepting it; where the
+ * body is a RECOGNIZED mnemonic whose letter holds a delimiter role it raises neither code, because
+ * that is the sender escaping a delimiter on purpose. The `&|&` half is asserted below; the
+ * recognized-mnemonic half is asserted in `test/records/swallowed-delimiter.test.ts`.
  *
  * They are asserted rather than merely written down, so that the documented boundary cannot quietly
  * drift into a guarantee the code does not provide. A test here going red means the scope moved,
@@ -242,10 +246,17 @@ describe("the limits: shapes that lose data and are deliberately NOT reported", 
     expect(only?.units).toBeUndefined();
     expect(only?.status.isActiveFinal).toBe(false);
 
-    // Never silent, but the only report is a TOLERABLE code, so a profile expecting it lets a
-    // strict parse accept the record. That is the open half, recorded as a defect.
-    expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE]);
+    // The loss above is unchanged: this is a report, not a repair. What is no longer true is that
+    // the only report is a TOLERABLE code, which is what let a profile leave a strict parse
+    // accepting the record.
+    expect(codes(raw)).toEqual([
+      WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
+      WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE,
+    ]);
     expect(TOLERABLE_CODES.has(WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE)).toBe(true);
+    expect(TOLERABLE_CODES.has(WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE)).toBe(
+      false,
+    );
   });
 
   it("a set differing only in the component role splits into fields normally, silently", () => {

@@ -10,12 +10,19 @@
 
 import { AstmParseError, FATAL_CODES } from "../common/errors.js";
 import { deepFreeze } from "../common/freeze.js";
-import { isNonStandard, readDelimiters, type Delimiters } from "../common/delimiters.js";
+import {
+  hasCollidingRoles,
+  isNonStandard,
+  readDelimiters,
+  type Delimiters,
+} from "../common/delimiters.js";
 import { parseAstmDate, type AstmDate } from "../common/dates.js";
 import { recognizeUniversalTestId } from "../common/coding-system.js";
 import {
   ambiguousMessageKind,
   ambiguousValueSplit,
+  delimiterRoleCollision,
+  delimiterSwallowedByEscape,
   delimitersRedeclared,
   fieldsUnseparated,
   nonStandardDelimiters,
@@ -155,6 +162,14 @@ export function parseAstmRecords(
   if (isNonStandard(delimiters)) {
     warnings.push(nonStandardDelimiters({ recordIndex: 0, recordType: "H" }));
   }
+  // A set naming one character in two roles is honored (the stream is still readable and a
+  // sender's records are never dropped over its header) but the boundary between those two
+  // roles is gone from the bytes. It used to raise nothing but the tolerable
+  // ASTM_NONSTANDARD_DELIMITERS, which every such set raises anyway, so a strict consumer could
+  // not tell an unreadable declaration from an ordinary vendor one.
+  if (hasCollidingRoles(delimiters)) {
+    warnings.push(delimiterRoleCollision({ recordIndex: 0, recordType: "H" }));
+  }
 
   // Delimiters are scoped to a *message*, and a message runs `H` … `L`, so one stream may carry
   // several messages back to back, each header declaring its own set. The active set is therefore
@@ -257,6 +272,7 @@ function adoptRedeclaredDelimiters(
   if (sameDelimiters(declared, active)) return active;
   warnings.push(delimitersRedeclared(position));
   if (isNonStandard(declared)) warnings.push(nonStandardDelimiters(position));
+  if (hasCollidingRoles(declared)) warnings.push(delimiterRoleCollision(position));
   return declared;
 }
 
@@ -299,13 +315,21 @@ function buildRecord(
       unpairedEscapeCharacter({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
     );
   };
+  // Fires in addition to onUnknownEscape, never instead of it: the unknown-sequence code says a
+  // body was not recognized, which costs nothing on its own, and this one says the atom rule kept
+  // a delimiter out of the split, which costs a field boundary.
+  const onSwallowedDelimiter = (fieldIndex: number): void => {
+    warnings.push(
+      delimiterSwallowedByEscape({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+    );
+  };
   // The header needs its own tokenizer: all three non-field delimiters sit literally inside the
   // delimiter declaration, so the generic tokenizer would split the declaration on its own repeat
   // and component characters and report its escape character as unpaired.
   const fields =
     rawType === "H"
-      ? tokenizeHeader(line, d, onUnknownEscape, onUnpairedEscape)
-      : tokenizeRecord(line, d, onUnknownEscape, onUnpairedEscape);
+      ? tokenizeHeader(line, d, onUnknownEscape, onUnpairedEscape, onSwallowedDelimiter)
+      : tokenizeRecord(line, d, onUnknownEscape, onUnpairedEscape, onSwallowedDelimiter);
 
   // A record that carries content beyond its type letter but yields exactly ONE field contains no
   // field separator at all, so the delimiters in force are not the set this record was written
@@ -331,8 +355,12 @@ function buildRecord(
   //     survives. The ESCAPE role's worst case has NARROWED, not gone: an escape character heading
   //     no `&X&` sequence is now a literal and is reported (`ASTM_UNPAIRED_ESCAPE_CHARACTER`)
   //     instead of merging the rest of the record, but an `&X&` whose body IS a delimiter is still
-  //     an opaque atom, so that delimiter does not split and every field after it shifts. That one
-  //     is reported only by `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, which a profile may tolerate.
+  //     an opaque atom, so that delimiter does not split and every field after it shifts. Where the
+  //     body is UNRECOGNIZED that raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which no
+  //     profile may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Where the body
+  //     is a RECOGNIZED mnemonic whose letter happens to hold a delimiter role (`&F&` under `H|F^&`)
+  //     it raises NEITHER, deliberately: that is the sender escaping a delimiter, which is what the
+  //     atom is for. The split is unchanged in both cases; only the report is new.
   //
   // So the absence of this warning is NOT evidence that a record was read in its own set. Widening
   // it would mean deciding which set a record "should" have had, which is the same guess again.
