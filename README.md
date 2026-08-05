@@ -270,10 +270,11 @@ where the competing alignment makes `A` the **given** name with no middle name a
 `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, which **no profile may tolerate**; before it existed the
 only warning on either stream was the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so a strict parse
 under a legal profile accepted both. The reading is unchanged: it reports the moved slots rather than
-repairing them. **Every gained boundary in a repeat moves them, not only the first**, because the
-shift propagates to the end of the component list, which is where this differs from the repeat role;
-**inside a later repeat nothing modeled moves and it fires anyway**, over-reporting relative to those
-slots and never under. Its tail bound is the other two reports', for the same reason. It does not
+repairing them. **Every gained boundary at or before the last modeled component index moves them,
+not only the first**, because the shift propagates to the end of the component list, which is where
+this differs from the repeat role. **Two bounds run the other way and it fires inside both**,
+over-reporting and never under: past the last modeled index nothing named moves (a name models three
+components, a Universal Test ID four), and inside a later repeat nothing modeled moves at all. Its tail bound is the other two reports', for the same reason. It does not
 survive a re-emit either: catch it on the first read. With this the three splitting roles are all
 wired, and there is no fourth: nothing splits on the escape role.
 

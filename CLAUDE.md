@@ -280,36 +280,35 @@ every measurement and every refuted formulation:
     considered and **REJECTED**, as a breaking change bought for a sentence. **Do not delete the
     unreachable branch.** `#defect-16`
 17. **🩺 (a), (b) AND (c) ALL CLOSED 2026-08-05 as REPORTS by weighing the TAIL; the
-    pair-count criterion stays REJECTED.** ONE predicate, wired per role, never widened into each
+    pair count stays REJECTED.** ONE predicate, wired per role, never widened into each
     other: a contested alignment resuming on an escape character heading **NO sequence**. 15's
     exclusion untouched.
-    (a) `28.6&F&|&U/L` gains a FIELD boundary, every later field shifts, the sender's `F` lands in
-    the status slot: units and status **`final`** both FABRICATED, on a tolerable code. Now
+    (a) `28.6&F&|&U/L` gains a FIELD boundary: every later field shifts and the sender's `F` lands
+    in the status slot, so units and status **`final`** are both FABRICATED on a tolerable code.
     `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`. **Status still reads `final`; withholding the shifted
     slots was weighed and DEFERRED.**
     (b) `28.6&S&\&U/L` gains a REPEAT boundary. **Nothing shifts and the field is STILL read
     short**, because a field is modeled from `repeats[0]`: the value truncates to `28.6^` and a
-    UTID's components are DELETED (`&F&\&687` reads `components === ["|"]`). Now
+    UTID's components are DELETED (`&F&\&687` reads `["|"]`).
     `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, **reachable on the CANONICAL set**. It costs **NOT the
-    units or status** (both alignments read them empty): that reading measured FALSE. **Only the FIRST boundary reaches a modeled slot; at a
-    LATER one it fires and nothing modeled moves** (over-reports, never under).
-    (c) `&F&^&GLU^L^687` gains a COMPONENT boundary. **Nothing leaves the record; the slots MOVE
-    one place**: a UTID's coding scheme and local code, a given name. Now
+    units or status** (both read them empty): that reading measured FALSE. **Only the
+    FIRST boundary reaches a modeled slot; at a LATER one it fires and nothing moves.**
+    (c) `&F&^&GLU^L^687` gains a COMPONENT boundary. **Nothing leaves the record; slots MOVE one
+    place**: a UTID's coding scheme and local code, a given name.
     `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`. **Repeat DROPS, component MOVES: a third code, not
-    a wiring.** **EVERY boundary in a repeat moves a slot, not just the first (UNLIKE (b)); in a
-    LATER repeat nothing moves and it fires anyway.** **All THREE roles wired; NO fourth.**
-    **The role bound is a CHOICE: NEVER write "a repeat or component boundary cannot move a modeled
-    slot"** (it shipped into `dist/index.d.ts` and the gate refuted it).
-    Each of the three, 864 tuples: fires 96, moves 32, **0 back, 0 escape-clean** (the rejected
-    criterion refused 48), disjoint. **(b) and (c) each carry an index axis the corpus
-    FIXES: SWEEP IT BESIDE.** **RESIDUE for all three: an UNRECOGNIZED tail costs the same and is
-    SILENT** (firing reports a boundary the bytes prefer). **ONE CONSTRUCT deep. No re-emit
-    reaches any.**
-    **▶ COUNTING THE CONTESTED PAIR STAYS REJECTED. DO NOT RE-PROPOSE IT.** It refuses
-    **well-formed** streams: under `HF\^&`, `28.6&F&F&F&U/L` is two recognized sequences around the
-    separator they escape, raises nothing, and ties. It refuses half of all escape-clean streams.
-    **The count is LOCAL; the alignments disagree about every byte AFTER the boundary. A corpus that
-    FIXES the tail reports a comforting zero.**
+    a wiring.** **EVERY boundary AT OR BEFORE the model's ARITY moves a slot, not just the first
+    (UNLIKE (b)); PAST it nothing NAMED moves (a name models 3, a UTID 4), and in a LATER repeat
+    nothing moves. Fires in both: over-reports, never under.** **All THREE roles wired; NO fourth.**
+    **🔴 SAME INFERENCE ERROR TWICE, BOTH CAUGHT ONLY BY THE GATE AND ONLY AFTER REACHING
+    `dist/index.d.ts`. NEVER write "a repeat or component boundary cannot move a modeled slot" nor
+    "EVERY gained boundary moves a slot": a claim about the component LIST is not one about a
+    MODELED SLOT, which needs the model's ARITY.**
+    Each of the three, 864 tuples: 96 fire, 32 move, **0 back, 0 escape-clean** (the rejected
+    criterion refused 48), disjoint. **(b) and (c) carry index axes the corpus FIXES: SWEEP THEM.** **RESIDUE for all three: an UNRECOGNIZED tail costs the same and is SILENT** (it
+    would report a boundary the bytes prefer). **ONE CONSTRUCT deep; no re-emit reaches any.**
+    **▶ DO NOT RE-PROPOSE THE PAIR COUNT.** It is LOCAL, so it TIES on **well-formed** streams and
+    refuses half of all escape-clean ones; the alignments disagree about every byte AFTER the
+    boundary. **A corpus that FIXES the tail reports a comforting zero.**
     `#defect-17`
 
 Two further defects were closed and folded away: `#defects-closed-elsewhere`.

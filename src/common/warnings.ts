@@ -305,20 +305,26 @@ export const WARNING_CODES = {
    * `{ strict: true }` accepted a test identity and a patient name whose parts were decided by the
    * alignment rather than by the sender.
    *
-   * **Every gained component boundary in a repeat moves a slot, not only the first, and that is the
-   * difference from the repeat role.** There the field is modeled out of its first repeat alone, so
-   * only the first gained boundary reaches a modeled slot; here every component after the gained
-   * boundary is one place further right, wherever in the repeat that boundary sits.
+   * **Every gained boundary at or before the LAST MODELED COMPONENT INDEX moves a slot, not only
+   * the first, and that is the difference from the repeat role.** There the field is modeled out of
+   * its first repeat alone, so only the first gained boundary reaches a modeled slot; here the shift
+   * propagates from wherever the boundary sits to the end of the component list.
    *
-   * **Where the contested boundary sits in a LATER repeat, no modeled slot moves and this still
-   * fires.** `components` is the first repeat, so a component boundary gained inside the second or
-   * a later repeat changes nothing any modeled slot is read from; what it changes is `repeats[n]`
-   * for that `n`. It fires there deliberately, because the boundary is still one the bytes do not
-   * force and a consumer reading `repeats` is still reading an alignment guess. Relative to the
-   * modeled slots that is **over-reporting, never under-reporting**, which is the direction this
-   * package errs in, and the axis is swept on its own rather than left to the shared corpus, which
-   * holds it fixed. Narrowing it to the first repeat would change which streams a published package
-   * refuses and wants its own measurement, so the bound is written down instead.
+   * **TWO bounds run the other way, and this fires inside both**, which is **over-reporting, never
+   * under-reporting**: the direction this package errs in. Both axes are swept on their own rather
+   * than left to the shared corpus, which holds them fixed, and neither is closed by narrowing the
+   * guard, because narrowing changes which streams a published package refuses and wants its own
+   * measurement.
+   *
+   * - **Past the last modeled component index, nothing NAMED moves.** A model reads a fixed number
+   *   of components: a patient name three (last, first, middle), a Universal Test ID four. A
+   *   contested boundary further right than that still shifts the components after it while every
+   *   named slot reads byte-identically under both alignments.
+   * - **Inside a LATER repeat nothing modeled moves at all**, because `components` is the first
+   *   repeat, so what changes is `repeats[n]` for that `n` alone.
+   *
+   * It fires in both because the boundary is still one the bytes do not force, and a consumer
+   * reading `components` or `repeats` is still reading an alignment guess.
    *
    * **It is a report, not a repair.** The split is unchanged, every decoded byte is identical, and
    * the components read are the components that were always read. Picking the other alignment would
@@ -731,9 +737,9 @@ export function alignmentTruncatedField(position: AstmPosition): AstmRecordWarni
  * that is the difference from {@link alignmentShiftedFields} and {@link alignmentTruncatedField}:
  * what moves is which modeled slot each component lands in, so a Universal Test ID's coding scheme
  * and local code, or a patient's given and middle names, are read out of positions the competing
- * alignment does not put them in. **Every gained boundary in a repeat moves those slots, not only
- * the first**; where the boundary sits in a **later repeat** nothing modeled moves and this still
- * fires, which is over-reporting relative to those slots and never under-reporting. See
+ * alignment does not put them in. **Every gained boundary at or before the last modeled component
+ * index moves those slots, not only the first**; past that index, and inside a **later repeat**,
+ * nothing named moves and this still fires, which is over-reporting and never under-reporting. See
  * {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS}.
  *
  * A profile may **not** tolerate this code. It fires alongside

@@ -317,18 +317,36 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
  * it cannot see either index axis. For this code both matter, and they matter in opposite
  * directions, which is exactly why the sweep is here and not folded into that corpus:
  *
- * - **The component index does NOT bound the harm.** Every gained boundary in a repeat moves a
- *   modeled slot, because the shift propagates from it to the end of the component list. This is
- *   the structural difference from the repeat role, where only the first boundary reaches one.
- * - **The repeat index DOES bound it.** `components` is `repeats[0]`, so a contested boundary
- *   inside a later repeat moves nothing modeled, and this fires there anyway: over-reporting
- *   relative to those slots and never under-reporting.
+ * - **The component index bounds the harm only at the MODEL'S ARITY, not at the first boundary.**
+ *   The shift propagates from the gained boundary to the end of the component list, so every
+ *   boundary at or before the last modeled component index moves a named slot. This is the
+ *   structural difference from the repeat role, where only the first boundary reaches one.
+ *   **Past that index nothing NAMED moves and it fires anyway**, because a model reads a fixed
+ *   number of components: a patient name three, a Universal Test ID four. That bound is measured
+ *   below rather than assumed, and getting it wrong is exactly the inference error this whole
+ *   defect exists to retire: "the components all shift" is a claim about the LIST, and a claim
+ *   about a MODELED SLOT needs the model's own arity.
+ * - **The repeat index bounds it outright.** `components` is `repeats[0]`, so a contested boundary
+ *   inside a later repeat moves nothing modeled, and this fires there anyway.
+ *
+ * Both of those are **over-reporting, never under-reporting**, which is the direction this package
+ * errs in.
  *
  * The prefixes are the axis, on the canonical set: a repeat prefix pushes the contested boundary
  * into a later repeat, a component prefix pushes it further along inside its repeat.
  */
 const REPEAT_PREFIXES = ["", "A\\", "A\\B\\"] as const;
-const COMPONENT_PREFIXES = ["", "X^", "X^Y^"] as const;
+/**
+ * Component positions for the contested boundary. **It runs past the arity of both models on
+ * purpose**: a patient name reads three components and a Universal Test ID four, so the last two
+ * prefixes put the contested boundary beyond every named slot. A sweep that stopped at the second
+ * would be green and blind to the bound below.
+ */
+const COMPONENT_PREFIXES = ["", "X^", "X^Y^", "X^Y^Z^", "X^Y^Z^W^"] as const;
+/** The number of components a patient name models: last, first, middle. */
+const NAME_ARITY = 3;
+/** The number of components a Universal Test ID models: LOINC candidate, name, scheme, local code. */
+const UTID_ARITY = 4;
 
 /** The contested construct itself: a recognized earlier body, the component separator, a bare tail. */
 const CONTESTED = "GLU&Z&^&L";
@@ -348,17 +366,63 @@ describe("the two index axes the shared corpus cannot see", () => {
     expect(swept).toBe(REPEAT_PREFIXES.length * COMPONENT_PREFIXES.length);
   });
 
-  it("moves a modeled slot at EVERY component index of the first repeat, not just the first", () => {
-    // The asymmetry with the repeat role, asserted rather than described. The reading taken always
-    // reads exactly one component more than the competing alignment, wherever in the list the
-    // contested boundary sits, because the shift propagates to the end.
+  it("reads one component more than the competing alignment at EVERY position", () => {
+    // The claim about the LIST, which holds everywhere: the shift propagates from the contested
+    // boundary to the end of the component list, so the reading taken always reads exactly one
+    // component more, wherever in the list that boundary sits.
     for (const c of COMPONENT_PREFIXES) {
-      const field = c + CONTESTED;
       const raw = axisStream("", c);
       const taken = parseAstmRecords(raw).records[2]?.fields[2]?.components ?? [];
-      const rival = competingSplit(field, "^", "&");
-      expect(taken).toHaveLength(rival.length + 1);
+      expect(taken).toHaveLength(competingSplit(c + CONTESTED, "^", "&").length + 1);
     }
+  });
+
+  it("moves a NAMED slot only at or before the model's own arity, and fires past it anyway", () => {
+    // ── THE CLAIM ABOUT THE LIST IS NOT THE CLAIM ABOUT A MODELED SLOT, AND CONFLATING THEM IS THE
+    // EXACT INFERENCE ERROR THIS DEFECT EXISTS TO RETIRE. The first draft of this code's docs read
+    // "EVERY gained boundary in a repeat moves those slots, not only the first". False: a model
+    // reads a FIXED number of components, so a contested boundary further right than the last
+    // modeled index shifts the list and leaves every named slot byte-identical under both
+    // alignments. Asserted per position against the model's arity, not described.
+    for (const [index, c] of COMPONENT_PREFIXES.entries()) {
+      const raw = axisStream("", c);
+      const taken = parseAstmRecords(raw).records[2]?.fields[2]?.components ?? [];
+      const rival = competingSplit(c + CONTESTED, "^", "&");
+      const named = taken.slice(0, UTID_ARITY);
+      const rivalNamed = rival.slice(0, UTID_ARITY);
+      // The contested boundary sits at component index `index`, because each prefix entry adds one
+      // component in front of it.
+      if (index < UTID_ARITY) {
+        expect(named).not.toEqual(rivalNamed);
+      } else {
+        expect(named).toEqual(rivalNamed);
+      }
+      // Over-reporting, never under: it fires on both sides of that bound.
+      expect(codes(raw)).toContain(COMPONENTS);
+    }
+    // The sweep has to run past the arity or it cannot see the bound it asserts.
+    expect(COMPONENT_PREFIXES.length).toBeGreaterThan(UTID_ARITY);
+  });
+
+  it("does the same on a patient name, whose arity is smaller again", () => {
+    // The same bound on the other modeled component list, because the arity is the model's and not
+    // the parser's: a name reads three components where a test identity reads four, so the position
+    // at which a named slot stops moving is different on the same bytes.
+    for (const [index, c] of COMPONENT_PREFIXES.entries()) {
+      const raw = `H|\\^&\rP|1||MRN-0001||${c}${CONTESTED}||19700101|F\rL|1|N\r`;
+      expect(codes(raw)).toContain(COMPONENTS);
+      const name = patient(parseAstmRecords(raw))?.name;
+      const rival = competingSplit(c + CONTESTED, "^", "&");
+      const rivalName = { last: rival[0], first: rival[1], middle: rival[2] };
+      if (index < NAME_ARITY) {
+        expect({ last: name?.last, first: name?.first, middle: name?.middle }).not.toEqual(
+          rivalName,
+        );
+      } else {
+        expect({ last: name?.last, first: name?.first, middle: name?.middle }).toEqual(rivalName);
+      }
+    }
+    expect(COMPONENT_PREFIXES.length).toBeGreaterThan(NAME_ARITY);
   });
 
   it("moves NOTHING modeled inside a later repeat, and fires there anyway", () => {

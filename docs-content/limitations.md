@@ -114,8 +114,9 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   and as the **coding scheme** under the other, and `DOE&F&^&JANE^A` reads `A` as a middle name under
   one and as the **given** name under the other. That is
   `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` (not tolerable either), on the same tail bound; there
-  every gained boundary in a repeat moves those slots and not only the first, while inside a later
-  repeat it fires and nothing modeled moves. **None of these
+  every gained boundary at or before the last modeled component index moves those slots and not only
+  the first, while past that index (a name models three components, a test identity four) and inside
+  a later repeat it fires and nothing named moves. **None of these
   reports survives emitting**: this package rewrites the preserved characters into recognized mnemonics, so
   a re-emitted stream carries the reading that was taken with nothing ambiguous left in it. The
   low-level `encodeComponent` and `serializeField` helpers take no record and so carry neither

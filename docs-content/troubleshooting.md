@@ -232,12 +232,22 @@ Before this code existed the only warning on either stream was the tolerable
 reading is unchanged: this reports the moved slots, it does not repair them, and it fires alongside
 the codes above rather than instead of them.
 
-**Every gained boundary in a repeat moves those slots, not only the first**, because the shift
-propagates from it to the end of the component list. That is the one place this differs structurally
-from the repeat-separator code above, where only the first gained boundary reaches a modeled slot.
-**Inside a later repeat nothing modeled moves and this still fires**, because a field's components
-are read from its first repeat alone; that is deliberate over-reporting, never under-reporting, so
-**check `repeats` on the field the warning names rather than assuming the components are wrong**.
+**Every gained boundary at or before the last modeled component index moves those slots, not only
+the first**, because the shift propagates from it to the end of the component list. That is the one
+place this differs structurally from the repeat-separator code above, where only the first gained
+boundary reaches a modeled slot.
+
+**Two bounds run the other way, and it fires inside both.** Each is deliberate over-reporting, never
+under-reporting, so in either case **check the field's raw bytes before concluding that anything
+named moved**:
+
+- **Past the last modeled component index nothing named moves.** A model reads a fixed number of
+  components: a patient name three (last, first, middle), a Universal Test ID four. A contested
+  boundary further right than that still shifts the components after it, and every named slot reads
+  the same under both alignments. `DOE^JANE^A^SFX&F&^&X` fires, and the name is `DOE` / `JANE` / `A`
+  either way.
+- **Inside a later repeat nothing modeled moves at all**, because a field's components are read from
+  its first repeat alone; what differs there is `repeats`.
 
 The tail bound is the one the other two carry, for the same reason: where the escape character past
 the boundary heads a sequence, recognized or not, this stays silent, because `&F&^&F&GLU` is a field

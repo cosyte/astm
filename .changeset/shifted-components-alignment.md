@@ -21,10 +21,12 @@ Before this code the only warning on either stream was the tolerable `ASTM_UNPAI
 so the widest legal profile plus `{ strict: true }` accepted both.
 
 Additive and a report, not a repair: the split is unchanged, every decoded byte is identical, and the
-components read are the components that were always read. Every gained boundary in a repeat moves
-those slots and not only the first, because the shift propagates to the end of the component list;
-inside a later repeat nothing modeled moves and it fires anyway, which is over-reporting relative to
-those slots and never under-reporting. The tail is weighed one construct deep, so a stream where the
+components read are the components that were always read. Every gained boundary at or before the
+last modeled component index moves those slots and not only the first, because the shift propagates
+to the end of the component list. Two bounds run the other way and it fires inside both, which is
+over-reporting and never under-reporting: past the last modeled index nothing named moves (a name
+models three components, a test identity four), and inside a later repeat nothing modeled moves at
+all. The tail is weighed one construct deep, so a stream where the
 escape character past the boundary heads a sequence of its own is left alone: refusing those would
 refuse well-formed traffic. It does not survive a re-emit, so catch it on the first read of the wire
 bytes.

@@ -304,14 +304,17 @@ this file is maintained by hand (Changesets handles the version bump and publish
   component boundary divides one field and reaches nothing outside it, so it cannot move a modeled
   slot". The first clause is true and the inference is not.
 
-  **Every gained boundary in a repeat moves those slots, not only the first**, because the shift
-  propagates from it to the end of the component list. That is the one structural asymmetry with the
-  repeat-separator code above, where a field is modeled out of its first repeat alone and only the
-  first gained boundary reaches a modeled slot. **Inside a LATER repeat nothing modeled moves and
-  this fires anyway**, because `components` is the first repeat: over-reporting relative to those
-  slots and never under-reporting, measured rather than assumed. Narrowing the sink to the first
-  repeat would change which streams a published package refuses and wants its own measurement, so the
-  bound is written down instead.
+  **Every gained boundary at or before the LAST MODELED COMPONENT INDEX moves those slots, not only
+  the first**, because the shift propagates from it to the end of the component list. That is the one
+  structural asymmetry with the repeat-separator code above, where a field is modeled out of its
+  first repeat alone and only the first gained boundary reaches a modeled slot. **Two bounds run the
+  other way and this fires inside both**, which is over-reporting relative to the named slots and
+  never under-reporting, measured rather than assumed: past the last modeled component index a model
+  reads a fixed number of components (a patient name three, a Universal Test ID four), so a contested
+  boundary further right shifts the components after it while every named slot reads the same under
+  both alignments; and inside a LATER repeat nothing modeled moves at all, because `components` is
+  the first repeat. Narrowing the sink to either would change which streams a published package
+  refuses and wants its own measurement, so both bounds are written down instead.
 
   **Additive, and the split is unchanged.** Every decoded byte is identical and the components read
   are the components that were always read: this reports the moved slots, it does not repair them.

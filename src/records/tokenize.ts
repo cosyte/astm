@@ -48,9 +48,9 @@ import type { AstmField } from "./types.js";
  *   record: every component after the boundary is one place further right than the competing
  *   alignment puts it, so a Universal Test ID's coding scheme and local code, and a patient's given
  *   and middle names, are read out of positions the sender did not put them in. Every gained
- *   boundary in a repeat moves those slots, not only the first. Inside a **later** repeat nothing
- *   modeled moves and this still fires. See {@link ShiftedComponentsSink}. All three splitting
- *   roles are wired now.
+ *   boundary at or before the last modeled component index moves those slots, not only the first.
+ *   Past that index, and inside a **later** repeat, nothing named moves and this still fires. See
+ *   {@link ShiftedComponentsSink}. All three splitting roles are wired now.
  * @returns The record's fields.
  * @example
  * ```ts
@@ -212,10 +212,11 @@ function toField(
   // component after the gained boundary moves one slot along, because `components` IS a component
   // list. So a Universal Test ID's coding scheme and local code, and a patient name's given and
   // middle parts, are read out of positions the competing alignment does not put them in. Unlike
-  // the repeat case EVERY gained boundary in a repeat moves those slots, not only the first,
-  // because the shift propagates to the end of the list. Inside a LATER repeat nothing modeled
-  // moves, since `components` is `repeats[0]`, and it fires there anyway: over-reporting relative
-  // to those slots and never under, the same direction as above.
+  // the repeat case EVERY gained boundary at or before the LAST MODELED COMPONENT INDEX moves
+  // those slots, not only the first, because the shift propagates to the end of the list. Two
+  // bounds run the other way and it fires inside both, over-reporting and never under: past the
+  // last modeled index nothing NAMED moves (a name models three components, a UTID four), and
+  // inside a LATER repeat nothing modeled moves at all, since `components` is `repeats[0]`.
   const rawRepeats = splitEscapeAware(
     raw,
     d.repeat,

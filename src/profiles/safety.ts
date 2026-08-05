@@ -149,11 +149,13 @@
  * those streams was `ASTM_UNPAIRED_ESCAPE_CHARACTER`, on the list below, so the widest
  * gate-legal profile plus `{ strict: true }` accepted a test identity and a patient name
  * whose parts were decided by the alignment. **Unlike the repeat role, every gained
- * boundary in a repeat moves those slots and not only the first**, because the shift
- * propagates to the end of the component list; **inside a later repeat nothing modeled
- * moves and it fires anyway**, which is over-reporting relative to those slots and never
- * under-reporting, measured on a sweep of that axis rather than on the shared corpus,
- * which holds it fixed. It is safety-critical by construction and must never be
+ * boundary at or before the last modeled component index moves those slots and not only
+ * the first**, because the shift propagates to the end of the component list. **Two
+ * bounds run the other way and it fires inside both**, which is over-reporting and never
+ * under-reporting: past the last modeled index nothing NAMED moves (a name models three
+ * components, a Universal Test ID four), and inside a later repeat nothing modeled moves
+ * at all. Both axes are measured on sweeps of their own rather than on the shared corpus,
+ * which holds them fixed. It is safety-critical by construction and must never be
  * admitted. Re-reading the survivors against it moved no admission, for the reason the
  * two entries above already turn on.
  *

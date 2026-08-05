@@ -1577,14 +1577,28 @@ components read are the components that were always read. **Withholding the move
 and DEFERRED**, for 17(a)'s reason: declining to model a slot changes an extracted value for every
 consumer of a package already on the registry.
 
-**▶ THE ASYMMETRY WITH 17(b) IS THE PART THAT IS NOT GUESSABLE, AND IT RUNS BOTH WAYS.** On the
-repeat role only the **first** gained boundary reaches a modeled slot, because a field is modeled out
-of `repeats[0]`. Here **every** gained boundary in a repeat moves a slot, wherever in the component
-list it sits, because the shift propagates to the end of the list. In the other direction, a
-contested boundary inside a **later repeat** moves nothing modeled (again because `components` is
-`repeats[0]`) and **it fires there anyway**: over-reporting relative to those slots and never under,
-the direction this package errs in. Narrowing it to the first repeat would change which streams a
-published package refuses and wants its own measurement, so the bound is written down instead.
+**▶ 🔴 THE ASYMMETRY WITH 17(b) IS THE PART THAT IS NOT GUESSABLE, AND THE FIRST DRAFT GOT IT WRONG
+IN THE SAME INFERENCE SHAPE THIS DEFECT EXISTS TO RETIRE.** On the repeat role only the **first**
+gained boundary reaches a modeled slot, because a field is modeled out of `repeats[0]`. Here the
+shift propagates to the end of the component list, so a gained boundary moves a modeled slot
+**wherever it sits AT OR BEFORE THE LAST MODELED COMPONENT INDEX**. **Pass 1 wrote that as "EVERY
+gained boundary in a repeat moves those slots", which is FALSE**, in ten places including
+`dist/index.d.ts`, `README.md` and the immutable `docs-content/` tarball: first clause true (the
+reading taken does read exactly one component more, wherever the boundary sits), inference false (it
+does not follow that a NAMED slot moved). **A model reads a FIXED number of components: a patient
+name three (last, first, middle), a Universal Test ID four.** Measured counterexample, canonical set,
+FIRST repeat, and it is one of the 32 that move accepted -> refused:
+`P|1||MRN-0001||DOE^JANE^A^SFX&F&^&X||19700101|F` fires, and the name reads `DOE` / `JANE` / `A`
+under **both** alignments. UTID twin: `R|1|A^B^C^D^GLU&F&^&L|28.6|U/L||||F` fires, and the LOINC
+candidate, test name, coding scheme and local code are `A` / `B` / `C` / `D` under both.
+
+**So TWO bounds run the other way and the report fires inside both**, over-reporting and never under,
+the direction this package errs in: past the last modeled component index nothing NAMED moves, and
+inside a **later repeat** nothing modeled moves at all (again because `components` is `repeats[0]`).
+Narrowing to either would change which streams a published package refuses and wants its own
+measurement, so both bounds are written down instead. **The lesson is the one 17(c) was opened on,
+arriving from the other side: "the components all shift" is a claim about the LIST, and a claim about
+a MODELED SLOT needs the model's own arity. Correct the claim, do not grow the guard.**
 
 **▶ THE MEASUREMENT, on the same 864-tuple corpus and the same committed constants as the three
 before it** (`DECLARATION_ALPHABET`, `SPLITTING_ROLES`, `BODY_ALPHABET`, `TAIL_SUFFIXES`,

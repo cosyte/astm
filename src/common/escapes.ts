@@ -339,22 +339,29 @@ export type TruncatedFieldSink = (segmentIndex: number) => void;
  * middle name of `A`, while the competing alignment makes `A` the **given** name with
  * no middle name at all.
  *
- * **Every gained boundary in a repeat moves those slots, not only the first.** That is
- * the structural difference from {@link TruncatedFieldSink}: a field is modeled out of
- * its first repeat alone, so there only the first gained boundary reaches a modeled
- * slot, while here the shift propagates from wherever the boundary sits to the end of
- * the component list.
+ * **Every gained boundary at or before the LAST MODELED COMPONENT INDEX moves a
+ * modeled slot, not only the first.** That is the structural difference from
+ * {@link TruncatedFieldSink}: a field is modeled out of its first repeat alone, so
+ * there only the first gained boundary reaches a modeled slot, while here the shift
+ * propagates from wherever the boundary sits to the end of the component list.
  *
- * **Where the contested boundary sits in a LATER repeat, no modeled slot moves and
- * this still fires**, deliberately and measurably. `components` is `repeats[0]`, so a
- * component boundary gained inside the second or a later repeat changes only
- * `repeats[n]` for that `n`. It fires because the boundary is still one the bytes do
- * not force and a consumer reading `repeats` is still reading an alignment guess.
- * Relative to the modeled slots that is **over-reporting, never under-reporting**.
- * Narrowing it to the first repeat would change which streams a published package
- * refuses and wants its own measurement, so the bound is written down instead of
- * guessed at, and **that axis is swept on its own** rather than left to the shared
- * corpus, which holds it fixed.
+ * **TWO bounds run the other way, and the report fires inside both, which is
+ * over-reporting and never under-reporting.** Neither is an oversight and neither is
+ * closed by narrowing the guard, because narrowing changes which streams a published
+ * package refuses and wants its own measurement. Both axes are swept on their own
+ * rather than left to the shared corpus, which holds them fixed.
+ *
+ * - **Past the last modeled component index, nothing NAMED moves.** A model reads a
+ *   fixed number of components: a patient name three (last, first, middle), a
+ *   Universal Test ID four. A contested boundary further right than that still shifts
+ *   the components after it and leaves every named slot byte-identical under both
+ *   alignments, and this fires there.
+ * - **Inside a LATER repeat nothing modeled moves at all.** `components` is
+ *   `repeats[0]`, so a component boundary gained inside the second or a later repeat
+ *   changes only `repeats[n]` for that `n`.
+ *
+ * It fires in both because the boundary is still one the bytes do not force, and a
+ * consumer reading `components` or `repeats` is still reading an alignment guess.
  *
  * **It is a report, not a repair.** The split is unchanged, every decoded byte is
  * identical, and the components read are the components that were always read. What is
