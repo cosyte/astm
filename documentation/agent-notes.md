@@ -172,6 +172,7 @@ of the roadmap.
   (python-astm, senaite `sysmex_xn550` / `cobas_c111` transcripts) found the record layer spec-clean
   (canonical `|\^&`, standard record grammar), so none are authored. (LIVD terminology and release
   hardening, P9/P10, have since shipped; see the entries above.)
+
 - **Phase 7 shipped (ASTM-7): spec-clean serializers + builders, both layers now round-trip by
   construction.** `src/records/serialize.ts` + `src/records/build.ts` are the conservative inverse of the
   record parser; `src/frames/encode.ts` is the inverse of the frame codec; `serializeFramedAstm`
@@ -1330,7 +1331,7 @@ Disciplines 1 to 3 are one line each and stay in `CLAUDE.md`. These two carry th
    - **Rewriting the warning-registry separator as a colon turned a PHI/value test red.** A colon
      is the **component** delimiter in `test/records/multi-header-delimiters.test.ts`'s fixture, and
      its `[*~:#]` assertion checks that no warning message contains one of that fixture's delimiter
-     characters. All 22 registry messages separate with a comma now. **Do not read that as "a comma
+     characters. Every registry message separates with a comma now (the count is not written down here, because it moves with every code that lands). **Do not read that as "a comma
      is safe and a colon is not":** ASTM delimiters self-declare, so any character can be a
      delimiter, and `.`, `/`, `(` and `)` already appear in registry messages. The invariant the
      assertion actually pins is that a warning message is a **constant carrying no field data**,

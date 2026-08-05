@@ -125,8 +125,9 @@ export type SwallowedDelimiterSink = () => void;
  *   which it usually cannot interpret either: nothing prefers one, and that is what
  *   this reports. Where the earlier body is a recognized mnemonic the reading taken
  *   interprets a construct (`&F&` is the sender escaping a field separator, which is
- *   what the mechanism is for) and the competitor interprets none, so the vocabulary
- *   does prefer one, and reporting it would report the escape mechanism working.
+ *   what the mechanism is for) and the competitor **usually** interprets none, so the
+ *   vocabulary usually prefers one, and reporting it would report the escape
+ *   mechanism working. Usually, not always: see the second residue below.
  *   **What that argument does not cover, measured.** It does not follow that the
  *   reading taken is *conformant*: under `28.6&F&|&U/L` it is `&F&`, a real
  *   separator, and then a bare escape character, which this package reports as a

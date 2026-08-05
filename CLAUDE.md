@@ -274,9 +274,9 @@ every measurement and every refuted formulation:
     value the bytes do not force. Now `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, not tolerable, once
     per competing alignment. **The split is UNCHANGED and every byte is identical**: the other
     alignment is a different guess with no more evidence behind it. **A RECOGNIZED mnemonic body is
-    excluded**, because there the reading taken interprets a construct and the competitor interprets
-    none. **Never write that as "the reading taken is conformant": it is not, and saying so was this
-    slice's first refutation** (defect 17). **It does NOT reach through a re-emit** (measured),
+    excluded**, because there the reading taken interprets a construct and the competitor **usually**
+    interprets none. **Never write it as "the reading taken is conformant": it is not, and saying so
+    was this slice's first refutation** (defect 17). **It does NOT reach through a re-emit** (measured),
     so catch it on the FIRST read. `#defect-15`
 16. **CLOSED 2026-08-05, as a MESSAGE ONLY.** `readDelimiters`' field-collision branch is
     **unreachable** (such a separator ends the definition where it appears, so the truncation rule

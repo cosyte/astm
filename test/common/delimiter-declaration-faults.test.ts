@@ -79,6 +79,13 @@ describe("the reason a declaration could not be read", () => {
     expect(faultOf("H|")).toBe("record-too-short");
     expect(faultOf("X|\\^&")).toBe("not-a-header");
     expect(faultOf("H||^&")).toBe("definition-truncated");
+    // The type letter is asked BEFORE the length, and this is the assertion that pins it: under the
+    // other order every record below comes back "too short", which is a `P` record reported as a
+    // short header. That is the same wrong-reason class this whole file exists to close, so it is
+    // pinned rather than left to a comment. `X|\^&` above passes under either order.
+    expect(faultOf("P|1")).toBe("not-a-header");
+    expect(faultOf("")).toBe("not-a-header");
+    expect(faultOf("XY")).toBe("not-a-header");
     // A header long enough, with a definition ending one character early at its next separator.
     expect(faultOf("H|\\^|sender")).toBe("definition-truncated");
   });
@@ -106,7 +113,7 @@ describe("the reason a declaration could not be read", () => {
       component: "^",
       escape: "&",
     });
-    for (const header of ["H||^&", "H|\\^", "H|", "X|\\^&", ""]) {
+    for (const header of ["H||^&", "H|\\^", "H|", "X|\\^&", "", "P|1"]) {
       expect(readDelimiters(header)).toBeUndefined();
     }
   });
