@@ -21,6 +21,7 @@ import {
 import { parseAstmDate, type AstmDate } from "../common/dates.js";
 import { recognizeUniversalTestId } from "../common/coding-system.js";
 import {
+  alignmentShiftedComponents,
   alignmentShiftedFields,
   alignmentTruncatedField,
   ambiguousEscapeAlignment,
@@ -391,6 +392,17 @@ function buildRecord(
       alignmentTruncatedField({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
     );
   };
+  // The same contested position and the same tail test a third time, on the COMPONENT separator,
+  // where the cost is a third thing again. Nothing leaves the record and no field number changes:
+  // every component after the gained boundary moves one slot along, because components are modeled
+  // INSIDE a field. So a Universal Test ID's coding scheme and local code, and a patient's given
+  // and middle names, are read out of positions the competing alignment does not put them in.
+  // Fires alongside the others, never instead of them.
+  const onAlignmentShiftedComponents = (fieldIndex: number): void => {
+    warnings.push(
+      alignmentShiftedComponents({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+    );
+  };
   // The header needs its own tokenizer: all three non-field delimiters sit literally inside the
   // delimiter declaration, so the generic tokenizer would split the declaration on its own repeat
   // and component characters and report its escape character as unpaired.
@@ -405,6 +417,7 @@ function buildRecord(
           onAmbiguousAlignment,
           onAlignmentShiftedFields,
           onAlignmentTruncatedField,
+          onAlignmentShiftedComponents,
         )
       : tokenizeRecord(
           line,
@@ -415,6 +428,7 @@ function buildRecord(
           onAmbiguousAlignment,
           onAlignmentShiftedFields,
           onAlignmentTruncatedField,
+          onAlignmentShiftedComponents,
         );
 
   // A record that carries content beyond its type letter but yields exactly ONE field contains no

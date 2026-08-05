@@ -61,6 +61,13 @@ import {
 
 const TRUNCATED = WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD;
 const SHIFT = WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS;
+/**
+ * The code that landed after this one, asking the same tail question on the third and last
+ * splitting role, the component split. It is held out of this file's tier on both sides, so the
+ * figures below stay the delta this code caused rather than a mixed base. Its own delta is measured
+ * in its own file.
+ */
+const LATER_TAIL_CODE = WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS;
 const ALIGNMENT = WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT;
 
 const codes = (raw: string) => parseAstmRecords(raw).warnings.map((w) => w.code);
@@ -374,17 +381,21 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
   });
 
   it("stays silent on a gained COMPONENT boundary, WHICH ALSO MOVES A MODELED SLOT", () => {
-    // ── STILL OPEN, AND DISCLOSED RATHER THAN IMPLIED. A gained component boundary reaches a
-    // modeled slot too, and differently: the components do not leave the record, they move one slot
-    // along, so a vendor local code is read as a coding scheme and a given name as a middle name.
-    // This code cannot cover that, because what it reports is a reading cut short and there the
-    // reading is complete and misaligned. Both cases below reproduce on this slice's base and are
-    // pinned here so the silence is a disclosed condition rather than an implied guarantee. Closing
-    // them means wiring a sink to a third split, which is another criterion wanting its own
-    // population measurement.
+    // ── CLOSED SINCE, BY A THIRD CODE, AND THIS CODE'S SILENCE ON IT IS STILL THE POINT HERE.
+    // A gained component boundary reaches a modeled slot too, and differently: the components do
+    // not leave the record, they move one slot along, so a vendor local code is read as a coding
+    // scheme and a given name as a middle name. This code cannot cover that, because what it
+    // reports is a reading cut short and there the reading is complete and misaligned. That is why
+    // closing it took a sink on a third split, which is another criterion and took its own
+    // population measurement. Both cases below reproduced on this slice's base reported by nothing;
+    // the closure is asserted alongside this code's silence so that silence stays a statement about
+    // THIS code rather than a stale claim that nothing reports these streams.
     const utid = "H|\\^&\rP|1||MRN-0001\rR|1|&F&^&GLU^L^687|28.6|U/L||||F\rL|1|N\r";
-    expect(codes(utid)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
-    expect(acceptedUnderMaximalTolerance(utid)).toBe(true);
+    expect(codes(utid)).toEqual([
+      WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS,
+      WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+    ]);
+    expect(acceptedUnderMaximalTolerance(utid)).toBe(false);
     const id = results(parseAstmRecords(utid))[0]?.universalTestId;
     expect(id?.codingScheme).toBe("L");
     expect(id?.localCode).toBe("687");
@@ -393,8 +404,11 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
     );
 
     const name = "H|\\^&\rP|1||MRN-0001||DOE&F&^&JANE^A||19700101|F\rL|1|N\r";
-    expect(codes(name)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
-    expect(acceptedUnderMaximalTolerance(name)).toBe(true);
+    expect(codes(name)).toEqual([
+      WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS,
+      WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+    ]);
+    expect(acceptedUnderMaximalTolerance(name)).toBe(false);
     expect(patient(parseAstmRecords(name))?.name).toMatchObject({ first: "&JANE", middle: "A" });
 
     expect(codes(utid)).not.toContain(TRUNCATED);
@@ -484,7 +498,7 @@ interface Tuple {
   readonly reportsTruncation: boolean;
   /** Accepted on the tier with this code held out: the disposition before it shipped. */
   readonly acceptedBefore: boolean;
-  /** Accepted on the tier as the package now stands. Observed. */
+  /** Accepted on the tier with this code in force: the disposition after it shipped. */
   readonly acceptedNow: boolean;
   /** No code says anything is wrong with this stream's escaping. */
   readonly escapeClean: boolean;
@@ -505,8 +519,19 @@ const corpus: readonly Tuple[] = DECLARATION_ALPHABET.flatMap((declaration) =>
           reportsTruncation: seen.includes(TRUNCATED),
           // Purely additive, so dropping this code from the observed list reconstructs the previous
           // warning set exactly. Nothing here is predicted from a model of the old package.
-          acceptedBefore: seen.filter((c) => c !== TRUNCATED).every((c) => TOLERABLE_CODES.has(c)),
-          acceptedNow: acceptedUnderMaximalTolerance(raw),
+          //
+          // A LATER code on this same tail test, wired to the component split, is held out of BOTH
+          // sides, so this pair stays the delta THIS code caused rather than drifting into a mixed
+          // base. It fires on a disjoint column, so holding it out moves no figure below; what it
+          // does is keep both fields meaning what they say. That is this file's own recorded
+          // lesson, applied before it could bite a second time: `acceptedBefore` once held out only
+          // one code and silently stopped meaning what it said for a whole column.
+          acceptedBefore: seen
+            .filter((c) => c !== TRUNCATED && c !== LATER_TAIL_CODE)
+            .every((c) => TOLERABLE_CODES.has(c)),
+          acceptedNow: seen
+            .filter((c) => c !== LATER_TAIL_CODE)
+            .every((c) => TOLERABLE_CODES.has(c)),
           escapeClean: !seen.some((c) => (ESCAPE_DEVIATION_CODES as readonly string[]).includes(c)),
         };
       }),

@@ -150,6 +150,7 @@ export {
   delimiterRoleCollision,
   delimiterSwallowedByEscape,
   ambiguousEscapeAlignment,
+  alignmentShiftedComponents,
   alignmentShiftedFields,
   alignmentTruncatedField,
   unreadableRedeclaration,
@@ -176,6 +177,7 @@ export type {
   UnpairedEscapeSink,
   SwallowedDelimiterSink,
   AmbiguousAlignmentSink,
+  ShiftedComponentsSink,
   ShiftedFieldsSink,
   TruncatedFieldSink,
 } from "./common/escapes.js";

@@ -56,11 +56,18 @@ import {
 const SHIFT = WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS;
 const ALIGNMENT = WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT;
 /**
- * The code that landed after this one, asking the same tail question on the repeat split. It is
- * held out of this file's tier on both sides, so the figures below stay the delta this code caused
- * rather than a mixed base. Its own delta is measured in its own file.
+ * The codes that landed after this one, asking the same tail question on the other two splitting
+ * roles: the repeat split, then the component split. Both are held out of this file's tier on both
+ * sides, so the figures below stay the delta THIS code caused rather than drifting into a mixed
+ * base. Each fires on a column disjoint from this one, so holding them out moves no figure here;
+ * what it does is keep both fields meaning what they say. Each one's own delta is measured in its
+ * own file. **All three splitting roles are wired now, so this list is complete: there is no fourth
+ * role, because nothing splits on the escape role.**
  */
-const LATER_TAIL_CODE = WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD;
+const LATER_TAIL_CODES: readonly string[] = [
+  WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD,
+  WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS,
+];
 
 const codes = (raw: string) => parseAstmRecords(raw).warnings.map((w) => w.code);
 
@@ -277,13 +284,21 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
     // about modeled slots, because components are modeled INSIDE a field. A Universal Test ID's four
     // components are the LOINC-candidate slot, the test name, the CODING SCHEME and the LOCAL CODE;
     // a patient name's three are last, first and middle. A gained component boundary shifts those
-    // exactly as a gained field boundary shifts fields. Both cases below are `PRE-EXISTING` (measured
-    // byte-identical on this slice's base) and are pinned here so the silence is a disclosed
-    // condition rather than an implied guarantee. Closing them means wiring this sink to another
-    // split, which is a different criterion and wants its own population measurement.
+    // exactly as a gained field boundary shifts fields.
+    //
+    // Both cases below were `PRE-EXISTING` on this slice's base and reported by NOTHING. They have
+    // since been closed, by a third code on this same tail test wired to the component split, which
+    // is the different criterion this comment used to say they needed and which took its own
+    // population measurement. THIS file's code is still silent on them, and that silence is what is
+    // asserted here: it is wired to the field split, and a component boundary moves no field.
+    // Asserting the closure alongside it keeps that silence a statement about THIS code rather than
+    // a stale claim that nothing reports these streams.
     const utid = "H|\\^&\rP|1||MRN-0001\rR|1|&F&^&GLU^L^687|28.6|U/L||||F\rL|1|N\r";
-    expect(codes(utid)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
-    expect(acceptedUnderMaximalTolerance(utid)).toBe(true);
+    expect(codes(utid)).toEqual([
+      WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS,
+      WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+    ]);
+    expect(acceptedUnderMaximalTolerance(utid)).toBe(false);
     const id = results(parseAstmRecords(utid))[0]?.universalTestId;
     // Under the alignment taken, `687` is the vendor LOCAL CODE and `L` the coding scheme. Under the
     // competing alignment the components are one fewer and `687` is read as the CODING SCHEME.
@@ -295,8 +310,13 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
     expect(rival[2]).toBe("687");
 
     const name = "H|\\^&\rP|1||MRN-0001||DOE&F&^&JANE^A||19700101|F\rL|1|N\r";
-    expect(codes(name)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
-    expect(acceptedUnderMaximalTolerance(name)).toBe(true);
+    expect(codes(name)).toEqual([
+      WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS,
+      WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+    ]);
+    expect(acceptedUnderMaximalTolerance(name)).toBe(false);
+    // The reading is unchanged: this closure is a report, not a repair, so the parts read here are
+    // byte-for-byte the parts that were read when nothing reported them.
     expect(patient(parseAstmRecords(name))?.name).toMatchObject({ first: "&JANE", middle: "A" });
     // The competing alignment reads one component fewer, so `A` is the given name and there is no
     // middle name at all. A given name decided by an alignment guess, reported by nothing.
@@ -436,10 +456,10 @@ const corpus: readonly Tuple[] = DECLARATION_ALPHABET.flatMap((declaration) =>
           // what it does is keep both fields meaning what they say. The observed strict parse is
           // still what every fixture assertion above is taken on.
           acceptedBefore: seen
-            .filter((c) => c !== SHIFT && c !== LATER_TAIL_CODE)
+            .filter((c) => c !== SHIFT && !LATER_TAIL_CODES.includes(c))
             .every((c) => TOLERABLE_CODES.has(c)),
           acceptedNow: seen
-            .filter((c) => c !== LATER_TAIL_CODE)
+            .filter((c) => !LATER_TAIL_CODES.includes(c))
             .every((c) => TOLERABLE_CODES.has(c)),
           escapeClean: !seen.some((c) => (ESCAPE_DEVIATION_CODES as readonly string[]).includes(c)),
         };

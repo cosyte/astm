@@ -143,7 +143,12 @@ for (const w of warnings) {
 > either. Where it is a **repeat** boundary nothing shifts, and the field can still be read short,
 > because its modeled value and components come from its first repeat alone: a gained **first**
 > boundary truncates a value and costs a Universal Test ID or a patient name the components that sat
-> after it. That is `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either. All are
+> after it. That is `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either. Where it is a
+> **component** boundary nothing leaves the record and no field number changes, and every component
+> after it moves one slot along, so a test identity's coding scheme and local code, and a patient's
+> given and middle names, are read out of positions the other alignment does not put them in. That is
+> `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, not tolerable either, and it completes the set: those
+> three are the three roles a split is taken on. All are
 > accepted limits: widening the field-separator check would mean deciding which set a record ought
 > to have had, which is a guess this parser does not make, and narrowing the escape atom would break
 > the guarantee it exists for, so the boundary is documented instead. If delimiter drift is a real
@@ -343,7 +348,10 @@ leftmost alignment let split where a competing alignment would have held it) as
 of that where the gained boundary is a **field** boundary and the reading taken resumes on an escape
 character heading no sequence, so a result's units and status move with it, and
 `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` on the subset where it is a **repeat** boundary, where no
-field moves and the field it divides is instead read out of its first repeat alone. Emitting
+field moves and the field it divides is instead read out of its first repeat alone, and
+`ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` on the subset where it is a **component** boundary, where
+nothing leaves the record and every component after it moves one slot along, so a coding scheme or a
+given name is read out of a position the other alignment does not put it in. Emitting
 normalizes all
 of them away rather than preserving them, so none reaches a second generation: catch them on the
 first read. The low-level
