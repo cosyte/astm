@@ -95,6 +95,28 @@ reading itself is unchanged, and it does not survive a re-emit: this package rew
 sequence into recognized mnemonics, and the resulting stream says that value unambiguously, so a
 second-generation read is silent. Catch it on the first read of the wire bytes.
 
+## Two escape sequences could have been aligned differently
+
+`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` says the same bytes carry two readings that disagree about
+one field, repeat or component boundary. Sequences are matched greedily and leftmost, so the escape
+character closing one cannot also open the next. Where it could have, and where the body it would
+have held is the delimiter that split, one alignment ends a field there and the other holds that
+delimiter inside an opaque atom and ends nothing. `R|1|^^^687|28.6&Z&|&U/L||||F` reads a value of
+`28.6&Z&` and units of `&U/L` under the alignment taken, and reads as a single unsplit field under
+the other.
+
+The leftmost reading is kept and every byte is preserved. Taking the other alignment would be a
+different guess with no more evidence behind it, so what this reports is that the boundary you were
+handed is a choice, not that it is wrong. It is not tolerable, so a strict parse refuses the record
+whatever profile is in force. Two cases are outside it, deliberately: a **recognized** mnemonic
+before the delimiter (`28.6&F&|&U/L` is an escaped separator followed by a real one, which is the
+escape mechanism working, and only the competing alignment would be non-conformant), and a delimiter
+with no escape character two positions past it, which is no competing alignment at all. It fires only
+on records that already raise `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so a conformant stream never reaches
+it. Like its mirror above it does not survive a re-emit: catch it on the first read of the wire
+bytes. **What to do:** ask the sender to escape a literal escape character as `&E&`, which removes
+the competing alignment at the source.
+
 ## A header declared one character in two delimiter roles
 
 `ASTM_RECORD_DELIMITER_ROLE_COLLISION` says the `H` record named the same character in two of the

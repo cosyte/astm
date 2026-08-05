@@ -52,7 +52,11 @@ export const WARNING_CODES = {
    * under {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} rather than merging the rest of the
    * record, and a delimiter swallowed inside an `&X&` body now raises
    * {@link WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE} as well as the tolerable
-   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, though it still splits the same way. Treat this code as a
+   * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, though it still splits the same way. The
+   * mirror of that case, where the leftmost alignment lets a delimiter split that a competing
+   * alignment would have held, gains a boundary rather than losing one, so the record splits into
+   * more fields than another reading gives and this code cannot see it either
+   * ({@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} reports that). Treat this code as a
    * report that one record definitely lost its fields, never as a sweep that would have fired if
    * any had.
    */
@@ -110,6 +114,36 @@ export const WARNING_CODES = {
    * to catch this is the first read of the wire bytes, which is where it now refuses a strict parse.
    */
   ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE: "ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE",
+  /**
+   * Escape sequences are matched greedily and leftmost, so the escape character that **closed** an
+   * unrecognized sequence could not also **open** the next one. Where it could have, and where the
+   * body it would have held is the delimiter that was split on, the same bytes carry two alignments
+   * that disagree by one boundary: under the reading taken that delimiter ends a field, repeat or
+   * component, and under the other it sits inside an opaque atom and ends nothing. The leftmost
+   * reading is kept, every byte is preserved, and nothing is re-split.
+   *
+   * **This is the mirror of {@link WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE}, and
+   * the direction is the reason it needs its own code.** That one reports a boundary the reading
+   * **lost**; this one reports a boundary the reading may have **gained**, which is the more
+   * dangerous direction, because a gained boundary hands back a value the sender's bytes do not
+   * unambiguously carry. Measured on the canonical set: `R|1|^^^687|28.6&Z&|&U/L||||F` reads
+   * `value` = `28.6&Z&` and `units` = `&U/L` under the leftmost alignment, and reads as a single
+   * unsplit field carrying both under the other.
+   *
+   * **Two exclusions, both deliberate.** Where the earlier sequence's body is a **recognized**
+   * mnemonic the leftmost reading is the conformant one (`&F&` is the sender escaping a field
+   * separator, which is what the mechanism is for) and nothing is reported: only the competing
+   * alignment would be non-conformant there, so it is not a competitor. And where the escape
+   * character after the delimiter does not itself close a sequence there is no competing alignment
+   * at all, so an ordinary escaped value followed by an ordinary boundary is silent.
+   *
+   * **It is a report, not a repair, and not a round-trip guard.** The reading is unchanged: picking
+   * the other alignment would be a different guess with no more evidence behind it. Emit then
+   * rewrites the preserved sequences into recognized mnemonics, and those bytes carry the reading
+   * that was taken unambiguously, so a second-generation read is silent and is correct about its own
+   * bytes. The first read of the wire bytes is the only place the ambiguity exists to be caught.
+   */
+  ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT: "ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT",
   /** An escape sequence body was not one of `&F&`/`&S&`/`&R&`/`&E&`: preserved verbatim. */
   ASTM_UNKNOWN_ESCAPE_SEQUENCE: "ASTM_UNKNOWN_ESCAPE_SEQUENCE",
   /**
@@ -198,7 +232,8 @@ export const WARNING_CODES = {
    */
   ASTM_RECORD_DELIMITERS_REDECLARED: "ASTM_RECORD_DELIMITERS_REDECLARED",
   /**
-   * A later `H` (header) record could not declare a usable delimiter set: it was too short, or the
+   * A later `H` (header) record could not declare a usable delimiter set: it was not a header, it
+   * was too short, its delimiter definition held fewer than three characters, or the
    * field separator it named also appeared among the other three, leaving the four roles
    * indistinguishable. The delimiters **already in force are kept** and every record is still surfaced;
    * a set is never guessed and no record is dropped.
@@ -386,6 +421,34 @@ export function delimiterSwallowedByEscape(position: AstmPosition): AstmRecordWa
     message:
       "An unrecognized escape sequence held a delimiter in force, so that delimiter did not end a " +
       "field, repeat or component. The sequence is preserved verbatim and nothing is re-split.",
+    position,
+  };
+}
+
+/**
+ * Build an `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` warning. Emitted when the escape
+ * character that closed an unrecognized escape sequence could instead have opened one
+ * holding the delimiter that was split on, so the bytes carry two alignments that
+ * disagree about that boundary. The leftmost alignment is kept and every byte is
+ * preserved; what the warning reports is that the boundary is a choice.
+ *
+ * A profile may **not** tolerate this code. It fires alongside
+ * {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE}, which remains tolerable and
+ * reports the strictly weaker fact that a body was not recognized.
+ *
+ * @example
+ * ```ts
+ * import { ambiguousEscapeAlignment } from "@cosyte/astm";
+ * ambiguousEscapeAlignment({ recordIndex: 4, recordType: "R", fieldIndex: 4 });
+ * ```
+ */
+export function ambiguousEscapeAlignment(position: AstmPosition): AstmRecordWarning {
+  return {
+    code: WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT,
+    message:
+      "An unrecognized escape sequence ended where another one could have begun, so a delimiter " +
+      "that ended a field, repeat or component here sits inside a sequence under the other " +
+      "alignment. The leftmost alignment was kept, every byte is preserved, and nothing is re-split.",
     position,
   };
 }

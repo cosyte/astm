@@ -4,14 +4,14 @@
 > file is the cursor, the rules, and the traps, one line each. Every trap below ends in a pointer to
 > the section that records how it was measured, kept **verbatim**: read that section before you touch
 > the code it guards. These are clinical-safety lessons, and several of them record a claim that was
-> measured **false** after it shipped. Nothing was deleted when this file was split on 2026-08-04.
+> measured **false** after it shipped. Nothing has ever been deleted from it: the 2026-08-04 split
+> and every relocation since moved narrative to the notes and left the traps here.
 > The meta-repo bounds this file at write time through **its entry in `REPO_CLAUDE`**
 > (`.claude/hooks/doc-budget.mjs`, argued in ADR 0023), a per-repo ratchet whose entries are
-> **lowered as relocations land**. **No number for it is written here on purpose**: the bound that
-> preceded it was quoted into documents and went stale inside a day, which is the failure this split
-> exists to fix. Read the entry, and treat headroom in it as slack to give back rather than a budget
-> to spend, because the real cost is tokens per worker, not bytes on disk. The remedy for a breach is
-> to move more narrative into the notes file, **never** to drop a trap.
+> **lowered as relocations land**. **No number for it is written here on purpose**: read the entry,
+> and treat headroom in it as slack to give back rather than a budget to spend, because the real cost
+> is tokens per worker, not bytes on disk. The remedy for a breach is to move more narrative into the
+> notes file, **never** to drop a trap.
 
 ## Project
 
@@ -31,10 +31,7 @@ immutability + explicit mutation, and the profile system.
 
 **Published, public, feature-complete.** `@cosyte/astm` is live on npm on the pre-alpha `0.0.x`
 ladder (first published 2026-07-22); the repo is public. Both standing human gates are crossed. All
-ten roadmap phases have shipped: the value + record layers, the E1381/CLSI-LIS01 frame codec, the
-pure LTP reducer, spec-clean serializers + builders, the vendor profile system with its safety gate,
-LIVD-aware LOINC recognition, and release hardening (differential testing vs `python-astm`, fuzz,
-per-directory >= 90 coverage, a proven publish shape). `src/` is `common/` (values), `records/`,
+ten roadmap phases have shipped, through release hardening. `src/` is `common/` (values), `records/`,
 `frames/`, `ltp/`, `profiles/`, `terminology/`.
 **Full per-phase histories, with what each phase deliberately deferred and why:**
 `documentation/agent-notes.md#status-history`.
@@ -67,13 +64,14 @@ per-directory >= 90 coverage, a proven publish shape). `src/` is `common/` (valu
   snapshot of 2026-08-01 and not the list today. Why:
   `documentation/agent-notes.md#status-history` and `#defect-8`.
 - **The remedy when a tolerable code is the only report of a real loss is a SECOND, NARROWER code,
-  not striking the first off.** Defects 4 and 11 both had that shape, both closed that way
-  2026-08-05: the two new codes are safety-critical by default and **must not be added to the
-  list**, while `ASTM_NONSTANDARD_DELIMITERS` and `ASTM_UNKNOWN_ESCAPE_SEQUENCE` stay on it, still
-  true of the cases that cost nothing. Striking either off changes behaviour for every profile
+  not striking the first off.** Defects 4, 11 and 15 all had that shape, all closed that way
+  2026-08-05: the three new codes are safety-critical by default and **must not be added to the
+  list**, while `ASTM_NONSTANDARD_DELIMITERS`, `ASTM_UNKNOWN_ESCAPE_SEQUENCE` and
+  `ASTM_UNPAIRED_ESCAPE_CHARACTER` stay on it, still
+  true of the cases that cost nothing. Striking any off changes behaviour for every profile
   naming it and still leaves the loss reported by a code that fires where there is none. **Part 2
-  now has a named reader** (`isSplittingDelimiter`), which the first refuter pass caught the file
-  still denying. Why: `documentation/agent-notes.md#defect-4` and `#defect-11`.
+  has two named readers now** (`isSplittingDelimiter`, `isMnemonicBody`), the first of which the
+  first refuter pass caught the file still denying. Why: `#defect-4`, `#defect-11`, `#defect-15`.
 - **The admission test has TWO clauses, and the second is a claim about the whole library**: a
   tolerable code cannot alter, drop or fabricate an extracted value, **and nothing else in this
   package may read the condition the warning reports**. There is deliberately no automatic check for
@@ -87,7 +85,7 @@ per-directory >= 90 coverage, a proven publish shape). `src/` is `common/` (valu
 - **The gate is enforced at two points and the second one is load-bearing.** `applyAstmProfile`
   re-checks `isSafetyCriticalCode` because `AstmProfile` is a plain interface and a hand-authored
   literal never passes through `defineAstmProfile`. Do not "simplify" it away as redundant. Why:
-  `documentation/agent-notes.md#defect-2`.
+  `#defect-2`.
 - **A profile never touches an extracted value.** It only re-badges a warning it expects to
   `PROFILE_QUIRK_APPLIED`; no warning is ever dropped, and a spec-clean message parses
   byte-identically with or without one. Why: `documentation/agent-notes.md#status-history`.
@@ -133,7 +131,8 @@ Full text: `documentation/agent-notes.md#docs-sidebar`.
 Recorded so they survive independently of any backlog. **Numbers are stable**, and a closed entry is
 kept rather than deleted, because the correction it records is usually the lesson. Full entries, with
 every measurement and every refuted formulation:
-`documentation/agent-notes.md#defects`.
+`documentation/agent-notes.md#defects`. **A bare `#anchor` below is an anchor in that file**, which
+is where every entry's own record lives.
 
 1. **CLOSED 2026-07-29.** `patient()` / `results()` were stream-scoped, so pairing them attributed one
    patient's results to another on an ordinary two-message stream, silently. `messages()` now splits a
@@ -141,7 +140,7 @@ every measurement and every refuted formulation:
    **The break is the fix. Never write "single-message streams are unaffected"**: a lone message
    carrying several `P` records now throws too. **Within-message patient scoping is still open and must
    not be closed by guessing a hierarchy**; multi-patient messages are real.
-   `documentation/agent-notes.md#defect-1`
+   `#defect-1`
 2. **Silencing CLOSED 2026-08-01; the MERGE is still open on purpose.** A header the reader does not
    see as an `H` does not open a new message, so two messages merge. **Do not close it by inferring a
    header**: recognizing a mangled header means guessing a byte the sender did not send. Both
@@ -150,12 +149,12 @@ every measurement and every refuted formulation:
    `indeterminate`). **The furthest-reaching variant is a `P`-less second message**, which
    `assertSinglePatient` cannot see. A header is exempt from `ASTM_RECORD_FIELDS_UNSEPARATED`
    **by construction, not by exception** (`tokenizeHeader` always yields type letter + declaration).
-   `documentation/agent-notes.md#defect-2`
+   `#defect-2`
 3. **Open.** `msg.classification` is folded over the whole STREAM but documented per-message. The
    dangerous direction is closed (`Q` dominates) and the over-trigger warns. Derive the per-message
    answer with `classifyMessage(m.records)`. **`AstmStreamMessage` deliberately carries NO
    `classification` field**: that omission is the fix, not an oversight, so do not "complete the type"
-   by adding one. `documentation/agent-notes.md#defect-3`
+   by adding one. `#defect-3`
 4. **CLOSED 2026-08-05.** `readDelimiters` accepted a declaration it cannot reverse (`H|^^&`,
    `H|\&&`) and the only warning was the **tolerable** `ASTM_NONSTANDARD_DELIMITERS`, which every
    such set raises, so a gate-legal profile left strict **accepting** it. Now
@@ -164,41 +163,40 @@ every measurement and every refuted formulation:
    repeats of one component, and **the default-path re-emit still launders it** (measured, in the
    notes). **The field role is NOT in it** (that declaration does not resolve at all); it is the
    three pairs among the rest, **repeat/component, repeat/escape, component/escape**.
-   `documentation/agent-notes.md#defect-4`
+   `#defect-4`
 5. **CLOSED 2026-08-03.** Emit could escape a record's own type letter away, and the worse branch was
-   **silent**: a `P` emitted under `{ field: "P", escape: "R" }` came back as an **`R` record** whose
-   value was the patient's lab ID, so `results()` returned a fabricated final result built out of
-   patient identifiers. `serializeRecordChecked` now asserts the first character written is the letter
-   the record models (`ASTM_EMIT_TYPE_LETTER_COLLISION`). **Do not "simplify" that byte-level check
+   **silent**: a `P` came back as an **`R` record** whose value was the patient's lab ID, so
+   `results()` returned a fabricated final result built out of patient identifiers.
+   `serializeRecordChecked` now asserts the first character written is the letter the record models
+   (`ASTM_EMIT_TYPE_LETTER_COLLISION`). **Do not "simplify" that byte-level check
    into a rule over the four delimiter roles**: a role list over-refuses, and the byte check survived
    the encoder being rewritten underneath it. **The `letter`+`E`+`letter` caveat is RETIRED.** **It is
    a transcoding condition and fires with no `d` argument, so "pass the canonical set instead" is not
    a remedy.** The refusal is a **narrowing on a published package reaching the lenient-parse
-   population** (300,000 fuzzed streams on the default path: 2,316 new throws, 621 of them where base
-   genuinely relabeled a modeled record type), **so say so wherever the refusal is described.** It
-   promises a record re-reads as its own **type**, not that every field lands where it did, and
+   population** (the fuzz figures are in the notes), **so say so wherever the refusal is described.**
+   It promises a record re-reads as its own **type**, not that every field lands where it did, and
    `encodeComponent` / `serializeField` are **outside the check by construction** because they take
-   no record. That is deliberate, not a gap to plug. `documentation/agent-notes.md#defect-5`
+   no record. That is deliberate, not a gap to plug. `#defect-5`
 6. **CLOSED 2026-08-03. It WAS a stop-the-line because its worst branch was SILENT**: an embedded
    `ETX` whose following two bytes happened to be a valid checksum made a short frame verify, merging
    the next record into a comment's free text and losing a result, `warnings: []` at both layers. An
    embedded `ETB` reaches the same silence by the other door. `composeAstmFrames` now throws
    `ASTM_FRAME_RESERVED_BYTE`, with **no bytes-instead escape hatch**. **The record layer is
-   deliberately untouched**, measured: all three bytes round-trip through parse/serialize/parse in a
-   modeled value. The three bytes are derived from what `decodeAstmFrames` reads as structure, **not**
+   deliberately untouched**, measured. The three bytes are derived from what `decodeAstmFrames` reads
+   as structure, **not**
    from a control-character class, so **`CR`/`LF` and `ENQ`/`ACK`/`NAK`/`EOT` are deliberately NOT in
    the set** (measured to round-trip byte-exactly inside a frame). Do not "complete" it to the control
    characters. **Neither this refusal nor defect 7's is total, and the bound is
    stated rather than left to be found:** both are on the declared `Uint8Array | string` signature, so
    a JavaScript caller passing some other typed array (a `Uint16Array`) still gets the old low-byte
    corruption from `Uint8Array.from`. **The two residues were measured separately and do not share an
-   outcome:** defect 7's is silent (`U+03BC` reads back `¼`, `warnings: []`), while defect 6's
-   (`0x0102`/`0x0103`/`0x0117`) is framed and then lost at decode, silent **only** where the two bytes
+   outcome:** defect 7's is silent, while defect 6's is framed and then lost at decode, silent
+   **only** where the two bytes
    after it happen to be the short frame's checksum and reported as
    `ASTM_FRAME_BAD_CHECKSUM` otherwise. Never write either refusal as covering it, and
    never "tidy" the scoped doc comment into an unqualified one: **a false sentence in a comment that
    compiles into `dist/index.d.ts` is worse than the silence it replaced.**
-   `documentation/agent-notes.md#defect-6`
+   `#defect-6`
 7. **CLOSED 2026-08-02. Recorded as LOUD; the larger half was SILENT.** `charCodeAt(i) & 0xff`
    truncated every character to its low byte, so `28.6|μmol/L` read back in `¼mol/L` and `GRAżYNA`
    **split across two fields** (`U+017C` low byte is the field separator), shifting every following
@@ -206,7 +204,7 @@ every measurement and every refuted formulation:
    rejected** (it picks a code page the sender never declared); the read side is **deliberately**
    Latin-1 (`String.fromCharCode` per byte), which is half the grounding. **The lesson generalizes past this
    defect: a claim of "loud in every case" is a claim about the input space, not about the cases you
-   ran.** `documentation/agent-notes.md#defect-7`
+   ran.** `#defect-7`
 8. **CLOSED 2026-08-02. It WAS a stop-the-line, and the UNITS decided it**: a lone escape character
    opened a sequence that copied to end-of-record, so a canonical `R` read back with **units gone** and
    status `unspecified`, `warnings: []`, and emit re-escaped the garble into a spec-clean-looking line
@@ -217,10 +215,10 @@ every measurement and every refuted formulation:
    the defect.** The mangled-header fixture in `test/profiles/unknown-record-type-safety.test.ts` now
    reports a **second, incidental** code because its declaration is read as data: **that is not a
    second reader of the mangled header, and nothing may start treating it as one.**
-   `documentation/agent-notes.md#defect-8`
+   `#defect-8`
 9. **Open.** `inline-loinc-candidate` is asserted with no LOINC evidence: any non-empty first component
    is tagged, so `Glucose` reports as a LOINC candidate. **Do not answer it inside another module's
-   slice**; it wants its own. `documentation/agent-notes.md#defect-9`
+   slice**; it wants its own. `#defect-9`
 10. **Open, and deliberately PARTIAL, so the warning's ABSENCE certifies nothing.**
     `ASTM_RECORD_FIELDS_UNSEPARATED` tests one delimiter role in its total form only. A foreign field
     separator that occurs anywhere in the line still splits on the wrong boundaries with zero warnings,
@@ -228,7 +226,7 @@ every measurement and every refuted formulation:
     component / escape role loses test identity or (defect 11, now reported) the value. **Not fixed on purpose**:
     widening means deciding which set a record ought to have had. **If you ever make one of those
     "limits" tests go green by widening the guard, the prose in three published places has to move with
-    it.** `documentation/agent-notes.md#defect-10`
+    it.** `#defect-10`
 11. **🩺 CLOSED 2026-08-05, as a REPORT.** `ASTM_UNKNOWN_ESCAPE_SEQUENCE` was the only report that a
     field separator was swallowed and it is tolerable, so strict under `referenceCorpus`
     **accepted** a record with no units and status `unspecified`. Now
@@ -238,7 +236,7 @@ every measurement and every refuted formulation:
     was repaired. **The laundering hop is NOT closed and must not be written as closed**: emit
     rewrites the sequence into mnemonics and generation 2 reads `warnings: []`, **correctly**, since
     those bytes say that value unambiguously. Catch it on the **first** read.
-    `documentation/agent-notes.md#defect-11`
+    `#defect-11`
 12. **CLOSED 2026-08-04.** `encodeLeaf` ran as four chained whole-string substitutions, so an accepted
     set naming `E`/`F`/`S`/`R` in another role altered values: over P(18,4) = 73,440 four-role sets
     on the 18-character alphabet **enumerated in the notes** (the committed test pins the
@@ -255,10 +253,10 @@ every measurement and every refuted formulation:
     `warnings: []` was unreachable); the tier that discriminates is
     strict-accepted-under-a-gate-legal-profile. **Never replace the narrow "what is not guaranteed"
     prose with a positive guarantee that emit preserves every field tree.**
-    `documentation/agent-notes.md#defect-12`
-13. **CLOSED 2026-08-03.** `startFrameNumber` was documented `0`-`7` and unvalidated; `NaN` emitted a
-    **`NUL`** into every frame (four records in, zero out), and a value truncating back onto a digit
-    was accepted **silently**. It is now refused with `ASTM_FRAME_INVALID_START_FRAME_NUMBER`;
+    `#defect-12`
+13. **CLOSED 2026-08-03.** `startFrameNumber` was documented `0`-`7` and unvalidated, and its worst
+    branches were **silent** (`NaN` emitted a `NUL` into every frame: four records in, zero out).
+    It is now refused with `ASTM_FRAME_INVALID_START_FRAME_NUMBER`;
     **clamping and modulo were both rejected**, because the frame number is the decoder's only evidence
     that no frame was dropped. **Do not "simplify" it to "refuse anything but 1"**: the non-default
     start composes a continuation, measured byte-identical. **Do not reintroduce a rule for what a
@@ -267,23 +265,32 @@ every measurement and every refuted formulation:
     record layer never reports the loss, so **read `frameWarnings`.** Its error message **names the
     value received, deliberately**, and is the one message in this class that quotes anything (a
     `startFrameNumber` is the caller's own option, never stream content): do not "fix" it to
-    value-free. `documentation/agent-notes.md#defect-13`
+    value-free. `#defect-13`
 14. **Open, measured, pinned and disclosed 2026-08-04.** `serializeAstmRecords` silently drops a header
     delimiter-declaration surplus it could not read back: 31 of the 33 C0/`DEL` characters, each with
     `warnings: []`. **The behaviour stays, but one recorded reason for it measured FALSE and must not
     be restated**: 28 of the 31 round-trip byte-exactly through the frame layer. The reason that holds
     is the code site's own (never carry a control character rather than re-derive each layer's reserved
     list). **The drop is all-or-nothing**, and **it fires with no `d` argument at all**, so do not read
-    it as "you have to pass a delimiter set to reach it". `documentation/agent-notes.md#defect-14`
+    it as "you have to pass a delimiter set to reach it". `#defect-14`
 
-15. **Open, `PRE-EXISTING`, found grading defect 11's fix.** The MIRROR of defect 11: a greedy
-    leftmost atom can **gain** a boundary the sender escaped. `28.6&Z&|&U/L` reads value
-    `28.6&Z&`, units `&U/L`, and both codes it raises are **tolerable**, so strict accepts it. The
-    swallowed-delimiter code correctly stays silent. `documentation/agent-notes.md#defect-15`
-16. **Open, `PRE-EXISTING`, misleading message.** `readDelimiters`'s field-collision branch is
-    **unreachable** (such a separator sits at index 2-4, so the definition is under three characters
-    and the length check returns first), so `H||^&` reports "too short" for a header that is not.
-    `documentation/agent-notes.md#defect-16`
+15. **🩺 CLOSED 2026-08-05, as a REPORT, and the MIRROR of defect 11.** A greedy leftmost atom can
+    **GAIN** a boundary the sender escaped: `28.6&Z&|&U/L` reads value `28.6&Z&` and units `&U/L`,
+    and both codes it raised were **tolerable**, so strict under a gate-legal profile **accepted** a
+    value the bytes do not force. Now `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, not tolerable, once
+    per competing alignment. **The split is UNCHANGED and every byte is identical**: the other
+    alignment is a different guess with no more evidence behind it. **A RECOGNIZED mnemonic is
+    excluded on purpose** (`&F&` before a real separator is the escape mechanism working, and only
+    the competitor is non-conformant there), and so is a delimiter with no escape character two
+    positions on, which is no competitor at all. **It does NOT reach through a re-emit** (measured),
+    so catch it on the FIRST read. `#defect-15`
+16. **CLOSED 2026-08-05, as a MESSAGE ONLY.** `readDelimiters`' field-collision branch is
+    **unreachable** (such a separator ends the definition where it appears, so the truncation rule
+    answers first: 36 of 36, measured), so `H||^&` reported "too short" for a header that is not.
+    `readDelimiterDeclaration` names which of the four conditions it was and the fatal says that.
+    **The fatal CODE is unchanged and no stream's disposition moved**: a second fatal code was
+    considered and **REJECTED**, as a breaking change bought for a sentence. **Do not delete the
+    unreachable branch.** `#defect-16`
 
 Two further defects (a `>3`-char declaration losing its surplus on emit, and an unvalidated
 caller-supplied delimiter set) were closed: `documentation/agent-notes.md#defects-closed-elsewhere`.

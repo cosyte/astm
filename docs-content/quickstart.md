@@ -133,7 +133,9 @@ for (const w of warnings) {
 > delimiter does not split and the value, units and status can go together. A bare escape character
 > is no longer in that group (it reads as a literal and raises `ASTM_UNPAIRED_ESCAPE_CHARACTER`);
 > the atom case remains, and now raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not
-> tolerable, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. All are
+> tolerable, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Its mirror, where the leftmost
+> alignment lets a delimiter split that a competing alignment would have held, gains a boundary
+> instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also not tolerable. All are
 > accepted limits: widening the field-separator check would mean deciding which set a record ought
 > to have had, which is a guess this parser does not make, and narrowing the escape atom would break
 > the guarantee it exists for, so the boundary is documented instead. If delimiter drift is a real
@@ -327,7 +329,10 @@ promise that every field lands where it did: an escape sequence whose body is an
 character that is itself a delimiter in force is
 read as one opaque atom, so that delimiter never becomes a boundary and the fields after it shift.
 That is reported on the parse side as `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which no profile
-may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The low-level
+may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, and its mirror (a delimiter the
+leftmost alignment let split where a competing alignment would have held it) as
+`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`. Emitting normalizes both away rather than preserving them,
+so neither reaches a second generation: catch them on the first read. The low-level
 `encodeComponent` and `serializeField` helpers take no record and carry neither guarantee. If you
 emit against a set of your own rather than the canonical one, check the round-trip on your own
 traffic.

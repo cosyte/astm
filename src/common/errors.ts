@@ -37,7 +37,13 @@ export const FATAL_CODES = {
   EMPTY_INPUT: "EMPTY_INPUT",
   /** The first record is not an `H` (header) record: an ASTM message must lead with `H`. */
   ASTM_RECORD_NO_HEADER: "ASTM_RECORD_NO_HEADER",
-  /** The `H` record is too short to declare the four delimiters (field/repeat/component/escape). */
+  /**
+   * The first `H` record could not declare all four delimiters (field/repeat/component/escape).
+   * One code, four reasons, and the message says which: the record is not a header, it is shorter
+   * than a header plus a three-character definition, its definition field holds fewer than three
+   * characters before the next field separator, or its field separator is also one of the other
+   * three. Only the second of those is "too short", so read the message rather than assuming it.
+   */
   ASTM_RECORD_UNDECLARED_DELIMITERS: "ASTM_RECORD_UNDECLARED_DELIMITERS",
 } as const;
 

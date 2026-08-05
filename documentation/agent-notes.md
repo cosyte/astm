@@ -1018,7 +1018,7 @@ the sentences drifting back to the unqualified form.
 
 <a id="defect-15"></a>
 
-### Defect 15: a greedy leftmost atom can GAIN a boundary the sender escaped (open)
+### Defect 15: a greedy leftmost atom can GAIN a boundary the sender escaped (CLOSED 2026-08-05)
 
 **The mirror of defect 11, and it survived defect 11's fix on purpose.** `splitEscapeAware` matches
 escape sequences greedily, left to right, so an earlier triple can consume the escape character that
@@ -1037,9 +1037,57 @@ stop-the-line**, because it needs a non-conformant `&|&` escaping form to bite a
 fire, but both of those are tolerable, so the same argument that made defect 11 worth scheduling
 applies here. Found by the `conformance-refuter` grading `ASTM-FRAME-RESIDUALS` 2026-08-05.
 
+**CLOSED 2026-08-05 by `ASTM-FRAME-RESIDUALS`, and closed as a REPORT, on defect 11's shape.** The
+split is unchanged, the leftmost alignment is still the one taken, and every decoded byte is
+identical: `28.6&Z&` and `&U/L`, exactly as before. What is new is
+`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, raised **alongside** the tolerable codes rather than
+instead of them, whenever the escape character closing an **unrecognized** sequence could instead
+have opened one whose body is the delimiter that split. It is not on `TOLERABLE_CODES`, so
+`{ strict: true }` refuses that record under any gate-legal profile.
+
+**▶ THE OTHER ALIGNMENT WAS CONSIDERED AND REJECTED, AND THAT IS THE WHOLE DESIGN.** Reading
+`28.6&Z&|&U/L` as `28.6&Z` plus the atom `&|&` plus `U/L` is not more defensible than reading it
+leftmost: it is a different guess, with no more evidence behind it, and taking it would move values
+on a package that is already published. The bytes carry two readings and the parser is not entitled
+to pick between them silently, which is what it was doing. So it keeps the reading it had and says
+the boundary is a choice.
+
+**▶ TWO EXCLUSIONS, BOTH DELIBERATE, AND THE FIRST IS THE ONE THAT KEEPS IT OFF CONFORMANT
+STREAMS.** Where the earlier sequence's body is a **recognized mnemonic** nothing is reported, and
+the reason is not symmetry: under `28.6&F&|&U/L` the leftmost reading is an escaped field separator
+followed by a real one, which is the escape mechanism working, while the competing alignment needs
+both an unpaired escape character and an unrecognized body to exist at all. Measured: that stream
+raises only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` and reads `28.6|`. And where the
+character two positions past the delimiter is not the escape character there is no competing
+alignment at all, so an ordinary escaped value followed by an ordinary boundary stays silent. A
+consequence worth stating: the new code is a strict subset of the streams that already raise
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so it can never fire on a stream a conformant sender produced.
+
+**▶ IT DOES NOT REACH THROUGH A RE-EMIT, THE SAME RESIDUE ITS SIBLING DISCLOSED.** Emit rewrites the
+preserved characters into recognized mnemonics (`28.6&E&Z&E&|&E&U/L`), and generation 2 reads
+`28.6&Z&` and `&U/L` with `warnings: []`. That is **correct** about generation 2's own bytes, which
+carry the reading that was taken with no competitor left in them; the choice is inherited from
+generation 1. So the catch point is the first read of the wire bytes, and there is no guard on the
+round trip. Never write it as closed.
+
+**▶ MEASURED, over the committed constants `ALIGNMENT_ALPHABET` and `neutralStream` in
+`test/records/escape-alignment-ambiguity.test.ts`.** The tier is
+**strict-accepted-under-a-gate-legal-profile**, because "0 silent" is structurally unreachable here:
+an unrecognized escape body always raises a tolerable code. The instrument is a profile built **from**
+`TOLERABLE_CODES` itself, so it is the widest tolerance the safety gate can permit. Twelve characters
+(the four mnemonics, the three splitting roles, the escape role, four non-delimiters) swept in both
+positions of the pair that decides this, on a comment record chosen so no result-semantics warning
+masks the count: **144 tuples, 24 raise the new code** (the eight unrecognized bodies against the
+three splitting roles), and strict acceptance goes **108 to 93**, the 15 that moved being exactly the
+tuples the new code fired on. On the `R` corpus of the fixture above the same sweep reads 9 accepted
+to 4, and the difference is not a discrepancy: a gained **component** boundary in a result value
+already raised `ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT`, which is not tolerable, so those tuples were
+refused before this code existed. **Do not quote any of these figures without the alphabet and the
+carrier record, because both move every one of them.**
+
 <a id="defect-16"></a>
 
-### Defect 16: `readDelimiters`'s field-collision branch is unreachable, and the fatal it produces names the wrong reason (open)
+### Defect 16: `readDelimiters`'s field-collision branch is unreachable, and the fatal it produces names the wrong reason (CLOSED 2026-08-05)
 
 `readDelimiters` ends with a check that the field separator is not also the repeat, component or
 escape character. **That branch cannot be reached.** A field separator appearing in any of those
@@ -1055,6 +1103,28 @@ happens to enforce first, and the two are not the same rule: a change to how the
 bounded could separate them again. The fix, when it is taken, is the fatal's message and probably a
 second fatal reason code, which is a published-surface change and wants its own slice. Found by the
 `conformance-refuter` grading `ASTM-FRAME-RESIDUALS` 2026-08-05.
+
+**CLOSED 2026-08-05 by `ASTM-FRAME-RESIDUALS`, as a MESSAGE ONLY.** `readDelimiterDeclaration` is
+`readDelimiters` with the reason kept (`not-a-header`, `record-too-short`, `definition-truncated`,
+`field-separator-reused`), and the first header's fatal carries the message for the reason it
+actually hit. `H||^&` now reads "declares fewer than three delimiter-definition characters before its
+next field separator" instead of "is too short". `readDelimiters` itself is untouched in behaviour
+and in signature.
+
+**▶ THE SECOND FATAL CODE THIS ENTRY PREDICTED WAS CONSIDERED AND REJECTED.** Splitting
+`ASTM_RECORD_UNDECLARED_DELIMITERS` in two would move the code a consumer switches on for a stream
+whose disposition is already right, which is a breaking change bought for a sentence. One code and
+four messages keeps the stable thing stable and fixes the thing that was wrong. If a future reason
+ever wants a **different disposition** rather than a different sentence, that is when it earns a
+code.
+
+**▶ THE UNREACHABLE BRANCH STAYS, AND THE UNREACHABILITY IS NOW MEASURED RATHER THAN ARGUED.** Over
+the committed constants `FIELD_SEPARATOR_ALPHABET` and `DEFINITION_POSITIONS` in
+`test/common/delimiter-declaration-faults.test.ts` (twelve candidate field separators, each placed in
+each of the three definition positions): **36 of 36 classify as `definition-truncated` and 0 as
+`field-separator-reused`**, and none resolves. That is the invariant the truncation rule enforces on
+the branch's behalf, pinned so a change to how the definition field is bounded shows up as a test
+moving rather than as a branch quietly becoming live.
 
 <a id="defects-closed-elsewhere"></a>
 

@@ -64,18 +64,41 @@ export const CANONICAL_DELIMITERS: Delimiters = {
   escape: "&",
 };
 
-/** The result of reading delimiters from a header record: either resolved or a declared failure. */
+/**
+ * Why a header record could not declare a usable delimiter set. Four distinct
+ * conditions, kept distinct because a consumer is told which one it was and two of
+ * them describe records that are **not** short.
+ *
+ * - `not-a-header`: the record does not begin with an `H` type letter.
+ * - `record-too-short`: fewer than five characters, so `H` plus a field separator
+ *   plus a three-character definition cannot fit.
+ * - `definition-truncated`: the delimiter-definition field runs to the next field
+ *   separator (or to the end of the record) and holds fewer than three characters.
+ *   **This is the one a full-length header reaches**, and it is what a declaration
+ *   naming its own field separator among the other three produces, because that
+ *   separator ends the definition where it appears.
+ * - `field-separator-reused`: the field separator is also the repeat, component or
+ *   escape character.
+ */
+export type DelimiterDeclarationFault =
+  | "not-a-header"
+  | "record-too-short"
+  | "definition-truncated"
+  | "field-separator-reused";
+
+/** The result of reading delimiters from a header record: either resolved or a named failure. */
 export type DelimiterReadResult =
   | { readonly ok: true; readonly delimiters: Delimiters }
-  | { readonly ok: false };
+  | { readonly ok: false; readonly fault: DelimiterDeclarationFault };
 
 /**
  * Read the four delimiters from a header record's raw text (a single `H`
  * record, its terminator already stripped).
  *
- * Returns `undefined` when the record cannot declare all four delimiters: it is
- * shorter than `H` + a field separator + a 3-char delimiter definition, or the
- * field separator it names also appears among the other three.
+ * Returns `undefined` when the record cannot declare all four delimiters. The four
+ * ways that happens are named by {@link readDelimiterDeclaration}, which is this
+ * function with the reason kept; use it wherever the reason is shown to a consumer,
+ * because "too short" is false of some of them.
  *
  * What the caller does with that depends on **which** header it is. On the first
  * header it is the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal, because there is no
@@ -103,25 +126,62 @@ export type DelimiterReadResult =
  * ```
  */
 export function readDelimiters(headerRecord: string): Delimiters | undefined {
+  const result = readDelimiterDeclaration(headerRecord);
+  return result.ok ? result.delimiters : undefined;
+}
+
+/**
+ * The same read as {@link readDelimiters}, keeping **why** it failed.
+ *
+ * The reason is not cosmetic. A caller that reports every failure as "too short"
+ * says something false about `H||^&`, a full-length header whose definition field is
+ * empty because its own field separator ends it, and a consumer reading that
+ * diagnostic looks for the wrong thing. The two conditions are separate rules that
+ * happen to coincide today (see the fault list on
+ * {@link DelimiterDeclarationFault}), so they are named separately.
+ *
+ * **`field-separator-reused` is unreachable through this function today, and the
+ * check stays.** A field separator occurring in the definition positions sits at
+ * index 2, 3 or 4, so it ends the definition where it appears and the definition is
+ * under three characters: `definition-truncated` answers first, every time. The
+ * outcome is right either way (such a declaration does not resolve at all). The
+ * check is the statement of an invariant the length rule currently enforces on its
+ * behalf, and the two are not the same rule: a change to how the definition field is
+ * bounded would separate them again. Deleting it would leave the invariant
+ * unstated and the change silent.
+ *
+ * @param headerRecord - The raw `H` record text (no trailing CR/LF).
+ * @returns The resolved delimiters, or the named reason they could not be read.
+ * @example
+ * ```ts
+ * import { readDelimiterDeclaration } from "@cosyte/astm";
+ * readDelimiterDeclaration("H|\\^&").ok; // true
+ * readDelimiterDeclaration("H||^&"); // { ok: false, fault: "definition-truncated" }
+ * ```
+ */
+export function readDelimiterDeclaration(headerRecord: string): DelimiterReadResult {
   // Need "H" + field-sep + at least the 3-char delimiter definition (repeat/component/escape).
-  if (headerRecord.length < 5) return undefined;
-  if (headerRecord.charAt(0) !== "H") return undefined;
+  if (headerRecord.length < 5) return { ok: false, fault: "record-too-short" };
+  if (headerRecord.charAt(0) !== "H") return { ok: false, fault: "not-a-header" };
 
   const field = headerRecord.charAt(1);
   // The delimiter-definition field runs from index 2 up to the next field separator.
   const defEnd = headerRecord.indexOf(field, 2);
   const definition = headerRecord.slice(2, defEnd === -1 ? headerRecord.length : defEnd);
-  if (definition.length < 3) return undefined;
+  if (definition.length < 3) return { ok: false, fault: "definition-truncated" };
 
   const repeat = definition.charAt(0);
   const component = definition.charAt(1);
   const escape = definition.charAt(2);
 
   // A field separator that also appears among the other three delimiters is not a coherent
-  // declaration: the four roles must be distinguishable. Refuse rather than mis-split.
-  if (field === repeat || field === component || field === escape) return undefined;
+  // declaration: the four roles must be distinguishable. Refuse rather than mis-split. Unreachable
+  // as written (the truncation rule answers first); kept as the statement of the invariant.
+  if (field === repeat || field === component || field === escape) {
+    return { ok: false, fault: "field-separator-reused" };
+  }
 
-  return { field, repeat, component, escape };
+  return { ok: true, delimiters: { field, repeat, component, escape } };
 }
 
 /**

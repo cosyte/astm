@@ -93,7 +93,12 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   so that delimiter never becomes a boundary
   and the fields after it shift, reported on the parse side as
   `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` (not tolerable) alongside the tolerable
-  `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The
+  `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Its mirror is outside the guarantee too: sequences are matched
+  leftmost, so one can end where another could have begun and the delimiter between them splits
+  where the competing alignment would have held it, gaining a boundary rather than losing one and
+  reported as `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` (also not tolerable). **Neither report
+  survives emitting**: this package rewrites the preserved characters into recognized mnemonics, so
+  a re-emitted stream carries the reading that was taken with nothing ambiguous left in it. The
   low-level `encodeComponent` and `serializeField` helpers take no record and so carry neither
   guarantee. If you emit against a set of your own choosing rather than the canonical one, verify the
   round-trip on your own traffic.

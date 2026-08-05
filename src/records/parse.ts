@@ -13,12 +13,15 @@ import { deepFreeze } from "../common/freeze.js";
 import {
   hasCollidingRoles,
   isNonStandard,
+  readDelimiterDeclaration,
   readDelimiters,
+  type DelimiterDeclarationFault,
   type Delimiters,
 } from "../common/delimiters.js";
 import { parseAstmDate, type AstmDate } from "../common/dates.js";
 import { recognizeUniversalTestId } from "../common/coding-system.js";
 import {
+  ambiguousEscapeAlignment,
   ambiguousMessageKind,
   ambiguousValueSplit,
   delimiterRoleCollision,
@@ -149,14 +152,15 @@ export function parseAstmRecords(
     );
   }
 
-  const delimiters = readDelimiters(first);
-  if (delimiters === undefined) {
+  const declaration = readDelimiterDeclaration(first);
+  if (!declaration.ok) {
     throw new AstmParseError(
       FATAL_CODES.ASTM_RECORD_UNDECLARED_DELIMITERS,
-      "Header record is too short to declare the four delimiters.",
+      UNDECLARED_DELIMITER_MESSAGES[declaration.fault],
       { recordIndex: 0, recordType: "H" },
     );
   }
+  const delimiters = declaration.delimiters;
 
   const warnings: AstmRecordWarning[] = [];
   if (isNonStandard(delimiters)) {
@@ -233,6 +237,27 @@ export function parseAstmRecords(
 }
 
 /**
+ * The `ASTM_RECORD_UNDECLARED_DELIMITERS` message per reason the first header could not declare a
+ * set. One code, four messages: the code is the stable thing a consumer switches on, and the message
+ * is what tells a human where to look. A single message cannot do that honestly, because a header
+ * whose delimiter definition is empty is not short: `H||^&` is five characters and its second field
+ * separator ends the definition at zero characters. Reporting that as "too short" sent a reader
+ * counting characters instead of looking at the declaration.
+ *
+ * Every message is a constant naming no byte off the wire, on the same rule as the warning registry.
+ */
+const UNDECLARED_DELIMITER_MESSAGES: Readonly<Record<DelimiterDeclarationFault, string>> = {
+  "not-a-header": "Header record does not begin with an H type letter.",
+  "record-too-short": "Header record is too short to declare the four delimiters.",
+  "definition-truncated":
+    "Header record declares fewer than three delimiter-definition characters before its next " +
+    "field separator, so the repeat, component and escape roles are not all named.",
+  "field-separator-reused":
+    "Header record names its field separator in one of the other three delimiter roles, so the " +
+    "four roles are not distinguishable.",
+};
+
+/**
  * Resolve the effective profile for a parse. An explicit `options.profile` wins: an
  * {@link AstmProfile} is used as-is; `null` opts out of the process-scoped default
  * for this call. When `profile` is omitted, the process-scoped default
@@ -249,7 +274,8 @@ function resolveProfile(options: AstmParseOptions): AstmProfile | undefined {
  *
  * Three outcomes, all fail-safe, a set is never guessed and no record is ever dropped:
  *
- * - **Unusable declaration** (too short, or the field separator also names one of the other three):
+ * - **Unusable declaration** (any of the four reasons the reader names, only one of which is that
+ *   the record is too short):
  *   keep the set already in force and warn. The identical condition on the *first* header is the
  *   `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal, because there is no earlier set to fall back to.
  * - **Same set restated**: a no-op. A stream carrying several messages in one delimiter set is
@@ -323,13 +349,37 @@ function buildRecord(
       delimiterSwallowedByEscape({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
     );
   };
+  // The mirror of the one above, and the more dangerous direction. That one reports a boundary the
+  // reading lost; this one reports a boundary the reading may have GAINED, because the escape
+  // character closing an unrecognized sequence could have opened the next one instead. A gained
+  // boundary hands back a value the bytes do not unambiguously carry, and it fired only tolerable
+  // codes before this one existed.
+  const onAmbiguousAlignment = (fieldIndex: number): void => {
+    warnings.push(
+      ambiguousEscapeAlignment({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+    );
+  };
   // The header needs its own tokenizer: all three non-field delimiters sit literally inside the
   // delimiter declaration, so the generic tokenizer would split the declaration on its own repeat
   // and component characters and report its escape character as unpaired.
   const fields =
     rawType === "H"
-      ? tokenizeHeader(line, d, onUnknownEscape, onUnpairedEscape, onSwallowedDelimiter)
-      : tokenizeRecord(line, d, onUnknownEscape, onUnpairedEscape, onSwallowedDelimiter);
+      ? tokenizeHeader(
+          line,
+          d,
+          onUnknownEscape,
+          onUnpairedEscape,
+          onSwallowedDelimiter,
+          onAmbiguousAlignment,
+        )
+      : tokenizeRecord(
+          line,
+          d,
+          onUnknownEscape,
+          onUnpairedEscape,
+          onSwallowedDelimiter,
+          onAmbiguousAlignment,
+        );
 
   // A record that carries content beyond its type letter but yields exactly ONE field contains no
   // field separator at all, so the delimiters in force are not the set this record was written
@@ -360,7 +410,11 @@ function buildRecord(
   //     profile may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Where the body
   //     is a RECOGNIZED mnemonic whose letter happens to hold a delimiter role (`&F&` under `H|F^&`)
   //     it raises NEITHER, deliberately: that is the sender escaping a delimiter, which is what the
-  //     atom is for. The split is unchanged in both cases; only the report is new.
+  //     atom is for. The split is unchanged in both cases; only the report is new. The mirror of it
+  //     is outside this check too: a delimiter the leftmost alignment let split where a competing
+  //     alignment would have held it GAINS a boundary, so the record splits into MORE fields than
+  //     another reading of the same bytes gives, and the count here is 2 or more either way. That is
+  //     `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also outside any profile's reach.
   //
   // So the absence of this warning is NOT evidence that a record was read in its own set. Widening
   // it would mean deciding which set a record "should" have had, which is the same guess again.

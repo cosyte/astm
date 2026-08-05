@@ -70,7 +70,82 @@ this file is maintained by hand (Changesets handles the version bump and publish
   factories, the `SwallowedDelimiterSink` type, and a trailing optional sink parameter on
   `decodeEscapes`, `tokenizeRecord` and `tokenizeHeader`.
 
+- **A third parse-path warning code, for a boundary the reading may have GAINED**
+  (`ASTM-FRAME-RESIDUALS`, defect 15, the mirror of defect 11). `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`
+  fires where the escape character that **closed** an unrecognized escape sequence could instead have
+  **opened** one whose body is the delimiter that split, so the same bytes carry two alignments that
+  disagree by exactly one field, repeat or component boundary. Measured on the canonical set:
+  `R|1|^^^687|28.6&Z&|&U/L||||F` reads a value of `28.6&Z&` and units of `&U/L` under the leftmost
+  alignment, and reads as one unsplit field carrying both under the other. It is not tolerable, so
+  `{ strict: true }` refuses such a record whatever profile is in force.
+
+  **The direction is why it needed a code rather than being left to its sibling.** That one reports a
+  boundary the reading lost; this one reports a boundary the reading may have gained, which is the
+  more dangerous half, because a gained boundary hands a consumer a value and a units string the
+  sender's bytes do not unambiguously carry. Both codes the condition raised before
+  (`ASTM_UNKNOWN_ESCAPE_SEQUENCE` and `ASTM_UNPAIRED_ESCAPE_CHARACTER`) are on the profile
+  allow-list, so a gate-legal profile naming them left a strict parse accepting the altered reading.
+  Both stay on the list and stay true of the cases that cost nothing.
+
+  **Additive, and the split is unchanged.** The leftmost alignment is still the one taken and every
+  decoded byte is identical. Picking the other alignment was considered and rejected: it is a
+  different guess with no more evidence behind it, and it would move values on a package that is
+  already published. Two exclusions are deliberate. A **recognized** mnemonic before the delimiter
+  raises nothing, because there the leftmost reading is the conformant one (`28.6&F&|&U/L` is an
+  escaped field separator followed by a real one, and only the competing alignment would be
+  non-conformant, needing an unpaired escape character and an unrecognized body to exist at all). And
+  a delimiter with no escape character two positions past it raises nothing, because there is no
+  competing alignment. The code therefore fires only on records that already raise
+  `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so it cannot reach a stream a conformant sender produced.
+
+  **Measured against the corpus constants committed with the test**, on the same
+  strict-accepted-under-a-gate-legal-profile tier, because "silent" is structurally unreachable here
+  too. Over `ALIGNMENT_ALPHABET` and `neutralStream` in
+  `test/records/escape-alignment-ambiguity.test.ts` (twelve characters: the four mnemonics `F` `S`
+  `R` `E`, the three splitting roles `|` `\` `^`, the escape role `&`, and `~` `:` `#` `*`, swept in
+  both positions of the pair that decides this, carried on a comment record so no result-semantics
+  warning masks the count), of 144 tuples **24 raise the new code**, being the eight unrecognized
+  bodies against the three splitting roles. Under a profile built from the whole tolerable
+  allow-list, which is the widest a gate-legal profile can be, and `{ strict: true }`, **108 of 144
+  were accepted before and 93 are now**, and the 15 that moved are exactly the tuples the new code
+  fired on.
+
+  **It does not repair the reading and it does not survive a re-emit**, the same residue its sibling
+  disclosed: the serializer rewrites the preserved characters into recognized mnemonics, and that
+  stream carries the alignment that was taken with no competitor left in it, so a second-generation
+  read is silent and is correct about its own bytes. The first read of the wire bytes is where the
+  ambiguity exists to be caught.
+
+  This is a **narrowing on a published package**, on the strict path only: a lenient parse of the
+  same stream returns the same records with one more warning on them. New public surface:
+  `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, the `ambiguousEscapeAlignment` warning factory, the
+  `AmbiguousAlignmentSink` type, and a trailing optional sink parameter on `splitEscapeAware`,
+  `tokenizeRecord` and `tokenizeHeader`.
+
 ### Fixed
+
+- **A header that is not short no longer reports that it is too short** (`ASTM-FRAME-RESIDUALS`,
+  defect 16). `readDelimiters` had four ways to fail and the first header's fatal described all of
+  them with one sentence. Three were accurate; the fourth was not. `H||^&` is a full-length header
+  whose delimiter-definition field is empty because its own field separator ends the definition where
+  it begins, and it raised `ASTM_RECORD_UNDECLARED_DELIMITERS` reading "Header record is too short to
+  declare the four delimiters", which sent a reader counting characters instead of looking at the
+  declaration. `readDelimiterDeclaration` is `readDelimiters` with the reason kept, and the fatal now
+  carries the message for the reason it hit.
+
+  **The fatal code is unchanged and no stream's disposition moved.** A consumer switching on
+  `ASTM_RECORD_UNDECLARED_DELIMITERS` sees exactly what it saw before; only the human-readable
+  sentence changed. Splitting the code in two was considered and rejected: it would move a published
+  code for a stream whose outcome is already right, which is a breaking change bought for a sentence.
+
+  The reader's field-separator-reused branch is **unreachable** and stays. Such a separator ends the
+  delimiter definition where it appears, so the under-three-characters rule answers first, every
+  time, and that is now measured rather than argued: over `FIELD_SEPARATOR_ALPHABET` and
+  `DEFINITION_POSITIONS` in `test/common/delimiter-declaration-faults.test.ts`, all 36 collision-shaped
+  headers classify as a truncated definition and none as a reuse. Deleting the branch would leave the
+  invariant unstated and a change to how the definition field is bounded silent. New public surface:
+  `readDelimiterDeclaration`, the `DelimiterDeclarationFault` type, and a `fault` on the failure arm
+  of the previously unused `DelimiterReadResult`.
 
 - **The escape encoder protected the escape character it introduced but not the `E`/`F`/`S`/`R`
   mnemonics, so a delimiter set naming one of those letters in another role altered the values it

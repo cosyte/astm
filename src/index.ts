@@ -149,6 +149,7 @@ export {
   delimitersRedeclared,
   delimiterRoleCollision,
   delimiterSwallowedByEscape,
+  ambiguousEscapeAlignment,
   unreadableRedeclaration,
   profileQuirkApplied,
 } from "./common/warnings.js";
@@ -158,15 +159,21 @@ export type { AstmPosition } from "./common/position.js";
 export {
   CANONICAL_DELIMITERS,
   readDelimiters,
+  readDelimiterDeclaration,
   isNonStandard,
   hasCollidingRoles,
 } from "./common/delimiters.js";
-export type { Delimiters } from "./common/delimiters.js";
+export type {
+  Delimiters,
+  DelimiterReadResult,
+  DelimiterDeclarationFault,
+} from "./common/delimiters.js";
 export { decodeEscapes, splitEscapeAware } from "./common/escapes.js";
 export type {
   UnknownEscapeSink,
   UnpairedEscapeSink,
   SwallowedDelimiterSink,
+  AmbiguousAlignmentSink,
 } from "./common/escapes.js";
 export { parseAstmDate, astmDateToLocalISO } from "./common/dates.js";
 export type { AstmDate, AstmDatePrecision } from "./common/dates.js";

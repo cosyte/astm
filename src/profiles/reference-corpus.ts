@@ -27,7 +27,8 @@
  * a result value / flag / status / range / units, a patient or comment context, a
  * message-kind ambiguity, an unrecognized record type, a declaration naming one
  * character in two delimiter roles, a delimiter an unrecognized
- * escape sequence kept out of the split, or any frame / LTP integrity
+ * escape sequence kept out of the split, a field boundary a competing escape
+ * alignment disagrees about, or any frame / LTP integrity
  * warning: those always surface, profile or not. The unrecognized-record-type case
  * matters because message grouping reads a record's type letter, so a letter the
  * reader does not recognize may be a header, and a header read as something else
@@ -61,7 +62,9 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
     "(python-astm / senaite). Mostly syntactic encoding noise, with one measured exception: an " +
     "escape sequence whose body is an unrecognized character that is itself a delimiter in force is " +
     "an opaque atom, so that delimiter does " +
-    "not split and a result can lose its units and its status. Read the values; do not rely on " +
+    "not split and a result can lose its units and its status. The mirror case is measured too: " +
+    "sequences are matched leftmost, so one can end where another could have begun and a delimiter " +
+    "splits that the other alignment would have held. Read the values; do not rely on " +
     "this profile leaving only cosmetic deviations behind.",
   provenance: {
     source: "kxepal/python-astm codec.py (BSD) + senaite.astm / senaite.lis2a",
@@ -82,7 +85,10 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
         "delimiter, that delimiter never became a field boundary, so `28.6&|&U/L` reads as one " +
         "value with no units and no final status. That subset now also raises " +
         "ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE, which this profile cannot tolerate, so " +
-        "tolerating this code no longer hides it.",
+        "tolerating this code no longer hides it. The same holds for the mirror case, where a " +
+        "sequence ends where another could have begun and a delimiter splits that the other " +
+        "alignment would have held: that raises ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT, which " +
+        "this profile cannot tolerate either.",
     },
   ],
 });
