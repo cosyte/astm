@@ -168,7 +168,7 @@ this file is maintained by hand (Changesets handles the version bump and publish
   _inside_ a field, so a gained **component** boundary does move a modeled slot:
   `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal Test ID coding scheme of `L` and local code of
   `687` under the alignment taken, and `687` as the **coding scheme** under the other, while
-  `DOE&F&^&JANE^A` reads `JANE` as a first name under one and `A` under the other. Both raise only
+  `DOE&F&^&JANE^A` reads `&JANE` as a first name under one and `A` under the other. Both raise only
   the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` and are strict-accepted under the widest gate-legal
   profile, and both are **`PRE-EXISTING`** (byte-identical on the base of this slice), so they are
   disclosed here as a separate open condition rather than covered: wiring this sink to another

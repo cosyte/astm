@@ -20,7 +20,8 @@ copies its shape.
 
 **North star (the archetype):** parse a real-world, vendor-quirky message and pull fields out in one
 line without reading the spec. Liberal on parse (quirks become warnings), conservative on emit
-(always spec-clean). Full contract: "The standard parser archetype" in `documentation/conventions.md`.
+(always spec-clean). Full contract: "The standard parser archetype" in the meta-repo's
+`documentation/conventions.md`.
 
 ## Status
 

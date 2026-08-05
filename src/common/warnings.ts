@@ -185,9 +185,12 @@ export const WARNING_CODES = {
    *   modeled *inside* a field: a Universal Test ID's four components are the LOINC-candidate slot,
    *   the test name, the **coding scheme** and the **local code**, and a patient name's three are
    *   last, first and middle. A gained component boundary shifts those, so a local code can be read
-   *   as a coding scheme and a given name as a middle name. Measured, and **not reported by anything**
-   *   (only the tolerable {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} fires, so a
-   *   gate-legal profile accepts it). It is a separate, open condition rather than something this
+   *   as a coding scheme and a given name as a middle name. Measured, and **where the earlier body is
+   *   a recognized mnemonic, reported by nothing** (only the tolerable
+   *   {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} fires, so a gate-legal profile accepts it).
+   *   An **unrecognized** earlier body raises
+   *   {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} there and is refused, which is the
+   *   same split this code's own exclusion takes. It is a separate, open condition rather than something this
    *   code covers, because wiring this sink to another split is a different criterion needing its own
    *   population measurement. The repeat role costs the **value**, which this code does not report
    *   either.

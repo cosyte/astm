@@ -35,7 +35,7 @@ component boundary divides one field and so moves no **field-indexed** slot: the
 stay put. That is a choice, not a consequence. Components are modeled _inside_ a field, so a gained
 **component** boundary does move a modeled slot: `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal
 Test ID local code of `687` under the alignment taken and reads `687` as the **coding scheme** under
-the other, and `DOE&F&^&JANE^A` reads `JANE` as a first name under one and `A` under the other. Both
+the other, and `DOE&F&^&JANE^A` reads `&JANE` as a first name under one and `A` under the other. Both
 raise only a tolerable code and are strict-accepted, and both behave identically on the release before
 this one, so they are disclosed as a separate open condition rather than covered here: wiring this to
 another delimiter role is a different criterion and wants its own measurement. On the repeat role what

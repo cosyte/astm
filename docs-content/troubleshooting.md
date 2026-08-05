@@ -113,9 +113,12 @@ before the delimiter is silent, because the reading taken interprets a construct
 separator, which is what the mechanism is for) while the competitor's body is a delimiter character
 the parser usually cannot interpret, so it prefers the reading taken. **That is not a promise that
 the reading taken is conformant**, and two cases fall in the gap. The first, on the field separator,
-is now covered by a second code, described in the next section. The second is not: a declared set
-naming a mnemonic letter as a splitting delimiter leaves both alignments interpreting one construct
-each with **neither preferred**, and nothing reports it. Treat a bare escape character next to a
+is now covered by a second code, described in the next section. The second is covered only where that
+code reaches: a declared set naming a mnemonic letter as a splitting delimiter leaves both alignments
+interpreting one construct each with **neither preferred**, and on the field separator with a bare
+escape character past the boundary the next section's code now fires. Everywhere else, meaning a
+repeat or component role, or an escape character past the boundary that heads a sequence of its own,
+**nothing reports it at all**. Treat a bare escape character next to a
 delimiter as worth reading the raw line for, **whether or not either code fired**. The other excluded
 case is a delimiter with no escape character two positions past it, which is no competing alignment
 at all. What does fire is a subset of what already raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its
@@ -153,7 +156,7 @@ field and so moves no field-indexed slot: the units and the status stay put. Tha
 consequence. Components are modeled _inside_ a field, so a gained **component** boundary does move a
 modeled slot: in `R|1|&F&^&GLU^L^687|28.6|U/L||||F` the Universal Test ID reads a coding scheme of
 `L` and a local code of `687` under the alignment taken, and `687` as the **coding scheme** under the
-other, and `DOE&F&^&JANE^A` reads `JANE` as a first name under one alignment and `A` under the other.
+other, and `DOE&F&^&JANE^A` reads `&JANE` as a first name under one alignment and `A` under the other.
 Nothing reports that: only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` fires, so a strict parse
 under a legal profile accepts it. It is a separate open condition, disclosed here rather than left to
 be found, and wiring this code to another delimiter role would be a different criterion needing its
