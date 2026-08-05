@@ -179,15 +179,18 @@ so a vendor profile can expect it on a feed that sends bare ampersands and still
 
 **One escape shape still costs a field boundary, and it has a code of its own.** A real
 three-character sequence is opaque by design, which is what keeps `&F&` one token under a set that
-names `F` as a delimiter. So where the body is itself a delimiter (`&|&` under the canonical set)
+names `F` as a delimiter. So where the body is an **unrecognized** character that is itself a
+delimiter in force (`&|&` under the canonical set)
 that delimiter does not split, and every field after it shifts: `R|1|^^^687|28.6&|&U/L||||F` reads a
 value of `28.6&|&U/L` with no units and status `unspecified`. That reading is unchanged, and
 narrowing the atom to change it would break the guarantee the atom exists for. What such a record now
 raises, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, is
 `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which **no profile may tolerate**, so a
 `{ strict: true }` parse refuses it even under the shipped `referenceCorpus`. The narrower code fires
-only where the unrecognized body is one of the three splitting roles in force; the escape role is not
-one of them, because nothing splits on it.
+only where the unrecognized body is one of the three splitting roles in force. Two exclusions are
+deliberate: the escape role, because nothing splits on it, and every **recognized** mnemonic, because
+`&F&` under a set naming `F` as the repeat delimiter is the sender escaping the field separator on
+purpose, and reporting that would report the escape mechanism working as a defect.
 
 Read it as a report, not a repair. It also does not survive a re-emit: the serializer rewrites the
 preserved sequence into recognized mnemonics, and that stream says the same value unambiguously, so a
@@ -281,7 +284,8 @@ outside it:
   and the damage then varies. A mis-split component can cost a test identity while the value and
   units survive. The escape role's worst case has **narrowed, not gone**: a bare escape character no
   longer merges the rest of the record (it reads as a literal and raises
-  `ASTM_UNPAIRED_ESCAPE_CHARACTER`), but an `&X&` sequence whose body is a delimiter is an opaque
+  `ASTM_UNPAIRED_ESCAPE_CHARACTER`), but an `&X&` sequence whose body is an unrecognized character
+  that is itself a delimiter in force is an opaque
   atom, so that delimiter does not split and the value, the units and the status can still go
   together. That one raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not tolerable,
   alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The split itself is unchanged.

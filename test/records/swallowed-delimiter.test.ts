@@ -3,8 +3,9 @@
  *
  * The escape-aware split treats an `&X&` triple as an opaque atom. That is deliberate and is not
  * changed here: it is what keeps `&F&` one token under a declared set that names `F` as a
- * delimiter. The cost is that where `X` is itself a delimiter in force, that delimiter never
- * becomes a boundary, and the record is read with one fewer division than its bytes carry.
+ * delimiter. The cost is that where `X` is an unrecognized character that is itself a delimiter in
+ * force, that delimiter never becomes a boundary, and the record is read with one fewer division
+ * than its bytes carry.
  *
  * That loss was reported only by `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, which is on the profile
  * allow-list, so the shipped `referenceCorpus` profile left `{ strict: true }` accepting a record
@@ -162,6 +163,31 @@ describe("the sweep over the committed body alphabet", () => {
       expect(only?.status.meaning).toBe("final");
       expect(only?.value).toBe(`28.6&${body}&5`);
     }
+  });
+
+  it("reports it in a header's data fields, at the whole-record field index", () => {
+    // The header has its own tokenizer, because its declaration field carries the three non-field
+    // delimiters literally. The declaration stays opaque and never reports; the data portion after
+    // it does, and its indices are shifted back to whole-record positions.
+    const raw = "H|\\^&|28.6&|&U/L|sender\rP|1||LAB-0001\rL|1|N\r";
+    expect(codes(raw)).toEqual([
+      WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
+      WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE,
+    ]);
+    expect(parseAstmRecords(raw).warnings[1]?.position).toEqual({
+      recordIndex: 0,
+      recordType: "H",
+      fieldIndex: 3,
+    });
+  });
+
+  it("never reports the delimiters the header's own declaration names literally", () => {
+    // The declaration is taken verbatim as one opaque field, so its `\`, `^` and `&` are structure
+    // rather than an escape sequence, whatever characters a vendor declares.
+    expect(codes("H|&^&\rP|1||LAB-0001\rL|1|N\r")).toEqual([
+      WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
+      WARNING_CODES.ASTM_RECORD_DELIMITER_ROLE_COLLISION,
+    ]);
   });
 
   it("leaves a recognized mnemonic alone even when it names a delimiter in force", () => {

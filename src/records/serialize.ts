@@ -87,7 +87,8 @@
  *
  * **What is still not guaranteed.** Together the two checks guarantee that every
  * record re-reads as its own *type*. They do not guarantee that every *field* of it
- * lands where it did: an escape sequence whose body is itself a delimiter is read as
+ * lands where it did: an escape sequence whose body is an unrecognized character that is itself a
+ * delimiter in force is read as
  * one opaque atom, so that delimiter never becomes a boundary and the fields after it
  * shift. That is reported on the parse side, by `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`
  * (which no profile may tolerate) alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, and is
@@ -740,7 +741,8 @@ function declarationResidual(header: HeaderRecord, d: Delimiters): string {
  * therefore checked to start with the letter the record models, and one that does
  * not is `ASTM_EMIT_TYPE_LETTER_COLLISION` rather than a stream that reads back as
  * different records. What neither check promises is that every *field* lands where
- * it did: an escape sequence whose body is a delimiter is an opaque atom, so that
+ * it did: an escape sequence whose body is an unrecognized character that is itself a delimiter in
+ * force is an opaque atom, so that
  * delimiter never becomes a boundary, and the parse side reports that
  * (`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, plus the tolerable
  * `ASTM_UNKNOWN_ESCAPE_SEQUENCE`) rather than emit refusing it.

@@ -59,7 +59,8 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
   description:
     "Non-standard-escape tolerance grounded firsthand in the escape-agnostic OSS reference corpus " +
     "(python-astm / senaite). Mostly syntactic encoding noise, with one measured exception: an " +
-    "escape sequence whose body is itself a delimiter is an opaque atom, so that delimiter does " +
+    "escape sequence whose body is an unrecognized character that is itself a delimiter in force is " +
+    "an opaque atom, so that delimiter does " +
     "not split and a result can lose its units and its status. Read the values; do not rely on " +
     "this profile leaving only cosmetic deviations behind.",
   provenance: {

@@ -84,10 +84,13 @@ character as `&E&`, so a stream it produced never raises the code.
 
 **This warning is about one character, not about the record.** A three-character sequence is opaque
 by design (that is what keeps `&F&` one token under a set naming `F` as a delimiter), so a sequence
-whose body is itself a delimiter swallows that delimiter: `R|1|^^^687|28.6&|&U/L||||F` reads a value
+whose body is an unrecognized character that is itself a delimiter in force swallows that delimiter:
+`R|1|^^^687|28.6&|&U/L||||F` reads a value
 of `28.6&|&U/L` with no units and status `unspecified`. That case raises
 `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` as well as `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Only the
-second of those is tolerable, so a strict parse refuses the record whatever profile is in force. The
+second of those is tolerable, so a strict parse refuses the record whatever profile is in force. A
+**recognized** mnemonic is outside it, deliberately: `&F&` under a set naming `F` as the repeat
+delimiter is the sender escaping the field separator on purpose, and it raises neither code. The
 reading itself is unchanged, and it does not survive a re-emit: this package rewrites the preserved
 sequence into recognized mnemonics, and the resulting stream says that value unambiguously, so a
 second-generation read is silent. Catch it on the first read of the wire bytes.

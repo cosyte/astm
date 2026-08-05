@@ -128,7 +128,8 @@ for (const w of warnings) {
 > happen to one record **inside** a run of these warnings, so a run does not mean every record in it
 > was checked. And a set differing in the **repeat, component or escape** role usually splits into
 > fields normally, with the damage varying: a mis-split component can cost a test identity while the
-> value survives, and an `&X&` sequence whose body is a delimiter is an opaque atom, so that
+> value survives, and an `&X&` sequence whose body is an unrecognized character that is itself a
+> delimiter in force is an opaque atom, so that
 > delimiter does not split and the value, units and status can go together. A bare escape character
 > is no longer in that group (it reads as a literal and raises `ASTM_UNPAIRED_ESCAPE_CHARACTER`);
 > the atom case remains, and now raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not
@@ -322,7 +323,8 @@ does `serializeFramedAstm(msg)`. "Emit against the canonical delimiters" is ther
 around it: the fix is to drop or repair the record whose type letter cannot be written.
 
 What the two refusals together promise is that every record re-reads as its own **type**. They do not
-promise that every field lands where it did: an escape sequence whose body is itself a delimiter is
+promise that every field lands where it did: an escape sequence whose body is an unrecognized
+character that is itself a delimiter in force is
 read as one opaque atom, so that delimiter never becomes a boundary and the fields after it shift.
 That is reported on the parse side as `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which no profile
 may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The low-level

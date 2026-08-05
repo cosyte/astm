@@ -468,6 +468,14 @@ terminator): of the 20,736 four-role tuples, **15,972 resolve**, of which **4,09
 `origin/main`'s `src/`, not inferred. **Every count here is derived from the alphabet constant in
 the test itself**, so moving the alphabet moves the numbers.
 
+**▶ THE DEFAULT-PATH RE-EMIT LAUNDERS IT, AND THIS IS NOT CLOSED EITHER.** Measured: `H|^^&` with
+`R|1|^^^687|A^B^C^D|...` parses with the new code, and `serializeAstmRecords(msg)` with **no**
+delimiter argument emits `R|1|\\\687|A\B\C\D|...`, which re-parses with `warnings: []` carrying the
+same mis-structured tree (the `687` test identity still stranded in the fourth repeat). Same shape as
+defect 11's laundering hop, and the same disposition: generation 1 is loud and non-tolerable, and
+that is the catch point. Do not write either as closed. `PRE-EXISTING` in every part but the gen-1
+warning. Recorded by the `conformance-refuter`, pass 2, 2026-08-05.
+
 **▶ IT IS A REPORT, NOT A REPAIR, AND THE PROSE MUST NOT DRIFT INTO CLAIMING OTHERWISE.** Under
 `H|^^&` the field `A^B^C^D` still reads back as four repeats of one component each, `components`
 still holds only `A`, and `serializeAstmRecords(msg, msg.delimiters)` still throws

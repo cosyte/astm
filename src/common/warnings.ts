@@ -45,7 +45,8 @@ export const WARNING_CODES = {
    * boundaries, silently, and this can happen to one record inside a run of these warnings); and a
    * set differing in the repeat, component or escape role usually splits into fields normally,
    * where a mis-split component can cost a test identity while the value survives, and where an
-   * `&X&` sequence whose body is a delimiter is an opaque atom, so that delimiter does not split
+   * `&X&` sequence whose body is an unrecognized character that is itself a delimiter in force is an
+   * opaque atom, so that delimiter does not split
    * and every field after it shifts. The escape role's worst case has narrowed and not
    * disappeared: an escape character heading no sequence is now read as a literal and reported
    * under {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} rather than merging the rest of the
@@ -457,7 +458,8 @@ export function unknownEscapeSequence(position: AstmPosition): AstmRecordWarning
  *
  * **It is a statement about that one character, not about the record.** A
  * different escape character in the same record may head a real three-character
- * sequence, and if that sequence's body is a delimiter, that delimiter does not
+ * sequence, and if that sequence's body is an unrecognized character that is itself a delimiter in
+ * force, that delimiter does not
  * split, which is reported separately by
  * {@link WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE}.
  *

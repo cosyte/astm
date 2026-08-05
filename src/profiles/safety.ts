@@ -97,12 +97,6 @@
  *   canonical stream can still carry a record that does not split, so tolerating the
  *   first can never quiet the second.
  *
- *   **A new reader of the delimiter set landed with the fourth code, and it does not
- *   read this one's condition.** `hasCollidingRoles` asks whether two roles name one
- *   character; this code reports whether the set differs from the canonical one.
- *   Those are different questions and neither implies the other, so tolerating this
- *   code cannot quiet the collision report.
- *
  *   **Its admission was resting on a set of declarations it does not distinguish,
  *   and no longer is.** A declaration naming one character in two roles is
  *   necessarily non-canonical, so this code fired on it, and until
@@ -111,7 +105,11 @@
  *   "the declared set cannot express the boundary it was read with". That second
  *   condition now has its own code, which is not tolerable, so what is left here is
  *   the honest statement it always meant to be: the set differs from the canonical
- *   one and was honored.
+ *   one and was honored. The reason tolerating this one cannot quiet that one is the
+ *   profile mechanism and nothing subtler: a profile re-badges the code it names and
+ *   no other. It is **not** that the two conditions are independent. They are not:
+ *   every colliding set is non-canonical, which is exactly why this bullet needed
+ *   rewriting.
  * - `ASTM_UNKNOWN_ESCAPE_SEQUENCE`: an unrecognized escape body is **preserved
  *   byte-for-byte** in the decoded value (the escape codec does not guess at one),
  *   so the value is identical with or without the profile. A decoded field value is
