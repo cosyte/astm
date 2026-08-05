@@ -355,9 +355,12 @@ function buildRecord(
   //     survives. The ESCAPE role's worst case has NARROWED, not gone: an escape character heading
   //     no `&X&` sequence is now a literal and is reported (`ASTM_UNPAIRED_ESCAPE_CHARACTER`)
   //     instead of merging the rest of the record, but an `&X&` whose body IS a delimiter is still
-  //     an opaque atom, so that delimiter does not split and every field after it shifts. That one
-  //     raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which no profile may tolerate, alongside
-  //     the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The split is unchanged; only the report is new.
+  //     an opaque atom, so that delimiter does not split and every field after it shifts. Where the
+  //     body is UNRECOGNIZED that raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which no
+  //     profile may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Where the body
+  //     is a RECOGNIZED mnemonic whose letter happens to hold a delimiter role (`&F&` under `H|F^&`)
+  //     it raises NEITHER, deliberately: that is the sender escaping a delimiter, which is what the
+  //     atom is for. The split is unchanged in both cases; only the report is new.
   //
   // So the absence of this warning is NOT evidence that a record was read in its own set. Widening
   // it would mean deciding which set a record "should" have had, which is the same guess again.

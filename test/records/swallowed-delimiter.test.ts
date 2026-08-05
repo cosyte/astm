@@ -182,8 +182,17 @@ describe("the sweep over the committed body alphabet", () => {
   });
 
   it("never reports the delimiters the header's own declaration names literally", () => {
-    // The declaration is taken verbatim as one opaque field, so its `\`, `^` and `&` are structure
-    // rather than an escape sequence, whatever characters a vendor declares.
+    // `H|&^&` declares repeat and escape as `&`, so the declaration `&^&` has the exact shape of an
+    // escape sequence whose body is the component delimiter. It is taken verbatim as one opaque
+    // field instead, so it reports nothing, while the data portion after it reports normally: the
+    // stream below carries ONE pair of escape warnings, from the data, not two.
+    expect(codes("H|&^&|28.6&^&5\rP|1||LAB-0001\rL|1|N\r")).toEqual([
+      WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
+      WARNING_CODES.ASTM_RECORD_DELIMITER_ROLE_COLLISION,
+      WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
+      WARNING_CODES.ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE,
+    ]);
+    // A header with no data portion at all reports only what its declaration is worth.
     expect(codes("H|&^&\rP|1||LAB-0001\rL|1|N\r")).toEqual([
       WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
       WARNING_CODES.ASTM_RECORD_DELIMITER_ROLE_COLLISION,

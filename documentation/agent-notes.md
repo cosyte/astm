@@ -735,8 +735,15 @@ into fields normally, and the damage varies. A `:`-component record under the ca
 keeps its value and units but loses its test identity, silently. **An ESCAPE character occurring
 literally in a record was much worse and cost the value: that was defect 8, and only its BARE
 form is closed. An `&X&` whose body is a delimiter still swallows it (defect 11, closed 2026-08-05
-as a report, so the swallow is unchanged and is no longer reported only by a tolerable code), so the
-escape role stays on this list, narrowed.** An earlier draft of this entry wrongly described the whole
+as a report, so the swallow is unchanged; where the body is UNRECOGNIZED it is no longer reported
+only by a tolerable code, and where the body is a RECOGNIZED mnemonic whose letter holds a delimiter
+role it is reported by NO code, deliberately), so the escape role stays on this list, narrowed.**
+**A repeat-role instance of (b), measured 2026-08-05 while grading defect 11's fix:** under `H|F^&`
+the ordinary `F` (final) result status letter is itself the repeat delimiter, so
+`R|1|^^^687|28.6|U/L||N||F` reads `status: unspecified` with the value and units intact, warning only
+`ASTM_NONSTANDARD_DELIMITERS`, and a default-path re-emit writes a `\\` into the status field that
+generation 2 reads with `warnings: []`. The entry enumerated a component-role instance and not this
+one. An earlier draft of this entry wrongly described the whole
 role group as splitting "perfectly" and costing only a test identity, which is the same
 misdiagnosis (misattribution, not value loss) that item existed to correct; a later draft
 wrongly struck the escape role off entirely. Both remaining halves `PRE-EXISTING`. **Not fixed

@@ -158,12 +158,13 @@ every measurement and every refuted formulation:
    by adding one. `documentation/agent-notes.md#defect-3`
 4. **CLOSED 2026-08-05.** `readDelimiters` accepted a declaration it cannot reverse (`H|^^&`,
    `H|\&&`) and the only warning was the **tolerable** `ASTM_NONSTANDARD_DELIMITERS`, which every
-   such set raises anyway, so a gate-legal profile left strict **accepting** it. Now
+   such set raises, so a gate-legal profile left strict **accepting** it. Now
    `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, not tolerable, once per header that **changes** the set.
-   **A report, not a repair**: the set is honored, no record is dropped, `A^B^C^D` under `H|^^&`
-   still reads as four repeats of one component. **The field role is NOT in it** (that declaration
-   does not resolve at all); it is the three pairs among the rest, **repeat/component,
-   repeat/escape, component/escape**. `documentation/agent-notes.md#defect-4`
+   **A report, not a repair**: the set is honored, `A^B^C^D` under `H|^^&` still reads as four
+   repeats of one component, and **the default-path re-emit still launders it** (measured, in the
+   notes). **The field role is NOT in it** (that declaration does not resolve at all); it is the
+   three pairs among the rest, **repeat/component, repeat/escape, component/escape**.
+   `documentation/agent-notes.md#defect-4`
 5. **CLOSED 2026-08-03.** Emit could escape a record's own type letter away, and the worse branch was
    **silent**: a `P` emitted under `{ field: "P", escape: "R" }` came back as an **`R` record** whose
    value was the patient's lab ID, so `results()` returned a fabricated final result built out of

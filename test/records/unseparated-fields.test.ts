@@ -173,9 +173,12 @@ describe("what it must never fire on", () => {
  * bare escape character used to merge every field after it, silently; it now reads as a literal and
  * raises `ASTM_UNPAIRED_ESCAPE_CHARACTER`. What did **not** change is the atom rule: an `&X&`
  * sequence whose body is a delimiter still swallows that delimiter and still costs the value, the
- * units and the status together. What did change is the reporting: it now also raises
- * `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not tolerable, so a profile can no longer
- * leave a strict parse accepting it. Both are asserted, so neither half of that sentence can drift.
+ * units and the status together. What did change is the reporting, and only for part of that group:
+ * where the body is UNRECOGNIZED it now also raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`,
+ * which is not tolerable, so a profile can no longer leave a strict parse accepting it; where the
+ * body is a RECOGNIZED mnemonic whose letter holds a delimiter role it raises neither code, because
+ * that is the sender escaping a delimiter on purpose. The `&|&` half is asserted below; the
+ * recognized-mnemonic half is asserted in `test/records/swallowed-delimiter.test.ts`.
  *
  * They are asserted rather than merely written down, so that the documented boundary cannot quietly
  * drift into a guarantee the code does not provide. A test here going red means the scope moved,
