@@ -115,6 +115,29 @@ describe("a declaration naming one character in two roles is reported", () => {
     ).toHaveLength(1);
   });
 
+  it("warns nothing when a later header merely restates the colliding set in force", () => {
+    // Two headers declare such a set and one warning is raised, because the second changes
+    // nothing: the set it names came into force, and was reported, at the first. The rule is the
+    // one every other delimiter warning follows. An earlier draft of the shipped prose said "once
+    // per header that declares such a set", which this stream measures false.
+    const raw = "H|&&&\rP|1||LAB-0001\rL|1|N\rH|&&&\rP|1||LAB-0002\rL|1|N\r";
+    expect(codes(raw)).toEqual([
+      WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
+      WARNING_CODES.ASTM_RECORD_DELIMITER_ROLE_COLLISION,
+    ]);
+  });
+
+  it("cannot be quieted by tolerating the code it used to hide behind", () => {
+    // The part-2 pin: a profile re-badges the code it names and no other, so tolerating the
+    // ordinary vendor-set warning leaves the collision report escalating in strict mode.
+    expect(() =>
+      parseAstmRecords("H|^^&\rP|1||LAB-0001\rL|1|N\r", {
+        strict: true,
+        profile: vendorSetProfile,
+      }),
+    ).toThrow(AstmStrictError);
+  });
+
   it("is not tolerable, and the warning it used to hide behind is", () => {
     expect(TOLERABLE_CODES.has(WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS)).toBe(true);
     expect(TOLERABLE_CODES.has(WARNING_CODES.ASTM_RECORD_DELIMITER_ROLE_COLLISION)).toBe(false);

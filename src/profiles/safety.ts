@@ -81,8 +81,10 @@
  * reported by codes that also fire on cases costing nothing.
  *
  * **So the ones that remain are recorded with the reading each one survives**, not
- * merely with the value it preserves. Each was re-derived against both readers of
- * record structure above, plus the single-message / single-patient guards:
+ * merely with the value it preserves. Each was re-derived against **every** reader of
+ * record structure named above (the count moved from two to three to five as they
+ * landed, which is why this sentence names none), plus the single-message /
+ * single-patient guards:
  *
  * - `ASTM_NONSTANDARD_DELIMITERS`: the header's own declared delimiters are read
  *   and honored either way, and this notes only that they differ from the canonical
@@ -95,6 +97,12 @@
  *   canonical stream can still carry a record that does not split, so tolerating the
  *   first can never quiet the second.
  *
+ *   **A new reader of the delimiter set landed with the fourth code, and it does not
+ *   read this one's condition.** `hasCollidingRoles` asks whether two roles name one
+ *   character; this code reports whether the set differs from the canonical one.
+ *   Those are different questions and neither implies the other, so tolerating this
+ *   code cannot quiet the collision report.
+ *
  *   **Its admission was resting on a set of declarations it does not distinguish,
  *   and no longer is.** A declaration naming one character in two roles is
  *   necessarily non-canonical, so this code fired on it, and until
@@ -106,10 +114,22 @@
  *   one and was honored.
  * - `ASTM_UNKNOWN_ESCAPE_SEQUENCE`: an unrecognized escape body is **preserved
  *   byte-for-byte** in the decoded value (the escape codec does not guess at one),
- *   so the value is identical with or without the profile. No reader sees it
- *   either: a decoded field value is never cut back into records, the type
- *   letter is read before decoding, and the split reader counts fields, which the
- *   escape-aware tokenizer has already finished dividing before any body is decoded.
+ *   so the value is identical with or without the profile. A decoded field value is
+ *   never cut back into records, the type letter is read before decoding, and the
+ *   split reader counts fields the escape-aware tokenizer has already finished
+ *   dividing, so none of those three sees it.
+ *
+ *   **Part 2 acquired a reader here, and it is named rather than left to be found.**
+ *   `isSplittingDelimiter` in `../common/escapes.ts` runs **only** on the
+ *   unrecognized-body condition this code reports, and decides out of it whether to
+ *   raise `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`. That is a reader of the
+ *   reported condition, which is exactly what part 2 asks about, so this entry no
+ *   longer survives on "nothing reads it". It survives on a narrower and checkable
+ *   claim: a profile tolerating a code re-badges **that code and no other**, so
+ *   tolerating this one cannot quiet what the reader raises, and what it raises is
+ *   not tolerable in any case. If a future reader of this same condition ever
+ *   produces something a profile **can** tolerate, this entry stops being admissible
+ *   and comes off the list.
  *
  *   **This entry used to be recorded as questionable, and what made it questionable
  *   is now a separate code that is not on this list.** The argument above is about

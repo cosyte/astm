@@ -89,7 +89,8 @@
  * record re-reads as its own *type*. They do not guarantee that every *field* of it
  * lands where it did: an escape sequence whose body is itself a delimiter is read as
  * one opaque atom, so that delimiter never becomes a boundary and the fields after it
- * shift. That is reported on the parse side (`ASTM_UNKNOWN_ESCAPE_SEQUENCE`) and is
+ * shift. That is reported on the parse side, by `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`
+ * (which no profile may tolerate) alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, and is
  * not what these refusals cover.
  */
 
@@ -741,7 +742,8 @@ function declarationResidual(header: HeaderRecord, d: Delimiters): string {
  * different records. What neither check promises is that every *field* lands where
  * it did: an escape sequence whose body is a delimiter is an opaque atom, so that
  * delimiter never becomes a boundary, and the parse side reports that
- * (`ASTM_UNKNOWN_ESCAPE_SEQUENCE`) rather than emit refusing it.
+ * (`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, plus the tolerable
+ * `ASTM_UNKNOWN_ESCAPE_SEQUENCE`) rather than emit refusing it.
  *
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
  * @param d - The delimiters to emit against; defaults to the canonical `H|\^&` set.

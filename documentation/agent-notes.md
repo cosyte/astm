@@ -21,7 +21,7 @@ not removed, because the correction is usually the lesson.
 
 - [The shipped docs sidebar is a published contract](#the-shipped-docs-sidebar-is-a-published-contract)
 - [Status](#status) (the shipped-phase histories, and the version-in-prose trap)
-- [Known defects live on `main`](#known-defects-live-on-main-recorded-here-so-they-survive-independently-of-any-backlog) (14 entries, one section each)
+- [Known defects live on `main`](#known-defects-live-on-main-recorded-here-so-they-survive-independently-of-any-backlog) (16 entries, one section each)
 - [Engineering Guardrails](#engineering-guardrails) (the `attw` wrapper)
 - [Standing disciplines (every change)](#standing-disciplines-every-change) (public-surface bookkeeping, and the em dash gate)
 
@@ -443,7 +443,11 @@ Found while grading `ASTM-EMIT-RESIDUALS` 2026-07-29.
 **CLOSED 2026-08-05 by `ASTM-FRAME-RESIDUALS`, as a REPORT and not as a refusal.** The declaration
 is still read and honored and no record is dropped, because refusing it would drop records the
 sender did send; what is new is `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, raised at the header that
-declared it, once per header rather than once per colliding pair, and **not** on `TOLERABLE_CODES`.
+put the set into force, once rather than once per colliding pair, and **not** on `TOLERABLE_CODES`.
+**A later header restating the colliding set already in force warns nothing** (the `sameDelimiters`
+early return in `adoptRedeclaredDelimiters`), on the same rule as every other delimiter warning: a
+first draft of this entry said "once per header that declares such a set", the refuter measured two
+declaring headers producing one warning, and the sentence was the defect.
 
 **▶ THE FIELD ROLE IS NOT IN IT, AND SAYING "FOUR ROLES" HERE IS WRONG.** A declaration naming the
 field separator in another role does not resolve at all (`readDelimiters` returns `undefined`), so
@@ -722,8 +726,9 @@ were gone. **(b)** A set differing in the **repeat / component / escape** role u
 into fields normally, and the damage varies. A `:`-component record under the canonical set
 keeps its value and units but loses its test identity, silently. **An ESCAPE character occurring
 literally in a record was much worse and cost the value: that was defect 8, and only its BARE
-form is closed. An `&X&` whose body is a delimiter still swallows it (defect 11), so the escape
-role stays on this list, narrowed.** An earlier draft of this entry wrongly described the whole
+form is closed. An `&X&` whose body is a delimiter still swallows it (defect 11, closed 2026-08-05
+as a report, so the swallow is unchanged and is no longer reported only by a tolerable code), so the
+escape role stays on this list, narrowed.** An earlier draft of this entry wrongly described the whole
 role group as splitting "perfectly" and costing only a test identity, which is the same
 misdiagnosis (misattribution, not value loss) that item existed to correct; a later draft
 wrongly struck the escape role off entirely. Both remaining halves `PRE-EXISTING`. **Not fixed
@@ -995,6 +1000,46 @@ module doc made it four; the count is dropped rather than corrected, because it 
 for nothing.) Pinned in `test/records/declaration-surplus-residual.test.ts`, which **passes on
 `4bb62f1` by design**: it measures behaviour this slice does not change, and its job is to stop
 the sentences drifting back to the unqualified form.
+
+<a id="defect-15"></a>
+
+### Defect 15: a greedy leftmost atom can GAIN a boundary the sender escaped (open)
+
+**The mirror of defect 11, and it survived defect 11's fix on purpose.** `splitEscapeAware` matches
+escape sequences greedily, left to right, so an earlier triple can consume the escape character that
+would have opened a later one. Measured on the canonical set, head and base alike:
+`R|1|^^^687|28.6&Z&|&U/L||||F` reads `value` = `28.6&Z&` and `units` = `&U/L`, status `final`. The
+`&Z&` atom consumed the `&` that would have started `&|&`, so the field separator **did** split, one
+boundary more than the bytes' author wrote. The two warnings raised,
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE` and `ASTM_UNPAIRED_ESCAPE_CHARACTER`, are **both on
+`TOLERABLE_CODES`**, so `{ strict: true }` under a gate-legal profile accepts it.
+
+**`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` correctly stays silent here**, and that is not a gap in
+defect 11's fix: nothing was swallowed. This is the opposite condition, a boundary gained rather than
+lost, and what should report it, and whether the greedy match is the right one at all, is a different
+question with a different blast radius. `PRE-EXISTING` (identical on `3107273`). **Not a
+stop-the-line**, because it needs a non-conformant `&|&` escaping form to bite and two warnings do
+fire, but both of those are tolerable, so the same argument that made defect 11 worth scheduling
+applies here. Found by the `conformance-refuter` grading `ASTM-FRAME-RESIDUALS` 2026-08-05.
+
+<a id="defect-16"></a>
+
+### Defect 16: `readDelimiters`'s field-collision branch is unreachable, and the fatal it produces names the wrong reason (open)
+
+`readDelimiters` ends with a check that the field separator is not also the repeat, component or
+escape character. **That branch cannot be reached.** A field separator appearing in any of those
+three positions sits at index 2, 3 or 4 of the record, so `indexOf(field, 2)` returns at most 4, the
+delimiter definition is at most two characters, and the `definition.length < 3` check has already
+returned `undefined`. The **outcome** is right in all three cases, and defect 4's closure documents
+it correctly ("that declaration does not resolve at all"). What is wrong is the message a consumer
+sees: `H||^&` raises the `ASTM_RECORD_UNDECLARED_DELIMITERS` fatal reading "Header record is too
+short to declare the four delimiters", for a header that is not short. `PRE-EXISTING`.
+
+**Do not "fix" it by deleting the branch.** It is the statement of an invariant that the length check
+happens to enforce first, and the two are not the same rule: a change to how the definition field is
+bounded could separate them again. The fix, when it is taken, is the fatal's message and probably a
+second fatal reason code, which is a published-surface change and wants its own slice. Found by the
+`conformance-refuter` grading `ASTM-FRAME-RESIDUALS` 2026-08-05.
 
 <a id="defects-closed-elsewhere"></a>
 

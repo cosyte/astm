@@ -81,7 +81,10 @@ export const WARNING_CODES = {
    * structurally unreadable declaration indistinguishable, to a strict consumer, from an ordinary
    * vendor set. Emit refuses the same sets outright (`ASTM_EMIT_INVALID_DELIMITERS`).
    *
-   * One warning per header that declares such a set, not one per colliding pair.
+   * One warning per header that **changes** the set in force into such a set, not one per colliding
+   * pair. A later header restating the colliding set already in force is a no-op and warns nothing,
+   * on the same rule as {@link WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS}: the set it names was
+   * already reported when it came into force.
    */
   ASTM_RECORD_DELIMITER_ROLE_COLLISION: "ASTM_RECORD_DELIMITER_ROLE_COLLISION",
   /**

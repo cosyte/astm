@@ -25,7 +25,8 @@
  * only re-badges the *warning*: no value, flag, status, or identifier is altered
  * or dropped. And by the safety gate in `defineAstmProfile`, it **cannot** tolerate
  * a result value / flag / status / range / units, a patient or comment context, a
- * message-kind ambiguity, an unrecognized record type, a delimiter an unrecognized
+ * message-kind ambiguity, an unrecognized record type, a declaration naming one
+ * character in two delimiter roles, a delimiter an unrecognized
  * escape sequence kept out of the split, or any frame / LTP integrity
  * warning: those always surface, profile or not. The unrecognized-record-type case
  * matters because message grouping reads a record's type letter, so a letter the

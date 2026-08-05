@@ -407,12 +407,15 @@ describe("what the guard does NOT reach, pinned so it is not read as wider", () 
 
   it("is a check on the TYPE LETTER, not a readback guarantee for the whole record", () => {
     // A set that keeps every type letter can still be one this library re-reads
-    // differently. `ASTM_UNKNOWN_ESCAPE_SEQUENCE` (a delimiter as an escape body) is
-    // the standing example: reported, tolerable, and untouched by this guard.
+    // differently. A delimiter as an escape body is the standing example: reported
+    // (by `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not tolerable, and by
+    // `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, which is) and untouched by this guard, which
+    // reads the type letter only.
     const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6&|&U/L||||F\rL|1\r");
     expect(results(msg)[0]?.value).toBe("28.6&|&U/L");
     expect(results(msg)[0]?.units).toBeUndefined();
     expect(codesOf(msg)).toContain("ASTM_UNKNOWN_ESCAPE_SEQUENCE");
+    expect(codesOf(msg)).toContain("ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE");
     // Emitting it is not refused: no type letter is at risk.
     expect(() => serializeAstmRecords(msg)).not.toThrow();
   });

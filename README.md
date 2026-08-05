@@ -208,8 +208,9 @@ Under `H|\&&`, where the component and escape roles are both `&`, the same chara
 (`A&B` is two components) or opens an escape atom (`A&F&B` is the single component `A|B`) depending
 only on what follows it.
 
-Such a header now raises `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, at the header that declared it and
-once per header rather than once per colliding pair. The code is **not** tolerable. That matters
+Such a header now raises `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, at the header that put the set into
+force, once rather than once per colliding pair. A later header restating the set already in force
+warns nothing, on the same rule that governs the other delimiter warnings. The code is **not** tolerable. That matters
 because every such set is by definition non-canonical, so the only warning it used to raise was
 `ASTM_NONSTANDARD_DELIMITERS`, which is tolerable: a profile expecting an ordinary vendor set left a
 `{ strict: true }` parse accepting a declaration whose own field tree cannot be recovered. Emit has
