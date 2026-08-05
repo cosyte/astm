@@ -26,6 +26,10 @@ import type { AstmField } from "./types.js";
  * @param onSwallowedDelimiter - Called (with the 0-based field index) for each
  *   unrecognized escape sequence whose body is a splitting delimiter in force, so
  *   that delimiter never became a boundary.
+ * @param onAmbiguousAlignment - Called (with the 0-based field index) for each
+ *   unrecognized escape sequence whose closing escape character could instead have
+ *   opened one holding the delimiter that split, so the boundary is one of two
+ *   readings the bytes carry.
  * @returns The record's fields.
  * @example
  * ```ts
@@ -40,8 +44,13 @@ export function tokenizeRecord(
   onUnknownEscape?: (fieldIndex: number) => void,
   onUnpairedEscape?: (fieldIndex: number) => void,
   onSwallowedDelimiter?: (fieldIndex: number) => void,
+  onAmbiguousAlignment?: (fieldIndex: number) => void,
 ): AstmField[] {
-  const rawFields = splitEscapeAware(record, d.field, d.escape);
+  // The field split reports the ambiguity itself: the segment index it hands back IS the field
+  // index, because a gained field boundary is not visible from inside either field it made.
+  const rawFields = splitEscapeAware(record, d.field, d.escape, (fieldIndex) =>
+    onAmbiguousAlignment?.(fieldIndex),
+  );
   return rawFields.map((raw, fieldIndex) =>
     toField(
       raw,
@@ -49,6 +58,7 @@ export function tokenizeRecord(
       () => onUnknownEscape?.(fieldIndex),
       () => onUnpairedEscape?.(fieldIndex),
       () => onSwallowedDelimiter?.(fieldIndex),
+      () => onAmbiguousAlignment?.(fieldIndex),
     ),
   );
 }
@@ -81,6 +91,9 @@ export function tokenizeRecord(
  *   for each unrecognized escape sequence in the data portion whose body is a
  *   splitting delimiter in force. The declaration is opaque, so the delimiters it
  *   names literally never report here.
+ * @param onAmbiguousAlignment - Called with the 0-based whole-record field index for
+ *   each competing escape alignment in the data portion. The declaration is opaque,
+ *   so the characters it names literally never report here either.
  * @returns The header's fields.
  * @example
  * ```ts
@@ -96,6 +109,7 @@ export function tokenizeHeader(
   onUnknownEscape?: (fieldIndex: number) => void,
   onUnpairedEscape?: (fieldIndex: number) => void,
   onSwallowedDelimiter?: (fieldIndex: number) => void,
+  onAmbiguousAlignment?: (fieldIndex: number) => void,
 ): AstmField[] {
   // The delimiter-definition field runs from index 2 to the next field separator.
   const defEnd = record.indexOf(d.field, 2);
@@ -109,6 +123,7 @@ export function tokenizeHeader(
     (i) => onUnknownEscape?.(i + 2),
     (i) => onUnpairedEscape?.(i + 2),
     (i) => onSwallowedDelimiter?.(i + 2),
+    (i) => onAmbiguousAlignment?.(i + 2),
   );
   return [...head, ...data];
 }
@@ -125,10 +140,18 @@ function toField(
   onUnknownEscape: () => void,
   onUnpairedEscape: () => void,
   onSwallowedDelimiter: () => void,
+  onAmbiguousAlignment: () => void,
 ): AstmField {
-  const rawRepeats = splitEscapeAware(raw, d.repeat, d.escape);
+  // Each split reports the competing alignments that would have held ITS delimiter, so a role is
+  // asked about exactly once: a character that is a delimiter in a later role survives into the
+  // segment that role's pass reads, and one this pass split on cannot reach a later one.
+  const rawRepeats = splitEscapeAware(raw, d.repeat, d.escape, () => {
+    onAmbiguousAlignment();
+  });
   const repeats = rawRepeats.map((rep) =>
-    splitEscapeAware(rep, d.component, d.escape).map((comp) =>
+    splitEscapeAware(rep, d.component, d.escape, () => {
+      onAmbiguousAlignment();
+    }).map((comp) =>
       decodeEscapes(comp, d, onUnknownEscape, onUnpairedEscape, onSwallowedDelimiter),
     ),
   );

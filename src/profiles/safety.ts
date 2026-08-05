@@ -80,10 +80,25 @@
  * behavior for every profile naming it while still leaving the two conditions
  * reported by codes that also fire on cases costing nothing.
  *
+ * **A sixth reader landed with `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, and it is
+ * the mirror of the fifth.** That code reports that the escape character closing an
+ * unrecognized sequence could instead have opened one holding the delimiter that
+ * split, so the bytes carry two alignments disagreeing by one boundary and the
+ * leftmost was taken. It is safety-critical by construction, and the direction is
+ * why it could not be left to the codes below: the fifth reports a boundary the
+ * reading **lost**, this one a boundary the reading may have **gained**, and a
+ * gained boundary hands back a value the sender's bytes do not unambiguously carry.
+ * Both of the codes that condition previously raised are on the list below, so a
+ * profile naming them left `{ strict: true }` accepting it. Re-reading the survivors
+ * against it changed no admission and rewrote no argument: none of the four is a
+ * statement about where a boundary was taken, and the new code is not tolerable, so
+ * the same "a profile re-badges the code it names and no other" reason already
+ * written under the two escape entries covers it.
+ *
  * **So the ones that remain are recorded with the reading each one survives**, not
  * merely with the value it preserves. Each was re-derived against **every** reader of
- * record structure named above (the count moved from two to three to five as they
- * landed, which is why this sentence names none), plus the single-message /
+ * record structure named above (this sentence deliberately names no count: it has
+ * been corrected upward at every slice that landed one), plus the single-message /
  * single-patient guards:
  *
  * - `ASTM_NONSTANDARD_DELIMITERS`: the header's own declared delimiters are read
@@ -129,6 +144,15 @@
  *   produces something a profile **can** tolerate, this entry stops being admissible
  *   and comes off the list.
  *
+ *   **A second reader of the same condition landed, and it is named here for the
+ *   same reason.** The mnemonic test in `../common/escapes.ts` is now asked twice:
+ *   once by the decoder, to decide whether a body is recognized, and once by the
+ *   escape-aware split, which raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` only
+ *   where an **unrecognized** body sits in a sequence a competing alignment would
+ *   have aligned differently. That is the condition this code reports, read a second
+ *   time, and this entry survives it on the same narrower claim: what that reader
+ *   raises is a different code, which a profile cannot name and cannot tolerate.
+ *
  *   **This entry used to be recorded as questionable, and what made it questionable
  *   is now a separate code that is not on this list.** The argument above is about
  *   the *decoded value*, and it holds. What it did not cover is that the
@@ -163,6 +187,14 @@
  *   replaced, which **would** have failed part 1: reading the same character as an
  *   unterminated sequence merged every field after it into one, and a code reporting
  *   that would have been a report of lost values.
+ *
+ *   **The alignment reader is not a reader of this condition, and the distinction is
+ *   worth stating rather than leaving to be checked.** It asks whether the character
+ *   two positions past a sequence *is* the escape character, never whether that
+ *   character heads a sequence of its own, which is the question this code answers.
+ *   The two are independent in both directions, measured: `28.6&Z&|&U/L` raises this
+ *   code and the alignment code together, and `28.6&Z&|&U&L` raises the alignment
+ *   code with no unpaired character anywhere in it.
  * - `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`: a request-information status carried
  *   verbatim as a leaf field on a `Q` record; the code set is paywalled and is not
  *   interpreted, profile or not. Classification reads whether a `Q` record is
@@ -175,7 +207,8 @@
  * units, a mis-attached comment, a partial timestamp, a query-vs-result ambiguity,
  * an unrecognized record type, a record the delimiters in force could not split, a
  * declaration naming one character in two roles, a delimiter an unrecognized escape
- * sequence kept out of the split, a bad frame checksum / sequence gap / unterminated
+ * sequence kept out of the split, a boundary a competing escape alignment disagrees
+ * about, a bad frame checksum / sequence gap / unterminated
  * / oversize frame, an ambiguous transport, an unexpected protocol event, or a
  * rejected frame: is forbidden.
  *
@@ -214,11 +247,13 @@ import type { AnyAstmWarningCode } from "./types.js";
  * reports a record the delimiters in force could not split, so every modeled field
  * of that record is missing: it fails the first half of the test outright.
  *
- * `ASTM_RECORD_DELIMITER_ROLE_COLLISION` and
- * `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` are not on this list and must not be
- * added to it. Each reports a boundary that is not in the reading, and each exists
- * precisely because the only warning its condition previously raised was one of the
- * four below.
+ * `ASTM_RECORD_DELIMITER_ROLE_COLLISION`,
+ * `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` and
+ * `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` are not on this list and must not be
+ * added to it. Each reports a boundary the reading cannot defend from the bytes (the
+ * first two a boundary that is not in the reading, the third one that may not be in
+ * the bytes), and each exists precisely because the only warnings its condition
+ * previously raised were among the four below.
  *
  * @example
  * ```ts

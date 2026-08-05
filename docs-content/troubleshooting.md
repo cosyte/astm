@@ -95,6 +95,34 @@ reading itself is unchanged, and it does not survive a re-emit: this package rew
 sequence into recognized mnemonics, and the resulting stream says that value unambiguously, so a
 second-generation read is silent. Catch it on the first read of the wire bytes.
 
+## Two escape sequences could have been aligned differently
+
+`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` says the same bytes carry two readings that disagree about
+one field, repeat or component boundary. Sequences are matched greedily and leftmost, so the escape
+character closing one cannot also open the next. Where it could have, and where the body it would
+have held is the delimiter that split, one alignment ends a field there and the other holds that
+delimiter inside an opaque atom and ends nothing. `R|1|^^^687|28.6&Z&|&U/L||||F` reads a value of
+`28.6&Z&` and units of `&U/L` under the alignment taken, and reads as a single unsplit field under
+the other.
+
+The leftmost reading is kept and every byte is preserved. Taking the other alignment would be a
+different guess with no more evidence behind it, so what this reports is that the boundary you were
+handed is a choice, not that it is wrong. It is not tolerable, so a strict parse refuses the record
+whatever profile is in force. Two cases are outside it, deliberately. A **recognized** mnemonic
+before the delimiter is silent, because the reading taken interprets a construct (`&F&` is an escaped
+separator, which is what the mechanism is for) while the competitor's body is a delimiter character
+the parser usually cannot interpret, so it prefers the reading taken. **That is not a promise that
+the reading taken is conformant**, and two cases fall in the gap, both measured and both still open:
+`28.6&F&|&U/L` reads a value of `28.6|` and units of `&U/L` while raising only the tolerable
+`ASTM_UNPAIRED_ESCAPE_CHARACTER`, and a declared set naming a mnemonic letter as a splitting
+delimiter leaves both alignments interpreting one construct each with neither preferred. Treat a
+bare escape character next to a delimiter as worth reading the raw line for, whether or not this code
+fired. The other excluded case is a delimiter with no escape character two positions past it, which
+is no competing alignment at all. What does fire is a subset of what already raises
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its mirror above it does not survive a re-emit: catch it on the
+first read of the wire bytes. **What to do:** ask the sender to escape a literal escape character as
+`&E&`, which removes the competing alignment at the source.
+
 ## A header declared one character in two delimiter roles
 
 `ASTM_RECORD_DELIMITER_ROLE_COLLISION` says the `H` record named the same character in two of the

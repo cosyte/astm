@@ -197,6 +197,28 @@ preserved sequence into recognized mnemonics, and that stream says the same valu
 second-generation read is silent and is right about its own bytes. The first read of the wire bytes
 is where the condition exists to be caught.
 
+**The mirror of it costs a boundary in the other direction, and it also has a code of its own.**
+Sequences are matched greedily and leftmost, so the escape character that closes one cannot also open
+the next. Where it could have, the same bytes carry two alignments that disagree by one boundary:
+`R|1|^^^687|28.6&Z&|&U/L||||F` reads a value of `28.6&Z&` and units of `&U/L` under the alignment
+taken, and reads as a single unsplit field carrying both under the other. Every byte is preserved and
+the leftmost reading is kept (picking the other one would be a different guess with no more evidence
+behind it), but the boundary it hands you is a choice, so it raises
+`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, which **no profile may tolerate**. Both codes the condition
+raised before (`ASTM_UNKNOWN_ESCAPE_SEQUENCE` and `ASTM_UNPAIRED_ESCAPE_CHARACTER`) are tolerable, so
+a strict parse under a profile naming them used to accept it. Two exclusions again. A **recognized**
+mnemonic before the delimiter is silent, because the reading taken interprets a construct (`&F&` is
+the sender escaping a separator, which is what the mechanism is for) while the competitor's body is a
+delimiter character the codec usually cannot interpret, so its own vocabulary prefers the reading
+taken. That is **not** the same as the reading taken being conformant, and the exclusion is wider
+than that argument: `28.6&F&|&U/L` reads a value of `28.6|` and units of `&U/L` while raising only
+the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, and a declared set naming a mnemonic letter as a
+splitting delimiter makes both alignments interpret one construct each with neither preferred. Those
+two are measured and recorded as open residues, not covered here. The other exclusion is a delimiter
+with no escape character two positions past it, which is no competing alignment at all. What does
+fire is a subset of what already raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. It does not survive a
+re-emit either, for the same reason as its mirror: catch it on the first read.
+
 ### A header that names one character in two delimiter roles
 
 ASTM messages are self-describing: the `H` record declares the four delimiters and a conformant
@@ -288,7 +310,10 @@ outside it:
   that is itself a delimiter in force is an opaque
   atom, so that delimiter does not split and the value, the units and the status can still go
   together. That one raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not tolerable,
-  alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The split itself is unchanged.
+  alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The split itself is unchanged. Its mirror,
+  where the leftmost alignment lets a delimiter split that a competing alignment would have held,
+  gains a boundary instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also
+  not tolerable.
 
 All are accepted limits, for two different reasons: widening the field-separator check would mean
 deciding which set a record ought to have had, which is the same guess the parser declines to make

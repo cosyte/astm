@@ -92,7 +92,13 @@
  * one opaque atom, so that delimiter never becomes a boundary and the fields after it
  * shift. That is reported on the parse side, by `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`
  * (which no profile may tolerate) alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, and is
- * not what these refusals cover.
+ * not what these refusals cover. Nor is the mirror of it: sequences are matched leftmost, so one
+ * can end where another could have begun and the delimiter between them splits where the competing
+ * alignment would have held it, reported by `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`. **Neither
+ * report survives this serializer**, by construction rather than by oversight: it rewrites the
+ * preserved characters into recognized mnemonics, so the emitted stream carries the reading that
+ * was taken with nothing ambiguous left in it, and a second-generation parse is silent and correct
+ * about its own bytes. Catch both on the first read of the wire bytes.
  */
 
 import { CANONICAL_DELIMITERS, type Delimiters } from "../common/delimiters.js";
@@ -745,7 +751,10 @@ function declarationResidual(header: HeaderRecord, d: Delimiters): string {
  * force is an opaque atom, so that
  * delimiter never becomes a boundary, and the parse side reports that
  * (`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, plus the tolerable
- * `ASTM_UNKNOWN_ESCAPE_SEQUENCE`) rather than emit refusing it.
+ * `ASTM_UNKNOWN_ESCAPE_SEQUENCE`) rather than emit refusing it. The mirror case, where a sequence
+ * ends where another could have begun so a delimiter splits that the competing alignment would
+ * have held, is reported the same way (`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`). Emitting
+ * normalizes both away rather than preserving them, so neither reaches a second generation.
  *
  * @param input - A parsed {@link AstmMessage} or a list of {@link AstmRecord}s.
  * @param d - The delimiters to emit against; defaults to the canonical `H|\^&` set.

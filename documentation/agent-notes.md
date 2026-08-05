@@ -4,7 +4,8 @@ The narrative half of this repo's `CLAUDE.md`, relocated here **verbatim** on 20
 `CLAUDE.md` fits the write-time bound the meta-repo puts on a submodule's always-read guide (its
 entry in `REPO_CLAUDE`, `.claude/hooks/doc-budget.mjs`, argued in ADR 0023: a per-repo ratchet whose
 entries are lowered as relocations land). **No number for it is quoted in either file on purpose**;
-read the entry. Nothing was deleted. Every trap that lived in a paragraph here
+read the entry: the bound that preceded it was quoted into documents and went stale inside a day,
+which is the failure this split exists to fix. Nothing was deleted. Every trap that lived in a paragraph here
 still lives in `CLAUDE.md` as a one-line imperative that points back at its section, and the
 reasoning, the measurements and the refuted claims are all below, word for word.
 
@@ -21,7 +22,7 @@ not removed, because the correction is usually the lesson.
 
 - [The shipped docs sidebar is a published contract](#the-shipped-docs-sidebar-is-a-published-contract)
 - [Status](#status) (the shipped-phase histories, and the version-in-prose trap)
-- [Known defects live on `main`](#known-defects-live-on-main-recorded-here-so-they-survive-independently-of-any-backlog) (16 entries, one section each)
+- [Known defects live on `main`](#known-defects-live-on-main-recorded-here-so-they-survive-independently-of-any-backlog) (one section each; the count is not written down, because it moves)
 - [Engineering Guardrails](#engineering-guardrails) (the `attw` wrapper)
 - [Standing disciplines (every change)](#standing-disciplines-every-change) (public-surface bookkeeping, and the em dash gate)
 
@@ -171,6 +172,7 @@ of the roadmap.
   (python-astm, senaite `sysmex_xn550` / `cobas_c111` transcripts) found the record layer spec-clean
   (canonical `|\^&`, standard record grammar), so none are authored. (LIVD terminology and release
   hardening, P9/P10, have since shipped; see the entries above.)
+
 - **Phase 7 shipped (ASTM-7): spec-clean serializers + builders, both layers now round-trip by
   construction.** `src/records/serialize.ts` + `src/records/build.ts` are the conservative inverse of the
   record parser; `src/frames/encode.ts` is the inverse of the frame codec; `serializeFramedAstm`
@@ -1018,7 +1020,7 @@ the sentences drifting back to the unqualified form.
 
 <a id="defect-15"></a>
 
-### Defect 15: a greedy leftmost atom can GAIN a boundary the sender escaped (open)
+### Defect 15: a greedy leftmost atom can GAIN a boundary the sender escaped (CLOSED 2026-08-05)
 
 **The mirror of defect 11, and it survived defect 11's fix on purpose.** `splitEscapeAware` matches
 escape sequences greedily, left to right, so an earlier triple can consume the escape character that
@@ -1037,9 +1039,62 @@ stop-the-line**, because it needs a non-conformant `&|&` escaping form to bite a
 fire, but both of those are tolerable, so the same argument that made defect 11 worth scheduling
 applies here. Found by the `conformance-refuter` grading `ASTM-FRAME-RESIDUALS` 2026-08-05.
 
+**CLOSED IN PART 2026-08-05 by `ASTM-FRAME-RESIDUALS`, and closed as a REPORT, on defect 11's shape.
+Read defect 17 for what is left**: the class where the leftmost triple's body is a **recognized**
+mnemonic is outside the new code, deliberately, and is still strict-accepted under a gate-legal
+profile. The
+split is unchanged, the leftmost alignment is still the one taken, and every decoded byte is
+identical: `28.6&Z&` and `&U/L`, exactly as before. What is new is
+`ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, raised **alongside** the tolerable codes rather than
+instead of them, whenever the escape character closing an **unrecognized** sequence could instead
+have opened one whose body is the delimiter that split. It is not on `TOLERABLE_CODES`, so
+`{ strict: true }` refuses that record under any gate-legal profile.
+
+**▶ THE OTHER ALIGNMENT WAS CONSIDERED AND REJECTED, AND THAT IS THE WHOLE DESIGN.** Reading
+`28.6&Z&|&U/L` as `28.6&Z` plus the atom `&|&` plus `U/L` is not more defensible than reading it
+leftmost: it is a different guess, with no more evidence behind it, and taking it would move values
+on a package that is already published. The bytes carry two readings and the parser is not entitled
+to pick between them silently, which is what it was doing. So it keeps the reading it had and says
+the boundary is a choice.
+
+**▶ TWO EXCLUSIONS, BOTH DELIBERATE, AND THE FIRST IS THE ONE THAT KEEPS IT OFF CONFORMANT
+STREAMS.** Where the earlier sequence's body is a **recognized mnemonic** nothing is reported, and
+the reason is not symmetry: under `28.6&F&|&U/L` the leftmost reading is an escaped field separator
+followed by a real one, which is the escape mechanism working, while the competing alignment needs
+both an unpaired escape character and an unrecognized body to exist at all. Measured: that stream
+raises only the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER` and reads `28.6|`. And where the
+character two positions past the delimiter is not the escape character there is no competing
+alignment at all, so an ordinary escaped value followed by an ordinary boundary stays silent. A
+consequence worth stating: the new code is a strict subset of the streams that already raise
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so it can never fire on a stream a conformant sender produced.
+
+**▶ IT DOES NOT REACH THROUGH A RE-EMIT, THE SAME RESIDUE ITS SIBLING DISCLOSED.** Emit rewrites the
+preserved characters into recognized mnemonics (`28.6&E&Z&E&|&E&U/L`), and generation 2 reads
+`28.6&Z&` and `&U/L` with `warnings: []`. That is **correct** about generation 2's own bytes, which
+carry the reading that was taken with no competitor left in them; the choice is inherited from
+generation 1. So the catch point is the first read of the wire bytes, and there is no guard on the
+round trip. Never write it as closed.
+
+**▶ MEASURED, over the committed constants `ALIGNMENT_ALPHABET` and `neutralStream` in
+`test/records/escape-alignment-ambiguity.test.ts`.** The tier is
+**strict-accepted-under-a-gate-legal-profile**, because "0 silent" is structurally unreachable here:
+an unrecognized escape body always raises a tolerable code. The instrument is a profile built **from**
+`TOLERABLE_CODES` itself, so it is the widest tolerance the safety gate can permit. Twelve characters
+(the four mnemonics, the three splitting roles, the escape role, four non-delimiters) swept in both
+positions of the pair that decides this, on a comment record chosen so no result-semantics warning
+masks the count: **144 tuples, 24 raise the new code** (the eight unrecognized bodies against the
+three splitting roles), and strict acceptance goes **108 to 93**, the 15 that moved being exactly the
+tuples the new code fired on, which is **not** the same as the 24 that fire: the other 9 were already
+refused by `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`. A second figure for the `R` fixture's own
+corpus stood here for one gate pass and is **deleted rather than restated**, because it named no
+committed constant, was not re-derivable from the sweep it claimed to be, and the explanation
+attached to it could not have produced it. There is one corpus for this defect and it is the one
+named above. **Do not quote any of these figures without the alphabet and the carrier record, because
+both move every one of them.**
+
 <a id="defect-16"></a>
 
-### Defect 16: `readDelimiters`'s field-collision branch is unreachable, and the fatal it produces names the wrong reason (open)
+### Defect 16: `readDelimiters`'s field-collision branch is unreachable, and the fatal it produces names the wrong reason (CLOSED 2026-08-05)
 
 `readDelimiters` ends with a check that the field separator is not also the repeat, component or
 escape character. **That branch cannot be reached.** A field separator appearing in any of those
@@ -1055,6 +1110,76 @@ happens to enforce first, and the two are not the same rule: a change to how the
 bounded could separate them again. The fix, when it is taken, is the fatal's message and probably a
 second fatal reason code, which is a published-surface change and wants its own slice. Found by the
 `conformance-refuter` grading `ASTM-FRAME-RESIDUALS` 2026-08-05.
+
+**CLOSED 2026-08-05 by `ASTM-FRAME-RESIDUALS`, as a MESSAGE ONLY.** `readDelimiterDeclaration` is
+`readDelimiters` with the reason kept (`not-a-header`, `record-too-short`, `definition-truncated`,
+`field-separator-reused`), and the first header's fatal carries the message for the reason it
+actually hit. `H||^&` now reads "declares fewer than three delimiter-definition characters before its
+next field separator" instead of "is too short". `readDelimiters` itself is untouched in behaviour
+and in signature.
+
+**▶ THE SECOND FATAL CODE THIS ENTRY PREDICTED WAS CONSIDERED AND REJECTED.** Splitting
+`ASTM_RECORD_UNDECLARED_DELIMITERS` in two would move the code a consumer switches on for a stream
+whose disposition is already right, which is a breaking change bought for a sentence. One code and
+four messages keeps the stable thing stable and fixes the thing that was wrong. If a future reason
+ever wants a **different disposition** rather than a different sentence, that is when it earns a
+code.
+
+**▶ THE UNREACHABLE BRANCH STAYS, AND THE UNREACHABILITY IS NOW MEASURED RATHER THAN ARGUED.** Over
+the committed constants `FIELD_SEPARATOR_ALPHABET` and `DEFINITION_POSITIONS` in
+`test/common/delimiter-declaration-faults.test.ts` (twelve candidate field separators, each placed in
+each of the three definition positions): **36 of 36 classify as `definition-truncated` and 0 as
+`field-separator-reused`**, and none resolves. That is the invariant the truncation rule enforces on
+the branch's behalf, pinned so a change to how the definition field is bounded shows up as a test
+moving rather than as a branch quietly becoming live.
+
+**▶ ONE MORE WRONG REASON WAS FOUND WHILE FIXING THIS ONE, AND FIXED WITH IT.** The reader asked
+about the length before the type letter, so `readDelimiterDeclaration("P|1")` answered
+`record-too-short`: a `P` record reported as a short header, which is the same wrong-reason class.
+The type letter is asked first now. No caller's outcome changed (`readDelimiters` returns
+`undefined` either way, and the first record's type is checked before this function is reached), so
+this is the reason a direct caller is given, not a disposition.
+
+<a id="defect-17"></a>
+
+### Defect 17: the alignment report excludes a recognized mnemonic body, wider than its own argument (open, measured and pinned)
+
+**Open, `PRE-EXISTING`, disclosed by the `conformance-refuter` grading defect 15's fix 2026-08-05,
+and left open on purpose.** `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` fires only where the leftmost
+triple's body is **unrecognized**. The argument for that exclusion is which alignment this codec's
+own vocabulary supports: a recognized body means the reading taken interprets a construct while the
+competitor's body is a delimiter character it usually cannot interpret. **The exclusion is wider than
+that argument, in two measured ways, and neither is closed.**
+
+**▶ (a) A RECOGNIZED BODY DOES NOT MAKE THE READING TAKEN CONFORMANT.** Measured on the canonical
+set: `R|1|^^^687|28.6&F&|&U/L||||F` reads `value` = `28.6|` (a result value holding a raw field
+separator) and `units` = `&U/L`, status `final`, and the **only** warning is
+`ASTM_UNPAIRED_ESCAPE_CHARACTER`, which is tolerable, so the widest gate-legal profile plus
+`{ strict: true }` **accepts** it. The same bytes also read as one unsplit field. The leftmost
+reading interprets one construct and carries one deviation; the competitor interprets none and
+carries two. It is preferred, but it is not clean, and the difference is one field boundary. Same for
+`&S&`, `&R&` and `&E&` in that position. Contrast `28.6&F&|&E&U/L`, which raises **nothing at all**:
+there the leftmost reading is genuinely conformant, so silence there is not a residue.
+
+**▶ (b) WHERE THE DECLARED SET NAMES A MNEMONIC LETTER AS A SPLITTING DELIMITER, NOTHING PREFERS
+EITHER ALIGNMENT, AND IT IS STILL SILENT.** Measured under `H|F^&`, where `F` is the repeat
+delimiter: `R|1|^^^687|28.6&S&F&U/L||||F` reads `value` = `28.6^` with **no units** and status
+`unspecified`, because the gained repeat boundary put the rest of the field in a second repeat. Both
+alignments interpret exactly one recognized construct (`&S&` one way, `&F&` the other) and carry one
+bare escape character, so the vocabulary argument does not pick a winner here at all. Warnings are
+`ASTM_NONSTANDARD_DELIMITERS` and `ASTM_UNPAIRED_ESCAPE_CHARACTER`, both tolerable, so this is
+strict-accepted too. It is the harm signature of defect 11, reached by the opposite door.
+
+**▶ WHY IT WAS NOT FOLDED INTO DEFECT 15'S SLICE.** Covering either means a **different criterion**
+(counting the constructs each alignment interprets, rather than asking whether one was recognized),
+and swapping criteria changes which streams a package already on the registry refuses under
+`{ strict: true }`. That is a narrowing on a published surface and it wants its own measurement of
+the population it moves, not a fourth pass bolted onto a slice that had already converged. Both cases
+are **pinned** in `test/records/escape-alignment-ambiguity.test.ts` so the behaviour cannot drift
+without a test moving, and both are named in the shipped docs rather than left for a consumer to
+discover. **Do not close this by widening the mnemonic test in place**: read the residues first, and
+measure the population before and after, on the same
+strict-accepted-under-a-gate-legal-profile tier.
 
 <a id="defects-closed-elsewhere"></a>
 
@@ -1206,7 +1331,7 @@ Disciplines 1 to 3 are one line each and stay in `CLAUDE.md`. These two carry th
    - **Rewriting the warning-registry separator as a colon turned a PHI/value test red.** A colon
      is the **component** delimiter in `test/records/multi-header-delimiters.test.ts`'s fixture, and
      its `[*~:#]` assertion checks that no warning message contains one of that fixture's delimiter
-     characters. All 22 registry messages separate with a comma now. **Do not read that as "a comma
+     characters. Every registry message separates with a comma now (the count is not written down here, because it moves with every code that lands). **Do not read that as "a comma
      is safe and a colon is not":** ASTM delimiters self-declare, so any character can be a
      delimiter, and `.`, `/`, `(` and `)` already appear in registry messages. The invariant the
      assertion actually pins is that a warning message is a **constant carrying no field data**,

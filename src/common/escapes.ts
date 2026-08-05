@@ -47,6 +47,24 @@
  * the guarantee the atom exists for. The split is unchanged; what changed is that
  * the loss is now reported by a code no profile may tolerate.
  *
+ * **The match is greedy and leftmost, and that costs a boundary in the opposite
+ * direction, which also has a report of its own.** Triples are taken left to
+ * right, so the escape character that *closes* one triple cannot also *open* the
+ * next. Where it could have (the character after a triple is a splitting
+ * delimiter and the one after that is the escape character), the bytes carry two
+ * alignments that disagree about that delimiter: under the reading taken it ends
+ * a field, repeat or component, and under the other it sits inside an opaque
+ * atom and ends nothing. Where the earlier triple's body was **not** a
+ * recognized mnemonic, the reading taken rests on a triple this codec cannot
+ * interpret at all, so nothing in its own vocabulary prefers that reading to the
+ * competing one, and the parse layer reports
+ * `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`. The split is unchanged
+ * here too: the leftmost reading is kept, and what is new is that a boundary
+ * which may not be the sender's is no longer reported only by codes a profile
+ * may tolerate. Where that earlier body **was** a recognized mnemonic nothing is
+ * reported, and the reason is narrower than it looks, so read
+ * {@link AmbiguousAlignmentSink} before widening it.
+ *
  * Re-escaping (the inverse, for spec-clean emit) lives in the serializer and is
  * deliberately not implemented here.
  */
@@ -86,6 +104,53 @@ export type UnpairedEscapeSink = () => void;
  * escape mechanism working as a defect.
  */
 export type SwallowedDelimiterSink = () => void;
+
+/**
+ * A callback the split calls when the escape character that **closed** an
+ * unrecognized escape sequence could instead have **opened** one whose body is the
+ * delimiter being split on, so the two alignments of the same bytes disagree about
+ * whether that delimiter ends a field, repeat or component. The leftmost reading is
+ * kept and nothing is re-split; the callback lets the parser surface a value-free
+ * `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` warning. Optional so the split can be
+ * used purely.
+ *
+ * Two exclusions, both deliberate. The first is what keeps this off conformant
+ * streams, and it is **wider than the case it is justified on**, so the residue is
+ * named here rather than left to be found:
+ *
+ * - **The earlier sequence's body must not be a recognized mnemonic.** The test is
+ *   which alignment this codec's own vocabulary supports, not which one is tidier.
+ *   Where the earlier body is unrecognized the reading taken rests on a triple the
+ *   codec cannot interpret, while the competitor's body is the delimiter character,
+ *   which it usually cannot interpret either: nothing prefers one, and that is what
+ *   this reports. Where the earlier body is a recognized mnemonic the reading taken
+ *   interprets a construct (`&F&` is the sender escaping a field separator, which is
+ *   what the mechanism is for) and the competitor **usually** interprets none, so the
+ *   vocabulary usually prefers one, and reporting it would report the escape
+ *   mechanism working. Usually, not always: see the second residue below.
+ *   **What that argument does not cover, measured.** It does not follow that the
+ *   reading taken is *conformant*: under `28.6&F&|&U/L` it is `&F&`, a real
+ *   separator, and then a bare escape character, which this package reports as a
+ *   deviation of its own. And where the declared set names a mnemonic letter as a
+ *   splitting delimiter, both alignments interpret exactly one construct and
+ *   neither is preferred, yet the exclusion still silences it. Both residues are
+ *   recorded with their measurements rather than closed by widening this test: the
+ *   criterion that would cover them is a different one (counting what each
+ *   alignment interprets), and swapping criteria moves which streams a published
+ *   package refuses.
+ * - **The following character must be the delimiter this split is taken on.** The
+ *   split runs once per role, so a character that is a delimiter in a *later* role
+ *   is reported by that role's pass, on the segment it survives into, and never
+ *   twice. A delimiter with no escape character two positions past it is excluded by
+ *   the rule that defines the condition rather than by a judgement: the sequence the
+ *   competing alignment would need never closes, so there is no competitor.
+ *
+ * @param segmentIndex - The 0-based index of the segment being accumulated when the
+ *   ambiguity was seen, so a caller splitting a record into fields can report which
+ *   field it sat in. A caller splitting one field into repeats or components
+ *   already knows the field index and ignores this.
+ */
+export type AmbiguousAlignmentSink = (segmentIndex: number) => void;
 
 /**
  * Whether an escape sequence starts at `i`: the escape character, exactly one body
@@ -186,20 +251,31 @@ function isSplittingDelimiter(body: string, d: Delimiters): boolean {
   return body === d.field || body === d.repeat || body === d.component;
 }
 
+/**
+ * The four recognized escape bodies, mapped to the delimiter role each one stands
+ * for. **This is the single definition of "a recognized mnemonic" in the package**,
+ * and it has to stay single: the decoder and the split both ask that question, and
+ * a decoder that recognizes a body the split does not is the same class of mis-read
+ * the split-then-decode ordering exists to prevent.
+ */
+const MNEMONIC_ROLES = {
+  F: "field",
+  S: "component",
+  R: "repeat",
+  E: "escape",
+} as const satisfies Record<string, keyof Delimiters>;
+
+/**
+ * Whether an escape body is one of the four recognized mnemonics. `Object.hasOwn`
+ * rather than `in`, so an inherited property name (`toString`) is not read as one.
+ */
+function isMnemonicBody(body: string): body is keyof typeof MNEMONIC_ROLES {
+  return Object.hasOwn(MNEMONIC_ROLES, body);
+}
+
 /** Map one escape body (the char(s) between the escape delimiters) to its literal, or undefined. */
 function escapeBody(body: string, d: Delimiters): string | undefined {
-  switch (body) {
-    case "F":
-      return d.field;
-    case "S":
-      return d.component;
-    case "R":
-      return d.repeat;
-    case "E":
-      return d.escape;
-    default:
-      return undefined;
-  }
+  return isMnemonicBody(body) ? d[MNEMONIC_ROLES[body]] : undefined;
 }
 
 /**
@@ -223,9 +299,24 @@ function escapeBody(body: string, d: Delimiters): string | undefined {
  * second of those is reported, from the decode step rather than from here,
  * whenever the atom's body was not a recognized mnemonic.
  *
+ * **Atoms are matched greedily, leftmost first, and where that choice decides a
+ * boundary it is reported from here.** The escape character closing one triple
+ * cannot also open the next, so `28.6&Z&|&U/L` is read as the atom `&Z&`, then a
+ * field separator that splits, and not as `&Z`, then the atom `&|&` whose field
+ * separator would not have split. Both alignments are in the bytes and they
+ * disagree by one boundary. The reading is **not** changed (that would only pick
+ * the other alignment, with no more evidence for it); it is reported through
+ * `onAmbiguousAlignment`, and only where the earlier body was unrecognized, since
+ * a recognized mnemonic is a construct this codec can interpret and the
+ * competitor's body usually is not. That exclusion is wider than that argument:
+ * see {@link AmbiguousAlignmentSink}.
+ *
  * @param text - The field or repeat string to split.
  * @param delimiter - The delimiter to split on.
  * @param escape - The active escape character.
+ * @param onAmbiguousAlignment - Called once per unrecognized escape sequence whose
+ *   closing escape character could instead have opened a sequence holding this
+ *   delimiter, so the boundary taken here is not the only reading of the bytes.
  * @returns The raw segments, in order.
  * @example
  * ```ts
@@ -235,7 +326,12 @@ function escapeBody(body: string, d: Delimiters): string | undefined {
  * splitEscapeAware("O&Brien^John", "^", "&"); // ["O&Brien", "John"]  (unpaired: literal)
  * ```
  */
-export function splitEscapeAware(text: string, delimiter: string, escape: string): string[] {
+export function splitEscapeAware(
+  text: string,
+  delimiter: string,
+  escape: string,
+  onAmbiguousAlignment?: AmbiguousAlignmentSink,
+): string[] {
   if (text.length === 0) return [""];
   const out: string[] = [];
   let current = "";
@@ -243,6 +339,16 @@ export function splitEscapeAware(text: string, delimiter: string, escape: string
   while (i < text.length) {
     const ch = text.charAt(i);
     if (ch === escape && isEscapeSequenceAt(text, i, escape)) {
+      // The closing escape character of this triple could have been the opening one of the next.
+      // Where the alternative alignment would have held THIS delimiter, the two readings differ by
+      // a boundary, and the leftmost one is a choice rather than a reading of the bytes.
+      if (
+        !isMnemonicBody(text.charAt(i + 1)) &&
+        text.charAt(i + 3) === delimiter &&
+        text.charAt(i + 4) === escape
+      ) {
+        onAmbiguousAlignment?.(out.length);
+      }
       // Copy the whole escape sequence verbatim; do not inspect it for delimiters.
       current += text.slice(i, i + 3);
       i += 3;
