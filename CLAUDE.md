@@ -285,16 +285,18 @@ every measurement and every refuted formulation:
     **The fatal CODE is unchanged and no stream's disposition moved**: a second fatal code was
     considered and **REJECTED**, as a breaking change bought for a sentence. **Do not delete the
     unreachable branch.** `#defect-16`
-17. **Open, `PRE-EXISTING`, measured and pinned 2026-08-05.** Defect 15's report excludes a
-    **recognized** mnemonic body, and that exclusion is **wider than its own argument**, two ways.
-    (a) A recognized body does not make the reading taken conformant: `28.6&F&|&U/L` reads value
-    `28.6|` (a raw field separator inside a result value) and units `&U/L`, and the only warning is
-    the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so a gate-legal profile still accepts it.
-    (b) Under a set naming a mnemonic letter as a splitting delimiter **both** alignments interpret
-    one construct and neither is preferred, and it is still silent: `H|F^&` with `28.6&S&F&U/L`
-    loses the units and the status. **Closing either needs a DIFFERENT criterion** (counting what
-    each alignment interprets), which moves which streams a published package refuses, so it wants
-    its own slice and its own population measurement. **Do not widen the mnemonic test in place.**
+17. **OPEN. The obvious criterion was MEASURED AND REJECTED 2026-08-05.**
+    (a) is WORSE than recorded: `28.6&F&|&U/L` gains a FIELD boundary, later fields shift, and the
+    sender's `F` lands in the status slot: units `&U/L` and status **`final`**, both FABRICATED, on
+    a tolerable code.
+    (b) `H|F^&` with `28.6&S&F&U/L` gains a REPEAT boundary, TRUNCATING the value to `28.6^`,
+    dropping `&U/L`. **NOT the units or status**: a REPEAT boundary shifts no field, so both
+    read them empty. That measured FALSE.
+    **▶ COUNTING THE CONTESTED PAIR DOES NOT CLOSE (b). DO NOT RE-PROPOSE IT.** It refuses
+    **well-formed** streams: under `HF\^&`, `28.6&F&F&F&U/L` is two recognized sequences around the
+    separator they escape, raises nothing, and ties. It refuses half of all escape-clean streams.
+    **▶ THE COUNT IS LOCAL; the alignments disagree about every byte AFTER the boundary**, so (b)
+    needs the TAIL weighed. **A corpus that FIXES the tail reports a comforting zero.**
     `#defect-17`
 
 Two further defects were closed and folded away: `#defects-closed-elsewhere`.
