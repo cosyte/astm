@@ -4,7 +4,8 @@ The narrative half of this repo's `CLAUDE.md`, relocated here **verbatim** on 20
 `CLAUDE.md` fits the write-time bound the meta-repo puts on a submodule's always-read guide (its
 entry in `REPO_CLAUDE`, `.claude/hooks/doc-budget.mjs`, argued in ADR 0023: a per-repo ratchet whose
 entries are lowered as relocations land). **No number for it is quoted in either file on purpose**;
-read the entry. Nothing was deleted. Every trap that lived in a paragraph here
+read the entry: the bound that preceded it was quoted into documents and went stale inside a day,
+which is the failure this split exists to fix. Nothing was deleted. Every trap that lived in a paragraph here
 still lives in `CLAUDE.md` as a one-line imperative that points back at its section, and the
 reasoning, the measurements and the refuted claims are all below, word for word.
 
@@ -21,7 +22,7 @@ not removed, because the correction is usually the lesson.
 
 - [The shipped docs sidebar is a published contract](#the-shipped-docs-sidebar-is-a-published-contract)
 - [Status](#status) (the shipped-phase histories, and the version-in-prose trap)
-- [Known defects live on `main`](#known-defects-live-on-main-recorded-here-so-they-survive-independently-of-any-backlog) (16 entries, one section each)
+- [Known defects live on `main`](#known-defects-live-on-main-recorded-here-so-they-survive-independently-of-any-backlog) (one section each; the count is not written down, because it moves)
 - [Engineering Guardrails](#engineering-guardrails) (the `attw` wrapper)
 - [Standing disciplines (every change)](#standing-disciplines-every-change) (public-surface bookkeeping, and the em dash gate)
 
@@ -1037,7 +1038,10 @@ stop-the-line**, because it needs a non-conformant `&|&` escaping form to bite a
 fire, but both of those are tolerable, so the same argument that made defect 11 worth scheduling
 applies here. Found by the `conformance-refuter` grading `ASTM-FRAME-RESIDUALS` 2026-08-05.
 
-**CLOSED 2026-08-05 by `ASTM-FRAME-RESIDUALS`, and closed as a REPORT, on defect 11's shape.** The
+**CLOSED IN PART 2026-08-05 by `ASTM-FRAME-RESIDUALS`, and closed as a REPORT, on defect 11's shape.
+Read defect 17 for what is left**: the class where the leftmost triple's body is a **recognized**
+mnemonic is outside the new code, deliberately, and is still strict-accepted under a gate-legal
+profile. The
 split is unchanged, the leftmost alignment is still the one taken, and every decoded byte is
 identical: `28.6&Z&` and `&U/L`, exactly as before. What is new is
 `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, raised **alongside** the tolerable codes rather than
@@ -1079,11 +1083,13 @@ an unrecognized escape body always raises a tolerable code. The instrument is a 
 positions of the pair that decides this, on a comment record chosen so no result-semantics warning
 masks the count: **144 tuples, 24 raise the new code** (the eight unrecognized bodies against the
 three splitting roles), and strict acceptance goes **108 to 93**, the 15 that moved being exactly the
-tuples the new code fired on. On the `R` corpus of the fixture above the same sweep reads 9 accepted
-to 4, and the difference is not a discrepancy: a gained **component** boundary in a result value
-already raised `ASTM_RECORD_AMBIGUOUS_VALUE_SPLIT`, which is not tolerable, so those tuples were
-refused before this code existed. **Do not quote any of these figures without the alphabet and the
-carrier record, because both move every one of them.**
+tuples the new code fired on, which is **not** the same as the 24 that fire: the other 9 were already
+refused by `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`. A second figure for the `R` fixture's own
+corpus stood here for one gate pass and is **deleted rather than restated**, because it named no
+committed constant, was not re-derivable from the sweep it claimed to be, and the explanation
+attached to it could not have produced it. There is one corpus for this defect and it is the one
+named above. **Do not quote any of these figures without the alphabet and the carrier record, because
+both move every one of them.**
 
 <a id="defect-16"></a>
 
@@ -1125,6 +1131,54 @@ each of the three definition positions): **36 of 36 classify as `definition-trun
 `field-separator-reused`**, and none resolves. That is the invariant the truncation rule enforces on
 the branch's behalf, pinned so a change to how the definition field is bounded shows up as a test
 moving rather than as a branch quietly becoming live.
+
+**▶ ONE MORE WRONG REASON WAS FOUND WHILE FIXING THIS ONE, AND FIXED WITH IT.** The reader asked
+about the length before the type letter, so `readDelimiterDeclaration("P|1")` answered
+`record-too-short`: a `P` record reported as a short header, which is the same wrong-reason class.
+The type letter is asked first now. No caller's outcome changed (`readDelimiters` returns
+`undefined` either way, and the first record's type is checked before this function is reached), so
+this is the reason a direct caller is given, not a disposition.
+
+<a id="defect-17"></a>
+
+### Defect 17: the alignment report excludes a recognized mnemonic body, wider than its own argument (open, measured and pinned)
+
+**Open, `PRE-EXISTING`, disclosed by the `conformance-refuter` grading defect 15's fix 2026-08-05,
+and left open on purpose.** `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` fires only where the leftmost
+triple's body is **unrecognized**. The argument for that exclusion is which alignment this codec's
+own vocabulary supports: a recognized body means the reading taken interprets a construct while the
+competitor's body is a delimiter character it usually cannot interpret. **The exclusion is wider than
+that argument, in two measured ways, and neither is closed.**
+
+**▶ (a) A RECOGNIZED BODY DOES NOT MAKE THE READING TAKEN CONFORMANT.** Measured on the canonical
+set: `R|1|^^^687|28.6&F&|&U/L||||F` reads `value` = `28.6|` (a result value holding a raw field
+separator) and `units` = `&U/L`, status `final`, and the **only** warning is
+`ASTM_UNPAIRED_ESCAPE_CHARACTER`, which is tolerable, so the widest gate-legal profile plus
+`{ strict: true }` **accepts** it. The same bytes also read as one unsplit field. The leftmost
+reading interprets one construct and carries one deviation; the competitor interprets none and
+carries two. It is preferred, but it is not clean, and the difference is one field boundary. Same for
+`&S&`, `&R&` and `&E&` in that position. Contrast `28.6&F&|&E&U/L`, which raises **nothing at all**:
+there the leftmost reading is genuinely conformant, so silence there is not a residue.
+
+**▶ (b) WHERE THE DECLARED SET NAMES A MNEMONIC LETTER AS A SPLITTING DELIMITER, NOTHING PREFERS
+EITHER ALIGNMENT, AND IT IS STILL SILENT.** Measured under `H|F^&`, where `F` is the repeat
+delimiter: `R|1|^^^687|28.6&S&F&U/L||||F` reads `value` = `28.6^` with **no units** and status
+`unspecified`, because the gained repeat boundary put the rest of the field in a second repeat. Both
+alignments interpret exactly one recognized construct (`&S&` one way, `&F&` the other) and carry one
+bare escape character, so the vocabulary argument does not pick a winner here at all. Warnings are
+`ASTM_NONSTANDARD_DELIMITERS` and `ASTM_UNPAIRED_ESCAPE_CHARACTER`, both tolerable, so this is
+strict-accepted too. It is the harm signature of defect 11, reached by the opposite door.
+
+**▶ WHY IT WAS NOT FOLDED INTO DEFECT 15'S SLICE.** Covering either means a **different criterion**
+(counting the constructs each alignment interprets, rather than asking whether one was recognized),
+and swapping criteria changes which streams a package already on the registry refuses under
+`{ strict: true }`. That is a narrowing on a published surface and it wants its own measurement of
+the population it moves, not a fourth pass bolted onto a slice that had already converged. Both cases
+are **pinned** in `test/records/escape-alignment-ambiguity.test.ts` so the behaviour cannot drift
+without a test moving, and both are named in the shipped docs rather than left for a consumer to
+discover. **Do not close this by widening the mnemonic test in place**: read the residues first, and
+measure the population before and after, on the same
+strict-accepted-under-a-gate-legal-profile tier.
 
 <a id="defects-closed-elsewhere"></a>
 

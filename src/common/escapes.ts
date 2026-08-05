@@ -55,13 +55,15 @@
  * alignments that disagree about that delimiter: under the reading taken it ends
  * a field, repeat or component, and under the other it sits inside an opaque
  * atom and ends nothing. Where the earlier triple's body was **not** a
- * recognized mnemonic, neither alignment is the conformant one, and the parse
- * layer reports `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`. The split is unchanged
+ * recognized mnemonic, the reading taken rests on a triple this codec cannot
+ * interpret at all, so nothing in its own vocabulary prefers that reading to the
+ * competing one, and the parse layer reports
+ * `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`. The split is unchanged
  * here too: the leftmost reading is kept, and what is new is that a boundary
  * which may not be the sender's is no longer reported only by codes a profile
- * may tolerate. Where that earlier body **was** a recognized mnemonic the
- * leftmost reading is the conformant one and nothing is reported, deliberately:
- * see {@link AmbiguousAlignmentSink}.
+ * may tolerate. Where that earlier body **was** a recognized mnemonic nothing is
+ * reported, and the reason is narrower than it looks, so read
+ * {@link AmbiguousAlignmentSink} before widening it.
  *
  * Re-escaping (the inverse, for spec-clean emit) lives in the serializer and is
  * deliberately not implemented here.
@@ -112,21 +114,35 @@ export type SwallowedDelimiterSink = () => void;
  * `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` warning. Optional so the split can be
  * used purely.
  *
- * Two exclusions, both deliberate, and both are what keep this off conformant
- * streams:
+ * Two exclusions, both deliberate. The first is what keeps this off conformant
+ * streams, and it is **wider than the case it is justified on**, so the residue is
+ * named here rather than left to be found:
  *
- * - **The earlier sequence's body must not be a recognized mnemonic.** Under
- *   `28.6&F&|&U/L` the leftmost reading is `&F&` (an escaped field separator, which
- *   is exactly what the escape mechanism is for) followed by a real field
- *   separator, and the competing alignment needs both an unpaired escape character
- *   and an unrecognized body to exist at all. That reading is conformant, so
- *   reporting it would report the escape mechanism working as a defect. Where the
- *   earlier body is unrecognized, neither alignment is conformant and neither is
- *   privileged, which is the case this reports.
+ * - **The earlier sequence's body must not be a recognized mnemonic.** The test is
+ *   which alignment this codec's own vocabulary supports, not which one is tidier.
+ *   Where the earlier body is unrecognized the reading taken rests on a triple the
+ *   codec cannot interpret, while the competitor's body is the delimiter character,
+ *   which it usually cannot interpret either: nothing prefers one, and that is what
+ *   this reports. Where the earlier body is a recognized mnemonic the reading taken
+ *   interprets a construct (`&F&` is the sender escaping a field separator, which is
+ *   what the mechanism is for) and the competitor interprets none, so the vocabulary
+ *   does prefer one, and reporting it would report the escape mechanism working.
+ *   **What that argument does not cover, measured.** It does not follow that the
+ *   reading taken is *conformant*: under `28.6&F&|&U/L` it is `&F&`, a real
+ *   separator, and then a bare escape character, which this package reports as a
+ *   deviation of its own. And where the declared set names a mnemonic letter as a
+ *   splitting delimiter, both alignments interpret exactly one construct and
+ *   neither is preferred, yet the exclusion still silences it. Both residues are
+ *   recorded with their measurements rather than closed by widening this test: the
+ *   criterion that would cover them is a different one (counting what each
+ *   alignment interprets), and swapping criteria moves which streams a published
+ *   package refuses.
  * - **The following character must be the delimiter this split is taken on.** The
  *   split runs once per role, so a character that is a delimiter in a *later* role
  *   is reported by that role's pass, on the segment it survives into, and never
- *   twice.
+ *   twice. A delimiter with no escape character two positions past it is excluded by
+ *   the rule that defines the condition rather than by a judgement: the sequence the
+ *   competing alignment would need never closes, so there is no competitor.
  *
  * @param segmentIndex - The 0-based index of the segment being accumulated when the
  *   ambiguity was seen, so a caller splitting a record into fields can report which
@@ -290,7 +306,9 @@ function escapeBody(body: string, d: Delimiters): string | undefined {
  * disagree by one boundary. The reading is **not** changed (that would only pick
  * the other alignment, with no more evidence for it); it is reported through
  * `onAmbiguousAlignment`, and only where the earlier body was unrecognized, since
- * a recognized mnemonic makes the leftmost reading the conformant one.
+ * a recognized mnemonic is a construct this codec can interpret and the
+ * competitor's body usually is not. That exclusion is wider than that argument:
+ * see {@link AmbiguousAlignmentSink}.
  *
  * @param text - The field or repeat string to split.
  * @param delimiter - The delimiter to split on.

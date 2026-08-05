@@ -104,7 +104,7 @@ const neutralStream = (body: string, next: string): string =>
 
 /** The three splitting roles of the canonical set, named rather than counted. */
 const SPLITTING_ROLES = ["|", "\\", "^"] as const;
-/** The four recognized escape mnemonics, which make the leftmost reading the conformant one. */
+/** The four recognized escape mnemonics: a body this codec can interpret, which the exclusion turns on. */
 const MNEMONICS = ["F", "S", "R", "E"] as const;
 
 describe("the measured fixture: a boundary the leftmost alignment gained", () => {
@@ -177,9 +177,9 @@ describe("the sweep over the committed alignment alphabet", () => {
     const expected: string[] = [];
     for (const body of ALIGNMENT_ALPHABET) {
       for (const next of ALIGNMENT_ALPHABET) {
-        // The competing alignment exists only where the earlier body is unrecognized (a recognized
-        // one makes the leftmost reading the conformant one) and the character it would have held
-        // is a delimiter something splits on.
+        // Reported only where the earlier body is unrecognized (a recognized one is a construct
+        // this codec can interpret, so its own vocabulary prefers the reading taken) and the
+        // character the competitor would have held is a delimiter something splits on.
         if (
           !(MNEMONICS as readonly string[]).includes(body) &&
           (SPLITTING_ROLES as readonly string[]).includes(next)
@@ -218,13 +218,15 @@ describe("the sweep over the committed alignment alphabet", () => {
           .every((c) => TOLERABLE_CODES.has(c));
         if (acceptedUnderMaximalTolerance(raw)) acceptedNow += 1;
         if (acceptedBefore && fired) newlyRefused += 1;
-        // The only tuples whose acceptance changed are the ones this code fired on.
+        // Acceptance moved on exactly the tuples this code fired on AND nothing else already refused.
         expect(acceptedUnderMaximalTolerance(raw)).toBe(acceptedBefore && !fired);
       }
     }
     const total = ALIGNMENT_ALPHABET.length * ALIGNMENT_ALPHABET.length;
     // 144 tuples over the committed alphabet: 108 were strict-accepted under the widest gate-legal
-    // profile, 93 are now, and the 15 that moved are exactly the ones the new code fired on.
+    // profile and 93 are now. 24 tuples raise the new code; the other 9 of those were already
+    // refused by ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE, so 15 is the acceptance delta, not the
+    // fire count. Never write the two as the same number.
     expect(total).toBe(144);
     expect(newlyRefused).toBe(15);
     expect(acceptedNow).toBe(93);
@@ -246,13 +248,41 @@ describe("the sweep over the committed alignment alphabet", () => {
 });
 
 describe("what it deliberately does not report", () => {
-  it("leaves a recognized mnemonic alone, because there the leftmost reading is the conformant one", () => {
-    // `&F&` is the sender escaping a field separator, which is what the mechanism is for. The
-    // competing alignment here needs an unpaired escape character AND an unrecognized body to exist
-    // at all, so it is not a competitor and reporting it would report the mechanism working.
+  it("leaves a recognized mnemonic alone, and the exclusion is wider than that argument", () => {
+    // Silent because the reading taken interprets a construct (`&F&` is the sender escaping a field
+    // separator) while the competitor's body is a delimiter character this codec cannot interpret,
+    // so its own vocabulary prefers the reading taken. Reporting it would report the mechanism
+    // working. It does NOT follow that the reading taken is conformant: it carries a bare escape
+    // character, which this package reports as a deviation of its own, and the value it hands back
+    // holds a raw field separator. That residue is recorded rather than closed by widening this
+    // test, and it is pinned here so a widening cannot land silently.
     const raw = "H|\\^&\rP|1||LAB-0001\rR|1|^^^687|28.6&F&|&U/L||||F\rL|1|N\r";
     expect(codes(raw)).toEqual([WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER]);
-    expect(results(parseAstmRecords(raw))[0]?.value).toBe("28.6|");
+    const [only] = results(parseAstmRecords(raw));
+    expect(only?.value).toBe("28.6|");
+    expect(only?.units).toBe("&U/L");
+    // The whole reason it is a residue and not a curiosity: only tolerable codes fire, so the
+    // widest gate-legal profile still accepts it.
+    expect(acceptedUnderMaximalTolerance(raw)).toBe(true);
+  });
+
+  it("stays silent where BOTH alignments interpret a construct, which nothing privileges", () => {
+    // Under a set naming a mnemonic letter as a splitting delimiter the competitor's body is
+    // recognized too, so each alignment interprets exactly one construct and neither is preferred.
+    // The exclusion silences it anyway. Measured, pinned, and recorded as a residue: closing it
+    // means a different criterion (counting what each alignment interprets), which moves which
+    // streams a published package refuses and wants its own slice.
+    const raw = "H|F^&\rP|1||LAB-0001\rR|1|^^^687|28.6&S&F&U/L||||F\rL|1|N\r";
+    expect(codes(raw)).toEqual([
+      WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS,
+      WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER,
+    ]);
+    const [only] = results(parseAstmRecords(raw));
+    // The gained repeat boundary costs the units and the status, the same signature as its sibling.
+    expect(only?.value).toBe("28.6^");
+    expect(only?.units).toBeUndefined();
+    expect(only?.status.meaning).toBe("unspecified");
+    expect(acceptedUnderMaximalTolerance(raw)).toBe(true);
   });
 
   it("stays silent where no competing alignment exists at all", () => {

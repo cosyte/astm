@@ -130,10 +130,15 @@ export const WARNING_CODES = {
    * `value` = `28.6&Z&` and `units` = `&U/L` under the leftmost alignment, and reads as a single
    * unsplit field carrying both under the other.
    *
-   * **Two exclusions, both deliberate.** Where the earlier sequence's body is a **recognized**
-   * mnemonic the leftmost reading is the conformant one (`&F&` is the sender escaping a field
-   * separator, which is what the mechanism is for) and nothing is reported: only the competing
-   * alignment would be non-conformant there, so it is not a competitor. And where the escape
+   * **Two exclusions, both deliberate, and the first is wider than its own argument.** Where the
+   * earlier sequence's body is a **recognized** mnemonic nothing is reported, because the reading
+   * taken interprets a construct (`&F&` is the sender escaping a field separator, which is what the
+   * mechanism is for) while the competing alignment's body is a delimiter character it usually
+   * cannot interpret at all, so this codec's own vocabulary prefers the reading taken. That is not
+   * the same as the reading taken being conformant, and where the declared set names a mnemonic
+   * letter as a splitting delimiter both alignments interpret one construct and neither is
+   * preferred, yet this stays silent. Both residues are measured and recorded rather than closed by
+   * widening the test. And where the escape
    * character after the delimiter does not itself close a sequence there is no competing alignment
    * at all, so an ordinary escaped value followed by an ordinary boundary is silent.
    *

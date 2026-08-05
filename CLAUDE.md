@@ -3,7 +3,7 @@
 > **The narrative lives in [`documentation/agent-notes.md`](documentation/agent-notes.md).** This
 > file is the cursor, the rules, and the traps, one line each. Every trap below ends in a pointer to
 > the section that records how it was measured, kept **verbatim**: read that section before you touch
-> the code it guards. These are clinical-safety lessons, and several of them record a claim that was
+> the code it guards. **A bare `#anchor` anywhere below is an anchor in that file.** These are clinical-safety lessons, and several of them record a claim that was
 > measured **false** after it shipped. Nothing has ever been deleted from it: the 2026-08-04 split
 > and every relocation since moved narrative to the notes and left the traps here.
 > The meta-repo bounds this file at write time through **its entry in `REPO_CLAUDE`**
@@ -22,10 +22,8 @@ copies its shape.
 
 **North star (the archetype):** a developer can parse a real-world, vendor-quirky ASTM message
 and pull useful fields out in one line, without reading the spec. Liberal on parse (quirks become
-warnings), conservative on emit (always spec-clean). See `documentation/conventions.md` →
-"The standard parser archetype" in the meta-repo for the full contract this repo must satisfy:
-Postel's Law, the tiered tolerance model, stable warning codes, zero runtime deps, dual ESM + CJS,
-immutability + explicit mutation, and the profile system.
+warnings), conservative on emit (always spec-clean). The full contract this repo must satisfy is
+"The standard parser archetype" in the meta-repo's `documentation/conventions.md`.
 
 ## Status
 
@@ -34,40 +32,37 @@ ladder (first published 2026-07-22); the repo is public. Both standing human gat
 ten roadmap phases have shipped, through release hardening. `src/` is `common/` (values), `records/`,
 `frames/`, `ltp/`, `profiles/`, `terminology/`.
 **Full per-phase histories, with what each phase deliberately deferred and why:**
-`documentation/agent-notes.md#status-history`.
+`#status-history`.
 
 ### Traps carried out of the status history
 
 - **Never name a version in prose** here, in `README.md`, or in `docs-content/`. All four read
   `at 0.0.1` for days after `0.0.2` shipped, and `docs-content/` reaches docs.cosyte.com inside an
   **immutable** tarball. Derive it: `npm view @cosyte/astm version`. `www.npmjs.com` returns 403 to
-  scripted requests, so it is not a usable check. Why: `documentation/agent-notes.md#status-history`.
+  scripted requests, so it is not a usable check. Why: `#status-history`.
 - **`src/index.ts`'s exported `VERSION` is a different thing and IS bound** (`scripts/sync-version.mjs`
   in the release `version` script + an equality assertion in `test/sanity.test.ts`). Never "restore
-  consistency" by re-pinning a number into prose. Why: `documentation/agent-notes.md#status-history`.
+  consistency" by re-pinning a number into prose. Why: `#status-history`.
 - **Never claim a clause id for ASTM/CLSI behaviour this repo cannot read.** LIS02-A2 §5.4/§6.2 are
   withheld from CLSI's free sample and the paywalled editions were not read, so the forward-scoping
   rule for redeclared delimiters, the Latin-1 wire encoding, and the reserved-byte set are all
   **reasoned from this package's own reader**, not cited. The OSS corpus cannot ground them either
-  (python-astm and senaite hardcode `|\^&`). Why: `documentation/agent-notes.md#status-history`,
+  (python-astm and senaite hardcode `|\^&`). Why: `#status-history`,
   `#defect-6`, `#defect-7`.
 - **The profile safety gate is default-deny, and total over THREE registries**: every record,
   frame (`ASTM_FRAME_*`) and LTP (`ASTM_LTP_*`) code is safety-critical unless it is on
   `TOLERABLE_CODES`, and any new one is safety-critical **by default** until argued in. The fourth
   registry, `ASTM_LIVD_*`, sits **outside** the gate's universe by design (`src/terminology/warnings.ts`),
-  so it is refused as _unknown_ rather than as _safety-critical_. **Never quote a count for the
-  tolerable list: read `src/profiles/safety.ts`.** As of 2026-08-04 it is
-  `ASTM_NONSTANDARD_DELIMITERS`, `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, `ASTM_UNPAIRED_ESCAPE_CHARACTER`,
-  `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`. **`ASTM_RECORD_UNKNOWN_TYPE` was removed from it
-  2026-08-01 and must not return**; `ASTM_UNPAIRED_ESCAPE_CHARACTER` was **added** 2026-08-02 by
-  defect 8's fix, which is why the relocated note's "the list was four and is now three" is a
-  snapshot of 2026-08-01 and not the list today. Why:
-  `documentation/agent-notes.md#status-history` and `#defect-8`.
+  so it is refused as _unknown_ rather than as _safety-critical_. **Never quote the tolerable list or
+  its count here: read `src/profiles/safety.ts`.** Every snapshot of it written into prose has gone
+  stale, which is why the relocated note's "the list was four and is now three" is dated
+  2026-08-01 rather than current. **`ASTM_RECORD_UNKNOWN_TYPE` was removed from it 2026-08-01 and
+  must not return**; `ASTM_UNPAIRED_ESCAPE_CHARACTER` was **added** 2026-08-02 by defect 8's fix. Why:
+  `#status-history` and `#defect-8`.
 - **The remedy when a tolerable code is the only report of a real loss is a SECOND, NARROWER code,
   not striking the first off.** Defects 4, 11 and 15 all had that shape, all closed that way
   2026-08-05: the three new codes are safety-critical by default and **must not be added to the
-  list**, while `ASTM_NONSTANDARD_DELIMITERS`, `ASTM_UNKNOWN_ESCAPE_SEQUENCE` and
-  `ASTM_UNPAIRED_ESCAPE_CHARACTER` stay on it, still
+  list**, while the tolerable ones each stay on it, still
   true of the cases that cost nothing. Striking any off changes behaviour for every profile
   naming it and still leaves the loss reported by a code that fires where there is none. **Part 2
   has two named readers now** (`isSplittingDelimiter`, `isMnemonicBody`), the first of which the
@@ -76,42 +71,42 @@ ten roadmap phases have shipped, through release hardening. `src/` is `common/` 
   tolerable code cannot alter, drop or fabricate an extracted value, **and nothing else in this
   package may read the condition the warning reports**. There is deliberately no automatic check for
   the second. **Re-derive the list whenever something new starts reading record structure.** Why:
-  `documentation/agent-notes.md#status-history`.
+  `#status-history`.
 - **Do not re-derive that list by comparing a parse with a profile against one without.** The warning
   transform runs after the records are built, so that comparison is identical for every code and
   passes a code that should never be tolerable. Measure it on pairs that must fail, as
   `test/profiles/unknown-record-type-safety.test.ts` does. Why:
-  `documentation/agent-notes.md#status-history`.
+  `#status-history`.
 - **The gate is enforced at two points and the second one is load-bearing.** `applyAstmProfile`
   re-checks `isSafetyCriticalCode` because `AstmProfile` is a plain interface and a hand-authored
   literal never passes through `defineAstmProfile`. Do not "simplify" it away as redundant. Why:
   `#defect-2`.
 - **A profile never touches an extracted value.** It only re-badges a warning it expects to
   `PROFILE_QUIRK_APPLIED`; no warning is ever dropped, and a spec-clean message parses
-  byte-identically with or without one. Why: `documentation/agent-notes.md#status-history`.
+  byte-identically with or without one. Why: `#status-history`.
 - **Never author a named per-vendor profile without a public vendor-attributed quirk document.**
   cobas / Sysmex / ADVIA / Mindray / Snibe stay gated; firsthand inspection of the public corpus found
-  the record layer spec-clean. Why: `documentation/agent-notes.md#status-history`.
+  the record layer spec-clean. Why: `#status-history`.
 - **Never bundle LOINC / SNOMED / LIVD data, and never emit a guessed LOINC.** The catalog is
   consumer-supplied, the mapping is additive and advisory, a miss or a conflict is
-  `unmapped`/`ambiguous` with a value-free warning. Why: `documentation/agent-notes.md#status-history`.
+  `unmapped`/`ambiguous` with a value-free warning. Why: `#status-history`.
 - **Never fabricate structure or a positive acknowledgement.** Checksums and frame numbers are
   computed, never faked; a frame the codec did not vouch for is `NAK`ed and never delivered; a builder
   emits only supplied values (an omitted result status reads `unspecified`, never `final`); an
   unrecognizable transport lead **defaults to framed and warns**, never a silent guess. Why:
-  `documentation/agent-notes.md#status-history`.
+  `#status-history`.
 - **`Q` dominates: a `Q`-bearing message is never read as a result set**, and `M`/`S` are surfaced
   **verbatim**, never interpreted into clinical fields. Why:
-  `documentation/agent-notes.md#status-history` and `#defect-2`.
+  `#status-history` and `#defect-2`.
 - **The differential vectors are captured, not vendored** (`python-astm` BSD `4170ce0c`, no reference
   code in the tree, CI needs no Python) and the **deliberate divergences are asserted on purpose**.
-  Do not "fix" one to match. Why: `documentation/agent-notes.md#status-history`.
+  Do not "fix" one to match. Why: `#status-history`.
 - **Delimiters are re-read at every `H` and scoped forward**, and records already read keep the set
-  they were read with. Why: `documentation/agent-notes.md#status-history`.
+  they were read with. Why: `#status-history`.
 
 ## The shipped docs sidebar is a published contract
 
-Full text: `documentation/agent-notes.md#docs-sidebar`.
+Full text: `#docs-sidebar`.
 
 - **`docs-content/sidebars.json` is a public contract, not a local build detail.** `docs-content/` is
   tarred verbatim into the release asset `cosyte/docs` ingests, and **a released asset is immutable**:
@@ -131,8 +126,7 @@ Full text: `documentation/agent-notes.md#docs-sidebar`.
 Recorded so they survive independently of any backlog. **Numbers are stable**, and a closed entry is
 kept rather than deleted, because the correction it records is usually the lesson. Full entries, with
 every measurement and every refuted formulation:
-`documentation/agent-notes.md#defects`. **A bare `#anchor` below is an anchor in that file**, which
-is where every entry's own record lives.
+`#defects`.
 
 1. **CLOSED 2026-07-29.** `patient()` / `results()` were stream-scoped, so pairing them attributed one
    patient's results to another on an ordinary two-message stream, silently. `messages()` now splits a
@@ -273,16 +267,16 @@ is where every entry's own record lives.
     is the code site's own (never carry a control character rather than re-derive each layer's reserved
     list). **The drop is all-or-nothing**, and **it fires with no `d` argument at all**, so do not read
     it as "you have to pass a delimiter set to reach it". `#defect-14`
-
-15. **🩺 CLOSED 2026-08-05, as a REPORT, and the MIRROR of defect 11.** A greedy leftmost atom can
-    **GAIN** a boundary the sender escaped: `28.6&Z&|&U/L` reads value `28.6&Z&` and units `&U/L`,
+15. **🩺 CLOSED IN PART 2026-08-05, as a REPORT, and the MIRROR of defect 11. Read defect 17 for
+    what is left.** A greedy leftmost atom can **GAIN** a boundary the sender escaped:
+    `28.6&Z&|&U/L` reads value `28.6&Z&` and units `&U/L`,
     and both codes it raised were **tolerable**, so strict under a gate-legal profile **accepted** a
     value the bytes do not force. Now `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, not tolerable, once
     per competing alignment. **The split is UNCHANGED and every byte is identical**: the other
-    alignment is a different guess with no more evidence behind it. **A RECOGNIZED mnemonic is
-    excluded on purpose** (`&F&` before a real separator is the escape mechanism working, and only
-    the competitor is non-conformant there), and so is a delimiter with no escape character two
-    positions on, which is no competitor at all. **It does NOT reach through a re-emit** (measured),
+    alignment is a different guess with no more evidence behind it. **A RECOGNIZED mnemonic body is
+    excluded**, because there the reading taken interprets a construct and the competitor interprets
+    none. **Never write that as "the reading taken is conformant": it is not, and saying so was this
+    slice's first refutation** (defect 17). **It does NOT reach through a re-emit** (measured),
     so catch it on the FIRST read. `#defect-15`
 16. **CLOSED 2026-08-05, as a MESSAGE ONLY.** `readDelimiters`' field-collision branch is
     **unreachable** (such a separator ends the definition where it appears, so the truncation rule
@@ -291,9 +285,19 @@ is where every entry's own record lives.
     **The fatal CODE is unchanged and no stream's disposition moved**: a second fatal code was
     considered and **REJECTED**, as a breaking change bought for a sentence. **Do not delete the
     unreachable branch.** `#defect-16`
+17. **Open, `PRE-EXISTING`, measured and pinned 2026-08-05.** Defect 15's report excludes a
+    **recognized** mnemonic body, and that exclusion is **wider than its own argument**, two ways.
+    (a) A recognized body does not make the reading taken conformant: `28.6&F&|&U/L` reads value
+    `28.6|` (a raw field separator inside a result value) and units `&U/L`, and the only warning is
+    the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, so a gate-legal profile still accepts it.
+    (b) Under a set naming a mnemonic letter as a splitting delimiter **both** alignments interpret
+    one construct and neither is preferred, and it is still silent: `H|F^&` with `28.6&S&F&U/L`
+    loses the units and the status. **Closing either needs a DIFFERENT criterion** (counting what
+    each alignment interprets), which moves which streams a published package refuses, so it wants
+    its own slice and its own population measurement. **Do not widen the mnemonic test in place.**
+    `#defect-17`
 
-Two further defects (a `>3`-char declaration losing its surplus on emit, and an unvalidated
-caller-supplied delimiter set) were closed: `documentation/agent-notes.md#defects-closed-elsewhere`.
+Two further defects were closed and folded away: `#defects-closed-elsewhere`.
 
 **Before you touch `parse.ts`, `serialize.ts`, `escapes.ts`, `encode.ts`, `extractors.ts` or
 `host-query.ts`, read that file's defect entries above and `CHANGELOG.md` `[Unreleased]`.**
@@ -338,7 +342,7 @@ a summary.
 
 ### The `attw` gate: traps
 
-Full text, with every measurement: `documentation/agent-notes.md#attw`.
+Full text, with every measurement: `#attw`.
 
 - **▶ `attw` says "does not contain types" and EXITS 0, so the `attw` script is a wrapper, not the
   bare CLI.** `getExitCode.js` opens with `if (!analysis.types) return 0`, so the problem list is
@@ -385,7 +389,7 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`,
    roadmap. It is a **translation** at the boundary, not a deletion: **repair the head** when you strip
    an identifier off the front of a line. Gated by `pnpm check:no-internal-refs` (job id
    `no-internal-refs`, required on `main`). Full text:
-   `documentation/agent-notes.md#no-internal-refs`. Traps:
+   `#no-internal-refs`. Traps:
    - **Three source surfaces, three different answers.** `/** */` doc comments and string literals
      reach a consumer, so they are **gated**; `//` and plain `/* */` comments are **not**, and
      identifiers are **welcome** in them, because the convention says source comments are where
@@ -403,7 +407,7 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`,
 5. **No em dash, anywhere** (founder directive, 2026-07-24), **including commit messages**. Gated by
    `pnpm check:no-emdash`, which scans every tracked file, every tracked filename, the gate script
    itself, and on a PR the title, body and commit messages. Rewrite with a comma, a colon, a period, or
-   **parentheses**. Full text: `documentation/agent-notes.md#no-emdash`. Traps:
+   **parentheses**. Full text: `#no-emdash`. Traps:
    - **Never re-encode the character.** The gate matches the entity, numeric-entity, URL and
      backslash-u forms; they are spelled out only inside `scripts/check-no-emdash.sh`, the one file
      excluded from its own scan.
@@ -411,8 +415,8 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`,
      "governed by no standard" became a stray colon reading "unstated", on the page whose job is honest
      disclosure, and **nothing in CI could have caught it**. Convert table cells and list markers by
      hand first.
-   - **All 22 registry messages separate with a comma now, but do not read that as "a comma is safe and
-     a colon is not":** ASTM delimiters self-declare, so any character can be one. The invariant pinned
+   - **Every registry message separates with a comma now (the count is not written down, because it
+     moves), but do not read that as "a comma is safe and a colon is not":** ASTM delimiters self-declare, so any character can be one. The invariant pinned
      by `test/records/multi-header-delimiters.test.ts` is that a warning message is a **constant
      carrying no field data**. Keep the test.
    - **Do not partition a scan on the NUL byte.** A genuine UTF-8 test file embeds a literal NUL and

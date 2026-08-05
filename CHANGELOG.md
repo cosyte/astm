@@ -90,13 +90,21 @@ this file is maintained by hand (Changesets handles the version bump and publish
   **Additive, and the split is unchanged.** The leftmost alignment is still the one taken and every
   decoded byte is identical. Picking the other alignment was considered and rejected: it is a
   different guess with no more evidence behind it, and it would move values on a package that is
-  already published. Two exclusions are deliberate. A **recognized** mnemonic before the delimiter
-  raises nothing, because there the leftmost reading is the conformant one (`28.6&F&|&U/L` is an
-  escaped field separator followed by a real one, and only the competing alignment would be
-  non-conformant, needing an unpaired escape character and an unrecognized body to exist at all). And
-  a delimiter with no escape character two positions past it raises nothing, because there is no
-  competing alignment. The code therefore fires only on records that already raise
-  `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so it cannot reach a stream a conformant sender produced.
+  already published. Two exclusions are deliberate, and the first is **wider than the argument for
+  it**, which is stated rather than left to be found. A **recognized** mnemonic before the delimiter
+  raises nothing, because the reading taken interprets a construct (`&F&` is the sender escaping a
+  field separator, which is what the mechanism is for) while the competitor's body is a delimiter
+  character this codec usually cannot interpret, so its own vocabulary prefers the reading taken.
+  That is not the same as the reading taken being conformant, and two cases fall in the gap, both
+  measured and both left open as their own defect rather than closed by widening the test:
+  `28.6&F&|&U/L` reads a value of `28.6|` and units of `&U/L` under a bare escape character that this
+  package reports only as the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, and a declared set naming a
+  mnemonic letter as a splitting delimiter leaves both alignments interpreting exactly one construct
+  with neither preferred. The criterion that would cover them is a different one (counting what each
+  alignment interprets), and swapping criteria moves which streams a published package refuses. The
+  second exclusion is a delimiter with no escape character two positions past it, which raises
+  nothing because there is no competing alignment. What does fire is a subset of the records that
+  already raise `ASTM_UNKNOWN_ESCAPE_SEQUENCE`.
 
   **Measured against the corpus constants committed with the test**, on the same
   strict-accepted-under-a-gate-legal-profile tier, because "silent" is structurally unreachable here
@@ -107,8 +115,9 @@ this file is maintained by hand (Changesets handles the version bump and publish
   warning masks the count), of 144 tuples **24 raise the new code**, being the eight unrecognized
   bodies against the three splitting roles. Under a profile built from the whole tolerable
   allow-list, which is the widest a gate-legal profile can be, and `{ strict: true }`, **108 of 144
-  were accepted before and 93 are now**, and the 15 that moved are exactly the tuples the new code
-  fired on.
+  were accepted before and 93 are now**. The fire count and the acceptance delta are **not the same
+  number**: of the 24 that fire, 9 were already refused by
+  `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, so 15 is what moved.
 
   **It does not repair the reading and it does not survive a re-emit**, the same residue its sibling
   disclosed: the serializer rewrites the preserved characters into recognized mnemonics, and that

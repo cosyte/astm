@@ -245,6 +245,13 @@ export function parseAstmRecords(
  * counting characters instead of looking at the declaration.
  *
  * Every message is a constant naming no byte off the wire, on the same rule as the warning registry.
+ *
+ * Two of the four are unreachable **here** and are kept anyway, because this map is keyed on the
+ * reader's fault type rather than on the paths that reach it: a first record that is not an `H`
+ * raised `ASTM_RECORD_NO_HEADER` several lines above, and a reused field separator ends the
+ * definition where it appears, so the truncation reason answers first. Dropping either would make
+ * this map stop being total over the type, which is what keeps a new fault from silently inheriting
+ * some other fault's sentence.
  */
 const UNDECLARED_DELIMITER_MESSAGES: Readonly<Record<DelimiterDeclarationFault, string>> = {
   "not-a-header": "Header record does not begin with an H type letter.",

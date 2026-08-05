@@ -206,12 +206,18 @@ the leftmost reading is kept (picking the other one would be a different guess w
 behind it), but the boundary it hands you is a choice, so it raises
 `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, which **no profile may tolerate**. Both codes the condition
 raised before (`ASTM_UNKNOWN_ESCAPE_SEQUENCE` and `ASTM_UNPAIRED_ESCAPE_CHARACTER`) are tolerable, so
-a strict parse under a profile naming them used to accept it. Two exclusions again: a **recognized**
-mnemonic before the delimiter (`28.6&F&|&U/L` is an escaped separator followed by a real one, which
-is the mechanism working, and only the competing alignment would be non-conformant), and a delimiter
-with no escape character two positions past it, which is no competing alignment at all. It is a
-subset of what already raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so it can never fire on a conformant
-stream. It does not survive a re-emit either, for the same reason: catch it on the first read.
+a strict parse under a profile naming them used to accept it. Two exclusions again. A **recognized**
+mnemonic before the delimiter is silent, because the reading taken interprets a construct (`&F&` is
+the sender escaping a separator, which is what the mechanism is for) while the competitor's body is a
+delimiter character the codec usually cannot interpret, so its own vocabulary prefers the reading
+taken. That is **not** the same as the reading taken being conformant, and the exclusion is wider
+than that argument: `28.6&F&|&U/L` reads a value of `28.6|` and units of `&U/L` while raising only
+the tolerable `ASTM_UNPAIRED_ESCAPE_CHARACTER`, and a declared set naming a mnemonic letter as a
+splitting delimiter makes both alignments interpret one construct each with neither preferred. Those
+two are measured and recorded as open residues, not covered here. The other exclusion is a delimiter
+with no escape character two positions past it, which is no competing alignment at all. What does
+fire is a subset of what already raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. It does not survive a
+re-emit either, for the same reason as its mirror: catch it on the first read.
 
 ### A header that names one character in two delimiter roles
 

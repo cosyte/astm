@@ -160,9 +160,12 @@ export function readDelimiters(headerRecord: string): Delimiters | undefined {
  * ```
  */
 export function readDelimiterDeclaration(headerRecord: string): DelimiterReadResult {
+  // The type letter is asked about FIRST, ahead of the length. Both orders refuse the same records,
+  // but the other one answers "too short" for a `P` record, which is the wrong-reason class this
+  // function exists to close: a record that is not a header is not a short header.
+  if (headerRecord.charAt(0) !== "H") return { ok: false, fault: "not-a-header" };
   // Need "H" + field-sep + at least the 3-char delimiter definition (repeat/component/escape).
   if (headerRecord.length < 5) return { ok: false, fault: "record-too-short" };
-  if (headerRecord.charAt(0) !== "H") return { ok: false, fault: "not-a-header" };
 
   const field = headerRecord.charAt(1);
   // The delimiter-definition field runs from index 2 up to the next field separator.

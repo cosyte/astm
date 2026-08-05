@@ -43,6 +43,12 @@ export const FATAL_CODES = {
    * than a header plus a three-character definition, its definition field holds fewer than three
    * characters before the next field separator, or its field separator is also one of the other
    * three. Only the second of those is "too short", so read the message rather than assuming it.
+   *
+   * **Two of the four cannot be reached on this fatal, and are not dead code.** A first record that
+   * is not an `H` raises `ASTM_RECORD_NO_HEADER` before the declaration is ever read, and a field
+   * separator reused among the other three ends the delimiter definition where it appears, so the
+   * truncation reason answers first. The reader names all four because it is also called directly
+   * and on later headers, where the same conditions are a warning rather than this fatal.
    */
   ASTM_RECORD_UNDECLARED_DELIMITERS: "ASTM_RECORD_UNDECLARED_DELIMITERS",
 } as const;

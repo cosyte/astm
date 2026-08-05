@@ -108,14 +108,20 @@ the other.
 The leftmost reading is kept and every byte is preserved. Taking the other alignment would be a
 different guess with no more evidence behind it, so what this reports is that the boundary you were
 handed is a choice, not that it is wrong. It is not tolerable, so a strict parse refuses the record
-whatever profile is in force. Two cases are outside it, deliberately: a **recognized** mnemonic
-before the delimiter (`28.6&F&|&U/L` is an escaped separator followed by a real one, which is the
-escape mechanism working, and only the competing alignment would be non-conformant), and a delimiter
-with no escape character two positions past it, which is no competing alignment at all. It fires only
-on records that already raise `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, so a conformant stream never reaches
-it. Like its mirror above it does not survive a re-emit: catch it on the first read of the wire
-bytes. **What to do:** ask the sender to escape a literal escape character as `&E&`, which removes
-the competing alignment at the source.
+whatever profile is in force. Two cases are outside it, deliberately. A **recognized** mnemonic
+before the delimiter is silent, because the reading taken interprets a construct (`&F&` is an escaped
+separator, which is what the mechanism is for) while the competitor's body is a delimiter character
+the parser usually cannot interpret, so it prefers the reading taken. **That is not a promise that
+the reading taken is conformant**, and two cases fall in the gap, both measured and both still open:
+`28.6&F&|&U/L` reads a value of `28.6|` and units of `&U/L` while raising only the tolerable
+`ASTM_UNPAIRED_ESCAPE_CHARACTER`, and a declared set naming a mnemonic letter as a splitting
+delimiter leaves both alignments interpreting one construct each with neither preferred. Treat a
+bare escape character next to a delimiter as worth reading the raw line for, whether or not this code
+fired. The other excluded case is a delimiter with no escape character two positions past it, which
+is no competing alignment at all. What does fire is a subset of what already raises
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its mirror above it does not survive a re-emit: catch it on the
+first read of the wire bytes. **What to do:** ask the sender to escape a literal escape character as
+`&E&`, which removes the competing alignment at the source.
 
 ## A header declared one character in two delimiter roles
 
