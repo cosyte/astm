@@ -15,8 +15,9 @@ edited into the destination in the same staging passed identically. A `git mv` o
 a mode-120000 entry under a scan root the same way, defeating the refusal added for exactly that
 shape. A `diff.ignoreSubmodules = all` setting in the caller's configuration dropped a staged gitlink
 from the output entirely, so the same index refused at exit 2 without that setting and reported clean
-with it. And a path left conflicted by a merge was returned by neither filter letter, so the gate
-attested clean over an index git will not hand it a blob for at all.
+with it. And a path recorded unmerged was returned by neither filter letter, so the gate attested
+clean over an index it cannot read: such a path is held at one or more of stages 1, 2 and 3 and never
+at stage 0, and stage 0 is what the `:<path>` form this route reads with names.
 
 The route now reads `git diff --cached --raw -z --no-renames --ignore-submodules=none
 --diff-filter=AMTUB`. `--no-renames` makes a two-path record impossible, so a moved file arrives as
@@ -25,7 +26,9 @@ verified at `true`, `copies` and `false` and under `diff.renameLimit=1`. `--igno
 restores a record the configuration could delete. `U` is in the filter so an unmerged path can be
 refused rather than scanned, with its own message, because such a record's destination mode is
 `000000` and the existing refusal would have described it with a sentence about symbolic links that
-is false for it.
+is false for it. Nothing rests on what `git show` does with an unmerged path: the route refuses
+before it would call it, and an earlier draft that pinned that exit code did not reproduce across git
+versions.
 
 The new enumeration is a superset of the old one and not a strictly larger set: the two are equal
 whenever nothing is renamed, copied, unmerged or hidden by that setting, and larger only when

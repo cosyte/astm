@@ -469,9 +469,9 @@ function refuseUnmerged(paths: string[]): void {
   const noun = paths.length === 1 ? "path is unmerged" : "paths are unmerged";
   throw new InvocationError(
     `refusing the scan: ${String(paths.length)} in-scope ${noun}:\n${lines}\n` +
-      "An unmerged path is recorded at one or more of stages 1/2/3 and never at stage 0, so " +
-      "`git show :<path>` fails outright and there is no one staged blob for the scan to read. " +
-      "Resolve the conflict and `git add` the result.",
+      "An unmerged path is recorded at one or more of stages 1/2/3 and never at stage 0, and " +
+      "stage 0 is what the `:<path>` this scan reads with names, so there is no one staged blob " +
+      "for it to read. Resolve the conflict and `git add` the result.",
   );
 }
 
@@ -535,8 +535,12 @@ function buildTargetsForStaged(): Target[] {
     // does not widen the scope, and the refusal it feeds is the pre-existing one.
     //
     // `U` (UNMERGED) IS IN THE FILTER SO IT CAN BE REFUSED, NOT SCANNED. Such a
-    // path is recorded at one or more of stages 1/2/3 and never at stage 0, so
-    // `git show :<path>` fails on the `:<path>` form; it was returned by neither
+    // path is recorded at one or more of stages 1/2/3 and never at stage 0, and
+    // stage 0 is exactly what the `:<path>` form this route reads with names, so
+    // there is no one blob for it to read. NOTHING HERE RESTS ON WHAT `git show`
+    // DOES WITH SUCH A PATH, deliberately: the route refuses before it would call
+    // it, and an earlier draft pinned that exit code and did not reproduce across
+    // git versions. It was returned by neither
     // `AM` nor `AMT`, and this route reported `OK: no hits` over an index it
     // could not read (measured, exit 0, with a dashed SSN and an undeclared
     // patient name in one of the stages). Git itself refuses to commit while a

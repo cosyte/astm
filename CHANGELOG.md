@@ -866,10 +866,13 @@ this file is maintained by hand (Changesets handles the version bump and publish
   - **A gitlink the caller's config hid.** `diff.ignoreSubmodules = all` in the caller's git config
     dropped a staged gitlink under `test/fixtures/` from the raw output entirely. The **same index**
     refused at exit 2 without that config and reported `OK: no hits` at exit **0** with it.
-  - **An unmerged path.** An in-scope path left conflicted by a merge, with the payload on one side,
-    was returned by neither `AM` nor `AMT`, and the run printed `OK: no hits` and exited **0** over an
-    index it could not read: `git show :<path>` fails outright for such a path, because it is
-    recorded at one or more of stages 1/2/3 and never at stage 0.
+  - **An unmerged path.** An in-scope path recorded unmerged, with the payload on one side, was
+    returned by neither `AM` nor `AMT`, and the run printed `OK: no hits` and exited **0** over an
+    index it could not read: such a path is recorded at one or more of stages 1/2/3 and never at
+    stage 0, and stage 0 is exactly what the `:<path>` form this route reads with names, so there is
+    no one blob for it to read. **Nothing rests on what `git show` does with such a path**: the route
+    refuses before it would call it, and an earlier draft that pinned that exit code did not
+    reproduce across git versions.
 
   **The remedy is entirely in the argv, and it is one rule: stop trusting the caller's git config,
   and stop letting the filter decide what is safe not to look at.** The route now reads
@@ -881,7 +884,11 @@ this file is maintained by hand (Changesets handles the version bump and publish
   the caller's config. `--ignore-submodules=none` restores a record the config could delete.
   `U` is in the filter **so it can be refused, not scanned**, with its own message: an unmerged
   record's destination mode is `000000`, so the existing refusal would have described it with a
-  sentence about symbolic links and gitlinks that is false for it. None of the four costs the record
+  sentence about symbolic links and gitlinks that is false for it. That case builds the unmerged
+  index directly, with `git update-index --index-info`, rather than provoking it with a real merge:
+  whether a merge conflicts depends on the merge machinery and on the caller having a git identity,
+  and the index state is the thing under test. Staged as a real conflict it did not reproduce on
+  every git version. None of the four costs the record
   stride anything, because each carries a single path.
 
   **Be exact about what that changes.** The new enumeration is a **superset** of the old one, not a

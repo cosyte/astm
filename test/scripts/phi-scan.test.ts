@@ -816,39 +816,72 @@ describe("phi-scan: the caller's git config cannot delete a refusal", () => {
 });
 
 describe("phi-scan: the --staged route refuses an UNMERGED in-scope path", () => {
-  /** Leave `root` mid-merge with `test/fixtures/c.astm` conflicted, PHI on one side. */
-  function conflictIn(root: string, path: string): void {
-    writeFileSync(join(root, path), filler("base", 3));
-    git(root, ["add", path]);
-    commitIn(root, "base");
-    git(root, ["checkout", "-q", "-b", "other"]);
-    writeFileSync(join(root, path), SYNTHETIC_PHI);
-    git(root, ["add", path]);
-    commitIn(root, "other");
-    git(root, ["checkout", "-q", "-"]);
-    writeFileSync(join(root, path), filler("mainline", 3));
-    git(root, ["add", path]);
-    commitIn(root, "mainline");
-    // The merge is EXPECTED to fail: that is the state under test.
-    spawnSync("git", ["merge", "other", "-q"], { cwd: root, encoding: "utf8", shell: false });
+  /** Write one blob into `root`'s object database and return its id. */
+  function hashObject(root: string, content: string): string {
+    const r = spawnSync("git", ["hash-object", "-w", "--stdin"], {
+      cwd: root,
+      input: content,
+      encoding: "utf8",
+      shell: false,
+    });
+    if ((r.status ?? -1) !== 0) throw new Error(`git hash-object failed: ${r.stderr ?? ""}`);
+    return (r.stdout ?? "").trim();
+  }
+
+  /**
+   * Leave `path` UNMERGED in the index, with the synthetic payload on one side,
+   * by writing stages 1, 2 and 3 for it directly.
+   *
+   * DELIBERATELY NOT `git merge`. An earlier version of this helper staged a real
+   * conflict, and it did not reproduce: on the CI runner's git the merge did not
+   * leave the path unmerged at all, so the case asserted its premise against a
+   * CLEAN index and only the premise failed. Whether a merge conflicts depends on
+   * the merge machinery and on the caller having a git identity, neither of which
+   * this case is about. The index state IS the thing under test, so it is
+   * constructed rather than provoked, which makes the case deterministic on every
+   * git version and on a repo with no identity configured.
+   */
+  function unmergedIn(root: string, path: string): void {
+    const stages = [
+      `100644 ${hashObject(root, filler("base", 3))} 1\t${path}`,
+      `100644 ${hashObject(root, filler("mainline", 3))} 2\t${path}`,
+      `100644 ${hashObject(root, SYNTHETIC_PHI)} 3\t${path}`,
+    ];
+    const r = spawnSync("git", ["update-index", "--index-info"], {
+      cwd: root,
+      input: `${stages.join("\n")}\n`,
+      encoding: "utf8",
+      shell: false,
+    });
+    if ((r.status ?? -1) !== 0) throw new Error(`git update-index failed: ${r.stderr ?? ""}`);
   }
 
   it("refuses it (exit 2) rather than reporting clean, and reports no PHI", () => {
     const root = makeRepo();
     fixturesIn(root);
-    conflictIn(root, "test/fixtures/c.astm");
+    unmergedIn(root, "test/fixtures/c.astm");
 
-    // The premise: the superseded filter returned no record for it, and git
-    // cannot hand the scan a stage-0 blob for it either.
+    // The premise, in three parts. The path really is unmerged; it is recorded at
+    // stages 1/2/3 and at NO stage 0, which is what `:<path>` names and therefore
+    // why there is no one blob for the route to read; and the superseded filter
+    // returned no record for it at all.
+    expect(gitOut(root, ["ls-files", "-u", "test/fixtures/c.astm"]).trim()).not.toBe("");
+    const staged = gitOut(root, ["ls-files", "--stage", "test/fixtures/c.astm"]);
+    for (const stage of ["1", "2", "3"]) expect(staged).toContain(` ${stage}\t`);
+    expect(staged).not.toContain(" 0\t");
     expect(gitOut(root, ["diff", "--cached", "--raw", "--diff-filter=AMT"])).not.toContain(
       "test/fixtures/c.astm",
     );
-    const show = spawnSync("git", ["show", ":test/fixtures/c.astm"], {
-      cwd: root,
-      encoding: "utf8",
-      shell: false,
-    });
-    expect(show.status).not.toBe(0);
+    expect(
+      gitOut(root, [
+        "diff",
+        "--cached",
+        "--raw",
+        "--no-renames",
+        "--ignore-submodules=none",
+        "--diff-filter=AMTUB",
+      ]),
+    ).toMatch(/\bU\ttest\/fixtures\/c\.astm/);
 
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(2);
@@ -861,7 +894,7 @@ describe("phi-scan: the --staged route refuses an UNMERGED in-scope path", () =>
 
   it("leaves an unmerged path OUTSIDE the route's scope alone (the scope is unchanged)", () => {
     const root = makeRepo();
-    conflictIn(root, "notes.txt");
+    unmergedIn(root, "notes.txt");
 
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
