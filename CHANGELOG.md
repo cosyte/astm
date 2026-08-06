@@ -812,10 +812,13 @@ this file is maintained by hand (Changesets handles the version bump and publish
   unchanged, still `test/fixtures/**` and `src/**.ts`, so a staged link outside it is still not
   looked at; narrowing what a scope admits is not widening the scope. That scope also bounds the
   gitlink half: a submodule staged at `test/fixtures/nested` is refused, while one at `src/nested` is
-  a directory name that fails the `.ts` suffix and is not looked at. `R` (rename) and `C` (copy) are
-  still **not** enumerated by `--staged` at all, so a staged rename that also appends PHI passes that
+  a directory name that fails the `.ts` suffix and is not looked at. **`R` (rename) and `C` (copy)
+  are still not enumerated by `--staged` at all, so a staged rename that also appends PHI passes that
   route; pre-existing, unchanged here, and admitting it needs the two-path record shape handled,
-  which is a scope decision rather than this one. A tracked file **absent from the worktree** is
+  which is a scope decision rather than this one.** That last sentence was true when it was written
+  and is **superseded later in this same release**: the entry below closes it, and it turned out to
+  need no two-path record shape at all. It is kept rather than rewritten because the measurement it
+  records is what the later entry starts from. A tracked file **absent from the worktree** is
   still caught at `git add` time only.
 
   **And this scanner still has no rule that a sweep observing ZERO targets must refuse**, which is
@@ -839,6 +842,87 @@ this file is maintained by hand (Changesets handles the version bump and publish
   trees under the OS temp directory, not under a scan root. So the shape is present and its trigger
   is not, which makes closing it a separate slice with its own argument rather than a rider on a PHI
   blindness fix. It is a different defect and it fails in the safe direction.
+
+- **The PHI scanner's staged route no longer lets git decide what it is safe not to look at, so a
+  `git mv` into a fixture directory can no longer carry PHI past the pre-commit gate**
+  (`PHI-SCAN-RENAME-BLIND-AT-PRECOMMIT`). Development tooling only: `scripts/phi-scan.ts` ships in no
+  tarball and the package's public surface is unchanged.
+
+  Reproduced on `427af85` before any fix, on git 2.39.5, with the same synthetic name-bearing payload
+  the symlink cases use (an ASTM `P` record carrying a patient name, a mother's maiden name and a
+  birthdate, plus a dashed SSN and an email at a non-test domain). Four ways the enumeration could be
+  emptied before any of the refusals above were reached, each measured as its own throwaway index:
+  - **A staged rename.** `git mv test/fixtures/original.astm test/fixtures/renamed.astm` on a file
+    carrying the payload paired as a single record with **two** paths and a status letter of `R`, and
+    `--diff-filter=AMT` returned nothing for it, so `pnpm phi-scan --staged` printed `OK: no hits`
+    and exited **0**. The same move with the payload **edited into the destination in the same
+    staging** passed identically, because git still pairs it when enough of the old content survives.
+    No similarity score is quoted here: it moves with how much survives, so a number taken from one
+    fixture is wrong in the next, and what is load-bearing is that the record was paired at all.
+  - **A staged rename of a symbolic link.** `git mv` of a tracked link into `test/fixtures/` put a
+    mode-`120000` entry under a scan root. The mode refusal added by the previous entry already knew
+    how to refuse that; the pairing deleted the record before the mode could be read, and the run
+    exited **0**.
+  - **A gitlink the caller's config hid.** `diff.ignoreSubmodules = all` in the caller's git config
+    dropped a staged gitlink under `test/fixtures/` from the raw output entirely. The **same index**
+    refused at exit 2 without that config and reported `OK: no hits` at exit **0** with it.
+  - **An unmerged path.** An in-scope path recorded unmerged, with the payload on one side, was
+    returned by neither `AM` nor `AMT`, and the run printed `OK: no hits` and exited **0** over an
+    index it could not read: such a path is recorded at one or more of stages 1/2/3 and never at
+    stage 0, and stage 0 is exactly what the `:<path>` form this route reads with names, so there is
+    no one blob for it to read. **Nothing rests on what `git show` does with such a path**: the route
+    refuses before it would call it, and an earlier draft that pinned that exit code did not
+    reproduce across git versions.
+
+  **The remedy is entirely in the argv, and it is one rule: stop trusting the caller's git config,
+  and stop letting the filter decide what is safe not to look at.** The route now reads
+  `git diff --cached --raw -z --no-renames --ignore-submodules=none --diff-filter=AMTUB`.
+  `--no-renames` makes a paired record impossible, so the destination arrives as an ordinary
+  single-path `A` and the source as a `D` the filter drops; verified under `diff.renames` at
+  `true`, `copies` and `false` and under `diff.renameLimit=1`, every one yielding the same
+  single-path record, so the two-field record stride is now **structural** rather than conditional on
+  the caller's config. `--ignore-submodules=none` restores a record the config could delete.
+  `U` is in the filter **so it can be refused, not scanned**, with its own message: an unmerged
+  record's destination mode is `000000`, so the existing refusal would have described it with a
+  sentence about symbolic links and gitlinks that is false for it. That case builds the unmerged
+  index directly, with `git update-index --index-info`, rather than provoking it with a real merge:
+  whether a merge conflicts depends on the merge machinery and on the caller having a git identity,
+  and the index state is the thing under test. Staged as a real conflict it did not reproduce on
+  every git version. None of the four costs the record
+  stride anything, because each carries a single path.
+
+  **Be exact about what that changes.** The new enumeration is a **superset** of the old one, not a
+  strictly larger set: the two are **equal** whenever nothing is renamed, copied, unmerged or hidden
+  by that config, and larger only when something is. Nothing the old argv enumerated stops being
+  enumerated. The `--staged` path scope is **unchanged**, still `test/fixtures/**` and `src/**.ts`, so
+  an unmerged or renamed path outside it is still not looked at, and both of those are pinned.
+
+  **`B` is in the filter because `-B` is not inert, and the mechanism is sharper than "a `B` record
+  the filter drops".** A complete rewrite under `-B` prints a **single-path record whose status
+  letter is `M`**, with a break score, which the record regex parses happily, so a reader checking
+  the raw output concludes the record is an `M` and that `AMTU` therefore keeps it. It does not:
+  `--diff-filter` classifies a broken pair as `B` **whatever letter it prints**. Measured on one
+  index, over a wholly rewritten in-scope fixture carrying a dashed SSN: `-B --diff-filter=AMTU`
+  returns empty while `-B --diff-filter=B` and `-B --diff-filter=AMTUB` each return the same record,
+  and a copy of the scanner with `-B` injected exits **0** with `OK: no hits` on the superseded
+  filter and **1** with the hit on the shipped one. `B` costs the enumeration nothing today, since
+  git only breaks a pair when `-B` is given, so it is there to stop the flag ever being a silent
+  blindfold. `-M`, `-C` and `--find-copies-harder` each turn detection back on over the top of
+  `--no-renames` and empty the route again, which is measured beside it; none of the four may be
+  added.
+
+  **6 of the file's 41 cases are red on `427af85`**, and the premises each rests on are pinned beside
+  it, so a case cannot quietly stop testing anything. Refusal messages still name only the entry's own
+  repo-relative path and an engine-owned reason, never a link target or any stream content, and that
+  is asserted on the new refusal too.
+
+  **What this does not cover, stated narrowly.** The all-mode walk is untouched: it has no concept of
+  a rename, and nothing here widens or narrows what it enumerates. The scan roots' own paths are still
+  outside the `--staged` scope, so a staged blob, link or gitlink at exactly `test/fixtures`, `test`
+  or `src` is still not looked at by that route. Neither route reaches `test/**/*.test.ts`, where this
+  package keeps most of its inline fixtures, so those are still read by hand. And this scanner still
+  has no rule that a sweep observing zero targets must refuse, exactly as recorded above. Each of
+  those is a scope decision with its own argument, not a consequence of anything here.
 
 - **The frame encoder no longer writes a different character than the one it was handed**
   (`ASTM-FRAME-BYTE-RESIDUALS`, closing known defect 7). `composeAstmFrames` turned a record given
