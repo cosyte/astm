@@ -222,9 +222,12 @@ mirror: catch it on the first read.
 
 **And where that gained boundary is a FIELD boundary, it moves a result's status, which is a
 different question and so a different code.** The two alignments resume one character apart, so they
-disagree about every byte after the boundary, not only about it. Where the escape character the
-reading taken resumes on heads no sequence at all, that reading bought the boundary with a byte it
-cannot read while the competing alignment is the one that can use it. On the field separator that
+disagree about the bytes after the boundary, not only about it (they can resync later, and the
+class where they do is named below). Where the escape character the
+reading taken resumes on heads no sequence this reader can _interpret_ (none at all, or one whose
+body is not a recognized mnemonic and is therefore preserved verbatim rather than read), that
+reading bought the boundary with bytes it cannot read while the competing alignment is the one that
+can use them. On the field separator that
 matters clinically: `R|1|^^^687|28.6&F&|&U/L||||F` reads **nine** fields under the alignment taken
 and **eight** under the other, so the sender's trailing `F` lands in field 9, the result status,
 under the first and in no field at all under the second. The parse hands back units of `&U/L` and a
@@ -236,9 +239,23 @@ unchanged: it reports the shift rather than repairing it. It is wired to the **f
 only, because a gained repeat or component boundary divides one field and so moves no field-indexed
 slot. **That bound is a choice, not a consequence**: components are modeled inside a field, so a
 gained repeat or component boundary does reach a modeled slot, and each of those two has a code of
-its own below. It is also silent where the trailing
-escape character heads a sequence of its own, recognized or not; that case still shifts the fields
-and is the recorded residue. It does not survive a re-emit either: catch it on the first read.
+its own below. It stays silent in exactly one case,
+where the trailing escape character heads a sequence this reader RECOGNIZES: that is the escape
+mechanism working, and refusing it would refuse well-formed traffic. That is the only tail on which
+a stream's escaping can be clean, which is why it is the only exclusion. **That silence is a trade
+and not a claim that nothing was lost there**: the gained field boundary is exactly as real, and on
+that tail it is `warnings: []`, so `R|1|^^^687|28.6&F&|&F&U/L||||F` reads nine fields against the
+competing alignment's eight and hands back a status of `final` with nothing reported at all. Read
+the raw line when an escape character sits next to a delimiter, whether or not anything fired.
+**The shift has one measured exception, and it is named rather than left to be found**: where the
+sequence past the boundary carries the field separator itself as its body, the reading taken holds
+that character inside an opaque atom while the competing alignment splits on it, so the two readings
+read the **same number** of fields in **different places**. `R|1|^^^687|28.6&F&|&|&U/L||||F` reads
+nine fields under both, with the status `F` in field 9 under both, and what differs is the units.
+The code still fires there, which is over-reporting relative to the field indexes and never
+under-reporting, and that class costs no stream its disposition, because
+`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` has already refused it. It does not survive a re-emit
+either: catch it on the first read.
 
 **And where that gained boundary is a REPEAT boundary, nothing shifts and the field can still be
 read short.** What the report says is that the field is read as more repeats than the competing
@@ -254,8 +271,14 @@ legal profile accepted a truncated value and an emptied test identity. The readi
 reports the gained boundary rather than repairing it. **At a LATER boundary it fires and no modeled
 slot moves**, because the first repeat is then the same under both readings; that is over-reporting
 relative to the modeled slots and never under-reporting, and it is measured rather than assumed. Its
-tail bound is the shift report's, for the same reason: `28.6&R&\&R&U/L` is the repeat separator
-escaped, written, and escaped again, and refusing it would refuse a well-formed stream. It is wired to the **repeat** separator only; a gained
+tail bound is the shift report's, for the same reason, and so is its one exclusion:
+`28.6&R&\&R&U/L` is the repeat separator escaped, written, and escaped again, and refusing it would
+refuse a well-formed stream. **That silence is a trade, not a claim that nothing was lost**:
+`28.6&S&\&S&U/L` still reads a value of `28.6^` with `warnings: []`. **The truncation has the same
+one exception as the shift**: where the sequence past the boundary carries the repeat separator
+itself, the two readings read the same number of repeats in different places, so the field is not
+read as more repeats at all, and that class was already refused by
+`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`. It is wired to the **repeat** separator only; a gained
 **component** boundary reaches a modeled slot differently, and has its own code below. It does not
 survive a re-emit either: catch it on the first read.
 
@@ -274,7 +297,16 @@ repairing them. **Every gained boundary at or before the last modeled component 
 not only the first**, because the shift propagates to the end of the component list, which is where
 this differs from the repeat role. **Two bounds run the other way and it fires inside both**,
 over-reporting and never under: past the last modeled index nothing named moves (a name models three
-components, a Universal Test ID four), and inside a later repeat nothing modeled moves at all. Its tail bound is the other two reports', for the same reason. It does not
+components, a Universal Test ID four), and inside a later repeat nothing modeled moves at all. Its
+tail bound is the other two reports', for the same reason, and so is its one exclusion, **and that
+silence is a trade rather than a claim that nothing was lost**: `&F&^&F&GLU^L^687` still reads one
+component more than the competing alignment, with `warnings: []`. **A THIRD bound runs the other way
+here, and unlike the two above it is about the bytes past the boundary rather than where the
+boundary sits**: where the sequence past it carries the component separator itself, the two readings
+read the same number of components in different places, so `DOE&F&^&^&JANE^A` reads three components
+under both with `A` the middle name under both, and that class was already refused by
+`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`. What holds wherever any of the three codes fires is
+that the two readings disagree and that both consume every byte, so neither is forced. It does not
 survive a re-emit either: catch it on the first read. With this the three splitting roles are all
 wired, and there is no fourth: nothing splits on the escape role.
 
@@ -373,7 +405,8 @@ outside it:
   where the leftmost alignment lets a delimiter split that a competing alignment would have held,
   gains a boundary instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also
   not tolerable. Where that gained boundary is a **field** boundary and the reading taken resumes on
-  an escape character heading no sequence, every later field shifts one place and a result's units
+  an escape character heading no sequence it can interpret, every later field shifts one place and a
+  result's units
   and status are read out of slots the other alignment does not put them in: that raises
   `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable either. Where it is a **repeat** boundary
   nothing shifts, but the field is read out of its first repeat alone, so a gained first boundary

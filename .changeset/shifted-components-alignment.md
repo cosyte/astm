@@ -6,7 +6,9 @@ Report components a competing escape alignment moved one slot along.
 
 `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` fires where two escape alignments of the same bytes
 disagree about a **component** boundary, the reading taken keeps it, and the escape character that
-reading resumes on heads no sequence at all. No profile may tolerate it, so `{ strict: true }`
+reading resumes on heads no sequence at all. (**That tail bound is widened later in this same
+release**, to any tail this reader cannot interpret; a later entry carries the change and its
+measurement.) No profile may tolerate it, so `{ strict: true }`
 refuses a stream carrying it whatever profile is in force. It completes the set: the three roles a
 split is taken on are field, repeat and component, and all three are now wired to this one tail test.
 
@@ -26,9 +28,12 @@ last modeled component index moves those slots and not only the first, because t
 to the end of the component list. Two bounds run the other way and it fires inside both, which is
 over-reporting and never under-reporting: past the last modeled index nothing named moves (a name
 models three components, a test identity four), and inside a later repeat nothing modeled moves at
-all. The tail is weighed one construct deep, so a stream where the
-escape character past the boundary heads a sequence of its own is left alone: refusing those would
-refuse well-formed traffic. It does not survive a re-emit, so catch it on the first read of the wire
+all. The tail is weighed one construct deep, and a later change in this same release widened which
+tails count: a stream where the escape character past the boundary heads a sequence this reader
+RECOGNIZES is left alone, because refusing those would refuse well-formed traffic. That same later
+change also names the one class in which no component index moves at all, where the sequence past
+the boundary carries the component separator itself. It does not survive a re-emit, so catch it on
+the first read of the wire
 bytes.
 
 This is a narrowing on a published package, on the strict path only: a lenient parse of the same

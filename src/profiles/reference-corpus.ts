@@ -89,7 +89,8 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
         "sequence ends where another could have begun and a delimiter splits that the other " +
         "alignment would have held: that raises ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT, which " +
         "this profile cannot tolerate either. Where that gained boundary is a field boundary and " +
-        "the reading taken resumes on an escape character heading no sequence, every later field " +
+        "the reading taken resumes on an escape character heading no sequence this reader can " +
+        "interpret, every later field " +
         "shifts and a result's units and status move with it, which raises " +
         "ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS, untolerable here as well. Where that same gained " +
         "boundary is a repeat boundary, nothing shifts but the field is read out of its first " +
@@ -99,10 +100,16 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
         "after it moves one slot along, so a test identity's coding scheme and local code and a " +
         "patient's given and middle names are read out of positions the other alignment does not " +
         "put them in, which raises ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS, untolerable here as " +
-        "well. All three of those carry the " +
-        "same tail bound and stay silent where the escape character past the boundary heads a " +
-        "sequence of its own, recognized or not, which is much of this corpus: tolerating this " +
-        "code does not quiet them, but their absence is not a statement that nothing was lost.",
+        "well. Each of those three shift claims has one measured exception, where the sequence " +
+        "past the boundary carries the splitting delimiter itself: the two readings then read the " +
+        "same number of segments in different places, nothing moves index, and the record was " +
+        "already refused by ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE. All three carry the " +
+        "same tail bound and stay silent in exactly one case, where the escape character past the " +
+        "boundary heads a sequence this reader RECOGNIZES, which is the escape mechanism working. " +
+        "How often that happens on this corpus is NOT measured and must not be guessed at: the " +
+        "firsthand grounding above is of the DECODE path only, and a relayed stream can still " +
+        "carry a device-written mnemonic. Tolerating this code " +
+        "does not quiet those three, and their absence is not a statement that nothing was lost.",
     },
   ],
 });

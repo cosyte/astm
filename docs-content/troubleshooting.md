@@ -115,12 +115,14 @@ the parser usually cannot interpret, so it prefers the reading taken. **That is 
 the reading taken is conformant**, and two cases fall in the gap. The first, on the field separator,
 is now covered by a second code, described in the next section. The second is covered only where that
 code reaches: a declared set naming a mnemonic letter as a splitting delimiter leaves both alignments
-interpreting one construct each with **neither preferred**, and where a bare escape character sits
-past the boundary one of the next three sections' codes now fires, one per splitting role: the field
-separator, then the repeat separator, then the component separator. What is left is the tail: where
-the escape character past the boundary heads a sequence of its own, recognized or not,
-**nothing reports it at all**. Treat a bare escape character next to a
-delimiter as worth reading the raw line for, **whether or not either code fired**. The other excluded
+interpreting one construct each with **neither preferred**, and where the escape character past the
+boundary heads nothing this reader can interpret (it is bare, or it heads a sequence whose body is
+unrecognized) one of the next three sections' codes fires, one per splitting role: the field
+separator, then the repeat separator, then the component separator. What is left is the one tail they
+exclude: where the escape character past the boundary heads a sequence this reader RECOGNIZES,
+**nothing reports it at all**, which is the escape mechanism working. **That silence is a trade, not
+a claim that nothing was lost there**, so treat an escape character next to a
+delimiter as worth reading the raw line for, **whether or not anything fired**. The other excluded
 case is a delimiter with no escape character two positions past it, which is no competing alignment
 at all. What does fire is a subset of what already raises `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Like its
 mirror above it does not survive a re-emit: catch it on the first read of the wire bytes. **What to
@@ -132,10 +134,13 @@ alignment at the source.
 `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` answers a different question about the same position as the
 code above: not whether the parser's own vocabulary prefers the alignment taken, but what that
 alignment makes of the bytes **after** the boundary. The two readings resume one character apart, so
-they disagree about the whole rest of the record. Where the escape character the reading taken
-resumes on heads no sequence at all, that reading bought a field boundary with a byte it cannot read,
-while the competing alignment is exactly the reading that can use it, as the close of its own
-sequence.
+they disagree past it, and on most tails about the whole rest of the record. Where the escape
+character the reading taken
+resumes on heads no sequence this reader can _interpret_, that reading bought a field boundary with
+bytes it cannot read, while the competing alignment is exactly the reading that can use them, as the
+close of its own sequence. Two tails satisfy that and cost the same: the character heads no sequence
+at all, or it heads one whose body is not a recognized mnemonic and is therefore kept verbatim
+rather than read. Consuming a sequence is not interpreting one.
 
 **On the field separator that matters clinically, because a gained field boundary shifts every later
 field one place.** `R|1|^^^687|28.6&F&|&U/L||||F` reads **nine** fields under the alignment taken and
@@ -157,12 +162,27 @@ field and so moves no field-indexed slot: the units and the status stay put. Tha
 consequence. Components are modeled _inside_ a field, so a gained **component** boundary does move a
 modeled slot, and that is reported by its own code two sections below rather than by this one. On the
 repeat role the cost is the **value** and the field's components, reported
-by its own code in the next section. And where the
-escape character past the boundary heads a
-sequence, recognized or not, it stays silent, because the reading taken is then the one making sense
-of those bytes: under a set naming the field separator `F`, `28.6&F&F&F&U/L` is that separator
-escaped, written, and escaped again, which is entirely well formed. The case where that trailing
-sequence has an unrecognized body still shifts the fields and is still silent here. Like the codes
+by its own code in the next section. And it stays silent in exactly one case, where the
+escape character past the boundary heads a sequence this reader RECOGNIZES, because the reading
+taken is then the one making sense of those bytes: under a set naming the field separator `F`,
+`28.6&F&F&F&U/L` is that separator escaped, written, and escaped again, which is entirely well
+formed. That is the only tail on which a stream's escaping can be clean, which is why it is the only
+exclusion. **That silence is a trade, not a claim that nothing was lost there**: on that tail the
+gained field boundary is exactly as real and nothing at all is reported, so
+`R|1|^^^687|28.6&F&|&F&U/L||||F` reads nine fields against the other alignment's eight and hands back
+a status of `final` with `warnings: []`. **Treat an escape character sitting next to a delimiter as
+worth reading the raw line for, whether or not anything fired.**
+
+**The shift has one measured exception, and it is named here rather than left to be found.** Where
+the sequence past the boundary carries the **field separator itself** as its body, the reading taken
+holds that character inside an opaque atom while the competing alignment splits on it, so the two
+readings read the **same number** of fields in **different places**:
+`R|1|^^^687|28.6&F&|&|&U/L||||F` reads nine fields under both, the status `F` sits in field 9 under
+both, and what differs is the units. This code still fires there, which is over-reporting relative
+to the field indexes and never under-reporting, and that class costs no stream its disposition,
+because `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` has already refused the record. What holds
+wherever this fires is that the two readings disagree and that both consume every byte. Like the
+codes
 above it does not survive a re-emit: catch it on the first read of the wire bytes. **What to do:**
 read the raw line, and ask the sender to escape a literal escape character as `&E&`.
 
@@ -200,10 +220,15 @@ is wrong**.
 Two further bounds, both deliberate. It is wired to the **repeat** separator only: a gained **component**
 boundary reaches a modeled slot too, and differently, moving it one slot along rather than dropping
 it, which is the next section's code. And the tail bound is the previous
-section's, for the same reason: where the escape character past the boundary heads a sequence,
-recognized or not, this stays silent, because `28.6&R&\&R&U/L` is the repeat separator escaped,
-written, and escaped again, and refusing it would refuse a well-formed stream. The unrecognized-tail
-case still truncates and is still silent here. Like the codes above it does not survive a re-emit:
+section's, for the same reason, and so is its one exclusion: where the escape character past the
+boundary heads a sequence this reader RECOGNIZES, this stays silent, because `28.6&R&\&R&U/L` is the
+repeat separator escaped, written, and escaped again, and refusing it would refuse a well-formed
+stream. **That silence is a trade, not a claim that nothing was lost**: `28.6&S&\&S&U/L` still reads
+a value of `28.6^` with `warnings: []`. **The truncation has the same one exception as the shift**:
+where the sequence past the boundary carries the **repeat separator itself**, the two readings read
+the same number of repeats in different places, so the field is not read as more repeats at all, and
+that class was already refused by `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`. Like the codes above
+it does not survive a re-emit:
 catch it on the first read of the wire bytes. **What to do:** read the raw line, check `repeats` on
 the field the warning names before trusting its value, and ask the sender to escape a literal escape
 character as `&E&`.
@@ -249,10 +274,16 @@ named moved**:
 - **Inside a later repeat nothing modeled moves at all**, because a field's components are read from
   its first repeat alone; what differs there is `repeats`.
 
-The tail bound is the one the other two carry, for the same reason: where the escape character past
-the boundary heads a sequence, recognized or not, this stays silent, because `&F&^&F&GLU` is a field
-separator escaped, a component separator written, and a field separator escaped again, which is
-entirely well formed. The unrecognized-tail case still moves the components and is still silent here.
+The tail bound is the one the other two carry, for the same reason, and so is its one exclusion:
+where the escape character past the boundary heads a sequence this reader RECOGNIZES, this stays
+silent, because `&F&^&F&GLU` is a field separator escaped, a component separator written, and a
+field separator escaped again, which is entirely well formed. **That silence is a trade, not a claim
+that nothing was lost**: `&F&^&F&GLU^L^687` still reads one component more than the competing
+alignment, with `warnings: []`. **A third bound runs the other way, and unlike the two above it is
+about the bytes past the boundary rather than where the boundary sits**: where the sequence past it
+carries the **component separator itself**, the two readings read the same number of components in
+different places, so `DOE&F&^&^&JANE^A` reads three components under both with `A` the middle name
+under both, and that class was already refused by `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`.
 Like the codes above it does not survive a re-emit: catch it on the first read of the wire bytes.
 **What to do:** read the raw line, check the field's components against the raw bytes before trusting
 a coding scheme or a name part, and ask the sender to escape a literal escape character as `&E&`.

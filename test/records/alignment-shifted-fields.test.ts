@@ -16,10 +16,15 @@
  *
  * **The question this code asks is a different one, not a widening.** It asks what the reading
  * taken makes of the bytes **after** the boundary. The two alignments resume one character apart,
- * so they disagree about the whole tail, and where the escape character the reading taken resumes
- * on heads no sequence at all, that reading bought a boundary with a byte it cannot read while the
- * competing alignment is precisely the reading that can. The earlier report's own exclusion is left
- * exactly as it was.
+ * so they disagree past the boundary, and where the escape character the reading taken resumes
+ * on heads no sequence it can **interpret** (none at all, or one whose body is not a recognized
+ * mnemonic), that reading bought a boundary with bytes it cannot read while the competing alignment
+ * is precisely the reading that can. The earlier report's own exclusion is left exactly as it was.
+ *
+ * **The shift is not universal over the firing population**, and the exception is swept in
+ * `alignment-unrecognized-tail.test.ts` and pinned below: where the sequence past the boundary
+ * carries the field separator itself, the two readings read the same number of fields in different
+ * places and no index moves.
  *
  * **It is a report, not a repair.** The split is unchanged, every decoded byte is identical, and
  * the units and status read are the ones that were always read. Picking the other alignment would
@@ -327,25 +332,37 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
     expect(codes(name)).not.toContain(SHIFT);
   });
 
-  it("stays silent where the tail heads an UNRECOGNIZED sequence, the named residue", () => {
-    // The bound stated rather than left to be found. Here the reading taken still consumes the
-    // escape character as the head of a sequence and carries one unreadable body, while the
-    // competing alignment would leave TWO escape characters bare, so the preference for the reading
-    // taken is stronger, not weaker. The field shift is nonetheless real, and this is silent about
-    // it: measured, named, and not closed by widening the test, because widening it would report a
-    // boundary the bytes prefer.
+  it("REPORTS the tail that heads an UNRECOGNIZED sequence, which was this file's residue", () => {
+    // ── THE RESIDUE THIS FILE ONCE NAMED, NOW CLOSED, AND THE CORRECTION IS TO THE REASON.
+    // The recorded reason for the silence was that the competing alignment would leave TWO escape
+    // characters bare here, so the bytes prefer the reading taken more strongly than in the case
+    // that already fired. That comparison is true and it is not the question these codes ask. They
+    // report a COST: a modeled slot decided by a boundary the bytes do not force. The cost is
+    // identical under both tails, asserted below against the bare-tail fixture's own figures, and
+    // "consuming a triple" is not "interpreting" one: an unrecognized body is preserved verbatim
+    // and never guessed at, which this package already reports as a deviation in its own right.
+    // What the guard now tests is whether the reading taken can INTERPRET what it resumed on.
     const residue = "H|\\^&\rP|1||LAB-0001\rR|1|^^^687|28.6&F&|&Z&U/L||||F\rL|1|N\r";
     const seen = codes(residue);
-    expect(seen).not.toContain(SHIFT);
-    // It still shifts: 9 fields against the competing alignment's 8, and a status in the last slot.
+    expect(seen).toContain(SHIFT);
+    // The harm is the same harm, measured rather than asserted: 9 fields against the competing
+    // alignment's 8, every later field one place right, and a status in a slot the other reading
+    // does not have. Identical to the bare-tail fixture at the top of this file.
     const line = "R|1|^^^687|28.6&F&|&Z&U/L||||F";
     expect(splitEscapeAware(line, "|", "&")).toHaveLength(
       competingSplit(line, "|", "&").length + 1,
     );
     expect(results(parseAstmRecords(residue))[0]?.status.isActiveFinal).toBe(true);
-    // And only tolerable codes fire, so a gate-legal profile still accepts it. That is the residue.
-    expect(seen.every((c) => TOLERABLE_CODES.has(c))).toBe(true);
-    expect(acceptedUnderMaximalTolerance(residue)).toBe(true);
+    // It was accepted before by every gate-legal profile, on one tolerable code, and is not now.
+    expect(seen.filter((c) => c !== SHIFT).every((c) => TOLERABLE_CODES.has(c))).toBe(true);
+    expect(seen.filter((c) => c !== SHIFT)).toEqual([WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE]);
+    expect(acceptedUnderMaximalTolerance(residue)).toBe(false);
+    // And it is still a report, not a repair: every byte survives into the fields, in order.
+    expect(
+      parseAstmRecords(residue)
+        .records[2]?.fields.map((f) => f.raw)
+        .join("|"),
+    ).toBe(line);
   });
 });
 
@@ -472,9 +489,31 @@ const mnemonicBodies = BODY_ALPHABET.filter(isMnemonic).length;
 const sets = DECLARATION_ALPHABET.length * SPLITTING_ROLES.length;
 /** The one tail whose bytes carry no escape deviation of their own. */
 const cleanTails = 1;
-/** The one role this code is wired to, and the one tail it fires on. */
+/**
+ * The body the tail's escape character heads, or `undefined` where it heads no sequence at all.
+ * Read off the corpus constant rather than restated.
+ */
+const tailBodyOf = (suffix: string): string | undefined =>
+  suffix.charAt(1) === "&" ? suffix.charAt(0) : undefined;
+
+/**
+ * **The tails the report fires on, and it is TWO of the three.** The test is whether the reading
+ * taken can INTERPRET the construct it resumed on, not whether it can consume one: a body this
+ * codec does not recognize is preserved verbatim and never guessed at, so a reading that resumes on
+ * one bought its boundary with bytes it cannot read exactly as a reading that resumes on a bare
+ * escape character does. The recognized tail is the only exclusion, and it is the one that matters,
+ * because it is the only tail on which a stream can be escape-clean at all.
+ *
+ * **DERIVED from `TAIL_SUFFIXES` and the mnemonic set, not typed out**, so a tail added to that
+ * constant is classified by the rule the package applies rather than by a name someone wrote beside
+ * it, and the population figures below move with it.
+ */
+const REPORTED_TAILS: readonly string[] = TAIL_SUFFIXES.filter(
+  (t) => !isMnemonic(tailBodyOf(t.suffix) ?? ""),
+).map((t) => t.name);
+/** The one role this code is wired to, and the two tails it fires on. */
 const shiftRoles = 1;
-const shiftTails = 1;
+const shiftTails = REPORTED_TAILS.length;
 
 describe("the corpus, and the property that makes its zeros mean something", () => {
   it("sweeps every declared set, every body and every tail, and every set resolves", () => {
@@ -504,22 +543,28 @@ describe("the corpus, and the property that makes its zeros mean something", () 
 });
 
 describe("what the shift report moves, on the strict-accepted tier", () => {
-  it("fires on exactly one role against one tail, and on no escape-clean stream at all", () => {
+  it("fires on exactly one role against two tails, and on no escape-clean stream at all", () => {
     const fires = corpus.filter((t) => t.reportsShift);
     expect(fires).toHaveLength(
       DECLARATION_ALPHABET.length * shiftRoles * BODY_ALPHABET.length * shiftTails,
     );
     for (const t of fires) {
       expect(t.role).toBe("field");
-      expect(t.tail).toBe("a bare escape character");
+      expect(REPORTED_TAILS).toContain(t.tail);
     }
     // THE FINDING that separates this criterion from the one measured and rejected before it. That
     // one refused 48 of the 96 escape-clean tuples in this same corpus. This one refuses none, and
-    // it cannot: firing requires the escape character past the boundary to head no sequence, which
-    // this package already reports as a deviation in its own right.
+    // it cannot: firing requires the escape character past the boundary either to head no sequence
+    // or to head one whose body this codec does not recognize, and this package already reports
+    // each of those as a deviation in its own right. That is why widening the tail axis from one
+    // tail to two costs nothing on this axis, which is the axis the rejected criterion failed on.
     expect(fires.filter((t) => t.escapeClean)).toHaveLength(0);
     for (const t of fires) {
-      expect(codes(t.raw)).toContain(WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER);
+      const seen = codes(t.raw);
+      expect(
+        seen.includes(WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER) ||
+          seen.includes(WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE),
+      ).toBe(true);
     }
   });
 
@@ -536,8 +581,15 @@ describe("what the shift report moves, on the strict-accepted tier", () => {
     for (const t of moved) {
       expect(isMnemonic(t.body)).toBe(true);
       expect(t.role).toBe("field");
-      expect(t.tail).toBe("a bare escape character");
+      expect(REPORTED_TAILS).toContain(t.tail);
       expect(codes(t.raw)).not.toContain(ALIGNMENT);
+    }
+    // The two reported tails contribute equally, so neither half of the column is carrying the
+    // other: the tail axis is a real split of the population and not a relabelling of one case.
+    for (const tail of REPORTED_TAILS) {
+      expect(moved.filter((t) => t.tail === tail)).toHaveLength(
+        DECLARATION_ALPHABET.length * shiftRoles * mnemonicBodies,
+      );
     }
     // Every moved tuple is a stream this package already called deviant, on a tolerable code.
     for (const t of moved) {
@@ -549,14 +601,19 @@ describe("what the shift report moves, on the strict-accepted tier", () => {
     }
   });
 
-  it("leaves the other two tails of that column exactly where they were", () => {
-    const untouched = corpus.filter(
-      (t) => t.role === "field" && t.tail !== "a bare escape character",
-    );
+  it("leaves the RECOGNIZED tail of that column exactly where it was", () => {
+    // The one exclusion left, and the one that carries the whole over-refusal argument: where the
+    // reading taken interprets the construct it resumed on, the stream can be entirely well formed
+    // and refusing it is the failure that sank the preceding candidate criterion.
+    const untouched = corpus.filter((t) => t.role === "field" && !REPORTED_TAILS.includes(t.tail));
     expect(untouched).toHaveLength(
-      DECLARATION_ALPHABET.length * shiftRoles * BODY_ALPHABET.length * (TAIL_SUFFIXES.length - 1),
+      DECLARATION_ALPHABET.length *
+        shiftRoles *
+        BODY_ALPHABET.length *
+        (TAIL_SUFFIXES.length - shiftTails),
     );
     for (const t of untouched) {
+      expect(t.tail).toBe("a recognized sequence");
       expect(t.reportsShift).toBe(false);
       expect(t.acceptedNow).toBe(t.acceptedBefore);
     }
@@ -575,7 +632,7 @@ describe("the canonical set, swept the same way", () => {
           if (fired) {
             firedOnField += 1;
             expect(contested).toBe("|");
-            expect(tail.name).toBe("a bare escape character");
+            expect(REPORTED_TAILS).toContain(tail.name);
           }
           checked += 1;
         }

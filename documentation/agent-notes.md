@@ -1680,6 +1680,306 @@ recorded once and was stale within the same slice, twice over, because two refut
 the file. **Derive it: `wc -c astm/CLAUDE.md` against that repo's `REPO_CLAUDE` entry.** The next
 append there relocates first.
 
+### Defect 17, the tail residue: CLOSED 2026-08-06, by asking whether the tail can be READ
+
+**What shipped, and it is neither a fourth code nor a criterion swap.**
+`ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` and
+`ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` keep their names, their claims, their roles and their
+tolerability. The one predicate the three share moved from `!isEscapeSequenceAt(text, i + 4, escape)`
+to a named `headsInterpretableSequence(text, i + 4, escape)`, negated: a contested boundary is
+reported unless the escape character the reading taken resumes on heads a triple whose body is one of
+the **four recognized mnemonics**. Two tails now satisfy it where one did:
+
+- **It heads no sequence at all**, kept as a bare literal, `ASTM_UNPAIRED_ESCAPE_CHARACTER`. Reported
+  before, reported now.
+- **It heads a sequence whose body is unrecognized**, preserved verbatim and never guessed at,
+  `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. **This is the residue three slices disclosed and left open.**
+
+**▶ THE CORRECTION IS TO THE REASON, NOT TO THE GUARD, AND THAT IS THE REUSABLE PART.** All three
+slices recorded the same ground for the silence: in the residue case the competing alignment would
+leave **two** escape characters bare while the reading taken carries one unreadable body, so the
+bytes prefer the reading taken **more strongly** there, not less, and firing "would report a boundary
+the bytes prefer." **That comparison is true, and it is not the question these codes ask.** They
+report a **cost**, a modeled slot decided by a boundary the bytes do not force, and the cost is
+identical under both tails, which is now measured rather than reasoned about. **Consuming a triple is
+not interpreting one**: an unrecognized body is preserved verbatim precisely because this codec
+cannot read it, which is why the package already reports it. A reading that resumes on one has bought
+its boundary with bytes it cannot read exactly as a reading that resumes on a bare escape character
+has. **The preference argument also fails to separate the two cases in the direction it was used**:
+on `28.6&F&|&U/L`, the case that already fired, the reading taken carries one deviation and the
+competing alignment three, so the bytes prefer the reading taken there too.
+
+**▶ WHAT STAYS SILENT IS ONE TAIL, AND IT CARRIES THE WHOLE OVER-REFUSAL DEFENCE.** Where the escape
+character heads a sequence this codec **recognizes**, the reading taken interprets a construct and
+nothing is reported: `28.6&F&F&F&U/L` under a set naming the field separator `F` is that separator
+escaped, written, and escaped again. That is the **only** tail on which a stream's escaping can be
+clean at all, so it is the only exclusion that could ever protect conformant traffic. The widened
+predicate **cannot** refuse an escape-clean stream, by construction rather than by luck: every
+position it now rejects already raises `ASTM_UNPAIRED_ESCAPE_CHARACTER` or
+`ASTM_UNKNOWN_ESCAPE_SEQUENCE`. That is the property the rejected pair-count criterion did not have
+(it refused 48 of the 96 escape-clean tuples of the shared corpus), and it is the reason the tail axis
+could be widened from one value to two without re-opening that question. **The pair count was not
+re-proposed and still ships nowhere.**
+
+**▶ 🔴 THAT REMAINING SILENCE IS A TRADE, NOT A CLAIM THAT NOTHING WAS LOST, AND THE FIRST DRAFT OF
+THIS SLICE DROPPED THAT HEDGE FROM SIX SURFACES.** The base text said the excluded tail *"still shifts
+the fields and is the recorded residue"*; the draft replaced it with *"that is the escape mechanism
+working"* and stopped there, in `README.md`, `docs-content/limitations.md`,
+`docs-content/troubleshooting.md`, the module doc and three sink docs in `src/common/escapes.ts`, and
+the three code entries in `src/common/warnings.ts` (`dist/index.d.ts` and the immutable
+`docs-content/` tarball among them). **The refuter caught it on pass 1 and it is exactly defect 6's
+and defect 12's recorded traps**: never tidy a scoped caveat into an unqualified one, and never
+replace narrow "what is not guaranteed" prose with a positive guarantee. Half the old sentence was
+legitimately retired (the unrecognized tail now reports); the other half is still true.
+**On the excluded tail the cost is not merely under-reported, it is `warnings: []`**, measured on the
+canonical set and now pinned in `test/records/alignment-unrecognized-tail.test.ts` rather than left
+to prose: `R|1|^^^687|28.6&F&|&F&U/L||||F` reads **nine** fields against the competing alignment's
+eight and hands back `status.isActiveFinal: true` with an empty warning list;
+`28.6&S&\&S&U/L` reads a value of `28.6^` with `^U/L` in no modeled slot; `&F&^&F&GLU^L^687` reads
+four components against three, so `687` is a vendor local code under one reading and the **coding
+scheme** under the other. All three are `PRE-EXISTING` and reproduce byte-identically on `4569591`.
+**Closing them is the over-refusal that sank the pair count, so the answer is disclosure, not a
+wider guard, and the hedge must travel with the bound on every surface that states it.**
+
+**▶ 🔴 A SEVENTH SURFACE WAS FOUND ON THE SECOND REVIEW PASS, AND IT WAS THE *ADVICE*, NOT THE
+HEDGE.** `docs-content/troubleshooting.md` carried the hedge in its three code sections but still
+told the reader to "treat a **bare** escape character next to a delimiter as worth reading the raw
+line for". **That advice does not reach the case it sits next to.** The one tail still silent is
+`&F&|&F&`, where the escape character next to the delimiter heads a *recognized* sequence and is
+therefore **not bare**, so a reader following that sentence literally skips exactly the stream
+nothing reports. Every sibling surface had already dropped the word (`README.md`,
+`docs-content/limitations.md`, the sink docs, `src/common/warnings.ts`, the changeset). The lesson is
+narrower than the one above and worth keeping separately: **when a bound is widened, re-read the
+*what-to-do* sentences as well as the *what-it-means* ones.** The prose that stated the rule was
+correct on that page; the prose that told a reader what to do about it had gone false, which is the
+`no-internal-refs` rule 4 finding class ("the worst finds were English sentences") arriving on a
+different gate. Fixed by scoping the advice to any escape character next to a delimiter, whether or
+not anything fired, and by carrying the trade sentence into that paragraph too.
+
+**▶ A THIRD READER OF `ASTM_UNKNOWN_ESCAPE_SEQUENCE`'S CONDITION LANDED AND IS NAMED IN
+`src/profiles/safety.ts`.** `headsInterpretableSequence` asks the mnemonic test about the tail body,
+so an unrecognized body there now decides whether one of the three tail codes fires. Admissibility is
+unchanged (what it raises is not tolerable), but the entry said "two readers" and would have gone
+stale silently. **Re-derive that list whenever something new starts reading record structure**: this
+is the second time the count has grown.
+
+**▶ WHY ONE PREDICATE AND NOT THREE MORE CODES.** The three codes differ in what the gained boundary
+**costs** in their role: a field shift, a first-repeat truncation, a component move. The tail flavour
+is not a difference in cost, only in how strongly the bytes prefer the reading, so a fourth, fifth and
+sixth code would have made three claims already made and left a consumer switching on six. Renaming or
+splitting a stable code is breaking; widening the predicate behind it is a narrowing on the strict path
+only, which is exactly what the three slices before it were.
+
+**▶ THE MEASUREMENT, ON THE SAME 864-TUPLE CORPUS AND THE SAME COMMITTED CONSTANTS AS THE FOUR
+MEASUREMENTS BEFORE IT**, tier strict-accepted-under-a-gate-legal-profile, every figure derived from a
+constant inside its own assertion. Each code now **fires on 192** where it fired on 96, **moves 64**
+accepted -> refused where it moved 32, **moves 0 back**, and fires on **0 of the 96 escape-clean
+tuples** exactly as before. The two reported tails contribute **equally** (32 moved each), asserted per
+tail so that neither half of a column can be carrying the other. The three columns stay disjoint. Each
+of the three measurement files replaced its single `"a bare escape character"` literal with a named
+`REPORTED_TAILS` constant and its `*Tails = 1` with `REPORTED_TAILS.length`, and each file's
+"stays silent on the unrecognized tail" pin became a **closure assertion** rather than being deleted.
+`test/records/alignment-criterion-population.test.ts` had `tailTails` generalized from a literal `1`
+to `TAIL_SUFFIXES.length - cleanTails`, **which is its ceiling**: the remaining tail is the
+escape-clean one, and refusing it is the over-refusal that file exists to record.
+
+**▶ 🩺 THE AXIS THE SHARED CORPUS FIXES, SWEPT BESIDE IT, AND IT IS A NEW ONE.** That corpus varies
+whether the tail is bare, recognized or unrecognized, but its `TAIL_SUFFIXES` uses **one character**
+(`Z`) as the unrecognized body, so it can say nothing about which bodies the widened criterion fires
+on. `test/records/alignment-unrecognized-tail.test.ts` crosses `DECLARATION_ALPHABET`,
+`SPLITTING_ROLES` and `BODY_ALPHABET` with the same alphabet as the **tail** body: **3,456 tuples**,
+**2,304 fire**, **528 move**, **0 back**, **384 escape-clean with 0 refused**. Every tuple's observed
+disposition is asserted against a predicate **derived from those alphabets** rather than against a
+count, because a count can be right for the wrong reason. The moved population is narrower than the
+firing one for a derivable reason worth keeping: where the tail body is itself a **splitting delimiter
+in force**, `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` had already refused the stream, so it fires
+and does not move.
+
+**▶ 🔴 THE UNIVERSAL THIS SWEEP REFUTED, IN ITS OWN FIRST DRAFT, AND IT IS THE SAME SHAPE THE FAMILY
+KEEPS COMMITTING.** The obvious claim is *"the reading taken reads exactly ONE more segment than the
+competing alignment"*, and the first draft of the sweep asserted it. **It is FALSE.** Where the tail
+sequence's body is the delimiter the split is being taken on, the reading taken keeps that character
+inside an opaque atom while the competing alignment splits on it, so the two readings produce the
+**same number** of segments in **different places**: under `H~\^&`, `28.6&F&~&~&U/L` reads
+`28.6&F&` + `&~&U/L` against the competitor's `28.6&F&~&` + `&U/L`. That is **144 of the 2,304**
+firing tuples, and the predicate for it (`tailBody === declaration`) is derived rather than fitted.
+What holds on all 2,304 is that the two readings **disagree** and that both **consume every byte**, so
+neither is forced. **The draft was caught by the sweep and not by the gate**, unlike the three before
+it, each of which a refuter caught after it reached `dist/index.d.ts`. The lesson is unchanged and
+now has a third instance: **a claim about the split is not a claim about the segment COUNT.**
+
+**▶ 🔴🔴 AND THE SWEEP CATCHING IT WAS NOT ENOUGH: THE REFUTER CAUGHT THAT THE CORRECTION NEVER LEFT
+THE TEST FILE. THIS IS THE MOST REUSABLE THING IN THIS ENTRY.** The draft recorded the refuted
+universal in the test, in `CLAUDE.md` and in the changeset, and then left every **claim** the three
+codes make about their own role standing unqualified. Widening the predicate widened the firing
+population past the point where those claims hold, and they were false in `dist/index.d.ts`, in the
+immutable `docs-content/` tarball, and in **three runtime warning messages**:
+
+- `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`: *"every later field is one place further right"*. On the
+  canonical set `R|1|^^^687|28.6&F&|&|&U/L||||F` reads **nine** fields under **both** readings, with
+  the sender's `F` in field 9 under both and `isActiveFinal: true` either way. No index moves; what
+  differs is the units (`&|&U/L` against `&U/L`).
+- `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`: *"the field is read as more repeats than the other reading
+  gives it"*. `28.6&F&\&\&U/L` reads **two** repeats under both.
+- `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`: *"every later component sits one place further right"*.
+  `DOE&F&^&^&JANE^A` reads **three** components under both, with `A` the middle name under both.
+
+**The remedy is the CLAIM, not the GUARD, for the fourth time in this family.** Narrowing the
+predicate to exclude the class is forbidden (it changes which streams a published package refuses)
+and would be the wrong fix anyway: the boundary is still one the bytes do not force, and the two
+readings still disagree about the contents. So the three codes now **name the exception** wherever
+they state their cost, and the direction is stated as over-reporting relative to the indexes and
+never under-reporting.
+
+**▶ THE CLASS IS BOUNDED, AND THAT BOUND IS WHY THE OVER-REPORT COSTS NOTHING.** A tail body equal to
+the delimiter being split on is a **splitting delimiter in force**, so
+`ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` had already refused the record. **The measurement is
+committed, and it had to be**: the first draft quoted "36,864 firing tuples crossed with four
+payload prefixes and four suffixes" with those prefixes and suffixes living only in a scratch file,
+which is the exact defect the entry above records against defect 12 ("name the corpus by a constant
+that is IN THE TREE"), on `CHANGELOG.md` and a changeset. The axis is now
+`PAYLOAD_PREFIXES` and `PAYLOAD_SUFFIXES` in `test/records/alignment-unrecognized-tail.test.ts`,
+crossed with the four alphabets the file already swept, so the carrier shape is not held fixed the
+way every earlier corpus in this family held it: **55,296 tuples, 36,864 fire, 2,304 are the class,
+0 lack that code, 0 were accepted before**, and the class is exactly `tailBody === the delimiter
+being split on` with **0** counterexamples in either direction. Every figure derives from those six
+constants inside its own assertion. The modeled slots are pinned separately, against the competing
+alignment rather than against a remembered figure.
+
+**▶ 🔴🔴🔴 AND THE CORRECTION ITSELF GREW A NEW UNIVERSAL, WHICH THE SECOND REFUTER PASS CAUGHT.**
+The rewritten runtime messages opened *"The two readings disagree about **every byte** after this
+point"*. **False on the very class the same sentence then names**: on
+`R|1|^^^687|28.6&F&|&|&U/L||||F` the two readings **resync**, and fields 6 to 9 are byte-identical
+and index-identical under both. So the repair for one over-broad claim was written as another
+over-broad claim, three clauses earlier in the same string. The form that survives every sweep is the
+narrow one the `⚠️` blocks already used: **"the two readings disagree, and both consume every byte,
+so neither is forced."** Four further copies of the same "disagree about every byte / about the whole
+tail" phrasing were standing in `README.md`, `src/common/escapes.ts`,
+`docs-content/troubleshooting.md` and two measurement files, and were scoped with it.
+
+**▶ THE SECOND PASS ALSO CAUGHT A COMPANION-CODE CLAIM THAT THE WIDENING FALSIFIED, IN
+`dist/index.d.ts`.** All three warning factories said *"It fires alongside
+`ASTM_UNPAIRED_ESCAPE_CHARACTER`"* unconditionally. That was **true of the old predicate**, which
+required a bare escape character at `i+4`; on the half this slice added the tail is a complete
+triple and **no unpaired character exists in the record at all**, which the slice's own new test
+asserts three times. It now names both companions and says which one depends on the tail. **This is
+the same shape as the cost claims**: a sentence true of the narrow predicate, left standing over the
+wider one, on the surface a consumer receives.
+
+**▶ 🔴🔴🔴🔴 AND A THIRD PASS FOUND SEVEN MORE OF THE SAME SENTENCE, WHICH IS THE ADR 0016 CAP AND
+THE END OF THE GATE.** After both rounds above, the unqualified cost claims were still standing in
+`src/records/tokenize.ts` (three `@param` texts), `src/common/escapes.ts` (two `@param` texts) and
+`src/profiles/safety.ts` (the repeat and component paragraphs, plus "Two bounds run the other way"
+where there are now three), **and `CHANGELOG.md` claimed they had moved "on every surface that
+carries one"**. All seven reach `dist/index.d.ts`. The refuter graded it `INTRODUCED` **major** and
+said explicitly **"Not a blocker"**, because the direction is over-reporting and every tie-class
+record is already refused by the untolerable `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, so no value
+is silently wrong.
+
+**The remedy was taken as a CUT, not a fourth rewrite**, which is the disposition
+`#defect-13` already records for the ADR 0016 cap. The `@param` texts no longer paraphrase the cost
+at all: they name the sink and stop, so the claim lives in **one** place per role instead of three.
+Only `safety.ts`, which argues admissibility rather than pointing, kept a scoped restatement.
+**Three refuter passes, three REFUTED verdicts, every one of them on a SENTENCE and none on the
+guard.** The predicate survived every attack in all three passes, including exhaustive sweeps of
+1,000,000 and 72,500,000 texts. **That asymmetry is the finding of this slice: a one-line predicate
+change cost about twenty prose corrections across eleven files, and the prose is where every defect
+was.**
+
+**▶ TWO `PRE-EXISTING` HOLES THE THIRD PASS NAMED, BACKLOGGED, NOT CLOSED HERE.** (1) The companion
+universal ("every position this rejects is one the package already reports") is **false where the
+declaration names the escape character in a splitting role too**: `H|\FF` raises a tail code with
+neither escape companion, and the base does the same, 586/586 shared. Scoped in place to "wherever
+the escape role is a character distinct from the three splitting roles"; the collision itself is
+already `ASTM_RECORD_DELIMITER_ROLE_COLLISION`. (2) "One place further right" **understates where a
+second contested construct follows and the competing alignment re-phases**: `A&Z&|&BX&Z&|&F&C` reads
+three fields against one. Breaks identically at base. Both want their own slice.
+
+**▶ THE GENERAL RULE, WHICH IS WHAT TO CARRY FORWARD.** **Recording a refuted universal in the test
+that refuted it is not the same as correcting the claims that rested on it**, and **the correction is
+itself a claim that has to be swept.** Three artifacts recorded it (test, `CLAUDE.md`, changeset) and
+around fifteen surfaces still asserted it; the rewrite of three of them grew a new one. When a sweep
+refutes a universal, **grep for every restatement of that universal before the slice is done**, then
+**grep your own replacement the same way**. Treat the runtime warning **messages** as first-class
+surfaces: they are the sentence an operator reads at three in the morning, and no gate in this repo
+reads them for truth. And **widening a predicate falsifies more than the cost claims**: it can
+falsify which OTHER codes are said to fire beside it.
+
+**▶ THE NEGATIVE CONTROLS WERE RUN, NOT DECLARED, AND ONE OF THEM WAS VACUOUS ON THE FIRST TRY.** The
+mnemonic-set perturbation is two-sided (overstate and understate), because a one-sided control passes
+when the constant is understated. Its first version overstated the set with `Z`, **a character the
+corpus never uses as a tail body**, so the perturbed predicate could not disagree with anything and the
+control was vacuous: it now perturbs with `~`, asserted to be in the swept alphabet. The harness is also
+pointed at the wrong role's code and fails there. The `maximalTolerance` profile remains the standing
+control, built by spreading this package's own `TOLERABLE_CODES` so a copy pointed at a sibling parser
+fails on the spread.
+
+**▶ THE OTHER FOUR THE REFUTER FOUND, SMALLER AND ALL ON CONSUMER SURFACES.** (1) A quoted
+reproduction that did not reproduce, in `escapes.ts` and `docs-content/limitations.md`: the
+nine-fields-against-eight figure was attached to the FRAGMENT `28.6&F&|&F&U/L`, which reads **two**
+fields, instead of to the record `R|1|^^^687|28.6&F&|&F&U/L||||F`. The file's own comment says a
+quoted reproduction that does not reproduce is worse than no example, and it shipped one anyway.
+(2) The pending `shifted-components-alignment` changeset's **lead sentence** still defined the code
+by the narrow tail; both changesets land in the same release, so the generated note would have
+defined it narrowly at the top and widened it three paragraphs down. `CHANGELOG.md` had the
+parenthetical at exactly that position for all three codes and the changeset was missed.
+(3) `referenceCorpus`'s rationale **string** kept "which is much of this corpus" while narrowing what
+it modified from "a sequence of its own, recognized or not" to "a sequence this reader RECOGNIZES":
+unmeasured, and pointing the wrong way, since that corpus is defined by a stack that never writes
+recognized mnemonics at all. It now says the frequency is not measured and must not be guessed at.
+(4) Two of the three measurement files' HEADERS still stated the retired criterion while their bodies
+were rewritten, so a maintainer re-deriving from either header re-derives the base one.
+
+**▶ WHAT DID NOT CHANGE, so it is not read in.** No code was added, removed or renamed, and **no public
+surface moved at all**: no new type, factory or parameter. No tolerable code was struck off and none was
+added. No split changed and no stream's **values** moved. `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`'s
+recognized-body exclusion is exactly as it was. It still does **not** reach through a re-emit: emit
+rewrites the preserved characters into recognized mnemonics and generation 2 is silent and correct about
+its own bytes. **Catch it on the FIRST read; a clean re-read is not evidence.**
+
+**▶ A PRE-EXISTING RESIDUE THE SECOND PASS MEASURED AND THIS SLICE DOES NOT AMPLIFY.** "One place
+further right" **understates by one per extra contested boundary**: `&&&|&F&|&` split on `|` reads
+three segments against the competing alignment's one. Measured at 415 such texts in a 72.5M sweep,
+and **every one of them already fires under the BASE predicate**, with **0** reaching the reports
+only through this widening. So it is `PRE-EXISTING`, it is a direction the codes under-state rather
+than over-state (they still fire, and the reader is still told to read the raw line), and it wants
+its own slice rather than a clause bolted onto this one.
+
+**▶ WHAT IS STILL OPEN AND WAS NOT TAKEN HERE.** **Withholding the shifted, truncated or moved slots**
+stays deferred, for the reason 17(a) recorded: declining to model a slot changes an extracted value for
+every consumer of a package already on the registry, and it wants its own measured slice.
+**`ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` still fires where no field is truncated** (only a first
+contested repeat boundary reaches a modeled slot); that is a decision, not a defect, and renaming a
+stable code is breaking. **Defect 9** was not touched and is still open.
+
+**▶ `astm/CLAUDE.md` WAS BROUGHT BACK UNDER ITS ENTRY BY RELOCATION, NOT BY RAISING THE CEILING.**
+Entry 17's replacement ran 438 bytes over 9 bytes of headroom. What moved, each already carried here in
+full and each leaving its trap behind in that file: defect 12's account of why the predecessor entry's
+figures were discarded and why this entry was refuted on its second pass (kept above under
+`#defect-12`, at greater length than the clause removed); defect 12's parenthetical explaining why
+`warnings: []` was unreachable for a non-canonical set (same section); defect 16's mechanism sentence
+for why the field-collision branch is unreachable (kept above under `#defect-16`, with the index
+arithmetic the clause only summarized); and the "all ten roadmap phases, through release hardening"
+phrasing in **Status** (kept under `#status-history`).
+
+**A SECOND round was needed when the refuter's finding added the claim-correction trap to entry 17**,
+and it is recorded because the shape repeats: an entry grows again when the slice that wrote it is
+graded. What moved the second time, all of it either derivable on the spot or already carried here in
+full: the `src/` module listing in **Status** (derive it, `ls src/`); the `test/profiles/` and
+`test/records/` fixture PATHS in defects 8 and 12 (the constant names stay, because "name the corpus
+by a constant that is IN THE TREE" is the trap and the path is not); the "(measured, in the notes)"
+and "(the fuzz figures are in the notes)" parentheticals in defects 4 and 5, which duplicated the
+`#defect-4` / `#defect-5` anchors those entries already end with; and wording compression in the
+**Project**, **Tech Stack**, **Engineering Guardrails**, **docs sidebar** and defect 6/16 prose that
+changed no instruction. **Defect 8's "the third time on this family that the claim, not the guard,
+was the defect" was corrected to name FOUR**, which is the one place a count went stale from this
+slice rather than being relocated.
+
+**No trap was dropped in either round and the ceiling was not
+raised:** raising it is a deliberate act needing its own commit and its own argument. **Do not write
+the current byte count here**: it was recorded once before and was stale within the same slice, twice
+over. **Derive it: `wc -c astm/CLAUDE.md` against that repo's `REPO_CLAUDE` entry.**
+
 <a id="defects-closed-elsewhere"></a>
 
 ### Two further defects, closed and folded away

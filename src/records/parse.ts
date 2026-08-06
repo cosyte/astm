@@ -372,8 +372,10 @@ function buildRecord(
   // The same contested position asked a different question, and it is the one that reaches a
   // modeled slot. The report above asks whether this codec's vocabulary prefers the reading taken
   // AT the boundary; this one asks what that reading makes of the bytes AFTER it. Where the escape
-  // character the reading resumes on heads no sequence at all, the boundary was bought with a byte
-  // the reading cannot read, and on the FIELD separator that boundary shifts every later field one
+  // character the reading resumes on heads no sequence this codec can INTERPRET (none at all, or one
+  // whose body is not a recognized mnemonic and is therefore preserved verbatim rather than read),
+  // the boundary was bought with bytes the reading cannot read, and on the FIELD separator that
+  // boundary shifts every later field one
   // place: on an `R` the sender's trailing status letter lands in field 9 under this reading and in
   // no field at all under the other, so a `final` can be an artifact of the alignment. Fires
   // alongside the two above, never instead of them.
