@@ -17,7 +17,7 @@
  * alignment taken interprets strictly more. This file measures that candidate, and **rejects it**.
  *
  * **Why it is rejected, in one sentence:** the count is taken over the two contested triples only,
- * while the two alignments also disagree about every byte that follows, so a stream whose escaping is
+ * while the two alignments also disagree past it, so a stream whose escaping is
  * entirely well-formed can be scored a tie and refused. The corpus below carries a `tail` axis
  * precisely so that class is inside it. A measurement whose corpus cannot contain the counterexample
  * certifies nothing, and an earlier corpus for this question could not.
@@ -248,12 +248,15 @@ const cleanTails = 1;
  * about the same contested position: what does the reading taken make of the bytes AFTER the
  * boundary. `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` is wired to the **field** split,
  * `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` to the **repeat** split, and
- * `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` to the **component** split. All three fire only where
- * the escape character the reading resumes on heads no sequence, so each covers exactly one role
- * and one tail of this corpus, and the three columns are mutually disjoint. Every count is derived
- * from the corpus constants rather than written down, so a later axis moves them with it. **All
- * three splitting roles are wired now, so this constant has reached its ceiling: there is no fourth
- * role, because nothing splits on the escape role.**
+ * `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` to the **component** split. All three fire where the
+ * escape character the reading resumes on heads no sequence this codec can **interpret**, which is
+ * two of this corpus's three tails: the bare escape character and the unrecognized sequence. Each
+ * covers exactly one role, and the three columns are mutually disjoint. Every count is derived from
+ * the corpus constants rather than written down, so a later axis moves them with it. **All three
+ * splitting roles are wired now, so `tailRoles` has reached its ceiling: there is no fourth role,
+ * because nothing splits on the escape role. `tailTails` has reached its ceiling too: the third
+ * tail is the one on which a stream can be escape-clean, and refusing those is the over-refusal
+ * this whole file exists to record.**
  *
  * Every figure below that names an acceptance is re-derived against that, rather than left quoting
  * a base that no longer exists. **Never quote one of these numbers against a different sha.**
@@ -261,7 +264,7 @@ const cleanTails = 1;
  * this file and it still ships nowhere.
  */
 const tailRoles = SPLITTING_ROLES.length;
-const tailTails = 1;
+const tailTails = TAIL_SUFFIXES.length - cleanTails;
 
 describe("the corpus, and the axis that decides the answer", () => {
   it("sweeps every declared set, every body and every tail, and every set resolves", () => {

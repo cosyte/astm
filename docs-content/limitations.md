@@ -98,11 +98,27 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   where the competing alignment would have held it, gaining a boundary rather than losing one and
   reported as `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` (also not tolerable). Where that gained
   boundary is a **field** boundary and the reading taken resumes on an escape character heading no
-  sequence, every later field shifts one place and a result's units and **status** are read out of
-  slots the competing alignment does not put them in, up to a status of `final` the sender never
-  wrote there; that is `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` (not tolerable either). It stays
-  silent where that trailing escape character heads a sequence whose body is unrecognized, which
-  shifts the fields just the same: a measured, deliberate bound, not an oversight. Where that gained
+  sequence this reader can _interpret_ (none at all, or one whose body is not a recognized mnemonic
+  and is therefore kept verbatim rather than read), every later field shifts one place and a
+  result's units and **status** are read out of slots the competing alignment does not put them in,
+  up to a status of `final` the sender never wrote there; that is
+  `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` (not tolerable either). It stays silent in exactly one
+  case, where that trailing escape character heads a sequence this reader RECOGNIZES, which is the
+  escape mechanism working and the only tail on which a stream's escaping can be clean. **That
+  silence is a trade and not a claim that nothing was lost there**: the gained boundary is exactly as
+  real, and on that tail it is `warnings: []`, so `R|1|^^^687|28.6&F&|&F&U/L||||F` reads nine fields
+  against the competing alignment's eight with a status of `final` and nothing reported at all,
+  `28.6&S&\&S&U/L` reads a value of `28.6^`, and `&F&^&F&GLU^L^687` reads one component more. Read
+  the raw line when an escape character sits next to a delimiter, whether or not anything fired.
+  **The shift itself has one measured exception, on all three roles**: where the sequence past the
+  boundary carries the splitting delimiter itself as its body, the reading taken holds that
+  character inside an opaque atom while the competing alignment splits on it, so the two readings
+  read the **same number** of segments in **different places** and nothing moves index. The three
+  codes still fire there, which is over-reporting and never under-reporting, and that class costs no
+  stream its disposition, because `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` has already refused
+  it. What holds wherever any of the three fires is that the two readings disagree and that both
+  consume every byte. Where that
+  gained
   boundary is a **repeat** boundary nothing shifts, and the field can still be read short: its
   modeled value and components come from its first repeat alone, so where the gained boundary is the
   **first** one `28.6&S&\&U/L` reads a value of `28.6^` and a Universal Test ID of `&F&\&687` reads

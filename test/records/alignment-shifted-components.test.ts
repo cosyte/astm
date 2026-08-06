@@ -26,7 +26,8 @@
  *
  * **The question is the one the other two ask, on the third role, so it is a third code and not a
  * widening of either.** The predicate is identical and lives in one place: a contested alignment
- * whose reading resumes on an escape character heading no sequence at all. What differs is what the
+ * whose reading resumes on an escape character heading no sequence it can **interpret** (none at
+ * all, or one whose body is not a recognized mnemonic). What differs is what the
  * gained boundary costs, and it is a third thing again. On the field role every later field shifts,
  * so a slot changes hands. On the repeat role nothing shifts and the field's modeled reading stops
  * at the boundary, so components leave the record. Here nothing leaves the record and no field
@@ -276,23 +277,32 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
     expect(acceptedUnderMaximalTolerance(wellFormed)).toBe(true);
   });
 
-  it("stays silent where the tail heads an UNRECOGNIZED sequence, the named residue", () => {
-    // The bound stated rather than left to be found. Here the reading taken still consumes the
-    // escape character as the head of a sequence and carries one unreadable body, while the
-    // competing alignment would leave TWO escape characters bare, so the preference for the reading
-    // taken is stronger, not weaker. The slot move is nonetheless real, and this is silent about
-    // it: measured, named, and not closed by widening the test, because widening it would report a
-    // boundary the bytes prefer.
+  it("REPORTS the tail that heads an UNRECOGNIZED sequence, which was this file's residue", () => {
+    // ── THE RESIDUE THIS FILE ONCE NAMED, NOW CLOSED, AND THE CORRECTION IS TO THE REASON.
+    // The recorded reason for the silence was that the competing alignment would leave TWO escape
+    // characters bare here, so the bytes prefer the reading taken more strongly than in the case
+    // that already fired. That comparison is true and it is not the question this code asks. It
+    // reports a COST, and the cost is the same one: four components against the competing
+    // alignment's three, so a coding scheme and a local code are read out of positions the other
+    // reading does not put them in. Consuming a triple is not interpreting it: an unrecognized body
+    // is preserved verbatim and never guessed at, which this package reports in its own right.
     const residue = "H|\\^&\rP|1||MRN-0001\rR|1|&F&^&Z&GLU^L^687|28.6|U/L||||F\rL|1|N\r";
     const seen = codes(residue);
-    expect(seen).not.toContain(COMPONENTS);
-    // It still moves: four components against the competing alignment's three, and only a tolerable
-    // code says anything at all, so the widest gate-legal profile still accepts it.
+    expect(seen).toContain(COMPONENTS);
+    // The harm is the same harm, and the NAMED slots are the ones that move.
     const id = results(parseAstmRecords(residue))[0]?.universalTestId;
     expect(id?.components).toHaveLength(4);
-    expect(competingSplit("&F&^&Z&GLU^L^687", "^", "&")).toHaveLength(3);
-    expect(seen).toEqual([WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE]);
-    expect(acceptedUnderMaximalTolerance(residue)).toBe(true);
+    expect(id?.codingScheme).toBe("L");
+    expect(id?.localCode).toBe("687");
+    const rival = competingSplit("&F&^&Z&GLU^L^687", "^", "&");
+    expect(rival).toHaveLength(3);
+    expect(rival[1]).toBe("L");
+    expect(rival[2]).toBe("687");
+    // It was accepted before by every gate-legal profile, on one tolerable code, and is not now.
+    expect(seen.filter((c) => c !== COMPONENTS)).toEqual([
+      WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE,
+    ]);
+    expect(acceptedUnderMaximalTolerance(residue)).toBe(false);
   });
 
   it("stays silent on a gained FIELD boundary, which the first tail report covers", () => {
@@ -377,10 +387,15 @@ describe("the two index axes the shared corpus cannot see", () => {
     expect(swept).toBe(REPEAT_PREFIXES.length * COMPONENT_PREFIXES.length);
   });
 
-  it("reads one component more than the competing alignment at EVERY position", () => {
-    // The claim about the LIST, which holds everywhere: the shift propagates from the contested
-    // boundary to the end of the component list, so the reading taken always reads exactly one
-    // component more, wherever in the list that boundary sits.
+  it("reads one component more than the competing alignment at every position ON THIS TAIL", () => {
+    // The claim about the LIST, and it is scoped to this fixture's tail rather than stated as a
+    // universal. On a tail the reading cannot interpret and whose body is NOT the component
+    // separator, the shift propagates from the contested boundary to the end of the component list,
+    // so the reading taken reads exactly one component more wherever in the list that boundary
+    // sits. **It is NOT universal over the firing population**: where the sequence past the
+    // boundary carries the component separator itself, both readings read the same number of
+    // components in different places, which `alignment-unrecognized-tail.test.ts` sweeps and pins.
+    // `CONTESTED` ends on a bare escape character, so this axis never reaches that class.
     for (const c of COMPONENT_PREFIXES) {
       const raw = axisStream("", c);
       const taken = parseAstmRecords(raw).records[2]?.fields[2]?.components ?? [];
@@ -591,9 +606,31 @@ const mnemonicBodies = BODY_ALPHABET.filter(isMnemonic).length;
 const sets = DECLARATION_ALPHABET.length * SPLITTING_ROLES.length;
 /** The one tail whose bytes carry no escape deviation of their own: the recognized sequence. */
 const cleanTails = 1;
-/** The one role this code is wired to, and the one tail it fires on. */
+/**
+ * The body the tail's escape character heads, or `undefined` where it heads no sequence at all.
+ * Read off the corpus constant rather than restated.
+ */
+const tailBodyOf = (suffix: string): string | undefined =>
+  suffix.charAt(1) === "&" ? suffix.charAt(0) : undefined;
+
+/**
+ * **The tails the report fires on, and it is TWO of the three.** The test is whether the reading
+ * taken can INTERPRET the construct it resumed on, not whether it can consume one: a body this
+ * codec does not recognize is preserved verbatim and never guessed at, so a reading that resumes on
+ * one bought its boundary with bytes it cannot read exactly as a reading that resumes on a bare
+ * escape character does. The recognized tail is the only exclusion, and it is the one that matters,
+ * because it is the only tail on which a stream can be escape-clean at all.
+ *
+ * **DERIVED from `TAIL_SUFFIXES` and the mnemonic set, not typed out**, so a tail added to that
+ * constant is classified by the rule the package applies rather than by a name someone wrote beside
+ * it, and the population figures below move with it.
+ */
+const REPORTED_TAILS: readonly string[] = TAIL_SUFFIXES.filter(
+  (t) => !isMnemonic(tailBodyOf(t.suffix) ?? ""),
+).map((t) => t.name);
+/** The one role this code is wired to, and the two tails it fires on. */
 const componentRoles = 1;
-const componentTails = 1;
+const componentTails = REPORTED_TAILS.length;
 
 describe("the corpus, and the property that makes its zeros mean something", () => {
   it("sweeps every declared set, every body and every tail, and every set resolves", () => {
@@ -618,14 +655,19 @@ describe("the corpus, and the property that makes its zeros mean something", () 
 });
 
 describe("the population it moves, on the strict-accepted tier", () => {
-  it("fires on exactly one role and one tail, which is the whole of its claim", () => {
+  it("fires on exactly one role and two tails, which is the whole of its claim", () => {
     const fired = corpus.filter((t) => t.reportsMovedComponents);
     expect(fired).toHaveLength(
       DECLARATION_ALPHABET.length * componentRoles * BODY_ALPHABET.length * componentTails,
     );
     for (const t of fired) {
       expect(t.role).toBe("component");
-      expect(t.tail).toBe("a bare escape character");
+      expect(REPORTED_TAILS).toContain(t.tail);
+    }
+    // The one tail left out, asserted from the other side so this is a statement about the axis and
+    // not about the two cells that happen to be populated.
+    for (const t of corpus.filter((x) => !x.reportsMovedComponents && x.role === "component")) {
+      expect(t.tail).toBe("a recognized sequence");
     }
   });
 
@@ -643,17 +685,31 @@ describe("the population it moves, on the strict-accepted tier", () => {
     for (const t of moved) {
       expect(t.role).toBe("component");
       expect(isMnemonic(t.body)).toBe(true);
+      expect(REPORTED_TAILS).toContain(t.tail);
+    }
+    // The two reported tails contribute equally, so neither half of the column is carrying the
+    // other: the tail axis is a real split of the population and not a relabelling of one case.
+    for (const tail of REPORTED_TAILS) {
+      expect(moved.filter((t) => t.tail === tail)).toHaveLength(
+        DECLARATION_ALPHABET.length * componentRoles * mnemonicBodies,
+      );
     }
   });
 
   it("refuses NOT ONE escape-clean stream, and cannot", () => {
     // The contrast with the rejected pair-count criterion, which refused half of them. Firing
-    // requires an escape character heading no sequence, which is itself an escape deviation this
-    // package already reports, so an escape-clean tuple is structurally out of reach.
+    // requires an escape character that either heads no sequence or heads one whose body this codec
+    // does not recognize, and each of those is an escape deviation this package already reports, so
+    // an escape-clean tuple is structurally out of reach on BOTH reported tails.
     const cleanRefused = corpus.filter((t) => t.escapeClean && t.reportsMovedComponents);
     expect(cleanRefused).toHaveLength(0);
     for (const t of corpus.filter((t) => t.reportsMovedComponents)) {
       expect(t.escapeClean).toBe(false);
+      const seen = codes(t.raw);
+      expect(
+        seen.includes(WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER) ||
+          seen.includes(WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE),
+      ).toBe(true);
     }
   });
 

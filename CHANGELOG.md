@@ -136,7 +136,8 @@ this file is maintained by hand (Changesets handles the version bump and publish
   `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` fires where two escape alignments disagree about a **field**
   boundary, the reading taken keeps it, and the escape character that reading resumes on heads **no
   escape sequence at all**, which is exactly the character the competing alignment uses to close its
-  own sequence. A gained field boundary shifts every later field one place. It is not tolerable, so
+  own sequence. (**That tail bound is widened later in this same release**, to any tail this reader
+  cannot interpret; the entry below carries the change and its measurement.) A gained field boundary shifts every later field one place. It is not tolerable, so
   `{ strict: true }` refuses such a record whatever profile is in force.
 
   **What the shift costs, measured on the canonical set.** `R|1|^^^687|28.6&F&|&U/L||||F` reads
@@ -180,16 +181,20 @@ this file is maintained by hand (Changesets handles the version bump and publish
   escaped again, entirely well formed, and refusing it is the over-refusal that sank a criterion
   measured for this same family); and where it heads an **unrecognized** sequence, the alignment taken
   still consumes it while the competing one would leave two escape characters bare, so the preference
-  is stronger again. That second case still shifts the fields and is silent here. It is recorded as a
-  residue, measured, not overlooked.
+  was read as stronger again, and this shipped silent there while the fields shifted just the same.
+  **That residue is closed later in this same release** (see the tail-bound entry below), which
+  corrects the reason rather than the code: the preference comparison is true and is not the question
+  this code asks.
 
   **Measured against the corpus constants committed with the test**, on the same
   strict-accepted-under-a-gate-legal-profile tier. Over `DECLARATION_ALPHABET`, `SPLITTING_ROLES`,
   `BODY_ALPHABET` and `TAIL_SUFFIXES` in `test/records/alignment-shifted-fields.test.ts`, **864
-  tuples**: the code fires on **96**, moves **32** from accepted to refused under a profile built from
-  the whole tolerable allow-list, and moves **0** back. It fires on **none** of the 96 escape-clean
-  tuples, and cannot: firing requires an escape character heading no sequence, which this package
-  already reports as a deviation of its own. The criterion measured and rejected on this same corpus
+  tuples**: as this code shipped it fired on **96**, moved **32** from accepted to refused under a
+  profile built from the whole tolerable allow-list, and moved **0** back. **The tail-bound widening
+  below takes those to 192 and 64 on the same corpus**, which is what the committed test asserts now.
+  It fires on **none** of the 96 escape-clean tuples, and cannot, before or after: firing requires an
+  escape character heading no sequence this reader can interpret, and this package already reports
+  each of those as a deviation of its own. The criterion measured and rejected on this same corpus
   would have refused 48 of them. The 32 that move are exactly the population the code above left
   silent through its recognized-body exclusion.
 
@@ -207,9 +212,9 @@ this file is maintained by hand (Changesets handles the version bump and publish
 - **A parse-path warning code for a field a competing escape alignment read short**
   (`ASTM-FRAME-RESIDUALS`, defect 17b). `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` fires where two
   escape alignments of the same bytes disagree about a **repeat** boundary, the reading taken keeps
-  it, and the escape character that reading resumes on heads **no sequence at all**. It lands on the
-  profile safety gate, so `{ strict: true }` refuses a stream carrying it whatever profile is in
-  force.
+  it, and the escape character that reading resumes on heads **no sequence at all**. (**That tail
+  bound is widened later in this same release**; see the entry below.) It lands on the profile safety
+  gate, so `{ strict: true }` refuses a stream carrying it whatever profile is in force.
 
   **Nothing shifts, and that is not the same as nothing being lost, which is the correction this
   entry carries.** No field-indexed slot moves: the units slot and the result-status slot are read
@@ -250,14 +255,17 @@ this file is maintained by hand (Changesets handles the version bump and publish
   repeats are the ones the sender wrote (`28.6&R&\&R&U/L` is the canonical repeat separator
   escaped, written and escaped again, and refusing it is the over-refusal that sank a criterion
   measured for this same family), and where it heads an **unrecognized** one the competing alignment
-  would leave two escape characters bare, so the preference is stronger again. That second case still
-  truncates and is silent here: recorded as a residue, measured, not overlooked.
+  would leave two escape characters bare, so the preference was read as stronger again, and this
+  shipped silent there while the field truncated just the same. **That residue is closed later in
+  this same release** (see the tail-bound entry below).
 
   **Measured against the corpus constants committed with the test**, on the same
   strict-accepted-under-a-gate-legal-profile tier and the same **864 tuples** as the two measurements
-  before it, in `test/records/alignment-truncated-field.test.ts`: the code fires on **96**, moves
-  **32** from accepted to refused under a profile built from the whole tolerable allow-list, moves
-  **0** back, and fires on **none** of the 96 escape-clean tuples. The pair-count criterion measured
+  before it, in `test/records/alignment-truncated-field.test.ts`: as this code shipped it fired on
+  **96**, moved **32** from accepted to refused under a profile built from the whole tolerable
+  allow-list, moved **0** back, and fired on **none** of the 96 escape-clean tuples. **The
+  tail-bound widening below takes the first two to 192 and 64 on the same corpus**, which is what the
+  committed test asserts now, and leaves the escape-clean zero where it is. The pair-count criterion measured
   and rejected on this same corpus would have refused 48 of them, which is why the tail is what gets
   weighed. **Unlike that rejected criterion's population, this one is not confined to a set naming a
   mnemonic letter as a delimiter**: the canonical repeat separator reaches it, on 12 of the 108
@@ -279,9 +287,9 @@ this file is maintained by hand (Changesets handles the version bump and publish
 - **A parse-path warning code for components a competing escape alignment moved one slot along**
   (`ASTM-FRAME-RESIDUALS`, defect 17c). `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` fires where two
   escape alignments of the same bytes disagree about a **component** boundary, the reading taken
-  keeps it, and the escape character that reading resumes on heads **no sequence at all**. It lands
-  on the profile safety gate, so `{ strict: true }` refuses a stream carrying it whatever profile is
-  in force. With it the three roles a split is taken on are all wired; there is no fourth, because
+  keeps it, and the escape character that reading resumes on heads **no sequence at all**. (**That
+  tail bound is widened later in this same release**; see the entry below.) It lands on the profile
+  safety gate, so `{ strict: true }` refuses a stream carrying it whatever profile is in force. With it the three roles a split is taken on are all wired; there is no fourth, because
   nothing splits on the escape role.
 
   **Nothing shifts between fields and nothing leaves the record: the slots MOVE.** That is the third
@@ -328,14 +336,16 @@ this file is maintained by hand (Changesets handles the version bump and publish
   a component separator written, and a field separator escaped again, which raises no warning at all,
   and refusing it is the over-refusal that sank a criterion measured for this same family); where it
   heads an **unrecognized** one the competing alignment would leave two escape characters bare, so
-  the preference is stronger again. That second case still moves the components and is silent here:
-  recorded as a residue, measured, not overlooked.
+  the preference was read as stronger again, and this shipped silent there while the slots moved just
+  the same. **That residue is closed later in this same release** (see the tail-bound entry below).
 
   **Measured against the corpus constants committed with the test**, on the same
   strict-accepted-under-a-gate-legal-profile tier and the same **864 tuples** as the three
-  measurements before it, in `test/records/alignment-shifted-components.test.ts`: the code fires on
-  **96**, moves **32** from accepted to refused under a profile built from the whole tolerable
-  allow-list, moves **0** back, and fires on **none** of the 96 escape-clean tuples. The pair-count
+  measurements before it, in `test/records/alignment-shifted-components.test.ts`: as this code
+  shipped it fired on **96**, moved **32** from accepted to refused under a profile built from the
+  whole tolerable allow-list, moved **0** back, and fired on **none** of the 96 escape-clean tuples.
+  **The tail-bound widening below takes the first two to 192 and 64 on the same corpus**, which is
+  what the committed test asserts now, and leaves the escape-clean zero where it is. The pair-count
   criterion measured and rejected on this same corpus would have refused 48 of them, which is why the
   tail is what gets weighed. Its column is **disjoint from both** earlier tail reports, asserted on
   the shared corpus rather than reasoned from the wiring: the three partition the splitting roles.
@@ -357,6 +367,127 @@ this file is maintained by hand (Changesets handles the version bump and publish
   public surface: `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, the `alignmentShiftedComponents`
   warning factory, the `ShiftedComponentsSink` type, and a further trailing optional sink parameter
   on `splitEscapeAware`, `tokenizeRecord` and `tokenizeHeader`.
+
+- **The three alignment tail reports now fire on a tail they cannot READ, not only on one they cannot
+  CONSUME** (`ASTM-FRAME-RESIDUALS`, defect 17, the disclosed residue). No new code and no rename:
+  `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` and
+  `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` all keep their names, their claims and their roles. What
+  changes is the one predicate behind them: a contested boundary is now reported where the escape
+  character the reading taken resumes on heads **no sequence this reader can interpret**, which is
+  two cases rather than one.
+  - It heads **no sequence at all** and is kept as a bare literal
+    (`ASTM_UNPAIRED_ESCAPE_CHARACTER`). Reported before, reported now.
+  - It heads a sequence whose body is **not a recognized mnemonic**, so the triple is preserved
+    verbatim and never guessed at (`ASTM_UNKNOWN_ESCAPE_SEQUENCE`). **This is what was silent.**
+
+  **The correction is to the reason, which is why it is worth stating.** The recorded ground for the
+  silence was a comparison of preferences: in that case the competing alignment would leave **two**
+  escape characters bare while the reading taken carries one unreadable body, so the bytes prefer the
+  reading taken more strongly than in the case that already fired. That comparison is true. It is not
+  the question these codes ask. They report a **cost**, a modeled slot decided by a boundary the
+  bytes do not force, and the cost is the same one: on the canonical set
+  `R|1|^^^687|28.6&F&|&Z&U/L||||F` still reads nine fields against the competing alignment's eight
+  and still hands back a status of `final` the sender put in no slot; `28.6&S&\&Z&U/L` still reads a
+  value of `28.6^`; `&F&^&Z&GLU^L^687` still reads `687` as a vendor local code where the competing
+  alignment reads it as the **coding scheme**. Each raised only the tolerable
+  `ASTM_UNKNOWN_ESCAPE_SEQUENCE` before, so the widest gate-legal profile plus `{ strict: true }`
+  accepted all three. **Consuming a triple is not interpreting one.**
+
+  **Exactly one tail is still excluded, and it is the one that carries the whole over-refusal
+  argument.** Where the escape character heads a sequence this reader **recognizes**, the reading
+  taken interprets a construct and nothing is reported: under a set naming the field separator `F`,
+  `28.6&F&F&F&U/L` is that separator escaped, written, and escaped again, entirely well formed. That
+  is the **only** tail on which a stream's escaping can be clean at all, so it is the only exclusion
+  that could ever protect conformant traffic, and refusing it is the over-refusal that sank a
+  criterion measured and rejected for this same family. The widened predicate **cannot** refuse an
+  escape-clean stream: every position it now rejects already raises an escape deviation of its own.
+
+  **That remaining silence is a TRADE, and it is not a claim that nothing was lost there.** On the
+  excluded tail the gained boundary is exactly as real, and it is not merely under-reported: it is
+  `warnings: []`, so a lenient consumer sees nothing at all. On the canonical set,
+  `R|1|^^^687|28.6&F&|&F&U/L||||F` reads **nine** fields against the competing alignment's eight and
+  hands back a status of **`final`**; `28.6&S&\&S&U/L` reads a value of `28.6^` and `^U/L` leaves
+  every modeled slot; `&F&^&F&GLU^L^687` reads one component more, so `687` is a vendor local code
+  under one reading and the **coding scheme** under the other. All three are `PRE-EXISTING`, all
+  three are now pinned by tests rather than by prose, and **read the raw line when an escape
+  character sits next to a delimiter, whether or not anything fired.**
+
+  **Additive in behaviour terms and still a report, not a repair.** No split changed, every decoded
+  byte is identical, and no tolerable code was struck off and no code became tolerable. **What the
+  three codes CLAIM about their role did have to move, and that is recorded rather than glossed**:
+  see the entry below. It still does not survive a re-emit:
+  the serializer rewrites the preserved characters into recognized mnemonics, so a second-generation
+  read is silent and correct about its own bytes. Catch it on the first read of the wire bytes.
+
+  **Measured against the corpus constants committed with the tests**, on the same
+  strict-accepted-under-a-gate-legal-profile tier as every measurement in this family. On the shared
+  **864-tuple** corpus each of the three codes now fires on **192** where it fired on 96, moves
+  **64** from accepted to refused where it moved 32, moves **0** back, and fires on **0** of the 96
+  escape-clean tuples exactly as before. The two reported tails contribute equally, so neither half
+  of a column carries the other.
+
+  **The axis that corpus holds fixed is swept beside it**, because a criterion measured only there
+  inherits its blind spot: that corpus varies whether the tail is bare, recognized or unrecognized,
+  but uses a single character as the unrecognized body. `test/records/alignment-unrecognized-tail.test.ts`
+  crosses `DECLARATION_ALPHABET`, `SPLITTING_ROLES` and `BODY_ALPHABET` with the same alphabet as the
+  **tail** body: **3,456 tuples**, of which **2,304** fire, **528** move from accepted to refused,
+  **0** move back, and **384** are escape-clean with **0** of them refused. Every tuple's observed
+  disposition is asserted against a predicate derived from those alphabets rather than against a
+  count, and the harness is failed on purpose against a perturbed mnemonic set in both directions.
+
+  **One universal that sweep refuted, recorded because it is the obvious thing to write.** "The
+  reading taken reads exactly one more segment than the competing alignment" is **false**. Where the
+  tail sequence's body is the delimiter the split is being taken on, the reading taken keeps that
+  character inside an opaque atom while the competing alignment splits on it, so the two readings
+  produce the **same** number of segments in **different** places: under `H~\^&`, `28.6&F&~&~&U/L`
+  reads `28.6&F&` + `&~&U/L` against the competitor's `28.6&F&~&` + `&U/L`. That is 144 of the 2,304
+  firing tuples. What holds on all of them is that the two readings **disagree** and that both
+  consume every byte, so neither is forced.
+
+  This is a **narrowing on a published package**, on the strict path only: a lenient parse of the
+  same stream returns the same records, with the same values, and one more warning on them. **No new
+  public surface**: no code, type, factory or parameter was added, removed or renamed.
+
+- **The three alignment tail reports now state the one class in which nothing moves index**
+  (`ASTM-FRAME-RESIDUALS`, defect 17, the claim correction the widening above forced). Widening the
+  predicate widened the firing population past the point where each code's own cost claim held
+  everywhere, and the claims did not move with it. They do now. Where a surface states the cost, it
+  names the exception: the three sink docs in `src/common/escapes.ts`, the three code entries, the
+  three factory leads and the three **runtime warning messages** in `src/common/warnings.ts`,
+  `src/profiles/safety.ts`, the `referenceCorpus` rationale string, `README.md`,
+  `docs-content/quickstart.md`, `docs-content/limitations.md` and
+  `docs-content/troubleshooting.md`. Where a surface only paraphrased a cost, the paraphrase was
+  **removed** rather than re-qualified, so there is one place to keep true: the `@param` text on
+  `splitEscapeAware` in `src/common/escapes.ts` and on `tokenizeRecord` in `src/records/tokenize.ts`
+  now defers to the sink docs instead of restating them.
+
+  **The class, named rather than left to be found.** Where the sequence past the contested boundary
+  carries **the splitting delimiter itself** as its body, the reading taken holds that character
+  inside an opaque atom while the competing alignment splits on it, so the two readings return the
+  **same number** of segments in **different places**. Nothing moves index, and what differs is the
+  contents. On the canonical set `R|1|^^^687|28.6&F&|&|&U/L||||F` reads **nine** fields under both,
+  with the status `F` in field 9 under both and units of `&|&U/L` against `&U/L`; `28.6&F&\&\&U/L`
+  reads **two** repeats under both; `DOE&F&^&^&JANE^A` reads **three** components under both, with
+  `A` the middle name under both. So "every later field is one place further right", "the field is
+  read as more repeats than the other reading gives it" and "every later component sits one place
+  further right" were each false on that class, in `dist/index.d.ts`, in the immutable docs tarball,
+  and in three runtime messages.
+
+  **The class is bounded, and the bound is measured against constants committed with the test, not
+  argued.** `test/records/alignment-unrecognized-tail.test.ts` crosses `DECLARATION_ALPHABET`,
+  `SPLITTING_ROLES`, `BODY_ALPHABET` and `TAIL_BODY_ALPHABET` with two further constants,
+  `PAYLOAD_PREFIXES` and `PAYLOAD_SUFFIXES`, so the carrier shape is not held fixed the way every
+  earlier corpus in this family held it: **55,296 tuples**, of which **36,864** fire and **2,304**
+  are the class. **0** of those lack `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` and **0** were
+  accepted before this release, because that tail body is a splitting delimiter in force. So the
+  three codes over-report relative to the indexes there and never under-report, and the class costs
+  no stream its disposition. The class is exactly "the tail body is the delimiter being split on",
+  with **0** counterexamples in either direction. Every figure is derived from those six constants
+  inside its own assertion; **never quote one against a different sha or a different corpus.**
+
+  **What holds on every firing tuple**, and it is what the claims now lead with: the two readings
+  **disagree**, and both **consume every byte**, so neither reading is forced. No code, message
+  identity, type, factory or parameter changed, and no stream's disposition moved.
 
 ### Fixed
 

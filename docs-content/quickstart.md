@@ -137,7 +137,8 @@ for (const w of warnings) {
 > alignment lets a delimiter split that a competing alignment would have held, gains a boundary
 > instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also not tolerable.
 > Where that gained boundary is a **field** boundary and the reading taken resumes on an escape
-> character heading no sequence, every later field shifts one place, so a result's units and status
+> character heading no sequence it can interpret, every later field shifts one place, so a result's
+> units and status
 > are read out of slots the other alignment does not put them in and a status can read `final` where
 > the sender wrote nothing in that slot: `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable
 > either. Where it is a **repeat** boundary nothing shifts, and the field can still be read short,
@@ -148,7 +149,11 @@ for (const w of warnings) {
 > after it moves one slot along, so a test identity's coding scheme and local code, and a patient's
 > given and middle names, are read out of positions the other alignment does not put them in. That is
 > `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, not tolerable either, and it completes the set: those
-> three are the three roles a split is taken on. All are
+> three are the three roles a split is taken on. **All three shift claims have one measured
+> exception**: where the sequence past the boundary carries the splitting delimiter itself as its
+> body, the two readings read the same number of segments in different places, so nothing moves
+> index and what differs is the contents; the codes still fire there, and that class was already
+> refused by `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`. All are
 > accepted limits: widening the field-separator check would mean deciding which set a record ought
 > to have had, which is a guess this parser does not make, and narrowing the escape atom would break
 > the guarantee it exists for, so the boundary is documented instead. If delimiter drift is a real
@@ -346,7 +351,7 @@ may tolerate, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`, and its mi
 leftmost alignment let split where a competing alignment would have held it) as
 `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, with `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` on the subset
 of that where the gained boundary is a **field** boundary and the reading taken resumes on an escape
-character heading no sequence, so a result's units and status move with it, and
+character heading no sequence it can interpret, so a result's units and status move with it, and
 `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` on the subset where it is a **repeat** boundary, where no
 field moves and the field it divides is instead read out of its first repeat alone, and
 `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` on the subset where it is a **component** boundary, where

@@ -98,8 +98,11 @@
  * **A further reader landed with `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, and it is
  * the first one that reaches a MODELED SLOT rather than a boundary.** It reports
  * that a contested alignment decided a **field** boundary while the reading taken
- * resumes on an escape character heading no sequence, so every later field sits one
- * place further right than the competing alignment puts it. On a result record that
+ * resumes on an escape character heading no sequence this codec can interpret, so
+ * every later field sits one place further right than the competing alignment puts
+ * it (**except where the sequence past the boundary carries the field separator
+ * itself**, where the two readings read the same number of fields in different
+ * places). On a result record that
  * moves the units and the **result status**: the sender's trailing letter is read out
  * of field 9 under the reading taken and out of no field at all under the other, so a
  * status of `final` can be a consequence of the alignment rather than something the
@@ -118,7 +121,9 @@
  * route.** It reports a contested alignment deciding a **repeat** boundary. Nothing
  * shifts: no field-indexed slot moves, which is exactly why the shift report could
  * not cover it. What it reports is that the field is read as more repeats than the
- * competing alignment gives it, and **where that gained boundary is the first one in
+ * competing alignment gives it (**except where the sequence past the boundary carries
+ * the repeat separator itself**, where the two readings read the same number of
+ * repeats in different places), and **where that gained boundary is the first one in
  * the field** it reaches a modeled slot, because a field's modeled value and
  * components are taken from its **first repeat alone**: everything past it stays in
  * `repeats` and leaves every modeled slot, so a result value truncates and a
@@ -140,7 +145,9 @@
  * shifts between fields and nothing leaves the record, which is why neither of the two
  * above could cover it: components are modeled **inside** a field, so every component
  * after the gained boundary is one place further right than the competing alignment
- * puts it. That indexes into named slots. A Universal Test ID's four components are the
+ * puts it (**except where the sequence past the boundary carries the component
+ * separator itself**, where the two readings read the same number of components in
+ * different places). That indexes into named slots. A Universal Test ID's four components are the
  * LOINC-candidate slot, the test name, the **coding scheme** and the **local code**, so
  * `&F&^&GLU^L^687` reads `687` as the vendor's local code under the reading taken and
  * as the **coding scheme** under the competing one; a patient name's three are last,
@@ -150,12 +157,13 @@
  * gate-legal profile plus `{ strict: true }` accepted a test identity and a patient name
  * whose parts were decided by the alignment. **Unlike the repeat role, every gained
  * boundary at or before the last modeled component index moves those slots and not only
- * the first**, because the shift propagates to the end of the component list. **Two
- * bounds run the other way and it fires inside both**, which is over-reporting and never
- * under-reporting: past the last modeled index nothing NAMED moves (a name models three
- * components, a Universal Test ID four), and inside a later repeat nothing modeled moves
- * at all. Both axes are measured on sweeps of their own rather than on the shared corpus,
- * which holds them fixed. It is safety-critical by construction and must never be
+ * the first**, because the shift propagates to the end of the component list. **THREE
+ * bounds run the other way and it fires inside all three**, which is over-reporting and
+ * never under-reporting: past the last modeled index nothing NAMED moves (a name models
+ * three components, a Universal Test ID four); inside a later repeat nothing modeled moves
+ * at all; and on the class named above nothing moves index at all. All three axes are
+ * measured on sweeps of their own rather than on the shared corpus, which holds them
+ * fixed. It is safety-critical by construction and must never be
  * admitted. Re-reading the survivors against it moved no admission, for the reason the
  * two entries above already turn on.
  *
@@ -217,6 +225,17 @@
  *   time, and this entry survives it on the same narrower claim: what that reader
  *   raises is a different code, which a profile cannot name and cannot tolerate.
  *
+ *   **A THIRD reader landed with the widened tail bound, and it is named here for the
+ *   same reason.** `headsInterpretableSequence` in `../common/escapes.ts` asks the
+ *   mnemonic test about the escape character just past a contested boundary, so an
+ *   **unrecognized** body there, which is exactly the condition this code reports, now
+ *   also decides whether `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`,
+ *   `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` or `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`
+ *   fires. Three sinks, one predicate, and this entry survives all three on the same
+ *   narrower claim: none of the codes they raise may be named by a profile.
+ *   **Re-derive this list whenever something new starts reading record structure**: the
+ *   count is now three and this is the second time it has grown.
+ *
  *   **This entry used to be recorded as questionable, and what made it questionable
  *   is now a separate code that is not on this list.** The argument above is about
  *   the *decoded value*, and it holds. What it did not cover is that the
@@ -247,7 +266,7 @@
  *   nothing about how the record splits. None of the three readers named at the top of
  *   this file sees it: the type letter is read before any decoding, the split reader
  *   counts fields the escape-aware tokenizer has already finished dividing, and a
- *   decoded value is never cut back into records. **Two later readers DO see it**, and
+ *   decoded value is never cut back into records. **Three later readers DO see it**, and
  *   they are named below rather than left out of this bullet. Contrast the condition it
  *   replaced, which **would** have failed part 1: reading the same character as an
  *   unterminated sequence merged every field after it into one, and a code reporting
@@ -264,13 +283,13 @@
  *   therefore FALSE of this entry and must not be restored.** There are three of them
  *   now, one per splitting role: `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`,
  *   `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` and
- *   `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` all fire on
- *   `!isEscapeSequenceAt(text, i + 4,
- *   escape)`, which is exactly the question this code answers, asked about the
- *   character just past a contested boundary. That is a reader of the reported
+ *   `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` all fire where the character at
+ *   `i + 4` heads no sequence this codec can interpret, and heading no sequence at all
+ *   is one of the two ways to satisfy that, so this code's own question is asked about
+ *   the character just past a contested boundary. That is a reader of the reported
  *   condition, so this entry survives on the same narrower claim the unknown-sequence
  *   entry above already uses, not on nothing reading it: a profile re-badges the code
- *   it names and no other, and what those two readers raise is not tolerable in any
+ *   it names and no other, and what those three readers raise is not tolerable in any
  *   case. If a future reader of this condition ever produces something a profile
  *   **can** tolerate, this entry stops being admissible and comes off the list.
  * - `ASTM_RECORD_UNINTERPRETED_QUERY_STATUS`: a request-information status carried

@@ -32,25 +32,20 @@ import type { AstmField } from "./types.js";
  *   readings the bytes carry.
  * @param onAlignmentShiftedFields - Called (with the 0-based field index) for each
  *   contested **field** boundary the reading took while resuming on an escape
- *   character that heads no sequence, so every later field is one place further
- *   right than the competing alignment puts it. Wired only to the field split: a
+ *   character that heads no sequence this codec can interpret. Wired only to the field split: a
  *   repeat or component boundary divides one field and so moves no field-indexed
  *   slot. That is a choice and not a consequence, because components are modeled
- *   inside a field; see {@link ShiftedFieldsSink}.
+ *   inside a field. **What the boundary costs, and the one class in which nothing
+ *   moves index, are stated in {@link ShiftedFieldsSink} and not restated here.**
  * @param onAlignmentTruncatedField - Called (with the 0-based field index) for that
- *   same condition on the **repeat** split, where no field-indexed slot moves and the
- *   field is instead read as more repeats than the competing alignment gives it.
- *   Where that boundary is the **first** in the field the field's own modeled reading
- *   stops at it, because a field is modeled out of its first repeat alone; at a later
- *   one nothing modeled moves and this still fires. See {@link TruncatedFieldSink}.
+ *   same condition on the **repeat** split, where no field-indexed slot moves.
+ *   **What the boundary costs, its two index bounds and the one class in which nothing
+ *   moves index are stated in {@link TruncatedFieldSink} and not restated here.**
  * @param onAlignmentShiftedComponents - Called (with the 0-based field index) for that same
  *   condition on the **component** split, where no field-indexed slot moves and nothing leaves the
- *   record: every component after the boundary is one place further right than the competing
- *   alignment puts it, so a Universal Test ID's coding scheme and local code, and a patient's given
- *   and middle names, are read out of positions the sender did not put them in. Every gained
- *   boundary at or before the last modeled component index moves those slots, not only the first.
- *   Past that index, and inside a **later** repeat, nothing named moves and this still fires. See
- *   {@link ShiftedComponentsSink}. All three splitting roles are wired now.
+ *   record. **What the boundary costs, its three index bounds and the one class in which nothing
+ *   moves index are stated in {@link ShiftedComponentsSink} and not restated here.** All three
+ *   splitting roles are wired now.
  * @returns The record's fields.
  * @example
  * ```ts
@@ -132,9 +127,9 @@ export function tokenizeRecord(
  *   each competing escape alignment in the data portion. The declaration is opaque,
  *   so the characters it names literally never report here either.
  * @param onAlignmentShiftedFields - Called with the 0-based whole-record field index
- *   for each contested field boundary in the data portion whose reading resumes on
- *   an escape character heading no sequence. The declaration is opaque, so it never
- *   reports here either.
+ *   for each contested field boundary in the data portion whose reading resumes on an
+ *   escape character heading no sequence this codec can interpret. The declaration is
+ *   opaque, so it never reports here either.
  * @param onAlignmentTruncatedField - Called with the 0-based whole-record field index
  *   for each contested **repeat** boundary in the data portion on that same tail
  *   test. The declaration is opaque, so it never reports here either.
