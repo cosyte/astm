@@ -20,6 +20,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { spawnSync } from "node:child_process";
 import {
   writeFileSync,
+  readFileSync,
   mkdtempSync,
   mkdirSync,
   rmSync,
@@ -490,5 +491,380 @@ describe("phi-scan: the --staged route refuses a staged non-regular entry", () =
 
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The --staged route's ENUMERATION, and what the caller's git config could
+// delete from it before any of the refusals above are reached
+// ---------------------------------------------------------------------------
+//
+// PHI-SCAN-RENAME-BLIND-AT-PRECOMMIT. Every WIDENING below has a case that is RED
+// on the superseded argv (`--diff-filter=AMT`, rename detection left at the
+// caller's default, the caller's `diff.ignoreSubmodules` honored) and green on
+// the shipped one. That is 6 of the 11 cases in this block, and "every case below
+// is red" would be FALSE of the other 5: they are premises and negative controls
+// that measure git itself or a scope this slice does not move, so they are green
+// on both by design. They are here because a widening case alone cannot tell you
+// whether its premise still holds. The mechanisms are written out once, in the
+// argv comment inside `buildTargetsForStaged`; this block is where they are
+// measured.
+
+/** The argv fragment the shipped scanner uses. Pinned so the injection below cannot miss. */
+const SHIPPED_ARGV_FRAGMENT = `"--no-renames",
+        "--ignore-submodules=none",
+        "--diff-filter=AMTUB",`;
+
+function commitIn(root: string, message: string): void {
+  git(root, ["-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-qm", message]);
+}
+
+function fixturesIn(root: string): string {
+  const p = join(root, "test", "fixtures");
+  mkdirSync(p, { recursive: true });
+  return p;
+}
+
+/** Filler with no PHI shapes in it, long enough that git still pairs an edited copy as a rename. */
+function filler(lead: string, lines: number): string {
+  const out = ["H|\\^&"];
+  for (let i = 1; i <= lines; i += 1) out.push(`C|${String(i)}|I|${lead} padding ${String(i)}|G`);
+  return `${out.join("\r")}\r`;
+}
+
+describe("phi-scan: the --staged route enumerates a staged RENAME", () => {
+  it("premise: an ordinary `git mv` is paired as a rename, and the superseded filter deleted it", () => {
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(join(root, "test", "fixtures", "original.astm"), SYNTHETIC_PHI);
+    git(root, ["add", "test/fixtures/original.astm"]);
+    commitIn(root, "base");
+    git(root, ["mv", "test/fixtures/original.astm", "test/fixtures/renamed.astm"]);
+
+    // Detection at the caller's default pairs it, with a status letter of `R`
+    // and TWO paths on one record. No similarity score is asserted: it moves
+    // with how much of the old content survives, so a number copied out of one
+    // fixture is wrong in the next.
+    const paired = gitOut(root, ["diff", "--cached", "--raw"]).trim();
+    expect(paired).toMatch(/\bR\d*\t/);
+    expect(paired).toContain("test/fixtures/original.astm");
+    expect(paired).toContain("test/fixtures/renamed.astm");
+
+    // Which is why the superseded argv saw nothing at all.
+    expect(gitOut(root, ["diff", "--cached", "--raw", "--diff-filter=AMT"]).trim()).toBe("");
+
+    // And why turning detection off is the remedy: one single-path `A` record.
+    const split = gitOut(root, [
+      "diff",
+      "--cached",
+      "--raw",
+      "--no-renames",
+      "--ignore-submodules=none",
+      "--diff-filter=AMTUB",
+    ]).trim();
+    expect(split.split("\n")).toHaveLength(1);
+    expect(split).toMatch(/\bA\t/);
+    expect(split).toContain("test/fixtures/renamed.astm");
+  });
+
+  it("catches a fixture RENAMED into place with PHI already in it (exit 1)", () => {
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(join(root, "test", "fixtures", "original.astm"), SYNTHETIC_PHI);
+    git(root, ["add", "test/fixtures/original.astm"]);
+    commitIn(root, "base");
+    git(root, ["mv", "test/fixtures/original.astm", "test/fixtures/renamed.astm"]);
+
+    const r = runIn(root, ["--staged"]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toContain("test/fixtures/renamed.astm");
+    expect(r.stderr).toContain("123-45-6789");
+    expect(r.stderr).toContain("P-6 (name)");
+    expect(r.stderr).toContain("P-8 (dob)");
+  });
+
+  it("catches a rename that also EDITS PHI into the destination blob (exit 1)", () => {
+    // The sharper shape: the committed file was clean, and the PHI arrives in
+    // the same staging as the move. Git still pairs it, because enough of the
+    // old content survives.
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(join(root, "test", "fixtures", "original.astm"), filler("original", 40));
+    git(root, ["add", "test/fixtures/original.astm"]);
+    commitIn(root, "base");
+    git(root, ["mv", "test/fixtures/original.astm", "test/fixtures/renamed.astm"]);
+    writeFileSync(
+      join(root, "test", "fixtures", "renamed.astm"),
+      `${filler("original", 40)}P|1|A|B||RIVERA^JUANITA^Q|WELDON|19780314|F\r`,
+    );
+    git(root, ["add", "test/fixtures/renamed.astm"]);
+
+    expect(gitOut(root, ["diff", "--cached", "--raw"]).trim()).toMatch(/\bR\d*\t/);
+
+    const r = runIn(root, ["--staged"]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toContain("test/fixtures/renamed.astm");
+    expect(r.stderr).toContain("RIVERA");
+    expect(r.stderr).toContain("19780314");
+  });
+
+  it("refuses a symbolic link `git mv`d under a scan root (exit 2), and reports no PHI", () => {
+    // A `git mv` puts a mode-120000 entry under `test/fixtures/`. The mode check
+    // already knew how to refuse it; the pairing is what deleted the record
+    // before the mode could be read.
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(join(root, TARGET_NAME), SYNTHETIC_PHI);
+    symlinkSync(join("..", TARGET_NAME), join(root, "src", "leak.ts"));
+    git(root, ["add", "src/leak.ts"]);
+    commitIn(root, "base");
+    git(root, ["mv", "src/leak.ts", "test/fixtures/leak.astm"]);
+
+    const r = runIn(root, ["--staged"]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+    expect(r.stderr).toContain("test/fixtures/leak.astm");
+    expect(r.stderr).toContain("a symbolic link");
+    expectNoPhi(r.stderr);
+  });
+
+  it("the new enumeration EQUALS the old one when nothing is renamed, copied or unmerged", () => {
+    // The relation is a SUPERSET, not a strictly larger set, and the loose form
+    // of that is what this case exists to refuse. An index of an add, a modify,
+    // a typechange and a delete enumerates identically under both argvs.
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(join(root, "src", "kept.ts"), "export const kept = 1;\n");
+    writeFileSync(join(root, "src", "gone.ts"), "export const gone = 2;\n");
+    writeFileSync(join(root, "src", "typed.ts"), "export const typed = 3;\n");
+    git(root, ["add", "src/kept.ts", "src/gone.ts", "src/typed.ts"]);
+    commitIn(root, "base");
+
+    writeFileSync(join(root, "src", "added.ts"), "export const added = 4;\n");
+    writeFileSync(join(root, "src", "kept.ts"), "export const kept = 11;\n");
+    rmSync(join(root, "src", "gone.ts"));
+    rmSync(join(root, "src", "typed.ts"));
+    symlinkSync("kept.ts", join(root, "src", "typed.ts"));
+    git(root, ["add", "-A", "src"]);
+
+    const superseded = gitOut(root, ["diff", "--cached", "--raw", "--diff-filter=AMT"]).trim();
+    const shipped = gitOut(root, [
+      "diff",
+      "--cached",
+      "--raw",
+      "--no-renames",
+      "--ignore-submodules=none",
+      "--diff-filter=AMTUB",
+    ]).trim();
+    expect(superseded).not.toBe("");
+    expect(shipped).toBe(superseded);
+  });
+});
+
+describe("phi-scan: the argv the two-field stride is coupled to", () => {
+  /** A staged rename, the shape the stride and the flags below are judged on. */
+  function renameStage(): string {
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(join(root, TARGET_NAME), SYNTHETIC_PHI);
+    symlinkSync(join("..", TARGET_NAME), join(root, "src", "leak.ts"));
+    git(root, ["add", "src/leak.ts"]);
+    commitIn(root, "base");
+    git(root, ["mv", "src/leak.ts", "test/fixtures/leak.astm"]);
+    return root;
+  }
+
+  it("holds under every `diff.renames` / `diff.renameLimit` the caller could set", () => {
+    // The point of the flag is that the stride stops depending on the caller's
+    // config at all, so the config is what is varied here.
+    const root = renameStage();
+    for (const setting of ["diff.renames=true", "diff.renames=copies", "diff.renames=false"]) {
+      const out = gitOut(root, [
+        "-c",
+        setting,
+        "diff",
+        "--cached",
+        "--raw",
+        "--no-renames",
+        "--ignore-submodules=none",
+        "--diff-filter=AMTUB",
+      ]).trim();
+      expect(out.split("\n"), setting).toHaveLength(1);
+      expect(out, setting).toContain("test/fixtures/leak.astm");
+    }
+    const limited = gitOut(root, [
+      "-c",
+      "diff.renameLimit=1",
+      "diff",
+      "--cached",
+      "--raw",
+      "--no-renames",
+      "--ignore-submodules=none",
+      "--diff-filter=AMTUB",
+    ]).trim();
+    expect(limited.split("\n")).toHaveLength(1);
+  });
+
+  it("`-M`, `-C` and `--find-copies-harder` each reopen the two-path record; do not add them", () => {
+    const root = renameStage();
+    const enumerated = (extra: string[]): string =>
+      gitOut(root, [
+        "diff",
+        "--cached",
+        "--raw",
+        "--no-renames",
+        ...extra,
+        "--ignore-submodules=none",
+        "--diff-filter=AMTUB",
+      ]).trim();
+
+    expect(enumerated([])).toContain("test/fixtures/leak.astm");
+    for (const flag of ["-M", "-C", "--find-copies-harder"]) {
+      expect(enumerated([flag]), `${flag} must not be added to the scanner's argv`).toBe("");
+    }
+    // `-B` is inert FOR A RENAME, which is the whole reason a case that only
+    // ever stages a rename reads as a general clearance for the flag. The next
+    // case is what that clearance does not cover.
+    expect(enumerated(["-B"])).toContain("test/fixtures/leak.astm");
+  });
+
+  it("`-B` HIDES a complete rewrite from `--diff-filter=AMTU`, and `B` in the filter is why", () => {
+    // The mechanism is sharper than "a `B` record the filter drops". The
+    // record's printed status LETTER IS STILL `M`: one path, an `M` with a break
+    // score that `RAW_RECORD` parses happily, so a reader checking the raw
+    // output concludes `AMTU` keeps it. The score is deliberately not asserted.
+    // But `--diff-filter` classifies a broken pair as `B` whatever letter it
+    // prints, so `AMTU` deletes the record before anything sees it.
+    const root = makeRepo();
+    fixturesIn(root);
+    const target = join(root, "test", "fixtures", "rewrite.astm");
+    writeFileSync(target, filler("original", 60));
+    git(root, ["add", "test/fixtures/rewrite.astm"]);
+    commitIn(root, "base");
+    writeFileSync(target, `${filler("replacement", 60)}C|99|I|SSN 123-45-6789|G\r`);
+    git(root, ["add", "test/fixtures/rewrite.astm"]);
+
+    const raw = (extra: string[]): string =>
+      gitOut(root, ["diff", "--cached", "--raw", "--no-renames", ...extra]).trim();
+    expect(raw(["-B"]), "git must still break the pair for this premise to hold").toMatch(
+      /\bM\d{3}\b/,
+    );
+    expect(raw(["-B", "--diff-filter=AMTU"]), "the superseded filter loses it").toBe("");
+    expect(raw(["-B", "--diff-filter=AMTUB"])).toContain("test/fixtures/rewrite.astm");
+
+    // End to end through the scanner: the shipped argv catches it, and a copy of
+    // this file with `-B` injected catches it too ONLY because `B` is in the
+    // filter. On the superseded filter the injected copy exited 0.
+    expect(runIn(root, ["--staged"]).code).toBe(1);
+
+    const source = readFileSync(SCANNER_PATH, "utf8");
+    expect(source).toContain(SHIPPED_ARGV_FRAGMENT);
+    const withB = join(dir, "phi-scan-with-B.ts");
+    writeFileSync(
+      withB,
+      source.replace(SHIPPED_ARGV_FRAGMENT, `${SHIPPED_ARGV_FRAGMENT}\n        "-B",`),
+    );
+    const injected = spawnSync(TSX_BIN, [withB, "--staged"], {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    });
+    expect(injected.status, `stderr: ${injected.stderr ?? ""}`).toBe(1);
+    expect(injected.stderr ?? "").toContain("dashed SSN pattern");
+
+    const supersededFilter = join(dir, "phi-scan-with-B-amtu.ts");
+    writeFileSync(
+      supersededFilter,
+      source.replace(
+        SHIPPED_ARGV_FRAGMENT,
+        `"--no-renames",\n        "-B",\n        "--diff-filter=AMTU",`,
+      ),
+    );
+    const blind = spawnSync(TSX_BIN, [supersededFilter, "--staged"], {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    });
+    expect(blind.status, "without `B` in the filter the same index scans clean").toBe(0);
+    expect(blind.stdout ?? "").toMatch(/OK: no hits/);
+  });
+});
+
+describe("phi-scan: the caller's git config cannot delete a refusal", () => {
+  it("refuses a staged gitlink even under `diff.ignoreSubmodules=all` (exit 2)", () => {
+    const root = makeRepo();
+    fixturesIn(root);
+    const nested = join(root, "test", "fixtures", "nested");
+    mkdirSync(nested);
+    git(nested, ["init", "-q", "."]);
+    writeFileSync(join(nested, "payload.astm"), SYNTHETIC_PHI);
+    git(nested, ["add", "payload.astm"]);
+    commitIn(nested, "n");
+    git(root, ["add", "test/fixtures/nested"]);
+    git(root, ["config", "diff.ignoreSubmodules", "all"]);
+
+    // The premise: with that config the record is gone from the superseded argv.
+    expect(gitOut(root, ["diff", "--cached", "--raw", "--diff-filter=AMT"])).not.toContain(
+      "test/fixtures/nested",
+    );
+
+    const r = runIn(root, ["--staged"]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+    expect(r.stderr).toContain("test/fixtures/nested");
+    expect(r.stderr).toContain("a gitlink");
+    expectNoPhi(r.stderr);
+  });
+});
+
+describe("phi-scan: the --staged route refuses an UNMERGED in-scope path", () => {
+  /** Leave `root` mid-merge with `test/fixtures/c.astm` conflicted, PHI on one side. */
+  function conflictIn(root: string, path: string): void {
+    writeFileSync(join(root, path), filler("base", 3));
+    git(root, ["add", path]);
+    commitIn(root, "base");
+    git(root, ["checkout", "-q", "-b", "other"]);
+    writeFileSync(join(root, path), SYNTHETIC_PHI);
+    git(root, ["add", path]);
+    commitIn(root, "other");
+    git(root, ["checkout", "-q", "-"]);
+    writeFileSync(join(root, path), filler("mainline", 3));
+    git(root, ["add", path]);
+    commitIn(root, "mainline");
+    // The merge is EXPECTED to fail: that is the state under test.
+    spawnSync("git", ["merge", "other", "-q"], { cwd: root, encoding: "utf8", shell: false });
+  }
+
+  it("refuses it (exit 2) rather than reporting clean, and reports no PHI", () => {
+    const root = makeRepo();
+    fixturesIn(root);
+    conflictIn(root, "test/fixtures/c.astm");
+
+    // The premise: the superseded filter returned no record for it, and git
+    // cannot hand the scan a stage-0 blob for it either.
+    expect(gitOut(root, ["diff", "--cached", "--raw", "--diff-filter=AMT"])).not.toContain(
+      "test/fixtures/c.astm",
+    );
+    const show = spawnSync("git", ["show", ":test/fixtures/c.astm"], {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    });
+    expect(show.status).not.toBe(0);
+
+    const r = runIn(root, ["--staged"]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+    expect(r.stderr).toContain("test/fixtures/c.astm");
+    expect(r.stderr).toContain("unmerged");
+    expect(r.stderr).not.toContain("a symbolic link");
+    expect(r.stderr).not.toContain("mode-000000");
+    expectNoPhi(r.stderr);
+  });
+
+  it("leaves an unmerged path OUTSIDE the route's scope alone (the scope is unchanged)", () => {
+    const root = makeRepo();
+    conflictIn(root, "notes.txt");
+
+    const r = runIn(root, ["--staged"]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout).toMatch(/OK: no hits/);
   });
 });
