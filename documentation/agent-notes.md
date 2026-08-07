@@ -2112,6 +2112,26 @@ the collides arm declared another, so that arm carried no escape sequences at al
 orphans. **A corpus that builds its payload from anything other than the declared set is measuring a
 different package.**
 
+**▶ THREE `PRE-EXISTING` LINES THE THREE PASSES NAMED, BACKLOGGED, NOT CLOSED HERE.** (1) The
+unqualified retired universal ("the only tail on which a stream can be escape-clean at all") survives
+verbatim in **three test comments**: `alignment-shifted-components.test.ts`,
+`alignment-shifted-fields.test.ts` and `alignment-truncated-field.test.ts`. Not shipped, false in the
+same way the nine corrected surfaces were. (2) `alignment-companion-universal.test.ts` wires only
+`repeat` and `component`, so the **`ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` orphan population is never
+measured by the corpus whose zeros certify the correction** (pass 3 found 128 such orphans by its own
+sweep and confirmed the claim holds on them, so this is coverage, not falsity). (3) The three figures
+the changelog and changeset quote from `alignment-offset-rephasing.test.ts` (**3,072 / 1,568 / 320**)
+are asserted only as `toBeGreaterThan(0)` there, so they can drift with the suite staying green;
+`alignment-companion-universal.test.ts` pins its own with `toHaveLength` and is the pattern to copy.
+
+**▶ 🔴 THE SHAPE WARNING PASS 3 LEFT, WHICH IS WORTH MORE THAN ITS FINDINGS.** Each of the three
+passes found one more **claim about a claim** ("this is the one place that states it", "the only
+figures any surface may quote", "neither speaks for the other"), none of which any test can hold
+true. **That is a shape problem, not a hardening problem.** The rule that falls out of it, and it is
+the one to carry into the next claim correction on this family: **when a claim-about-coverage is
+wrong, DELETE it rather than repair it.** A repair is a fourth assertion of the same kind. The last
+one was deleted rather than rewritten, on pass 3's own recommendation.
+
 **▶ WHAT WAS DELIBERATELY NOT TAKEN, all still open.** Withholding the shifted, truncated or moved
 slots (changes an extracted value on a published package and cascades into
 `ASTM_RECORD_UNITS_ABSENT`); narrowing `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, which still fires

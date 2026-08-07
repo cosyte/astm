@@ -269,11 +269,9 @@ describe("the corpus itself, or its zeros certify nothing", () => {
 });
 
 describe("the retired universal, refuted", () => {
-  it("pins the corpus's own figures, so no figure quoted elsewhere is unreproducible", () => {
-    // The figures this file's own corpus carries, pinned so that anything quoting them can be
-    // re-derived from the tree. `#defect-12`'s standing trap is that a corpus moves every figure, so
-    // name the corpus by a constant that is IN THE TREE: these are `distinctCorpus` and
-    // `collidesCorpus` above. The offset file pins its own separately; neither speaks for the other.
+  it("pins this file's own corpus figures", () => {
+    // `#defect-12`'s standing trap is that a corpus moves every figure, so name the corpus by a
+    // constant that is IN THE TREE: these are `distinctCorpus` and `collidesCorpus` above.
     expect(distinctCorpus).toHaveLength(2304);
     expect(distinctCorpus.filter((t) => t.fires)).toHaveLength(1536);
     expect(distinctCorpus.filter((t) => t.orphan)).toHaveLength(0);
