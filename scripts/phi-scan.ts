@@ -910,12 +910,27 @@ function readAstmDelims(records: string[]): AstmDelims {
  * which is the same miss the decoded view was added to close. Splitting the
  * source view on the three quote characters as well closes both.
  *
- * It cannot fabricate a record: it only ADDS boundaries, and a boundary can only
- * shorten a record, never invent a field. What it can cost is a record whose own
- * content carries a quote, which is read short. Delimiters are deliberately NOT
- * read from this view (see `scanAstmPatientLoci`): a quote-split segment of
- * ordinary prose beginning with `H` would otherwise redefine the delimiter set
- * for the whole file, which IS a fabrication route.
+ * IT DOES READ NON-RECORDS AS RECORDS, and the reason once written here ("a
+ * boundary can only shorten a record, never invent a field") was wrong: an added
+ * boundary creates a new record START, which is the whole point, and a segment
+ * that was never a record can begin one. Measured: a line of tabular prose whose
+ * cells are pipe-separated is reported at `P-6` and `P-8`. The structural guard
+ * below narrows that and does not close it, so this view is NOISIER than the
+ * line view by construction, and a noisier PHI gate is the safe direction.
+ *
+ * The two properties that actually hold, and that make the noise acceptable:
+ *
+ *   - the split is purely ADDITIVE, so no record the line view found stops being
+ *     found. What it can cost is a record whose own content carries a quote,
+ *     which is read short, so a value can be MISSED at the margin but the line
+ *     view's findings are unaffected;
+ *   - every reported value is a SUBSTRING OF THE FILE. Nothing is synthesized,
+ *     so a hit always names bytes a reader can go and look at.
+ *
+ * Delimiters are deliberately NOT read from this view (see
+ * `scanAstmPatientLoci`): a quote-split segment of ordinary prose beginning with
+ * `H` would otherwise redefine the delimiter set for the whole file, and THAT is
+ * the one route by which this split could change what a real record reads as.
  */
 const SOURCE_LITERAL_DELIMITERS = /["'`]/;
 
@@ -1125,8 +1140,10 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
   //     - WHAT COUNTS AS A RECORD. A record is a segment beginning a
   //       line, or (in a source file) beginning a string literal, after
   //       the embedded view's decode. A record assembled from pieces at
-  //       run time is not one, and neither is one quoted mid-sentence in
-  //       prose.
+  //       run time is not one. A record QUOTED IN PROSE IS read, because
+  //       a quote is exactly what this view treats as a record start:
+  //       that is coverage this sentence used to disclaim, and the
+  //       disclaimer was measured false.
   //     - TOKENS NOT READ. A name component of one character, and one
   //       still carrying a `${` placeholder. Each is argued where it is
   //       applied, below.
