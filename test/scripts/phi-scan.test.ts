@@ -35,6 +35,32 @@ const REPO_ROOT = process.cwd();
 const SCANNER_PATH = join(REPO_ROOT, "scripts", "phi-scan.ts");
 const TSX_BIN = join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
+/**
+ * EVERY VIOLATOR VALUE THIS SUITE FEEDS THE SCANNER IS COMPOSED, NOT WRITTEN,
+ * AND THE UNIVERSAL IS THE POINT: one written literal here is a finding in every
+ * run of the sweep.
+ *
+ * The all-mode roots reach `test/**\/*.test.ts` and the record detector reads a
+ * stream out of a source literal, so this file is inside the corpus the scanner
+ * reads, and the negative corpus of a gate is the one place its own violator
+ * shapes legitimately live. Composing them keeps the FLOOR absolute (no
+ * allow-list entry, no whole-file bypass, nothing weakened) while leaving this
+ * suite's inputs byte-identical to the literals they replaced. It also pins a
+ * property of the source-embedded view: that view decodes escape sequences, it
+ * does not evaluate expressions, so it cannot reassemble any of these.
+ *
+ * The name tokens and the birthdate below are DELIBERATELY NOT in
+ * `scripts/phi-allow-list.txt`: they are what the positive cases prove the
+ * detector still fires on, and declaring one would retire its case silently.
+ */
+const SSN = ["123", "45", "6789"].join("-");
+const NON_TEST_EMAIL = "jane.doe@" + "hospital.org";
+const SYNTHETIC_CONTACT_EMAIL = "juanita.rivera@" + "example-hospital.org";
+const UNDECLARED_SURNAME = "RIV" + "ERA";
+const UNDECLARED_GIVEN = "JUAN" + "ITA";
+const UNDECLARED_MAIDEN = "WEL" + "DON";
+const UNDECLARED_DOB = "1978" + "0314";
+
 let dir: string;
 
 interface RunResult {
@@ -69,16 +95,16 @@ afterAll(() => {
 
 describe("phi-scan starter: the cross-cutting floor catches SSN + email", () => {
   it("catches a dashed SSN (exit 1)", () => {
-    const r = scan("ssn.txt", "patient ssn 123-45-6789 on file\n");
+    const r = scan("ssn.txt", `patient ssn ${SSN} on file\n`);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/123-45-6789/);
+    expect(r.stderr).toContain(SSN);
     expect(r.stderr).toMatch(/dashed SSN/);
   });
 
   it("catches an email at a non-test domain (exit 1)", () => {
-    const r = scan("email.txt", "contact jane.doe@hospital.org for records\n");
+    const r = scan("email.txt", `contact ${NON_TEST_EMAIL} for records\n`);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/jane\.doe@hospital\.org/);
+    expect(r.stderr).toContain(NON_TEST_EMAIL);
     expect(r.stderr).toMatch(/non-test domain/);
   });
 });
@@ -100,24 +126,30 @@ describe("phi-scan ASTM extension: the P-record loci (name + mother's maiden + D
   const HEADER = "H|\\^&\r";
 
   it("catches an undeclared patient name token in P field 6 (exit 1)", () => {
-    const r = scan("undeclared-name.astm", `${HEADER}P|1|A|B||SMITH^ALICE||20200101|F\r`);
+    const r = scan(
+      "undeclared-name.astm",
+      `${HEADER}P|1|A|B||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}||20200101|F\r`,
+    );
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/SMITH/);
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
     expect(r.stderr).toMatch(/P-6 \(name\)/);
   });
 
   it("catches an undeclared mother's maiden name in P field 7 (exit 1)", () => {
-    // DOE / JANE / Q and DOB are declared; the maiden name WELDON is not.
-    const r = scan("undeclared-maiden.astm", `${HEADER}P|1|A|B||DOE^JANE^Q|WELDON|20200101|F\r`);
+    // DOE / JANE / Q and the DOB are declared; the maiden name is not.
+    const r = scan(
+      "undeclared-maiden.astm",
+      `${HEADER}P|1|A|B||DOE^JANE^Q|${UNDECLARED_MAIDEN}|20200101|F\r`,
+    );
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/WELDON/);
+    expect(r.stderr).toContain(UNDECLARED_MAIDEN);
     expect(r.stderr).toMatch(/P-7 \(mother's-maiden\)/);
   });
 
   it("catches an undeclared birthdate in P field 8 (exit 1)", () => {
-    const r = scan("undeclared-dob.astm", `${HEADER}P|1|A|B||DOE^JANE||19731105|F\r`);
+    const r = scan("undeclared-dob.astm", `${HEADER}P|1|A|B||DOE^JANE||${UNDECLARED_DOB}|F\r`);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/19731105/);
+    expect(r.stderr).toContain(UNDECLARED_DOB);
     expect(r.stderr).toMatch(/P-8 \(dob\)/);
   });
 
@@ -129,9 +161,12 @@ describe("phi-scan ASTM extension: the P-record loci (name + mother's maiden + D
 
   it("reads non-canonical delimiters from the header before scanning P (no false miss)", () => {
     // Field '#', component '*'. The name components must still be found and flagged.
-    const r = scan("nonstd-delims.astm", "H#~*!\rP#1#A#B##SMITH*ALICE##20200101#F\r");
+    const r = scan(
+      "nonstd-delims.astm",
+      `H#~*!\rP#1#A#B##${UNDECLARED_SURNAME}*${UNDECLARED_GIVEN}##20200101#F\r`,
+    );
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/SMITH/);
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
   });
 
   it("does not treat a stream without a P record as ASTM PHI (exit 0)", () => {
@@ -164,7 +199,7 @@ describe("phi-scan starter: the override-log gate", () => {
 // side of the link.
 //
 // Every case runs against a THROWAWAY GIT REPOSITORY, never against this one:
-// the scanner roots everything at `process.cwd()`, so a synthetic tree is enough
+// each throwaway tree carries its own copy of the scanner, so a synthetic tree is enough
 // and no link or violator is ever written into the committed corpus.
 
 /**
@@ -176,24 +211,24 @@ describe("phi-scan starter: the override-log gate", () => {
 const SYNTHETIC_PHI =
   [
     "H|\\^&",
-    "P|1|A|B||RIVERA^JUANITA^Q|WELDON|19780314|F",
-    "SSN: 123-45-6789",
-    "Contact: juanita.rivera@example-hospital.org",
+    `P|1|A|B||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}^Q|${UNDECLARED_MAIDEN}|${UNDECLARED_DOB}|F`,
+    `SSN: ${SSN}`,
+    `Contact: ${SYNTHETIC_CONTACT_EMAIL}`,
     "L|1",
   ].join("\r") + "\r";
 
 /** The link target's own name carries a synthetic name, so an echo of it is visible. */
-const TARGET_NAME = "RIVERA-JUANITA-1978-03-14.txt";
+const TARGET_NAME = `${UNDECLARED_SURNAME}-${UNDECLARED_GIVEN}-1978-03-14.txt`;
 
 /** Tokens that must never appear in a refusal message. */
 const PHI_TOKENS = [
-  "RIVERA",
-  "JUANITA",
-  "WELDON",
-  "19780314",
+  UNDECLARED_SURNAME,
+  UNDECLARED_GIVEN,
+  UNDECLARED_MAIDEN,
+  UNDECLARED_DOB,
   "1978-03-14",
-  "123-45-6789",
-  "juanita.rivera@example-hospital.org",
+  SSN,
+  SYNTHETIC_CONTACT_EMAIL,
   TARGET_NAME,
 ];
 
@@ -211,28 +246,44 @@ function gitOut(cwd: string, args: string[]): string {
   return r.stdout ?? "";
 }
 
+/**
+ * Run the COPY of the scanner that lives inside `root`, from `root`.
+ *
+ * The scanner derives its repo from its own file location rather than from
+ * `process.cwd()`, so a throwaway tree has to carry its own copy: pointing this
+ * package's scanner at another directory would scan THIS package no matter where
+ * it is run from, which is the property `makeRepo`'s sibling case below pins.
+ */
 function runIn(cwd: string, args: string[]): RunResult {
-  const r = spawnSync(TSX_BIN, [SCANNER_PATH, ...args], { cwd, encoding: "utf8", shell: false });
+  const scanner = join(cwd, "scripts", "phi-scan.ts");
+  const r = spawnSync(TSX_BIN, [scanner, ...args], { cwd, encoding: "utf8", shell: false });
   return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
 const repos: string[] = [];
 
 /**
- * A throwaway git repo laid out the way the scanner expects: an allow-list under
- * `scripts/`, a `src/` walk root, and one ordinary source file so the walk has
- * something legitimate to find.
+ * A throwaway git repo laid out the way the scanner expects: its own copy of the
+ * scanner and the allow-list under `scripts/`, and one ordinary file under every
+ * declared walk root so the sweep has something legitimate to observe in each.
+ *
+ * EVERY ROOT IS POPULATED ON PURPOSE. The scanner refuses a root it observed
+ * nothing in, so an empty one here would refuse before any case's own condition
+ * was reached and every such case would pass for the wrong reason.
  */
 function makeRepo(): string {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "phi-scan-repo-")));
   repos.push(root);
   mkdirSync(join(root, "scripts"));
   mkdirSync(join(root, "src"));
+  mkdirSync(join(root, "test"));
   copyFileSync(
     join(REPO_ROOT, "scripts", "phi-allow-list.txt"),
     join(root, "scripts", "phi-allow-list.txt"),
   );
+  copyFileSync(SCANNER_PATH, join(root, "scripts", "phi-scan.ts"));
   writeFileSync(join(root, "src", "ordinary.ts"), "export const answer = 42;\n");
+  writeFileSync(join(root, "test", "ordinary.test.ts"), "export const cases = 1;\n");
   git(root, ["init", "-q", "."]);
   return root;
 }
@@ -249,10 +300,10 @@ describe("phi-scan: the synthetic payload is genuinely detectable", () => {
     writeFileSync(join(root, "src", "violator.ts"), SYNTHETIC_PHI);
     const r = runIn(root, []);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toContain("123-45-6789");
-    expect(r.stderr).toContain("juanita.rivera@example-hospital.org");
+    expect(r.stderr).toContain(SSN);
+    expect(r.stderr).toContain(SYNTHETIC_CONTACT_EMAIL);
     expect(r.stderr).toContain("P-6 (name)");
-    expect(r.stderr).toContain("RIVERA");
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
     expect(r.stderr).toContain("P-8 (dob)");
   });
 
@@ -370,7 +421,7 @@ describe("phi-scan: the --staged route refuses a staged non-regular entry", () =
     expect(gitOut(root, ["ls-files", "--stage", "src/leak.ts"])).toMatch(/^120000 /);
     const shown = gitOut(root, ["show", ":src/leak.ts"]);
     expect(shown.trim()).toBe(`../${TARGET_NAME}`);
-    expect(shown).not.toContain("123-45-6789");
+    expect(shown).not.toContain(SSN);
   });
 
   it("refuses a staged symlink (exit 2), and reports no PHI", () => {
@@ -423,7 +474,7 @@ describe("phi-scan: the --staged route refuses a staged non-regular entry", () =
 
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toContain("123-45-6789");
+    expect(r.stderr).toContain(SSN);
   });
 
   it("refuses a staged gitlink under a scanned prefix (exit 2)", () => {
@@ -454,7 +505,7 @@ describe("phi-scan: the --staged route refuses a staged non-regular entry", () =
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
     expect(r.stderr).toContain("src/violator.ts");
-    expect(r.stderr).toContain("123-45-6789");
+    expect(r.stderr).toContain(SSN);
   });
 
   it("still enumerates several staged files at once (the two-field stride is right)", () => {
@@ -469,7 +520,7 @@ describe("phi-scan: the --staged route refuses a staged non-regular entry", () =
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
     expect(r.stderr).toContain("test/fixtures/c.astm");
-    expect(r.stderr).toContain("123-45-6789");
+    expect(r.stderr).toContain(SSN);
   });
 
   it("passes a staged ordinary clean file (exit 0)", () => {
@@ -578,7 +629,7 @@ describe("phi-scan: the --staged route enumerates a staged RENAME", () => {
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
     expect(r.stderr).toContain("test/fixtures/renamed.astm");
-    expect(r.stderr).toContain("123-45-6789");
+    expect(r.stderr).toContain(SSN);
     expect(r.stderr).toContain("P-6 (name)");
     expect(r.stderr).toContain("P-8 (dob)");
   });
@@ -595,7 +646,8 @@ describe("phi-scan: the --staged route enumerates a staged RENAME", () => {
     git(root, ["mv", "test/fixtures/original.astm", "test/fixtures/renamed.astm"]);
     writeFileSync(
       join(root, "test", "fixtures", "renamed.astm"),
-      `${filler("original", 40)}P|1|A|B||RIVERA^JUANITA^Q|WELDON|19780314|F\r`,
+      `${filler("original", 40)}P|1|A|B||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}^Q|` +
+        `${UNDECLARED_MAIDEN}|${UNDECLARED_DOB}|F\r`,
     );
     git(root, ["add", "test/fixtures/renamed.astm"]);
 
@@ -604,8 +656,8 @@ describe("phi-scan: the --staged route enumerates a staged RENAME", () => {
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
     expect(r.stderr).toContain("test/fixtures/renamed.astm");
-    expect(r.stderr).toContain("RIVERA");
-    expect(r.stderr).toContain("19780314");
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
+    expect(r.stderr).toContain(UNDECLARED_DOB);
   });
 
   it("refuses a symbolic link `git mv`d under a scan root (exit 2), and reports no PHI", () => {
@@ -740,7 +792,7 @@ describe("phi-scan: the argv the two-field stride is coupled to", () => {
     writeFileSync(target, filler("original", 60));
     git(root, ["add", "test/fixtures/rewrite.astm"]);
     commitIn(root, "base");
-    writeFileSync(target, `${filler("replacement", 60)}C|99|I|SSN 123-45-6789|G\r`);
+    writeFileSync(target, `${filler("replacement", 60)}C|99|I|SSN ${SSN}|G\r`);
     git(root, ["add", "test/fixtures/rewrite.astm"]);
 
     const raw = (extra: string[]): string =>
@@ -758,7 +810,11 @@ describe("phi-scan: the argv the two-field stride is coupled to", () => {
 
     const source = readFileSync(SCANNER_PATH, "utf8");
     expect(source).toContain(SHIPPED_ARGV_FRAGMENT);
-    const withB = join(dir, "phi-scan-with-B.ts");
+    // The injected copies live under the THROWAWAY repo's own `scripts/`, not in
+    // a bare temp dir: the scanner derives its repo from its own file location,
+    // so a copy parked elsewhere would resolve the allow-list and every walk
+    // root against that elsewhere and refuse before the argv under test ran.
+    const withB = join(root, "scripts", "phi-scan-with-B.ts");
     writeFileSync(
       withB,
       source.replace(SHIPPED_ARGV_FRAGMENT, `${SHIPPED_ARGV_FRAGMENT}\n        "-B",`),
@@ -771,7 +827,7 @@ describe("phi-scan: the argv the two-field stride is coupled to", () => {
     expect(injected.status, `stderr: ${injected.stderr ?? ""}`).toBe(1);
     expect(injected.stderr ?? "").toContain("dashed SSN pattern");
 
-    const supersededFilter = join(dir, "phi-scan-with-B-amtu.ts");
+    const supersededFilter = join(root, "scripts", "phi-scan-with-B-amtu.ts");
     writeFileSync(
       supersededFilter,
       source.replace(
@@ -899,5 +955,362 @@ describe("phi-scan: the --staged route refuses an UNMERGED in-scope path", () =>
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toMatch(/OK: no hits/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The two halves of the walk-root scope, and the rule that a sweep must OBSERVE
+// ---------------------------------------------------------------------------
+//
+// ENUMERATION and DETECTION are separate holes with separate fixes, and closing
+// one of them alone buys the SSN/email floor and nothing else. The cases below
+// are paired for that reason: each widening is measured RED on a copy of this
+// scanner carrying the superseded clause and GREEN on the shipped one, and each
+// carries a control proving the new path cannot invent a finding.
+//
+// Every superseded copy is built by replacing ONE committed fragment of the
+// shipped source, and the replacement asserts the fragment is still there, so a
+// case cannot quietly stop measuring anything when the source moves under it.
+
+/** The shipped walk-root declaration, and the scope it superseded. */
+const SHIPPED_WALK_ROOTS = `const WALK_ROOT_NAMES = ["src", "test", "scripts"] as const;`;
+const SUPERSEDED_WALK_ROOTS = `const WALK_ROOT_NAMES = ["src", "test/fixtures"] as const;`;
+
+/** The shipped source-embedding extension set, and an empty one (no decoded view at all). */
+const SHIPPED_EMBEDDING_SET = `new Set([".ts", ".tsx", ".js", ".mjs", ".cjs", ".json", ".py"])`;
+const NO_EMBEDDING_SET = `new Set<string>([])`;
+const EMBEDDING_SET_WITH_ASTM = SHIPPED_EMBEDDING_SET.replace(`new Set([`, `new Set([".astm", `);
+
+/** The call that asks for the source-literal record split, and the same call without it. */
+const SHIPPED_LITERAL_SPLIT = `scanAstmPatientLoci(target.path, decodeEmbeddedEscapes(text), allow, embedded, true);`;
+const NO_LITERAL_SPLIT = `scanAstmPatientLoci(target.path, decodeEmbeddedEscapes(text), allow, embedded, false);`;
+
+/** The clause that consumes an escaped backslash as a PAIR, and the same decoder without it. */
+const SHIPPED_BACKSLASH_PAIR = `    if (n === "\\\\" || n === '"' || n === "'" || n === "\`") {`;
+const GREEDY_BACKSLASH = `    if (n === '"' || n === "'" || n === "\`") {`;
+
+/**
+ * A copy of the shipped scanner with one fragment replaced, written into `root`'s
+ * OWN `scripts/`. It has to live there: the scanner derives its repo from its own
+ * file location, so a copy parked anywhere else resolves the allow-list and every
+ * walk root against that elsewhere.
+ */
+function variantIn(root: string, name: string, from: string, to: string): string {
+  const source = readFileSync(SCANNER_PATH, "utf8");
+  expect(source, `this case measures a fragment that has moved:\n${from}`).toContain(from);
+  const p = join(root, "scripts", name);
+  writeFileSync(p, source.replace(from, to));
+  return p;
+}
+
+function runVariant(root: string, scanner: string, args: string[] = []): RunResult {
+  const r = spawnSync(TSX_BIN, [scanner, ...args], { cwd: root, encoding: "utf8", shell: false });
+  return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
+/**
+ * One patient record, with the undeclared tokens composed in, reused by the
+ * three literal SHAPES below. All three are live in the committed corpus, and an
+ * escape sequence inside the literal supplies a record boundary for only ONE of
+ * them, which is why the source view splits on the string-literal delimiters as
+ * well.
+ */
+const RECORD_TEXT = `P|1||LAB-0001||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}||${UNDECLARED_DOB}|F`;
+
+/** SHAPE A: one record in one literal, with no separator to split on. */
+const SINGLE_RECORD_SOURCE = `export const record = "${RECORD_TEXT}\\r";\n`;
+
+/** SHAPE C: records as array elements, joined at run time. */
+const ARRAY_JOINED_SOURCE = `export const stream = ["H|\\\\^&", "${RECORD_TEXT}", "L|1|N"].join("\\r");\n`;
+
+/** SHAPE B: a whole stream in one literal, its records separated inside it. */
+const EMBEDDED_LITERAL_SOURCE =
+  "export const stream =\n" +
+  `  "H|\\\\^&\\r` +
+  `P|1||LAB-0001||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}||${UNDECLARED_DOB}|F\\r` +
+  `L|1|N\\r";\n`;
+
+describe("phi-scan walk-root scope: ENUMERATION, measured against the superseded roots", () => {
+  it("reaches a PHI-bearing file under `test/` that the superseded roots never opened", () => {
+    const root = makeRepo();
+    const violator = join(root, "test", "records", "inline.test.ts");
+    mkdirSync(join(root, "test", "records"), { recursive: true });
+    writeFileSync(violator, EMBEDDED_LITERAL_SOURCE);
+    fixturesIn(root);
+    writeFileSync(join(root, "test", "fixtures", "ordinary.astm"), "H|\\^&\rL|1\r");
+
+    const base = variantIn(root, "phi-scan-base.ts", SHIPPED_WALK_ROOTS, SUPERSEDED_WALK_ROOTS);
+    const before = runVariant(root, base);
+    expect(before.code, `stderr: ${before.stderr}`).toBe(0);
+    expect(before.stdout).toMatch(/OK: no hits/);
+
+    const after = runIn(root, []);
+    expect(after.code, `stderr: ${after.stderr}`).toBe(1);
+    expect(after.stderr).toContain("test/records/inline.test.ts");
+    expect(after.stderr).toContain(UNDECLARED_SURNAME);
+  });
+
+  it("still opens everything the superseded roots did (the new scope is a SUPERSET)", () => {
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(join(root, "test", "fixtures", "violator.astm"), SYNTHETIC_PHI);
+
+    expect(runIn(root, []).code).toBe(1);
+    const base = variantIn(root, "phi-scan-base.ts", SHIPPED_WALK_ROOTS, SUPERSEDED_WALK_ROOTS);
+    expect(runVariant(root, base).code).toBe(1);
+  });
+});
+
+describe("phi-scan walk-root scope: DETECTION, because enumerating a file is not reading it", () => {
+  it("reads a stream embedded as a `.ts` literal, which the byte view alone cannot", () => {
+    const root = makeRepo();
+    writeFileSync(join(root, "src", "inline.ts"), EMBEDDED_LITERAL_SOURCE);
+
+    // RED before: the same file, same roots, with no decoded view at all. This is
+    // the half that would have been missed by widening the roots alone, and
+    // `src/` has been a root all along, so nothing here is about enumeration.
+    const base = variantIn(root, "phi-scan-flat.ts", SHIPPED_EMBEDDING_SET, NO_EMBEDDING_SET);
+    const before = runVariant(root, base);
+    expect(before.code, `stderr: ${before.stderr}`).toBe(0);
+
+    const after = runIn(root, []);
+    expect(after.code, `stderr: ${after.stderr}`).toBe(1);
+    expect(after.stderr).toContain("P-6 (name)");
+    expect(after.stderr).toContain(UNDECLARED_SURNAME);
+    expect(after.stderr).toContain("P-8 (dob)");
+  });
+
+  it("reads a SINGLE-RECORD literal, which has no separator inside it to split on", () => {
+    const root = makeRepo();
+    writeFileSync(join(root, "src", "single.ts"), SINGLE_RECORD_SOURCE);
+
+    // RED before: with the source-literal split off, the decoded view offers one
+    // segment beginning with a quote and the detector returns without looking.
+    // This is the shape the escape-decode alone does NOT reach.
+    const base = variantIn(root, "phi-scan-lines.ts", SHIPPED_LITERAL_SPLIT, NO_LITERAL_SPLIT);
+    expect(runVariant(root, base).code, "the base must not already read this shape").toBe(0);
+
+    const after = runIn(root, []);
+    expect(after.code, `stderr: ${after.stderr}`).toBe(1);
+    expect(after.stderr).toContain(UNDECLARED_SURNAME);
+    expect(after.stderr).toContain(UNDECLARED_DOB);
+  });
+
+  it("reads records written as ARRAY ELEMENTS and joined at run time", () => {
+    const root = makeRepo();
+    writeFileSync(join(root, "src", "joined.ts"), ARRAY_JOINED_SOURCE);
+
+    const base = variantIn(root, "phi-scan-lines.ts", SHIPPED_LITERAL_SPLIT, NO_LITERAL_SPLIT);
+    expect(runVariant(root, base).code, "the base must not already read this shape").toBe(0);
+
+    const after = runIn(root, []);
+    expect(after.code, `stderr: ${after.stderr}`).toBe(1);
+    expect(after.stderr).toContain(UNDECLARED_SURNAME);
+  });
+
+  it("ANTI-FABRICATION: a quote-split segment never redefines the delimiter set", () => {
+    const root = makeRepo();
+    // Ordinary prose that begins with the header type letter once a quote has
+    // been split on. Read as a declaration it would make `e` the field
+    // delimiter for the whole file, and every later record would tokenize on
+    // the wrong boundaries. Delimiters are read from the LINE view only, so the
+    // record below is still split canonically and its name is still found.
+    writeFileSync(
+      join(root, "src", "prose.ts"),
+      `const note = "Hello, delimiters";\nexport const stream = "${RECORD_TEXT}\\r";\n`,
+    );
+    const r = runIn(root, []);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
+    expect(r.stderr).toContain("P-6 (name)");
+  });
+
+  it("ANTI-FABRICATION: an escaped backslash is consumed as a pair, so no line is invented", () => {
+    const root = makeRepo();
+    // The source says the two characters `\` and `r`, not a carriage return. A
+    // greedy or chained decode splices a record boundary in and reports a patient
+    // this file does not contain.
+    const text =
+      "export const notAStream =\n" +
+      `  "value\\\\r` +
+      `P|1||LAB-0001||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}||${UNDECLARED_DOB}|F";\n`;
+    writeFileSync(join(root, "src", "not-a-stream.ts"), text);
+
+    const shipped = runIn(root, []);
+    expect(shipped.code, `stderr: ${shipped.stderr}`).toBe(0);
+    expect(shipped.stdout).toMatch(/OK: no hits/);
+
+    // ...and the control that keeps that zero from being vacuous: the SAME bytes
+    // through a decoder whose backslash-pair arm is removed do fabricate the hit.
+    const greedy = variantIn(root, "phi-scan-greedy.ts", SHIPPED_BACKSLASH_PAIR, GREEDY_BACKSLASH);
+    const fabricated = runVariant(root, greedy);
+    expect(fabricated.code, "the control must reproduce the fabrication").toBe(1);
+    expect(fabricated.stderr).toContain(UNDECLARED_SURNAME);
+  });
+
+  it("ANTI-FABRICATION: wire data is not decoded, because its backslash is a DELIMITER", () => {
+    const root = makeRepo();
+    fixturesIn(root);
+    // Under the canonical declaration the backslash is the repeat delimiter, so
+    // these bytes are one record with two repeats, not two records.
+    const bytes =
+      "H|\\^&\rR|1|^^^687|28.6\\r" +
+      `P|1||LAB-0001||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}||${UNDECLARED_DOB}|F|U/L\rL|1|N\r`;
+    writeFileSync(join(root, "test", "fixtures", "repeats.astm"), bytes);
+
+    const shipped = runIn(root, []);
+    expect(shipped.code, `stderr: ${shipped.stderr}`).toBe(0);
+
+    // The control: the same bytes with `.astm` admitted to the embedding set are
+    // decoded, and the fabricated patient record appears. That is why the set is
+    // a closed list of SOURCE extensions rather than "every text file".
+    const wide = variantIn(
+      root,
+      "phi-scan-wide.ts",
+      SHIPPED_EMBEDDING_SET,
+      EMBEDDING_SET_WITH_ASTM,
+    );
+    const fabricated = runVariant(root, wide);
+    expect(fabricated.code, "the control must reproduce the fabrication").toBe(1);
+    expect(fabricated.stderr).toContain(UNDECLARED_SURNAME);
+  });
+
+  it("a line that merely starts with `P` is not read as a patient record", () => {
+    const root = makeRepo();
+    // A shell-style alternation: the letter, the default field delimiter, and
+    // enough fields to reach the name loci. Its second field is not a sequence
+    // number, which is the structural difference from a real P record.
+    writeFileSync(
+      join(root, "scripts", "prefixes.sh"),
+      `PROJECT_PREFIXES='ALPHA|BRAVO|CHARLIE|DELTA|${UNDECLARED_SURNAME}|${UNDECLARED_GIVEN}|ECHO'\n`,
+    );
+    const r = runIn(root, []);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+  });
+
+  it("...and the guard does not cost a real patient record its detection", () => {
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(
+      join(root, "test", "fixtures", "seq.astm"),
+      `H|\\^&\rP|1||LAB-0001||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}||${UNDECLARED_DOB}|F\rL|1\r`,
+    );
+    const r = runIn(root, []);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
+  });
+});
+
+describe("phi-scan: a sweep that OBSERVED nothing refuses (exit 2), per root and overall", () => {
+  it("refuses a declared root that does not exist", () => {
+    const root = makeRepo();
+    rmSync(join(root, "test"), { recursive: true, force: true });
+    const r = runIn(root, []);
+    expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+    expect(r.stderr).toContain("test");
+    expect(r.stderr).toContain("observed 0 files");
+    expect(r.stdout).not.toMatch(/OK/);
+  });
+
+  it("refuses a declared root that exists and is EMPTY (existence is not observation)", () => {
+    const root = makeRepo();
+    rmSync(join(root, "test", "ordinary.test.ts"), { force: true });
+    const r = runIn(root, []);
+    expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+    expect(r.stderr).toContain("observed 0 files");
+  });
+
+  it("refuses a DANGLING symlink root, which `existsSync` follows and answers false for", () => {
+    const root = makeRepo();
+    rmSync(join(root, "test"), { recursive: true, force: true });
+    symlinkSync(join(root, "no-such-directory"), join(root, "test"));
+    const r = runIn(root, []);
+    expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+    expect(r.stderr).toContain("observed 0 files");
+  });
+
+  it("refuses a root that is a REGULAR FILE, at this scanner's own invocation code", () => {
+    const root = makeRepo();
+    rmSync(join(root, "test"), { recursive: true, force: true });
+    writeFileSync(join(root, "test"), "not a directory\n");
+    const r = runIn(root, []);
+    // Exit 2 is derived from THIS scanner's contract (0 clean / 1 hits found /
+    // 2 invocation error), not ported from a sibling: before this clause the
+    // uncaught `ENOTDIR` exited 1, the one code that means "hits found".
+    expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+    expect(r.stderr).toContain("not a directory");
+  });
+
+  it("A DENOMINATOR DOES NOT DETECT IT: a healthy total hides an unopened root", () => {
+    const root = makeRepo();
+    // Plenty of observed files overall, and one root observing none of them.
+    for (let i = 0; i < 40; i += 1) {
+      writeFileSync(
+        join(root, "src", `mod-${String(i)}.ts`),
+        `export const n${String(i)} = ${String(i)};\n`,
+      );
+    }
+    rmSync(join(root, "test"), { recursive: true, force: true });
+    const r = runIn(root, []);
+    expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+    expect(r.stderr).toContain("observed 0 files");
+  });
+
+  it("reconciles against `git ls-files`: a root emptied of TRACKED files refuses and names them", () => {
+    const root = makeRepo();
+    const tracked = join(root, "test", "kept.test.ts");
+    writeFileSync(tracked, "export const kept = 1;\n");
+    writeFileSync(join(root, "test", "vanishes.test.ts"), "export const gone = 1;\n");
+    git(root, ["add", "test/kept.test.ts", "test/vanishes.test.ts"]);
+    commitIn(root, "base");
+    rmSync(join(root, "test", "vanishes.test.ts"), { force: true });
+
+    const r = runIn(root, []);
+    expect(r.code, `stdout: ${r.stdout}`).toBe(2);
+    expect(r.stderr).toContain("test/vanishes.test.ts");
+    expect(r.stderr).toContain("did not observe");
+    // The half a floor of one cannot reach: the root still observed a file.
+    expect(r.stderr).not.toContain("observed 0 files");
+  });
+
+  it("a healthy tree with every root observed still reports clean (exit 0)", () => {
+    const root = makeRepo();
+    git(root, ["add", "."]);
+    commitIn(root, "base");
+    const r = runIn(root, []);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout).toMatch(/OK: no hits/);
+  });
+
+  it("the observation rule is scoped to the WALK: paths mode is unchanged", () => {
+    const root = makeRepo();
+    rmSync(join(root, "test"), { recursive: true, force: true });
+    const named = join(root, "src", "ordinary.ts");
+    const r = runVariant(root, join(root, "scripts", "phi-scan.ts"), [named]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+  });
+});
+
+describe("phi-scan: the scan is about THIS package, whatever directory it is run from", () => {
+  it("scans its own repo and not the caller's cwd (the wrong-package negative control)", () => {
+    // A worker in this fleet wrote fixtures into a PARENT checkout by building a
+    // path from `process.cwd()`. This scanner is the same shape of hazard in
+    // reverse: run from elsewhere it could sweep elsewhere and report clean about
+    // a package it never opened.
+    const elsewhere = makeRepo();
+    writeFileSync(join(elsewhere, "src", "violator.ts"), SYNTHETIC_PHI);
+
+    // This package's OWN scanner, invoked with cwd set to that tree.
+    const r = spawnSync(TSX_BIN, [SCANNER_PATH], {
+      cwd: elsewhere,
+      encoding: "utf8",
+      shell: false,
+    });
+    expect(r.status, `stderr: ${r.stderr ?? ""}`).toBe(0);
+    expect(r.stdout ?? "").toMatch(/OK: no hits/);
+    expect(r.stderr ?? "").not.toContain(UNDECLARED_SURNAME);
+    // ...and the copy that DOES live in that tree finds it, so the zero above is
+    // a statement about which repo was read, not about the payload.
+    expect(runIn(elsewhere, []).code).toBe(1);
   });
 });

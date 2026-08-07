@@ -3,40 +3,42 @@
  * `@cosyte/astm` PHI scanner: the CI / pre-commit half of the PHI commit-gate.
  *
  * Pure Node. Zero runtime deps. `git` is the only subprocess, always via
- * `execFileSync` with array args (never shell-form). Walks the synthetic test
- * fixtures (and a conservative text pass over `src/`) and REFUSES anything that
- * looks like real PHI, so a developer cannot commit a real-looking fixture by
+ * `execFileSync` with array args (never shell-form). Walks this package's own
+ * corpus (the roots are `WALK_ROOT_NAMES` below) and REFUSES anything that looks
+ * like real PHI, so a developer cannot commit a real-looking fixture by
  * accident.
  *
  * ===========================================================================
  * ██  STARTER: READ BEFORE YOU RELY ON THIS  ███████████████████████████████
  * ===========================================================================
  *
- *   This file is the SHARED MACHINERY only. As shipped it detects EXACTLY TWO
- *   cross-cutting PHI shapes that apply to ANY format:
+ *   This file began as the SHARED MACHINERY plus a format-agnostic FLOOR: a
+ *   dashed Social Security Number (`\d{3}-\d{2}-\d{4}`) and an email at a
+ *   non-test domain. On top of that floor it now reads the ASTM `P` record's
+ *   own loci. WHAT THAT COVERS AND WHAT IT LEAVES OPEN IS STATED ONCE, in
+ *   `scanTarget` below, and that sentence is the only one to trust or to
+ *   correct: this banner used to carry a second copy and it had gone false.
  *
- *       (1) a dashed Social Security Number   (\d{3}-\d{2}-\d{4})
- *       (2) an email at a non-test domain
- *
- *   That is a FLOOR, not a gate. It does NOT understand ASTM. It will NOT
- *   catch a patient name, a date of birth, an MRN / member id, an address, or a
- *   phone number sitting in a structured ASTM field: the PHI that a real
- *   ASTM message actually carries.
- *
- *   ⚠  A scanner that silently ships SSN/email-only detection is a FALSE-
- *      CONFIDENCE RISK: it reports green on fixtures stuffed with real names and
- *      DOBs. Before you trust `pnpm phi-scan` as a safety gate for ASTM,
- *      YOU MUST add structured, field-level detection for THIS standard's PHI
- *      (names, DOB, MRN / member id, address, phone) in the clearly-fenced
- *      TODO section inside `scanTarget` below.
+ *   ⚠  Two halves, and shipping one is worse than shipping neither, because a
+ *      green then means less than a reader takes it for. ENUMERATION decides
+ *      which files are opened (`WALK_ROOT_NAMES`, and the reconciliation in
+ *      `refuseUnobserved` that refuses when the sweep did not observe them).
+ *      DETECTION decides what is found once a file is open, and it is not
+ *      implied by the first: this package writes most of its streams as `.ts`
+ *      string literals, which the record detector read as a single line
+ *      beginning with a quote until the source-embedded view was added beside
+ *      it. Widen one and ask what the other now misses.
  *
  *   Worked examples of structured, format-aware detection live in the sibling
- *   parsers, read one before you start:
+ *   parsers:
  *       ../hl7/scripts/phi-scan.ts     (segment → field → component aware)
  *       ../x12/scripts/phi-scan.ts     (ISA-delimited NM1 / DMG / PER aware)
  *       ../dicom/scripts/phi-scan.ts   (binary tag-aware)
  *       ../ccda/scripts/phi-scan.ts    (XML element aware)
  *       ../ncpdp/scripts/phi-scan.ts   (fixed-field aware)
+ *   Read one for its mechanism, never for its scope: every repo's roots and
+ *   residuals are its own, and porting a sibling's list is how a scope that does
+ *   not apply here gets recorded as measured.
  *
  *   The mechanism for declaring genuinely-synthetic identifiers is the
  *   allow-list (`scripts/phi-allow-list.txt`): a positive declaration that a
@@ -103,11 +105,10 @@
  *
  * Note also that a walk ROOT is handed to `existsSync`/`readdirSync` directly
  * and is never classified as a `Dirent`, so a root that is itself a link is not
- * refused: pointed at a directory it is followed and read through, and pointed
- * at a non-directory `readdirSync` raises an uncaught `ENOTDIR` rather than the
- * engine-owned refusal (which fails closed, and is pre-existing). "Follow
- * nothing" is a rule about the entries a walk enumerates, not about the two
- * roots it is pointed at. Both behaviours are pre-existing.
+ * refused: pointed at a directory it is followed and read through. "Follow
+ * nothing" is a rule about the entries a walk enumerates, not about the roots it
+ * is pointed at. Pointed at a NON-directory it is now refused by `walk`, which
+ * is where that clause is decided and the only place its reason is written out.
  *
  * A refusal names the entry's own repo-relative path and an engine-owned token
  * for its kind. IT NEVER REPORTS THE LINK TARGET, which is text off the working
@@ -116,33 +117,67 @@
  * written out rather than an example, because a diagnostic ABOUT a PHI leak is
  * itself a PHI surface, and that applies to the prose explaining it too.
  *
- * NOT CLOSED HERE, AND STATED SO IT IS NOT MISTAKEN FOR CLOSED: this scanner has
- * no rule that an all-mode sweep observing ZERO targets must refuse. Measured:
- * run from a tree with no `src/` and no `test/fixtures/` it prints `OK: no hits`
- * and exits 0, which is a clean report over a tree it never looked at. Siblings
- * (`ccda`, `hl7`, `mllp`, `ncpdp`, `synth`) carry that rule and this one does
- * not; adding it is its own slice, because the threshold is a judgement about
- * this repo's corpus rather than a consequence of anything above.
+ * An all-mode sweep that did not OBSERVE its corpus now refuses too, per root
+ * and for the invocation as a whole, reconciled against `git ls-files`. That
+ * clause is decided in `refuseUnobserved`, which is the one place its reasons
+ * are written out.
+ *
+ * WHAT IS STILL NOT CLOSED HERE, AND STATED SO IT IS NOT MISTAKEN FOR CLOSED:
+ * the `--staged` route's in-scope predicate is NARROWER than the walk's roots,
+ * so a commit staging only files outside it is not blocked by the pre-commit
+ * hook and the rest of the corpus is caught in CI instead. The predicate itself
+ * is written once, above; it is not repeated here, because two copies of a scope
+ * is how one of them goes false. Widening it decides what a COMMIT is blocked on
+ * rather than what this scanner can see, which is why it is not a rider on the
+ * walk.
  * ---------------------------------------------------------------------------
  */
 
 import { readFileSync, statSync, existsSync, readdirSync, type Dirent } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join, resolve, relative, sep, isAbsolute } from "node:path";
+import { join, resolve, relative, sep, isAbsolute, dirname, extname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
-const REPO_ROOT = process.cwd();
+/**
+ * The repository this scan is about, derived from THIS FILE's own location and
+ * never from `process.cwd()`.
+ *
+ * Every scan root, the allow-list, the override log and the `git ls-files`
+ * reconciliation below hang off it, so a cwd-derived root points the whole gate
+ * at whatever tree the caller happened to be standing in: run from a parent
+ * checkout it walks that tree's `src/`, reads that tree's allow-list, and
+ * reports `OK: no hits` having never opened this package. Positional paths are
+ * still resolved against the caller's cwd, because those are the caller's own
+ * argument rather than this package's corpus.
+ */
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ALLOW_LIST_PATH = join(REPO_ROOT, "scripts", "phi-allow-list.txt");
 const OVERRIDE_LOG_PATH = join(REPO_ROOT, "phi-scan-overrides.md");
 
-// Roots walked in "all" mode. test/fixtures gets the full scan; src gets the
-// same conservative shape pass because it is hand-written code, not data:
-// JSDoc `@example` snippets must not carry real PHI either.
-const FIXTURE_ROOT = join(REPO_ROOT, "test", "fixtures");
-const SRC_ROOT = join(REPO_ROOT, "src");
+/**
+ * Roots walked in "all" mode, re-derived for THIS repo rather than ported from a
+ * sibling. Every one gets the same pass: the cross-cutting floor plus the
+ * record-aware detector, over the file's bytes and (for a source file) over its
+ * string literals decoded.
+ *
+ * `test` rather than `test/fixtures`, because this package's fixtures are not
+ * all files: most of its ASTM streams are inline `.ts` string literals in
+ * `test/**\/*.test.ts`, and the narrower root left every one of them read by
+ * hand. `scripts` because the allow-list and the gate scripts are hand-written
+ * text in the same tree. `src` because a JSDoc `@example` is a fixture a
+ * consumer reads.
+ *
+ * `docs-content/` is deliberately NOT a root: it is markdown prose, which the
+ * walk exempts anyway (see `walk`), and its samples are documentation that may
+ * legitimately quote a violator value. To see what that costs at any moment:
+ * `git ls-files docs-content | xargs /usr/bin/grep -n 'P|1'` (its records sit
+ * inside fenced blocks and inline spans, so they do not begin a line).
+ */
+const WALK_ROOT_NAMES = ["src", "test", "scripts"] as const;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -355,6 +390,19 @@ function direntKind(e: Dirent): string {
  */
 function walk(dir: string, out: string[], unscannable: Unscannable[]): void {
   if (!existsSync(dir)) return;
+  if (!statSync(dir).isDirectory()) {
+    // A root is handed to `readdirSync` directly and is never classified as a
+    // `Dirent`, so before this clause a root that resolved to a regular file
+    // raised an uncaught `ENOTDIR`. That exits 1, which in this scanner's
+    // contract means "hits found", so the one outcome a reader could not tell
+    // apart from a real finding was the one where nothing was read at all.
+    // Refusing here reports it as what it is, at this scanner's own invocation
+    // code. A root that resolves to a DIRECTORY is still followed, link or not:
+    // "follow nothing" is a rule about the entries a walk enumerates, not about
+    // the roots it is pointed at.
+    unscannable.push({ path: normalizePath(dir), kind: "a scan root that is not a directory" });
+    return;
+  }
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, e.name);
     if (e.isDirectory()) {
@@ -395,6 +443,7 @@ function gitIgnored(paths: string[]): Set<string> {
     // SECURITY: array-form execFileSync, no shell. Default (Buffer) encoding:
     // `encoding: "buffer"` with `input` is rejected by Node.
     const out = execFileSync("git", ["check-ignore", "--stdin", "-z"], {
+      cwd: REPO_ROOT,
       input: paths.map(normalizePath).join("\0"),
       stdio: ["pipe", "pipe", "ignore"],
     });
@@ -407,11 +456,117 @@ function gitIgnored(paths: string[]): Set<string> {
   return ignored;
 }
 
+/**
+ * Every path git tracks under `rootRel`, repo-relative and forward-slashed.
+ *
+ * This is the reconciliation's independent witness: it is answered from the
+ * index rather than from the filesystem, so it still lists a file the walk could
+ * not reach. A failure to run `git` is NOT swallowed: a silent empty answer here
+ * would turn the reconciliation below into a check that always passes, which is
+ * the exact shape of gate this whole rule exists to refuse.
+ */
+function trackedUnder(rootRel: string): string[] {
+  let out: Buffer;
+  try {
+    // SECURITY: array-form execFileSync, no shell. `--` ends the option list so
+    // a root name can never be read as a flag.
+    out = execFileSync("git", ["ls-files", "-z", "--", rootRel], {
+      cwd: REPO_ROOT,
+      encoding: "buffer",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (err) {
+    throw new InvocationError(
+      `could not list the tracked files under ${rootRel}: ` +
+        `${err instanceof Error ? err.message : String(err)}. ` +
+        "Refusing rather than reporting over a corpus this scan cannot account for.",
+    );
+  }
+  return out
+    .toString("utf8")
+    .split("\0")
+    .filter((p) => p.length > 0);
+}
+
+/**
+ * The walk's own in-scope rule, in one place, so the enumeration and the
+ * reconciliation cannot drift apart. `.md` is the walk's pre-existing exemption
+ * (see `walk`); an ignored entry is out of scope for both.
+ */
+function inWalkScope(repoRelPath: string, ignored: Set<string>): boolean {
+  if (repoRelPath.toLowerCase().endsWith(".md")) return false;
+  return !ignored.has(repoRelPath);
+}
+
+/**
+ * Refuse (exit 2) when a sweep did not OBSERVE what it claims to have cleared.
+ *
+ * Two clauses, because closing one leaves the other open:
+ *
+ *   - a declared root that observed ZERO targets. Existence is not observation
+ *     and a count is not either: a root that never existed, a root emptied, and
+ *     a root that is a DANGLING link (`existsSync` follows the link and answers
+ *     false, so the walk returns before `readdirSync` and no not-a-regular-file
+ *     rule ever fires) all reach `report()` with `OK: no hits` and exit 0. A
+ *     total across roots cannot see any of them, because it counts the roots
+ *     that DID exist;
+ *   - a root whose walk observed FEWER files than git tracks under it. This is
+ *     the half a per-root floor of one cannot reach: one surviving file keeps
+ *     the count non-zero while the rest of the corpus is gone from the worktree.
+ *
+ * And the invocation as a whole, which is not implied by either: with the root
+ * list itself empty every per-root clause is vacuous.
+ */
+function refuseUnobserved(observedByRoot: Map<string, string[]>, ignored: Set<string>): void {
+  const problems: string[] = [];
+  let total = 0;
+
+  for (const [rootRel, observed] of observedByRoot) {
+    total += observed.length;
+    if (observed.length === 0) {
+      problems.push(`  - ${rootRel}: declared as a scan root and observed 0 files`);
+      continue;
+    }
+    const seen = new Set(observed);
+    const missed = trackedUnder(rootRel).filter((p) => inWalkScope(p, ignored) && !seen.has(p));
+    if (missed.length > 0) {
+      const shown = missed.slice(0, 10).map((p) => `      ${p}`);
+      if (missed.length > shown.length)
+        shown.push(`      ... and ${missed.length - shown.length} more`);
+      problems.push(
+        `  - ${rootRel}: git tracks ${missed.length} in-scope file(s) the walk did not observe:\n` +
+          shown.join("\n"),
+      );
+    }
+  }
+
+  if (observedByRoot.size > 0 && total === 0) {
+    problems.push("  - the invocation as a whole observed 0 files across every declared root");
+  }
+  if (observedByRoot.size === 0) {
+    problems.push("  - no scan roots are declared, so the sweep observed nothing by construction");
+  }
+
+  if (problems.length === 0) return;
+  throw new InvocationError(
+    `refusing the scan: it did not observe the corpus it would otherwise report clean over:\n` +
+      `${problems.join("\n")}\n` +
+      "A clean report over an unopened corpus is worse than no gate: it is the same output as a " +
+      "corpus that was read and found clean. Restore the tree, or change the declared roots " +
+      "deliberately.",
+  );
+}
+
 function buildTargetsForAll(): Target[] {
   const files: string[] = [];
   const unscannable: Unscannable[] = [];
-  walk(FIXTURE_ROOT, files, unscannable);
-  walk(SRC_ROOT, files, unscannable);
+  const observedByRoot = new Map<string, string[]>();
+
+  for (const rootRel of WALK_ROOT_NAMES) {
+    const before = files.length;
+    walk(join(REPO_ROOT, rootRel), files, unscannable);
+    observedByRoot.set(rootRel, files.slice(before).map(normalizePath));
+  }
 
   // One `git check-ignore` over both lists. An ignored entry is already out of
   // scope for the file route, so applying the same rule to a link keeps a single
@@ -424,6 +579,16 @@ function buildTargetsForAll(): Target[] {
     "Remove it, replace it with a regular file, or (if it is genuinely not part of the " +
       "corpus) untrack it and add it to .gitignore.",
   );
+
+  // After the unscannable refusal, so an entry that is BOTH unreadable and the
+  // root's only content is reported as what it is rather than as an empty root.
+  for (const [rootRel, observed] of observedByRoot) {
+    observedByRoot.set(
+      rootRel,
+      observed.filter((p) => !ignored.has(p)),
+    );
+  }
+  refuseUnobserved(observedByRoot, ignored);
 
   return files
     .filter((abs) => !ignored.has(normalizePath(abs)))
@@ -596,6 +761,7 @@ function buildTargetsForStaged(): Target[] {
         "--diff-filter=AMTUB",
       ],
       {
+        cwd: REPO_ROOT,
         encoding: "buffer",
         stdio: ["ignore", "pipe", "pipe"],
       },
@@ -675,6 +841,7 @@ function buildTargetsForStaged(): Target[] {
     // SECURITY: array-form execFileSync, no shell. `:<path>` is a git pathspec.
     read: (): Buffer =>
       execFileSync("git", ["show", `:${relPath}`], {
+        cwd: REPO_ROOT,
         encoding: "buffer",
         stdio: ["ignore", "pipe", "pipe"],
       }),
@@ -733,14 +900,78 @@ function readAstmDelims(records: string[]): AstmDelims {
   return { field: "|", component: "^" };
 }
 
-function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hits: Hit[]): void {
-  const records = content.split(/\r\n|\r|\n/).filter((r) => r.length > 0);
+/**
+ * A STRING-LITERAL DELIMITER OPENS A RECORD TOO, and leaving that out left two of
+ * this repo's three literal shapes unread while the sweep reported clean.
+ *
+ * A record separator supplies a boundary only where one is IN the literal, so a
+ * stream split across array elements and joined at run time, and a literal
+ * holding a single record, both arrived as one segment beginning with a quote,
+ * which is the same miss the decoded view was added to close. Splitting the
+ * source view on the three quote characters as well closes both.
+ *
+ * IT DOES READ NON-RECORDS AS RECORDS, and the reason once written here ("a
+ * boundary can only shorten a record, never invent a field") was wrong: an added
+ * boundary creates a new record START, which is the whole point, and a segment
+ * that was never a record can begin one. Measured: a line of tabular prose whose
+ * cells are pipe-separated is reported at `P-6` and `P-8`. The structural guard
+ * below narrows that and does not close it, so this view is NOISIER than the
+ * line view by construction, and a noisier PHI gate is the safe direction.
+ *
+ * The two properties that actually hold, and that make the noise acceptable:
+ *
+ *   - the split is purely ADDITIVE, so no record the line view found stops being
+ *     found. What it can cost is a record whose own content carries a quote,
+ *     which is read short, so a value can be MISSED at the margin but the line
+ *     view's findings are unaffected;
+ *   - every reported value is a SUBSTRING OF THE FILE. Nothing is synthesized,
+ *     so a hit always names bytes a reader can go and look at.
+ *
+ * Delimiters are deliberately NOT read from this view (see
+ * `scanAstmPatientLoci`): a quote-split segment of ordinary prose beginning with
+ * `H` would otherwise redefine the delimiter set for the whole file, and THAT is
+ * the one route by which this split could change what a real record reads as.
+ */
+const SOURCE_LITERAL_DELIMITERS = /["'`]/;
+
+function scanAstmPatientLoci(
+  path: string,
+  content: string,
+  allow: AllowList,
+  hits: Hit[],
+  splitOnSourceLiterals = false,
+): void {
+  const lines = content.split(/\r\n|\r|\n/).filter((r) => r.length > 0);
+  // Delimiters come from the LINE view only, whether or not the caller asked for
+  // the wider record split. See `SOURCE_LITERAL_DELIMITERS` for why.
+  const d = readAstmDelims(lines);
+  const records = splitOnSourceLiterals
+    ? [
+        ...lines,
+        ...content
+          .split(SOURCE_LITERAL_DELIMITERS)
+          .flatMap((seg) => seg.split(/\r\n|\r|\n/))
+          .filter((r) => r.length > 0),
+      ]
+    : lines;
   if (!records.some((r) => r.charAt(0) === "P")) return; // not an ASTM record stream with a patient
-  const d = readAstmDelims(records);
 
   for (const record of records) {
     if (record.charAt(0) !== "P") continue;
     const fields = record.split(d.field);
+    // A LINE THAT MERELY STARTS WITH `P` IS NOT A PATIENT RECORD, and reading one
+    // as if it were is how this detector reported four patient names out of a
+    // shell script whose `PROJECT_PREFIXES='A|B|C|...'` alternation happens to
+    // start with the letter and separate on the default field delimiter. This
+    // package's own builder writes the sequence number as a P record's second
+    // field unconditionally (`buildPatientLine` in `src/records/build.ts`), so
+    // that field is the cheap structural test, taken from this reader rather
+    // than claimed off a clause of any standard: no clause is cited for it
+    // anywhere, here or in `src/`. It is a PRECISION guard and it has a bound: a patient
+    // record whose second field is not a short digit run (or empty) is not read
+    // here. To see what that costs over the corpus at any moment, drop the
+    // clause and re-run `pnpm phi-scan`.
+    if (!/^\d{0,6}$/.test((fields[1] ?? "").trim())) continue;
 
     // Field 6: patient name (Last^First^Middle). Field 7: mother's maiden name (a surname).
     // Each non-empty component of either is a name token that must be declared synthetic.
@@ -752,6 +983,20 @@ function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hi
       for (const token of nameField.split(d.component)) {
         const t = token.trim();
         if (t.length === 0) continue;
+        // A token still carrying a template placeholder is source SYNTAX, not a
+        // value: the source-embedded view decodes escape sequences, it does not
+        // evaluate expressions. THE BOUND THAT BUYS, STATED HERE AND NOWHERE
+        // ELSE: a name interpolated into a stream at run time is not seen by
+        // this scan at all, so a fixture that assembles a name from variables is
+        // outside it and is the reviewer's to read.
+        if (t.includes("${")) continue;
+        // A ONE-CHARACTER TOKEN IS NOT AN IDENTIFIER, and exempting each one by
+        // name is worse than the rule: the escape-alignment fixtures split into
+        // tokens like a bare middle initial or a bare delimiter, and declaring
+        // those in the allow-list would exempt that character for the whole
+        // repository forever. THE BOUND: a name component of one character is
+        // not read here.
+        if (t.length < 2) continue;
         if (!allow.names.has(t.toUpperCase())) {
           hits.push({
             path,
@@ -777,6 +1022,87 @@ function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hi
 }
 
 // ---------------------------------------------------------------------------
+// The source-embedded view: an ASTM stream written as a string literal
+// ---------------------------------------------------------------------------
+//
+// ENUMERATING A FILE IS NOT DETECTING WHAT IS IN IT, and in this package the two
+// are separate holes with separate fixes. The detector above assumes the file IS
+// the document: it splits on newlines and asks whether a line begins with `P`.
+// Most of this package's ASTM streams are not files at all. They are `.ts`
+// string literals whose record separators are the two characters `\` and `r`, so
+// every one of them presented to that detector as a single line beginning with a
+// quote or a space, and it returned without looking. That is true even inside
+// `src/`, which the walk has always enumerated: a JSDoc `@example` carrying a
+// patient name and a birthdate was read by nobody.
+//
+// So this view decodes the escape sequences a source file uses to embed the
+// stream, and the record detector runs over the result IN ADDITION TO the raw
+// bytes, never instead of them.
+
+/**
+ * Extensions whose bytes are source text that can embed a stream as a literal.
+ *
+ * A closed set, and deliberately not "every text file". A `.astm` fixture's
+ * backslash is DATA: under the canonical declaration `H|\^&` the backslash is
+ * the repeat delimiter, so decoding one there would splice a record boundary
+ * into the middle of a repeat and let the detector report a patient name the
+ * fixture does not contain. Wire data is read as wire data.
+ */
+const EMBEDDING_SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs", ".json", ".py"]);
+
+/**
+ * Decode the escape sequences a source file uses to embed a record separator,
+ * in ONE left-to-right pass.
+ *
+ * The single pass is the anti-fabrication clause, not a tidiness preference. A
+ * chained or global substitution rewrites `\\r` (an escaped backslash followed
+ * by the letter r, which is the two characters `\` and `r` in the string the
+ * source denotes) into a real carriage return, and then any `P|` that follows it
+ * begins a line and is reported as a patient record the file never contained.
+ * Consuming `\\` as a pair first is what makes the decoded view a claim about
+ * what the source says rather than about its punctuation. An unrecognized escape
+ * keeps its backslash, so nothing is invented for it either.
+ */
+function decodeEmbeddedEscapes(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text[i];
+    if (c !== "\\") {
+      out += c;
+      continue;
+    }
+    const n = text[i + 1];
+    if (n === "\\" || n === '"' || n === "'" || n === "`") {
+      out += n;
+      i += 1;
+    } else if (n === "r") {
+      out += "\r";
+      i += 1;
+    } else if (n === "n") {
+      out += "\n";
+      i += 1;
+    } else if (n === "t") {
+      out += "\t";
+      i += 1;
+    } else if (n === "x" && /^[0-9a-fA-F]{2}$/.test(text.slice(i + 2, i + 4))) {
+      out += String.fromCharCode(parseInt(text.slice(i + 2, i + 4), 16));
+      i += 3;
+    } else if (n === "u" && /^[0-9a-fA-F]{4}$/.test(text.slice(i + 2, i + 6))) {
+      out += String.fromCharCode(parseInt(text.slice(i + 2, i + 6), 16));
+      i += 5;
+    } else {
+      out += c;
+    }
+  }
+  return out;
+}
+
+/** Stable identity of a hit, so the two views cannot report the same finding twice. */
+function hitKey(h: Hit): string {
+  return `${h.path} ${h.segment} ${h.value} ${h.reason}`;
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
 
@@ -797,15 +1123,54 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
   // ASTM-specific structured detection at the P-record loci (name + mother's
   // maiden + DOB), delimiter-aware.
   //
-  //   This is a TARGETED extension, not a full field-level sweep. It flags the
-  //   highest-value PHI in an ASTM stream: the patient name, mother's maiden
-  //   name, and birthdate, but does NOT yet cover practice/lab IDs, address,
-  //   phone, or `C`-record free text. Those loci are a later phase; until then,
-  //   treat a green `pnpm phi-scan` as "no SSN/email shapes and no undeclared
-  //   patient name / maiden name / DOB": NOT as a complete "no PHI" guarantee.
+  //   ============================================================
+  //   WHAT A GREEN FROM THIS SCAN MEANS. This is the one place that
+  //   sentence is written, and the one to correct. Every other surface
+  //   points here rather than restating it, because a restated bound
+  //   goes stale on its own and this one has.
+  //
+  //   A green means: no dashed SSN and no non-test email anywhere in the
+  //   corpus, and no undeclared patient name token, mother's maiden name
+  //   token or birthdate in any patient record THIS SCAN READ. It is not
+  //   a "no PHI" guarantee, and the reader owns the difference:
+  //
+  //     - LOCI. Only the name, maiden name and birthdate are read. A
+  //       practice or lab id, an address, a phone number and `C`-record
+  //       free text are not.
+  //     - WHAT COUNTS AS A RECORD. A record is a segment beginning a
+  //       line, or (in a source file) beginning a string literal, after
+  //       the embedded view's decode. A record assembled from pieces at
+  //       run time is not one. A record QUOTED IN PROSE IS read, because
+  //       a quote is exactly what this view treats as a record start:
+  //       that is coverage this sentence used to disclaim, and the
+  //       disclaimer was measured false.
+  //     - TOKENS NOT READ. A name component of one character, and one
+  //       still carrying a `${` placeholder. Each is argued where it is
+  //       applied, below.
+  //     - THE STRUCTURAL GUARD. A patient record whose second field is
+  //       not a short digit run is not read. Argued below.
+  //     - FILES NOT READ. `WALK_ROOT_NAMES` is the corpus and `.md` is
+  //       exempt; `--staged` is narrower again, at its own predicate.
+  //
   //   Keep fixtures synthetic and declare their identifiers in
   //   scripts/phi-allow-list.txt.
+  //   ============================================================
   scanAstmPatientLoci(target.path, text, allow, hits);
+
+  // ...and again over the source-embedded view, for a source file whose escape
+  // sequences denote the record separators. IN ADDITION TO the pass above, never
+  // instead of it: a source file can carry a stream both ways. Deduplicated by
+  // hit identity so a stream that reads the same both ways is reported once.
+  if (!EMBEDDING_SOURCE_EXTENSIONS.has(extname(target.path).toLowerCase())) return;
+  const seen = new Set(hits.map(hitKey));
+  const embedded: Hit[] = [];
+  scanAstmPatientLoci(target.path, decodeEmbeddedEscapes(text), allow, embedded, true);
+  for (const h of embedded) {
+    const key = hitKey(h);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    hits.push(h);
+  }
 }
 
 // ---------------------------------------------------------------------------

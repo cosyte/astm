@@ -2,14 +2,13 @@
 
 > **The narrative lives in [`documentation/agent-notes.md`](documentation/agent-notes.md).** This
 > file is the cursor, the rules, and the traps, one line each; **a bare `#anchor` below is an anchor
-> in that file**, and every trap points at the section recording how it was measured, kept
-> **verbatim**. Read that section before you touch the code it guards: these are clinical-safety
+> in that file**, pointing at the section that records how it was measured, kept **verbatim**.
+> Read that section before you touch the code it guards: these are clinical-safety
 > lessons, and several record a claim that measured **false** after it shipped.
-> The meta-repo bounds this file at write time through **its entry in `REPO_CLAUDE`**
-> (`.claude/hooks/doc-budget.mjs`, ADR 0023), a per-repo ratchet **lowered as relocations land**.
-> **No number for it is written here on purpose**: read the entry, and treat headroom as slack to
-> give back, not a budget to spend. The remedy for a breach is to move narrative into the notes,
-> **never** to drop a trap. Why, and what was relocated: `#claude-md-size`.
+> The meta-repo bounds this file at write time (`.claude/hooks/doc-budget.mjs`, ADR 0023), a
+> per-repo ratchet **lowered as relocations land**. **No number is written here on purpose**: read
+> the entry, and treat headroom as slack to give back. A breach is fixed by relocating narrative
+> into the notes, **never** by dropping a trap. `#claude-md-size`.
 
 ## Project
 
@@ -18,10 +17,8 @@ published under the Cosyte brand. One of the sibling `@cosyte/*` healthcare-stan
 **mirror each other's API**: `@cosyte/hl7` is the reference; this repo deliberately copies its
 shape.
 
-**North star (the archetype):** parse a real-world, vendor-quirky message and pull fields out in one
-line without reading the spec. Liberal on parse (quirks become warnings), conservative on emit
-(always spec-clean). Full contract: "The standard parser archetype" in `documentation/conventions.md`
-upstream.
+**North star:** pull fields out of a real-world, vendor-quirky message in one line without reading
+the spec. Full contract: "The standard parser archetype" in `documentation/conventions.md` upstream.
 
 ## Status
 
@@ -318,31 +315,18 @@ Two further defects were closed and folded away: `#defects-closed-elsewhere`.
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 
-This repo inherits the canonical toolchain by depending on the published `@cosyte/*` config packages,
-not by copying files. Source of truth: `documentation/conventions.md` upstream; this is a summary.
-
-**Node >= 22** (CI matrix 22 + 24), `pnpm@10`, TypeScript 5.9.x exact-pinned (strict, full rigor set)
-targeting **ES2023** / `NodeNext`, **ESLint 10** at `--max-warnings=0`, **Vitest 4** with
-per-directory >= 90 coverage gates, dual ESM + CJS + `.d.ts` via `tsup`, CI as thin callers of
-`cosyte/.github`, **zero runtime deps**, MIT. Per-item detail, and which config package supplies
-each: `#tech-stack`.
+Inherited from the published `@cosyte/*` config packages, never copied; source of truth is
+`documentation/conventions.md` upstream. **Every item, and which package supplies it, is
+`#tech-stack`. No second copy is kept here.**
 
 - **The one trap: the `attw` script is `scripts/attw.mjs`, NOT the bare CLI**, which reports a missing
   `dist/` as "does not contain types" and **exits 0**. Guardrail below.
 
 ## Engineering Guardrails
 
-- No `any`. No unjustified `as` casts. Use `unknown` and narrow.
-- JSDoc (with `@example`) on every public export: the JSDoc lint rule is an **error** on public
-  exports, so this is enforced, not optional.
-- Immutable by default. Mutation only via explicit methods.
-- No `console.*` in library code. Throw typed errors or return results.
-- Short, testable functions over big parsing blobs.
-- Postel's Law: parser is liberal (lenient default + warnings), serializer is conservative (always
-  emits spec-clean output).
-- Fatal errors only for unrecoverable structural corruption (Tier-3 codes). Everything else is a
-  warning with a stable code + positional context.
-- Coverage: per-directory >= 90% on all four metrics (`pnpm test:coverage`).
+The shared ones (no `any`, JSDoc on every public export, immutable by default, no `console.*`,
+Postel's Law, fatal only for structural corruption, per-directory >= 90 coverage, and the rest) are
+`#guardrails-shared`, verbatim. They bind here, and are not copied here.
 
 ### The `attw` gate: traps
 
@@ -368,9 +352,7 @@ Full text, with every measurement: `#attw`.
   `/usr/bin/grep -rl '"attw":' --include=package.json --exclude-dir=node_modules .` from the tree
   root. Every sibling still invoking the CLI keeps the false green, **including
   `config/scripts/parser-template/`, which new parser repos are minted from.**
-- **Do not port the sibling's prose with its code.** Re-take every measured claim here; a first draft
-  shipped two that were not, and the refuter caught both. **Never quote a sibling's timing**: `#attw`
-  carries this package's own.
+- **Do not port a sibling's prose with its code, and never quote its timing**: `#attw-port`.
 
 ## Standing disciplines (every change)
 
@@ -432,3 +414,18 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`,
    - **`grep` in the dev container is a shell function wrapping ugrep** with `--ignore-files` forced
      on, so `dist/` is invisible to it. Measure with `/usr/bin/grep`. Both check scripts `unset -f` it
      and `check-no-emdash.sh` carries a **scanner visibility probe**. **Do not delete either.**
+6. **A green PHI sweep is a claim about a corpus it OBSERVED, and its roots are
+   `WALK_ROOT_NAMES`, never a list copied here.** Figures: `#phi-scan-scope`. Traps:
+   - **ENUMERATION and DETECTION are separate holes, each "in addition to", never "instead of."**
+     Roots alone buy the SSN/email floor: streams are `.ts` literals the detector read as one line
+     starting with a quote, **`src/` included, a root all along.** A record begins a LINE or a
+     LITERAL; one assembled at run time is read by nobody.
+   - **Anti-fabrication clauses, each pinned by a case that reds without it**: ONE left-to-right
+     decode taking `\\` as a PAIR; a closed SOURCE-extension set (a `.astm` backslash is the REPEAT
+     delimiter); delimiters read from the LINE view only; a second-field guard from
+     `buildPatientLine`, **not any clause.**
+   - **A sweep observing nothing REFUSES: exit 2, derived here, NEVER ported.** No count and no floor
+     of one sees it; reconcile with `git ls-files`. **`REPO_ROOT` is the scanner's file, not
+     `process.cwd()`. Open: `--staged` is narrower.**
+7. **`pnpm check` is `scripts/check-gate-coverage.ts`**: a fixed-name-list runner cannot see a gate
+   outside its list, so **`test:fuzz`/`pack:docs` are INVISIBLE, not skipped** `#gate-coverage`

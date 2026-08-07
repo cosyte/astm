@@ -29,7 +29,7 @@ EMAILDOMAIN example.net
 EMAILDOMAIN example.test
 
 # --- Synthetic person-name tokens (P field 6, Last^First^Middle; P field 7, mother's maiden) ---
-# All fully synthetic; used only in test/fixtures/*.astm.
+# All fully synthetic.
 NAME DOE
 NAME JANE
 NAME Q
@@ -37,11 +37,59 @@ NAME ROE
 NAME RICHARD
 NAME KING
 
+# Inline `.ts` fixtures. These were read by hand until the sweep's roots reached
+# `test/**/*.test.ts` and the record detector learned to read a stream written as
+# a string literal; every one is a made-up token in a hand-authored stream.
+#
+# THIS BLOCK IS EXACTLY THE SET THE WIDENED SWEEP REPORTED, no wider. Tokens that
+# a sibling repo declares, and tokens this repo's own negative corpus uses to
+# prove the detector still fires, are deliberately ABSENT: declaring a token the
+# sweep never raised buys nothing and silently retires a case. Re-derive the set
+# with `pnpm phi-scan`, never by reading this list.
+NAME JOHN
+NAME ANNA
+NAME GRAZYNA
+NAME SYNTHETIC
+NAME PATIENT
+NAME JAN
+NAME AUKASZ
+NAME MÜLLER
+NAME SMITH
+NAME SYNTHA
+NAME SYNTHB
+NAME ALPHA
+NAME BRAVO
+
+# The escape-sequence fixtures put an escape sequence INSIDE the name field, so
+# splitting on the component delimiter yields a token that is an artifact of the
+# contested reading rather than a name: `DOE^JANE^A` written with a sequence in
+# it splits as `DOE&F&`, `&JANE`, and a bare middle initial. The tokens are
+# declared as they are read, because a detector that "helpfully" decoded them
+# would be guessing which of the two competing alignments is the one to judge,
+# and that guess is exactly what this package refuses to make everywhere else.
+# A ONE-CHARACTER token is not declared here and never should be: the detector
+# does not read one at all, because exempting a bare initial or a bare delimiter
+# by name would exempt that character for the whole repository forever.
+NAME DOE&F&
+NAME DOE&S&\&JANE
+NAME &JANE
+NAME &Z&JANE
+NAME O&BRIEN
+NAME O&E&BRIEN
+NAME O&BRI
+NAME NEJAN
+NAME A&Z&B
+
 # --- Synthetic dates of birth (P field 8, YYYYMMDD[HHMMSS]) ---
 DOB 20200101
 DOB 19850612
 # Deliberately truncated (7-digit) synthetic DOB: the partial-timestamp fixture.
 DOB 2020010
+# Inline `.ts` fixtures, same widening and the same "exactly the reported set"
+# rule as the name tokens above.
+DOB 19700101
+DOB 19800101
+DOB 20191231
 
 # --- Synthetic ids: SSN / MRN / member-id shapes (reserved for a later phase's detector) ---
 # ID MRN12345
