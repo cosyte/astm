@@ -372,6 +372,32 @@ describe("the corpus itself, or its zeros certify nothing", () => {
       expect(t.observed).toBe(SHIFT);
     for (const t of [...distinctCorpus, ...collidesCorpus]) expect(t.observed).not.toBe(SHIFT);
   });
+
+  it("says how much of each field arm is replication, because the lengths read wider than they are", () => {
+    // HONESTY ABOUT THE CONTROL ARM, ASSERTED RATHER THAN CONCEDED IN A COMMENT. Moving the escape
+    // role back to `&` means the payload is built out of `&`, so the swept character appears nowhere
+    // in the DISTINCT field arm's bytes: its 1,296 tuples are 81 payloads carried across 16
+    // declaration and role variants those bytes do not depend on. That is what this control IS, not
+    // a defect in it, but the pinned length reads as 1,296 independent measurements and it is not.
+    // The colliding arm is the opposite, because its payload IS built from the declared character,
+    // and that contrast is the thing being measured.
+    const shapesOf = (arm: readonly Tuple[]): Map<string, Set<string>> => {
+      const byPayload = new Map<string, Set<string>>();
+      for (const t of arm) {
+        const payload = t.raw.split("\r")[2] ?? "";
+        if (!byPayload.has(payload)) byPayload.set(payload, new Set());
+        byPayload.get(payload)?.add(t.seen.join(","));
+      }
+      return byPayload;
+    };
+    const distinctShapes = shapesOf(fieldDistinctCorpus);
+    expect(distinctShapes.size).toBe(81);
+    expect([...distinctShapes.values()].filter((sigs) => sigs.size > 1)).toHaveLength(0);
+
+    const collidesShapes = shapesOf(fieldCollidesCorpus);
+    expect(collidesShapes.size).toBe(648);
+    expect([...collidesShapes.values()].filter((sigs) => sigs.size > 1)).toHaveLength(288);
+  });
 });
 
 describe("the retired universal, refuted", () => {
@@ -608,10 +634,14 @@ describe("negative controls, run rather than declared", () => {
     expect(fieldCollidesCorpus.filter((t) => t.fires).length).toBeGreaterThan(0);
   });
 
-  it("fails when the field arm's boundary is measured on the wrong delimiter role", () => {
-    // The field arm claims its contested boundary is on the FIELD separator. Rebuilding it with the
-    // component separator in place of the `|` has to move the observed population off the field
-    // code, or the arm is not measuring the role it names.
+  it("fails when the field arm's contested boundary is not on the field separator", () => {
+    // The field arm claims its contested boundary is on the FIELD separator. Rebuilding it with a
+    // `^` in place of the `|` has to move the observed population off the field code, or the arm is
+    // not measuring the role it names. **The `^` is NOT the component separator in both halves**:
+    // it is on the repeat-role declarations (`H|<ch>^<ch>`) and is a plain data byte on the
+    // component-role ones (`H|\<ch><ch>`). Both halves are wanted and neither is the field
+    // separator, which is the only property this control turns on; do not read the zero below as a
+    // statement about the component role.
     const wrongRole = DECLARATION_ALPHABET.flatMap((ch) =>
       COLLIDABLE_ROLES.flatMap((role) => {
         const { escape } = declaredSet(ch, role, "collides");

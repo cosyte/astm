@@ -1110,14 +1110,19 @@ this file is maintained by hand (Changesets handles the version bump and publish
     reports and zero displacement.** Every tuple this code says nothing about is displaced anyway,
     by one or by two, which is the standing exclusion for a recognized tail doing what it is for and
     is the silent third direction in which counting warnings fails.
-  - **The retired universal survived unqualified in five test comments, not the three that were
-    recorded.** A newline-folded sweep of the fact rather than of one phrase found it also in
-    `alignment-unrecognized-tail.test.ts` and `alignment-criterion-population.test.ts`, in the second
-    of which it is worded differently. Each is cut rather than re-qualified: the sentence is gone,
-    the corpus's own bound (it holds the escape role at `&`) is stated in its place, and what that
-    bound is worth is named at the file that measures it. The shipped surfaces already carried the
-    scope and are untouched. The paragraph in this release that states it unqualified is kept as
-    written, because the measurement it records starts from it, and now says where it is scoped.
+  - **The retired universal, and the sites this entry changed.** The three test files that were
+    recorded, plus `alignment-unrecognized-tail.test.ts` and
+    `alignment-criterion-population.test.ts`, which word the same fact differently, plus the
+    corollary about the escape companion at the "refuses NOT ONE escape-clean stream" tests in the
+    first three. Each is cut or scoped rather than re-qualified in fresh words: the unqualified
+    sentence is gone, the corpus's own bound (it holds the escape role at `&`) is stated in its
+    place, and what that bound is worth is named at the file that measures it. The predicate's own
+    implementation site in `src/common/escapes.ts` is scoped too, and the claim one paragraph above
+    it that it was "the single place that says what happens there" is deleted rather than repaired,
+    having already been false against the README. Neither string reaches `dist/index.d.ts`, and no
+    behaviour, no warning code and no documented surface moves. The paragraph earlier in this
+    release that states it unqualified is kept as written, because the measurement it records starts
+    from it, and now says where it is scoped.
 
 - **Two claims the contested-alignment codes rest on were false, and both were on consumer
   surfaces.** `PRE-EXISTING`, both named by the third refuter pass on the tail-residue slice and

@@ -562,11 +562,19 @@ describe("what the shift report moves, on the strict-accepted tier", () => {
       expect(REPORTED_TAILS).toContain(t.tail);
     }
     // THE FINDING that separates this criterion from the one measured and rejected before it. That
-    // one refused 48 of the 96 escape-clean tuples in this same corpus. This one refuses none, and
-    // it cannot: firing requires the escape character past the boundary either to head no sequence
-    // or to head one whose body this codec does not recognize, and this package already reports
-    // each of those as a deviation in its own right. That is why widening the tail axis from one
-    // tail to two costs nothing on this axis, which is the axis the rejected criterion failed on.
+    // one refused 48 of the 96 escape-clean tuples in this same corpus. This one refuses none of
+    // them: firing requires the escape character past the boundary either to head no sequence or to
+    // head one whose body this codec does not recognize, and this package reports each of those as
+    // a deviation in its own right. That is why widening the tail axis from one tail to two costs
+    // nothing on this axis, which is the axis the rejected criterion failed on.
+    //
+    // SCOPED: THIS CORPUS HOLDS THE ESCAPE ROLE AT `&`, AND THE SENTENCE ABOVE IS FALSE OFF THAT
+    // AXIS. Where a declaration names the escape character in a splitting role too, the split
+    // claims that character before either escape reporter can see a sequence, so this code fires on
+    // a stream that is escape-clean by the predicate this file judges with. The collision code,
+    // which no profile may tolerate, refuses those streams instead. Swept, with one such stream per
+    // tail code, in `alignment-companion-universal.test.ts`. The zero here is true of THIS corpus
+    // and is deliberately not written as a universal.
     expect(fires.filter((t) => t.escapeClean)).toHaveLength(0);
     for (const t of fires) {
       const seen = codes(t.raw);

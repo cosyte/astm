@@ -2201,32 +2201,57 @@ direction in which counting warnings fails, this one silent. **`reports` counts 
 this is not a claim that those streams raise nothing at all** (several raise an escape deviation of
 their own); do not restate it as `warnings: []`.
 
-**▶ (3) THE RETIRED UNIVERSAL WAS IN FIVE TEST COMMENTS, NOT THE THREE THAT WERE RECORDED.** The
-backlog line named `alignment-shifted-components`, `alignment-shifted-fields` and
-`alignment-truncated-field`. Folding newlines and sweeping the **fact** turned up
-`alignment-unrecognized-tail.test.ts` and `alignment-criterion-population.test.ts` as well, the
-second of which words it differently ("the third tail is the one on which a stream can be
-escape-clean"). **This is the same shape as the nineteen copies the preceding slice found: the count
-in a backlog line is a count of one wording.**
+**▶ (3) THE RETIRED UNIVERSAL, AND THE SITES THIS SLICE CHANGED.** The backlog line named
+`alignment-shifted-components`, `alignment-shifted-fields` and `alignment-truncated-field`. Changed
+here: those three, plus `alignment-unrecognized-tail.test.ts` and
+`alignment-criterion-population.test.ts`, which state the same fact in different words, plus the
+corollary about the escape companion at the "refuses NOT ONE escape-clean stream" tests in the first
+three, plus one parenthetical in `CLAUDE.md`. **Sites, not a count of the fact.**
 
-**Each was CUT, not re-qualified.** Adding the scope at five sites would have been five paraphrases
-of one fact, which is the sink rule's exact failure mode. What stands in each place instead is that
-file's **own** bound, which is a fact about its constants and can be checked by reading them (it
-holds the escape role at `&`), plus a pointer to the file that measures what the bound is worth.
-**`src/`, `README.md` and `docs-content/` already carried the scope and were not touched.**
+**Each was CUT or SCOPED, never re-qualified in its own words.** A qualifier written fresh at each
+site is a fresh paraphrase of one fact, which is the sink rule's exact failure mode. What stands in
+each place instead is that file's **own** bound, which is a fact about its constants and can be
+checked by reading them (it holds the escape role at `&`), plus a pointer to the file that measures
+what the bound is worth. The scoping wording is copied verbatim in shape from
+`alignment-unrecognized-tail.test.ts`, where the preceding slice had already established it.
 
-**Two copies were left deliberately, and they are not oversights.** The earlier `[Unreleased]`
-changelog paragraph states it unqualified and is **kept as written**, marked with where it is scoped
-later in the same release, because the measurement that entry records starts from it. The narrative
-of the earlier slice in **this** file is kept for the same reason: this file is chronological and a
-later section is how it is superseded. **The one always-read copy WAS corrected**: `CLAUDE.md`'s
-defect 17 entry read "the ONLY ESCAPE-CLEAN one" with no scope and now names one.
+**🔴 THE `escapes.ts` SITE THE REFUTER NAMED, AND THE PREMISE FOR DEFERRING IT WAS ITSELF WRONG.**
+`src/common/escapes.ts` stated the parent universal unqualified at the predicate's own implementation
+site ("so a stream whose escaping is entirely well formed can never be refused by it"), several
+hundred lines below the scoped doc comments on `ShiftedFieldsSink`. The first remedy draft deferred
+it as a shipped surface whose correction would move `dist/index.d.ts`. **Measured, that was false on
+both counts**: it is a `//` comment, which this repo's own rule 4 says is ungated because it is not
+what a consumer is shown, and the string appears **zero** times in `dist/index.d.ts`. So it was
+scoped here, at no cost to any published surface. **Check which kind of comment a sentence is before
+deferring it for being shipped.**
+
+**The same check retired a claim-about-a-claim one paragraph above it.** The `ShiftedFieldsSink` doc
+block read "this is the single place that says what happens there", which `README.md` and
+`docs-content/limitations.md` had already falsified, and which this slice would have falsified again.
+**DELETED, not repaired**, per the standing rule, and it too is absent from `dist/index.d.ts`.
+
+Two copies are kept on purpose: the earlier `[Unreleased]` changelog paragraph, marked with where it
+is scoped later in the same release because the measurement that entry records starts from it, and
+the earlier slice's narrative in **this** file, which a later section is how it supersedes.
+
+**▶ 🛑 THE PASS-1 REFUTATION OF THIS SLICE, AND IT IS THE SAME ONE AGAIN.** The first draft of this
+section said the universal "WAS IN FIVE TEST COMMENTS, NOT THE THREE THAT WERE RECORDED", said it
+had swept the **fact**, and said `src/` was already scoped. **All three were completeness claims and
+the third was measurably false**, with four unqualified counter-instances standing, three of them in
+files this slice had already edited. **The corollary is a different wording of the same fact** ("and
+it cannot", "structurally out of reach", "on no escape-clean stream at all"), and a sweep keyed on
+"only" near "escape-clean" cannot see it. **This is the third consecutive slice on this family to be
+refuted on a completeness claim about its own sweep.** The disposition was to **DELETE the count and
+the two claims**, exactly as the standing rule says, and to name sites instead. **Never write a
+total here. Name what you changed and name what you know remains.**
 
 **▶ THE MEASUREMENT AND ITS NEGATIVE CONTROL.** Every figure above was taken by a script importing
 `src/index.ts` directly, and each was re-run against `@cosyte/hl7`'s entry point, where both scripts
-fail outright rather than reporting a number. The committed files keep the standing
-`maximalTolerance` control built by spreading this package's own `TOLERABLE_CODES`, so a copy
-pointed at a sibling parser fails on the spread.
+fail outright rather than reporting a number. `alignment-companion-universal.test.ts` keeps the
+standing `maximalTolerance` control built by spreading this package's own `TOLERABLE_CODES`, so a
+copy pointed at a sibling parser fails on the spread; **`alignment-offset-rephasing.test.ts` has no
+such control and never did.** Its controls are the transcribed competing split, which must reproduce
+its input bytes, and the wrong-delimiter-role measurement.
 
 <a id="defects-closed-elsewhere"></a>
 

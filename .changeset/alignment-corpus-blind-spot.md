@@ -36,10 +36,14 @@ displacement. Every tuple this code says nothing about is displaced anyway, by o
 is the standing exclusion for a recognized tail behaving as intended, and it is a third direction in
 which counting warnings fails, this one silent.
 
-**The retired universal survived unqualified in five test comments, not the three that were
-recorded.** Sweeping the fact rather than one phrase, with newlines folded, found it also in
-`alignment-unrecognized-tail.test.ts` and in `alignment-criterion-population.test.ts`, where it is
-worded differently. Each is cut rather than re-qualified: the sentence is gone, the corpus's own
-bound (it holds the escape role at `&`) is stated in its place, and what that bound is worth is
-named at the file that measures it instead of being paraphrased again. The published surfaces
-already carried the scope and are untouched.
+**The retired universal, and the sites this release changed.** The three test files that were
+recorded, plus `alignment-unrecognized-tail.test.ts` and `alignment-criterion-population.test.ts`,
+which word the same fact differently, plus the corollary about the escape companion at the "refuses
+NOT ONE escape-clean stream" tests in the first three. Each is cut or scoped rather than re-qualified
+in fresh words: the unqualified sentence is gone, the corpus's own bound (it holds the escape role at
+`&`) is stated in its place, and what that bound is worth is named at the file that measures it
+instead of being paraphrased again. The predicate's own implementation site in
+`src/common/escapes.ts` is scoped too, and the claim one paragraph above it that it was "the single
+place that says what happens there" is deleted rather than repaired, having already been false
+against the README. Neither string reaches `dist/index.d.ts`, and no behaviour, no warning code and
+no documented surface moves.

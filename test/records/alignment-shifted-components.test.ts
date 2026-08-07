@@ -705,8 +705,16 @@ describe("the population it moves, on the strict-accepted tier", () => {
   it("refuses NOT ONE escape-clean stream, and cannot", () => {
     // The contrast with the rejected pair-count criterion, which refused half of them. Firing
     // requires an escape character that either heads no sequence or heads one whose body this codec
-    // does not recognize, and each of those is an escape deviation this package already reports, so
-    // an escape-clean tuple is structurally out of reach on BOTH reported tails.
+    // does not recognize, and each of those is an escape deviation this package reports, so no
+    // escape-clean tuple in this corpus is reached on either reported tail.
+    //
+    // SCOPED: THIS CORPUS HOLDS THE ESCAPE ROLE AT `&`, AND THE SENTENCE ABOVE IS FALSE OFF THAT
+    // AXIS. Where a declaration names the escape character in a splitting role too, the split
+    // claims that character before either escape reporter can see a sequence, so this code fires on
+    // a stream that is escape-clean by the predicate this file judges with. The collision code,
+    // which no profile may tolerate, refuses those streams instead. Swept, with one such stream per
+    // tail code, in `alignment-companion-universal.test.ts`. The zero here is true of THIS corpus
+    // and is deliberately not written as a universal.
     const cleanRefused = corpus.filter((t) => t.escapeClean && t.reportsMovedComponents);
     expect(cleanRefused).toHaveLength(0);
     for (const t of corpus.filter((t) => t.reportsMovedComponents)) {
