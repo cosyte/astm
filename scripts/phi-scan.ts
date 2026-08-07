@@ -123,14 +123,13 @@
  * are written out.
  *
  * WHAT IS STILL NOT CLOSED HERE, AND STATED SO IT IS NOT MISTAKEN FOR CLOSED:
- * the `--staged` route's in-scope predicate is NARROWER than the walk's roots.
- * It admits `test/fixtures/**` and `src/**.ts` only, so a commit staging only
- * `test/**\/*.test.ts` or `scripts/**` is not blocked by the pre-commit hook,
- * and the widened corpus above is caught in CI rather than at commit time.
- * Widening it is a decision about what a COMMIT is blocked on rather than about
- * what this scanner can see, which is why it is not a rider on the walk. To see
- * the gap at any moment: compare `WALK_ROOT_NAMES` above with the `inScope`
- * predicate in `buildTargetsForStaged`.
+ * the `--staged` route's in-scope predicate is NARROWER than the walk's roots,
+ * so a commit staging only files outside it is not blocked by the pre-commit
+ * hook and the rest of the corpus is caught in CI instead. The predicate itself
+ * is written once, above; it is not repeated here, because two copies of a scope
+ * is how one of them goes false. Widening it decides what a COMMIT is blocked on
+ * rather than what this scanner can see, which is why it is not a rider on the
+ * walk.
  * ---------------------------------------------------------------------------
  */
 
@@ -175,7 +174,8 @@ const OVERRIDE_LOG_PATH = join(REPO_ROOT, "phi-scan-overrides.md");
  * `docs-content/` is deliberately NOT a root: it is markdown prose, which the
  * walk exempts anyway (see `walk`), and its samples are documentation that may
  * legitimately quote a violator value. To see what that costs at any moment:
- * `git ls-files docs-content | xargs grep -n '^P|'`.
+ * `git ls-files docs-content | xargs /usr/bin/grep -n 'P|1'` (its records sit
+ * inside fenced blocks and inline spans, so they do not begin a line).
  */
 const WALK_ROOT_NAMES = ["src", "test", "scripts"] as const;
 
@@ -900,10 +900,46 @@ function readAstmDelims(records: string[]): AstmDelims {
   return { field: "|", component: "^" };
 }
 
-function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hits: Hit[]): void {
-  const records = content.split(/\r\n|\r|\n/).filter((r) => r.length > 0);
+/**
+ * A STRING-LITERAL DELIMITER OPENS A RECORD TOO, and leaving that out left two of
+ * this repo's three literal shapes unread while the sweep reported clean.
+ *
+ * A record separator supplies a boundary only where one is IN the literal, so a
+ * stream split across array elements and joined at run time, and a literal
+ * holding a single record, both arrived as one segment beginning with a quote,
+ * which is the same miss the decoded view was added to close. Splitting the
+ * source view on the three quote characters as well closes both.
+ *
+ * It cannot fabricate a record: it only ADDS boundaries, and a boundary can only
+ * shorten a record, never invent a field. What it can cost is a record whose own
+ * content carries a quote, which is read short. Delimiters are deliberately NOT
+ * read from this view (see `scanAstmPatientLoci`): a quote-split segment of
+ * ordinary prose beginning with `H` would otherwise redefine the delimiter set
+ * for the whole file, which IS a fabrication route.
+ */
+const SOURCE_LITERAL_DELIMITERS = /["'`]/;
+
+function scanAstmPatientLoci(
+  path: string,
+  content: string,
+  allow: AllowList,
+  hits: Hit[],
+  splitOnSourceLiterals = false,
+): void {
+  const lines = content.split(/\r\n|\r|\n/).filter((r) => r.length > 0);
+  // Delimiters come from the LINE view only, whether or not the caller asked for
+  // the wider record split. See `SOURCE_LITERAL_DELIMITERS` for why.
+  const d = readAstmDelims(lines);
+  const records = splitOnSourceLiterals
+    ? [
+        ...lines,
+        ...content
+          .split(SOURCE_LITERAL_DELIMITERS)
+          .flatMap((seg) => seg.split(/\r\n|\r|\n/))
+          .filter((r) => r.length > 0),
+      ]
+    : lines;
   if (!records.some((r) => r.charAt(0) === "P")) return; // not an ASTM record stream with a patient
-  const d = readAstmDelims(records);
 
   for (const record of records) {
     if (record.charAt(0) !== "P") continue;
@@ -915,8 +951,8 @@ function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hi
     // package's own builder writes the sequence number as a P record's second
     // field unconditionally (`buildPatientLine` in `src/records/build.ts`), so
     // that field is the cheap structural test, taken from this reader rather
-    // than claimed off a clause of any standard: no such claim is made anywhere
-    // in this package. It is a PRECISION guard and it has a bound: a patient
+    // than claimed off a clause of any standard: no clause is cited for it
+    // anywhere, here or in `src/`. It is a PRECISION guard and it has a bound: a patient
     // record whose second field is not a short digit run (or empty) is not read
     // here. To see what that costs over the corpus at any moment, drop the
     // clause and re-run `pnpm phi-scan`.
@@ -939,6 +975,13 @@ function scanAstmPatientLoci(path: string, content: string, allow: AllowList, hi
         // this scan at all, so a fixture that assembles a name from variables is
         // outside it and is the reviewer's to read.
         if (t.includes("${")) continue;
+        // A ONE-CHARACTER TOKEN IS NOT AN IDENTIFIER, and exempting each one by
+        // name is worse than the rule: the escape-alignment fixtures split into
+        // tokens like a bare middle initial or a bare delimiter, and declaring
+        // those in the allow-list would exempt that character for the whole
+        // repository forever. THE BOUND: a name component of one character is
+        // not read here.
+        if (t.length < 2) continue;
         if (!allow.names.has(t.toUpperCase())) {
           hits.push({
             path,
@@ -1065,14 +1108,36 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
   // ASTM-specific structured detection at the P-record loci (name + mother's
   // maiden + DOB), delimiter-aware.
   //
-  //   This is a TARGETED extension, not a full field-level sweep. It flags the
-  //   highest-value PHI in an ASTM stream: the patient name, mother's maiden
-  //   name, and birthdate, but does NOT yet cover practice/lab IDs, address,
-  //   phone, or `C`-record free text. Those loci are a later phase; until then,
-  //   treat a green `pnpm phi-scan` as "no SSN/email shapes and no undeclared
-  //   patient name / maiden name / DOB": NOT as a complete "no PHI" guarantee.
+  //   ============================================================
+  //   WHAT A GREEN FROM THIS SCAN MEANS. This is the one place that
+  //   sentence is written, and the one to correct. Every other surface
+  //   points here rather than restating it, because a restated bound
+  //   goes stale on its own and this one has.
+  //
+  //   A green means: no dashed SSN and no non-test email anywhere in the
+  //   corpus, and no undeclared patient name token, mother's maiden name
+  //   token or birthdate in any patient record THIS SCAN READ. It is not
+  //   a "no PHI" guarantee, and the reader owns the difference:
+  //
+  //     - LOCI. Only the name, maiden name and birthdate are read. A
+  //       practice or lab id, an address, a phone number and `C`-record
+  //       free text are not.
+  //     - WHAT COUNTS AS A RECORD. A record is a segment beginning a
+  //       line, or (in a source file) beginning a string literal, after
+  //       the embedded view's decode. A record assembled from pieces at
+  //       run time is not one, and neither is one quoted mid-sentence in
+  //       prose.
+  //     - TOKENS NOT READ. A name component of one character, and one
+  //       still carrying a `${` placeholder. Each is argued where it is
+  //       applied, below.
+  //     - THE STRUCTURAL GUARD. A patient record whose second field is
+  //       not a short digit run is not read. Argued below.
+  //     - FILES NOT READ. `WALK_ROOT_NAMES` is the corpus and `.md` is
+  //       exempt; `--staged` is narrower again, at its own predicate.
+  //
   //   Keep fixtures synthetic and declare their identifiers in
   //   scripts/phi-allow-list.txt.
+  //   ============================================================
   scanAstmPatientLoci(target.path, text, allow, hits);
 
   // ...and again over the source-embedded view, for a source file whose escape
@@ -1080,12 +1145,15 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): void {
   // instead of it: a source file can carry a stream both ways. Deduplicated by
   // hit identity so a stream that reads the same both ways is reported once.
   if (!EMBEDDING_SOURCE_EXTENSIONS.has(extname(target.path).toLowerCase())) return;
-  const decoded = decodeEmbeddedEscapes(text);
-  if (decoded === text) return;
   const seen = new Set(hits.map(hitKey));
   const embedded: Hit[] = [];
-  scanAstmPatientLoci(target.path, decoded, allow, embedded);
-  for (const h of embedded) if (!seen.has(hitKey(h))) hits.push(h);
+  scanAstmPatientLoci(target.path, decodeEmbeddedEscapes(text), allow, embedded, true);
+  for (const h of embedded) {
+    const key = hitKey(h);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    hits.push(h);
+  }
 }
 
 // ---------------------------------------------------------------------------

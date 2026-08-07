@@ -15,25 +15,35 @@ this file is maintained by hand (Changesets handles the version bump and publish
   that did not observe its corpus.** Two separate holes, closed together because closing one alone
   buys only the cross-cutting SSN/email floor.
   - **Scan roots.** The all-mode walk covers `src`, `test` and `scripts`, where it previously
-    covered `src` and `test/fixtures` only. Measured against `git ls-files`: 106 of 165 tracked
-    files were scanned by neither enumerating route, 66 of them under `test/`, and 31 of those 66
-    carry an inline patient-record literal. Those fixtures were read by hand before.
+    covered `src` and `test/fixtures` only. Measured against `git ls-files` on the commit before
+    this change: 106 of 165 tracked files were scanned by neither enumerating route, 66 of them
+    under `test/`, and 33 of those 66 contain a patient-record literal. Those fixtures were read by
+    hand before.
   - **A source-embedded view.** The record-aware detector splits on newlines and asks whether a line
-    begins with the patient-record type letter. Most of this package's streams are string literals
-    whose record separator is an escape sequence, so every one of them arrived as a single line
-    beginning with a quote and was never read, including inside `src`, which the walk already
-    covered. The detector now also runs over a view with those escape sequences decoded, in addition
-    to the raw bytes. The decode is one left-to-right pass that consumes an escaped backslash as a
-    pair, and it runs only on a closed set of source file extensions, so it cannot invent a record
-    boundary in wire data whose backslash is the repeat delimiter.
+    begins with the patient-record type letter. Most of this package's streams are string literals,
+    so every one of them arrived as a single line beginning with a quote and was never read,
+    including inside `src`, which the walk already covered. The detector now also runs over a view
+    with the source escape sequences decoded and the string-literal delimiters treated as record
+    boundaries, in addition to the raw bytes. Both are needed: an escape sequence supplies a
+    boundary only for a stream written whole in one literal, and this package also writes a single
+    record per literal and a stream as array elements joined at run time. The decode is one
+    left-to-right pass that consumes an escaped backslash as a pair; it runs only on a closed set of
+    source file extensions, so it cannot invent a record boundary in wire data whose backslash is
+    the repeat delimiter; and delimiters are read from the line view only, so a quoted fragment of
+    prose cannot redefine the delimiter set for a whole file.
   - **An observation rule.** A sweep refuses (exit 2) when a declared root observed no files, when
     the invocation as a whole observed none, and when git tracks in-scope files under a root that
     the walk did not observe. A missing root, an emptied root, a dangling symbolic link as a root,
     and a root that is a regular file are all covered; the last previously raised an uncaught
     `ENOTDIR`, which exits 1, the code that means hits were found.
-  - **A precision guard**, so a line that merely starts with the patient-record type letter is not
-    read as a patient record: its second field must be a short digit run, which this package's own
-    builder always writes there.
+  - **Two precision guards, each with its bound stated where it is applied.** A line that merely
+    starts with the patient-record type letter is not read as a patient record: its second field
+    must be a short digit run, which this package's own builder always writes there. And a name
+    component of one character is not read, so a bare middle initial does not have to be exempted
+    by name for the whole repository.
+  - What a green from the scan means is now written out in one place, `scanTarget`, with every
+    locus, record shape, token and file it does not cover named there. No other surface restates
+    it.
   - The scanner resolves its repository from its own file location rather than from the working
     directory, and every `git` subprocess it runs is pinned to that repository. Run from a parent
     checkout it previously walked that tree and reported clean about this package having never

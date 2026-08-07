@@ -25,6 +25,7 @@ not removed, because the correction is usually the lesson.
 - [Known defects live on `main`](#known-defects-live-on-main-recorded-here-so-they-survive-independently-of-any-backlog) (one section each; the count is not written down, because it moves)
 - [Engineering Guardrails](#engineering-guardrails) (the `attw` wrapper)
 - [Standing disciplines (every change)](#standing-disciplines-every-change) (public-surface bookkeeping, and the em dash gate)
+- [The shared engineering guardrails](#the-shared-engineering-guardrails-relocated-verbatim-from-claudemd-2026-08-07) and one `attw` trap, both relocated out of `CLAUDE.md` 2026-08-07
 - [The PHI sweep has two halves](#the-phi-sweep-has-two-halves-and-one-of-them-is-not-the-other) (scan roots, the source-embedded view, the observation rule)
 - [`pnpm check`: a local gate run that says what it did not do](#pnpm-check-a-local-gate-run-that-says-what-it-did-not-do)
 
@@ -2161,9 +2162,12 @@ Disciplines 1 to 3 are one line each and stay in `CLAUDE.md`. These two carry th
      refuses when the scanner reports nothing about a NUL-bearing probe file. `unset` fixes the shim
      we know about; the probe catches the next one nobody has seen. Do not delete either.
 
-<a id="guardrails"></a>
+<a id="guardrails-shared"></a>
 
-### Engineering guardrails, relocated verbatim from `CLAUDE.md` 2026-08-07 to make room for a trap
+### The shared engineering guardrails, relocated verbatim from `CLAUDE.md` 2026-08-07
+
+Relocated to make room for a trap. They bind here; they are not astm-specific, which is why they
+are the ones that moved.
 
 - No `any`. No unjustified `as` casts. Use `unknown` and narrow.
 - JSDoc (with `@example`) on every public export: the JSDoc lint rule is an **error** on public
@@ -2177,6 +2181,16 @@ Disciplines 1 to 3 are one line each and stay in `CLAUDE.md`. These two carry th
   warning with a stable code + positional context.
 - Coverage: per-directory >= 90% on all four metrics (`pnpm test:coverage`).
 
+<a id="attw-port"></a>
+
+### Relocated verbatim from `CLAUDE.md` 2026-08-07 to make room for a trap
+
+Part of the `attw` gate's trap list; it belongs with `#attw`.
+
+- **Do not port the sibling's prose with its code.** Re-take every measured claim here; a first draft
+  shipped two that were not, and the refuter caught both. **Never quote a sibling's timing**: `#attw`
+  carries this package's own.
+
 <a id="phi-scan-scope"></a>
 
 ## The PHI sweep has two halves, and one of them is not the other
@@ -2188,17 +2202,25 @@ list was ported, and the answer differed from all of them.**
 
 Roots were `src` and `test/fixtures`, and the walk exempts `.md`. Measured against `git ls-files`:
 
-| | files |
-|---|---|
-| tracked | 165 |
-| observed by the all-mode walk | 59 |
-| **scanned by NEITHER route** | **106** |
-| of those, under `test/` | **66** |
-| of those 66, carrying an inline `P\|` record literal | **31** |
+Measured on `1e16cda`, the commit before this slice, so the figures do not move when the slice adds
+files. `T` is `git ls-files`, and the base scope is `src/` plus `test/fixtures/` less `.md`:
 
-Roots are now `src`, `test`, `scripts`. `docs-content/` is deliberately not one: it is markdown
-prose, which the walk exempts anyway, and its samples are documentation that may legitimately quote
-a violator value. The command that answers what that costs is written beside `WALK_ROOT_NAMES`.
+| | files | command |
+|---|---|---|
+| tracked | 165 | `git ls-files \| wc -l` |
+| observed by the all-mode walk | 59 | the base scope, above |
+| **scanned by NEITHER route** | **106** | `T` less the base scope |
+| of those, under `test/` | **66** | `git ls-files test/ \| grep -v ^test/fixtures/` |
+| of those 66, containing the two characters `P\|` | **33** | that list, `xargs /usr/bin/grep -l 'P\|'` |
+| observed after the widening | **132** | the new scope, less `.md` |
+
+**The 33 is a count of files CONTAINING the two characters, not of files the detector reads.** The
+two are different numbers and conflating them is how the first draft of this table said 31: a
+detector-shaped count moves with every guard, and a `grep` count does not.
+
+The roots are `WALK_ROOT_NAMES` in `scripts/phi-scan.ts`; they are not written down here, because a
+copied list is a second thing to keep true. `docs-content/` is deliberately not one, and the command
+that answers what that costs is written beside the roots.
 
 ### The half that enumeration does not buy
 
@@ -2280,9 +2302,11 @@ The meta-repo's local runner walks a **fixed list of script names** and prints w
 it skipped. Over this repo that read **12 ran, 14 skipped, and green.** The 14 enumerate as
 `gen:all`, `check`, `verify:contrast`, `check:copy-drift`, `check:og-cards`, `brand:check`,
 `check:brand-lock`, `check:published-urls`, `check:docs-token-drift`, `test` (deliberate: coverage
-runs it), `test:build`, `og:build`, `size`, `verify:exports`. **Thirteen of them are skipped because
-this repo defines no such script**, which for a parser repo is correct for all thirteen, and the
-runner's own policy expects only `test:coverage`, `build` and `attw`, all three of which ran.
+runs it), `test:build`, `og:build`, `size`, `verify:exports`. **One was deliberate and the other
+thirteen were skipped because the repo defined no such script**, which for a parser repo was correct
+for all thirteen, and the runner's own policy expects only `test:coverage`, `build` and `attw`, all
+three of which ran. This slice defines `check`, so the same runner now reports **13 ran, 13
+skipped.**
 
 **So the 14 are not the defect.** The defect is the class the list cannot show at all: a gate this
 repo runs in CI under a name no fixed list has heard of is not skipped, it is **invisible**, because

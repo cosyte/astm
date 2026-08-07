@@ -1,8 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * `@cosyte/astm` gate-coverage check: does a local command exist for every gate
- * this repo's own CI runs, and is every gate-shaped local command something CI
- * runs?
+ * this repo's own CI runs?
  *
  * ===========================================================================
  * WHY THIS EXISTS
@@ -35,16 +34,21 @@
  *     <script>`, or is declared below with the reason it cannot be;
  *   - every `run-<x>: true` input this repo passes to a shared pipeline has the
  *     `<x>` script the pipeline will call;
- *   - every script this repo would want a local runner to reach is declared
- *     REACHABLE or NOT, so the answer is committed rather than inferred from a
- *     name prefix.
+ *   - every script NAMED in `CI_GATES_OUTSIDE_A_NAME_PREFIX` still exists, so
+ *     dropping one is a failure rather than a silence.
  *
- * WHAT IT DOES NOT ASSERT, stated so its green is not read as wider than it is:
- * nothing about the SHARED pipelines this repo calls. `ci.yml`, `codeql.yml`,
- * `release.yml` and `scorecard.yml` are thin callers of workflows in another
- * repository, and their ladders are not in this tree to read. A gate added
- * there is outside every check in this file. To see what this repo delegates:
- * `grep -h 'uses: cosyte' .github/workflows/*.yml`.
+ * WHAT IT DOES NOT ASSERT, stated so its green is not read as wider than it is,
+ * and each of these is a real hole rather than a formality:
+ *
+ *   - nothing about the SHARED pipelines this repo calls. `ci.yml`,
+ *     `codeql.yml`, `release.yml` and `scorecard.yml` are thin callers of
+ *     workflows in another repository, and their ladders are not in this tree
+ *     to read. A gate added there is outside every check here. To see what this
+ *     repo delegates: `grep -h 'uses: cosyte' .github/workflows/*.yml`;
+ *   - nothing in the LOCAL to CI direction. A gate-shaped script that no
+ *     workflow runs is not reported, including this one. Adding that check
+ *     means deciding which scripts a workflow OUGHT to run, which is a judgement
+ *     rather than a reconciliation, and it is not made here.
  *
  * Exit codes: 0 (every CI gate has a declared local answer), 1 (one does not).
  */

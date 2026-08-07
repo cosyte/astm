@@ -50,20 +50,35 @@ NAME JOHN
 NAME ANNA
 NAME GRAZYNA
 NAME SYNTHETIC
+NAME PATIENT
+NAME JAN
+NAME AUKASZ
+NAME MÜLLER
+NAME SMITH
+NAME SYNTHA
+NAME SYNTHB
+NAME ALPHA
+NAME BRAVO
 
-# The escape-alignment fixtures put an escape sequence INSIDE the name field, so
+# The escape-sequence fixtures put an escape sequence INSIDE the name field, so
 # splitting on the component delimiter yields a token that is an artifact of the
 # contested reading rather than a name: `DOE^JANE^A` written with a sequence in
-# it splits as `DOE&F&`, `&JANE`, `A`. The tokens are declared as they are read,
-# because a detector that "helpfully" decoded them would be guessing which of the
-# two competing alignments is the one to judge, and that guess is exactly what
-# this package refuses to make everywhere else.
+# it splits as `DOE&F&`, `&JANE`, and a bare middle initial. The tokens are
+# declared as they are read, because a detector that "helpfully" decoded them
+# would be guessing which of the two competing alignments is the one to judge,
+# and that guess is exactly what this package refuses to make everywhere else.
+# A ONE-CHARACTER token is not declared here and never should be: the detector
+# does not read one at all, because exempting a bare initial or a bare delimiter
+# by name would exempt that character for the whole repository forever.
 NAME DOE&F&
 NAME DOE&S&\&JANE
 NAME &JANE
 NAME &Z&JANE
-NAME &
-NAME A
+NAME O&BRIEN
+NAME O&E&BRIEN
+NAME O&BRI
+NAME NEJAN
+NAME A&Z&B
 
 # --- Synthetic dates of birth (P field 8, YYYYMMDD[HHMMSS]) ---
 DOB 20200101

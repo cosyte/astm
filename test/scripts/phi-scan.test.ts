@@ -36,20 +36,30 @@ const SCANNER_PATH = join(REPO_ROOT, "scripts", "phi-scan.ts");
 const TSX_BIN = join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
 /**
- * THE VIOLATOR VALUES THIS SUITE FEEDS THE SCANNER ARE COMPOSED, NOT WRITTEN.
+ * EVERY VIOLATOR VALUE THIS SUITE FEEDS THE SCANNER IS COMPOSED, NOT WRITTEN,
+ * AND THE UNIVERSAL IS THE POINT: one written literal here is a finding in every
+ * run of the sweep.
  *
- * The all-mode sweep's roots now reach `test/**\/*.test.ts`, so this file is
- * inside the corpus the scanner reads, and a literal here would be a finding in
- * every run: the negative corpus of a gate is the one place its own violator
+ * The all-mode roots reach `test/**\/*.test.ts` and the record detector reads a
+ * stream out of a source literal, so this file is inside the corpus the scanner
+ * reads, and the negative corpus of a gate is the one place its own violator
  * shapes legitimately live. Composing them keeps the FLOOR absolute (no
  * allow-list entry, no whole-file bypass, nothing weakened) while leaving this
- * suite's inputs byte-identical to the literals it replaced. It also pins a
+ * suite's inputs byte-identical to the literals they replaced. It also pins a
  * property of the source-embedded view: that view decodes escape sequences, it
- * does not evaluate expressions, so it cannot reassemble these either.
+ * does not evaluate expressions, so it cannot reassemble any of these.
+ *
+ * The name tokens and the birthdate below are DELIBERATELY NOT in
+ * `scripts/phi-allow-list.txt`: they are what the positive cases prove the
+ * detector still fires on, and declaring one would retire its case silently.
  */
 const SSN = ["123", "45", "6789"].join("-");
 const NON_TEST_EMAIL = "jane.doe@" + "hospital.org";
 const SYNTHETIC_CONTACT_EMAIL = "juanita.rivera@" + "example-hospital.org";
+const UNDECLARED_SURNAME = "RIV" + "ERA";
+const UNDECLARED_GIVEN = "JUAN" + "ITA";
+const UNDECLARED_MAIDEN = "WEL" + "DON";
+const UNDECLARED_DOB = "1978" + "0314";
 
 let dir: string;
 
@@ -116,24 +126,30 @@ describe("phi-scan ASTM extension: the P-record loci (name + mother's maiden + D
   const HEADER = "H|\\^&\r";
 
   it("catches an undeclared patient name token in P field 6 (exit 1)", () => {
-    const r = scan("undeclared-name.astm", `${HEADER}P|1|A|B||SMITH^ALICE||20200101|F\r`);
+    const r = scan(
+      "undeclared-name.astm",
+      `${HEADER}P|1|A|B||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}||20200101|F\r`,
+    );
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/SMITH/);
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
     expect(r.stderr).toMatch(/P-6 \(name\)/);
   });
 
   it("catches an undeclared mother's maiden name in P field 7 (exit 1)", () => {
-    // DOE / JANE / Q and DOB are declared; the maiden name WELDON is not.
-    const r = scan("undeclared-maiden.astm", `${HEADER}P|1|A|B||DOE^JANE^Q|WELDON|20200101|F\r`);
+    // DOE / JANE / Q and the DOB are declared; the maiden name is not.
+    const r = scan(
+      "undeclared-maiden.astm",
+      `${HEADER}P|1|A|B||DOE^JANE^Q|${UNDECLARED_MAIDEN}|20200101|F\r`,
+    );
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/WELDON/);
+    expect(r.stderr).toContain(UNDECLARED_MAIDEN);
     expect(r.stderr).toMatch(/P-7 \(mother's-maiden\)/);
   });
 
   it("catches an undeclared birthdate in P field 8 (exit 1)", () => {
-    const r = scan("undeclared-dob.astm", `${HEADER}P|1|A|B||DOE^JANE||19731105|F\r`);
+    const r = scan("undeclared-dob.astm", `${HEADER}P|1|A|B||DOE^JANE||${UNDECLARED_DOB}|F\r`);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/19731105/);
+    expect(r.stderr).toContain(UNDECLARED_DOB);
     expect(r.stderr).toMatch(/P-8 \(dob\)/);
   });
 
@@ -145,9 +161,12 @@ describe("phi-scan ASTM extension: the P-record loci (name + mother's maiden + D
 
   it("reads non-canonical delimiters from the header before scanning P (no false miss)", () => {
     // Field '#', component '*'. The name components must still be found and flagged.
-    const r = scan("nonstd-delims.astm", "H#~*!\rP#1#A#B##SMITH*ALICE##20200101#F\r");
+    const r = scan(
+      "nonstd-delims.astm",
+      `H#~*!\rP#1#A#B##${UNDECLARED_SURNAME}*${UNDECLARED_GIVEN}##20200101#F\r`,
+    );
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
-    expect(r.stderr).toMatch(/SMITH/);
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
   });
 
   it("does not treat a stream without a P record as ASTM PHI (exit 0)", () => {
@@ -192,21 +211,21 @@ describe("phi-scan starter: the override-log gate", () => {
 const SYNTHETIC_PHI =
   [
     "H|\\^&",
-    "P|1|A|B||RIVERA^JUANITA^Q|WELDON|19780314|F",
+    `P|1|A|B||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}^Q|${UNDECLARED_MAIDEN}|${UNDECLARED_DOB}|F`,
     `SSN: ${SSN}`,
     `Contact: ${SYNTHETIC_CONTACT_EMAIL}`,
     "L|1",
   ].join("\r") + "\r";
 
 /** The link target's own name carries a synthetic name, so an echo of it is visible. */
-const TARGET_NAME = "RIVERA-JUANITA-1978-03-14.txt";
+const TARGET_NAME = `${UNDECLARED_SURNAME}-${UNDECLARED_GIVEN}-1978-03-14.txt`;
 
 /** Tokens that must never appear in a refusal message. */
 const PHI_TOKENS = [
-  "RIVERA",
-  "JUANITA",
-  "WELDON",
-  "19780314",
+  UNDECLARED_SURNAME,
+  UNDECLARED_GIVEN,
+  UNDECLARED_MAIDEN,
+  UNDECLARED_DOB,
   "1978-03-14",
   SSN,
   SYNTHETIC_CONTACT_EMAIL,
@@ -284,7 +303,7 @@ describe("phi-scan: the synthetic payload is genuinely detectable", () => {
     expect(r.stderr).toContain(SSN);
     expect(r.stderr).toContain(SYNTHETIC_CONTACT_EMAIL);
     expect(r.stderr).toContain("P-6 (name)");
-    expect(r.stderr).toContain("RIVERA");
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
     expect(r.stderr).toContain("P-8 (dob)");
   });
 
@@ -627,7 +646,8 @@ describe("phi-scan: the --staged route enumerates a staged RENAME", () => {
     git(root, ["mv", "test/fixtures/original.astm", "test/fixtures/renamed.astm"]);
     writeFileSync(
       join(root, "test", "fixtures", "renamed.astm"),
-      `${filler("original", 40)}P|1|A|B||RIVERA^JUANITA^Q|WELDON|19780314|F\r`,
+      `${filler("original", 40)}P|1|A|B||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}^Q|` +
+        `${UNDECLARED_MAIDEN}|${UNDECLARED_DOB}|F\r`,
     );
     git(root, ["add", "test/fixtures/renamed.astm"]);
 
@@ -636,8 +656,8 @@ describe("phi-scan: the --staged route enumerates a staged RENAME", () => {
     const r = runIn(root, ["--staged"]);
     expect(r.code, `stderr: ${r.stderr}`).toBe(1);
     expect(r.stderr).toContain("test/fixtures/renamed.astm");
-    expect(r.stderr).toContain("RIVERA");
-    expect(r.stderr).toContain("19780314");
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
+    expect(r.stderr).toContain(UNDECLARED_DOB);
   });
 
   it("refuses a symbolic link `git mv`d under a scan root (exit 2), and reports no PHI", () => {
@@ -961,6 +981,10 @@ const SHIPPED_EMBEDDING_SET = `new Set([".ts", ".tsx", ".js", ".mjs", ".cjs", ".
 const NO_EMBEDDING_SET = `new Set<string>([])`;
 const EMBEDDING_SET_WITH_ASTM = SHIPPED_EMBEDDING_SET.replace(`new Set([`, `new Set([".astm", `);
 
+/** The call that asks for the source-literal record split, and the same call without it. */
+const SHIPPED_LITERAL_SPLIT = `scanAstmPatientLoci(target.path, decodeEmbeddedEscapes(text), allow, embedded, true);`;
+const NO_LITERAL_SPLIT = `scanAstmPatientLoci(target.path, decodeEmbeddedEscapes(text), allow, embedded, false);`;
+
 /** The clause that consumes an escaped backslash as a PAIR, and the same decoder without it. */
 const SHIPPED_BACKSLASH_PAIR = `    if (n === "\\\\" || n === '"' || n === "'" || n === "\`") {`;
 const GREEDY_BACKSLASH = `    if (n === '"' || n === "'" || n === "\`") {`;
@@ -984,17 +1008,22 @@ function runVariant(root: string, scanner: string, args: string[] = []): RunResu
   return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
-// The undeclared identifiers these cases feed the scanner are COMPOSED for the
-// same reason the floor's are (see the note at the top of this file): the sweep
-// reads this file, and a stream written here as a literal with `\r` separators
-// would be decoded by the very view under test and reported on every run. That
-// they survive as placeholders inside a template is itself the stated bound: a
-// name assembled at run time is outside this scan.
-const UNDECLARED_SURNAME = "EVA" + "NS";
-const UNDECLARED_GIVEN = "MA" + "RY";
-const UNDECLARED_DOB = "1966" + "0101";
+/**
+ * One patient record, with the undeclared tokens composed in, reused by the
+ * three literal SHAPES below. All three are live in the committed corpus, and an
+ * escape sequence inside the literal supplies a record boundary for only ONE of
+ * them, which is why the source view splits on the string-literal delimiters as
+ * well.
+ */
+const RECORD_TEXT = `P|1||LAB-0001||${UNDECLARED_SURNAME}^${UNDECLARED_GIVEN}||${UNDECLARED_DOB}|F`;
 
-/** An ASTM stream written the way this package writes most of its fixtures: a `.ts` literal. */
+/** SHAPE A: one record in one literal, with no separator to split on. */
+const SINGLE_RECORD_SOURCE = `export const record = "${RECORD_TEXT}\\r";\n`;
+
+/** SHAPE C: records as array elements, joined at run time. */
+const ARRAY_JOINED_SOURCE = `export const stream = ["H|\\\\^&", "${RECORD_TEXT}", "L|1|N"].join("\\r");\n`;
+
+/** SHAPE B: a whole stream in one literal, its records separated inside it. */
 const EMBEDDED_LITERAL_SOURCE =
   "export const stream =\n" +
   `  "H|\\\\^&\\r` +
@@ -1049,6 +1078,51 @@ describe("phi-scan walk-root scope: DETECTION, because enumerating a file is not
     expect(after.stderr).toContain("P-6 (name)");
     expect(after.stderr).toContain(UNDECLARED_SURNAME);
     expect(after.stderr).toContain("P-8 (dob)");
+  });
+
+  it("reads a SINGLE-RECORD literal, which has no separator inside it to split on", () => {
+    const root = makeRepo();
+    writeFileSync(join(root, "src", "single.ts"), SINGLE_RECORD_SOURCE);
+
+    // RED before: with the source-literal split off, the decoded view offers one
+    // segment beginning with a quote and the detector returns without looking.
+    // This is the shape the escape-decode alone does NOT reach.
+    const base = variantIn(root, "phi-scan-lines.ts", SHIPPED_LITERAL_SPLIT, NO_LITERAL_SPLIT);
+    expect(runVariant(root, base).code, "the base must not already read this shape").toBe(0);
+
+    const after = runIn(root, []);
+    expect(after.code, `stderr: ${after.stderr}`).toBe(1);
+    expect(after.stderr).toContain(UNDECLARED_SURNAME);
+    expect(after.stderr).toContain(UNDECLARED_DOB);
+  });
+
+  it("reads records written as ARRAY ELEMENTS and joined at run time", () => {
+    const root = makeRepo();
+    writeFileSync(join(root, "src", "joined.ts"), ARRAY_JOINED_SOURCE);
+
+    const base = variantIn(root, "phi-scan-lines.ts", SHIPPED_LITERAL_SPLIT, NO_LITERAL_SPLIT);
+    expect(runVariant(root, base).code, "the base must not already read this shape").toBe(0);
+
+    const after = runIn(root, []);
+    expect(after.code, `stderr: ${after.stderr}`).toBe(1);
+    expect(after.stderr).toContain(UNDECLARED_SURNAME);
+  });
+
+  it("ANTI-FABRICATION: a quote-split segment never redefines the delimiter set", () => {
+    const root = makeRepo();
+    // Ordinary prose that begins with the header type letter once a quote has
+    // been split on. Read as a declaration it would make `e` the field
+    // delimiter for the whole file, and every later record would tokenize on
+    // the wrong boundaries. Delimiters are read from the LINE view only, so the
+    // record below is still split canonically and its name is still found.
+    writeFileSync(
+      join(root, "src", "prose.ts"),
+      `const note = "Hello, delimiters";\nexport const stream = "${RECORD_TEXT}\\r";\n`,
+    );
+    const r = runIn(root, []);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toContain(UNDECLARED_SURNAME);
+    expect(r.stderr).toContain("P-6 (name)");
   });
 
   it("ANTI-FABRICATION: an escaped backslash is consumed as a pair, so no line is invented", () => {
@@ -1234,7 +1308,7 @@ describe("phi-scan: the scan is about THIS package, whatever directory it is run
     });
     expect(r.status, `stderr: ${r.stderr ?? ""}`).toBe(0);
     expect(r.stdout ?? "").toMatch(/OK: no hits/);
-    expect(r.stderr ?? "").not.toContain("RIVERA");
+    expect(r.stderr ?? "").not.toContain(UNDECLARED_SURNAME);
     // ...and the copy that DOES live in that tree finds it, so the zero above is
     // a statement about which repo was read, not about the payload.
     expect(runIn(elsewhere, []).code).toBe(1);
