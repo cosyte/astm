@@ -27,9 +27,13 @@
  * traffic whose escaping is working. Under a set naming the field separator `F`, `28.6&F&F&F&U/L` is
  * the sender escaping that separator, writing it, and escaping it again: nothing is reported and
  * nothing is refused. Refusing that is the failure that sank a preceding candidate criterion for
- * this family, and the criterion here **cannot** commit it: every position it now rejects is one the
- * package already reports, as an unpaired escape character or as an unrecognized escape sequence.
- * That property is asserted on every firing tuple below rather than argued.
+ * this family, and the criterion here **cannot** commit it: wherever the escape role is a character
+ * distinct from the three splitting roles, every position it now rejects is one the package already
+ * reports, as an unpaired escape character or as an unrecognized escape sequence. That property is
+ * asserted on every firing tuple below rather than argued. **This corpus holds the escape role
+ * fixed, so that scope is the corpus's own bound and not a universal**: off it the claim is false
+ * and the collision code is what refuses the stream. See
+ * `test/records/alignment-companion-universal.test.ts`.
  *
  * **THAT REMAINING SILENCE IS A TRADE, NOT A CLAIM THAT NOTHING WAS LOST, AND IT IS PINNED BELOW.**
  * The gained boundary is exactly as real on the excluded tail, and there it is not merely
@@ -549,6 +553,12 @@ describe("the tail-body axis, swept because the shared corpus fixes it", () => {
     // it widens. Firing requires the tail either to head no sequence or to head one whose body this
     // codec does not recognize, and the package reports each of those in its own right, so an
     // escape-clean tuple is structurally out of reach.
+    //
+    // SCOPED: THIS CORPUS HOLDS THE ESCAPE ROLE FIXED, AND THE COMPANION CLAIM BELOW IS FALSE OFF
+    // THAT AXIS. Where the declaration names the escape character in a splitting role too, a tail
+    // code fires with NEITHER companion; the collision code refuses those streams instead. Swept in
+    // `alignment-companion-universal.test.ts`, stated once on the tail test in `escapes.ts`. The
+    // assertion here is true of this corpus and is deliberately not written as a universal.
     expect(corpus.filter((t) => t.escapeClean && t.fires)).toHaveLength(0);
     for (const t of corpus.filter((x) => x.fires)) {
       const seen = codes(t.raw);
@@ -647,6 +657,10 @@ describe("the tail-body axis, swept because the shared corpus fixes it", () => {
     // population past the point where those hold: on the tie class above, NO index moves. The
     // claims now name that exception on every surface, and this is what pins it. Nothing here
     // narrows the guard: over-reporting relative to the indexes is the deliberate direction.
+    //
+    // THE TIE CLASS IS ONE END OF THE CORRECTION AND NOT THE WHOLE OF IT. The same claims also
+    // understate: this corpus carries ONE contested construct per record, and a record carrying two
+    // is displaced by two. Swept in `alignment-offset-rephasing.test.ts`.
     const ties = corpus.filter((t) => t.fires && t.tailBody === t.declaration);
     expect(ties.length).toBeGreaterThan(0);
 

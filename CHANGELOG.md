@@ -1072,6 +1072,64 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Documented
 
+- **Two claims the contested-alignment codes rest on were false, and both were on consumer
+  surfaces.** `PRE-EXISTING`, both named by the third refuter pass on the tail-residue slice and
+  backlogged there rather than closed. No guard moves, no code is added, removed or renamed, no
+  split changes, no extracted value moves, and no stream's disposition changes. The remedy is the
+  claim, for the fifth time in this family.
+  - **The companion universal is false where the declaration names the escape character in a
+    splitting role too.** The three tail codes rest on a defence against over-refusal: firing
+    requires an escape character heading no sequence this codec can interpret, and the package
+    already reports each of those, so a stream whose escaping raises nothing can never be refused.
+    That was written and asserted as a universal over the whole firing population. Every corpus in
+    this family fixes the escape role at `&`, so none of them could see the case that breaks it. On
+    a colliding set one byte both opens a sequence and ends a segment, the split claims it first,
+    and neither escape report ever sees a sequence to raise: a tail code fires with **neither**
+    companion. Measured exhaustively over all four role assignments, 145,800 tuples: 116,640 fire,
+    1,377 are orphans, and **0** of those lack `ASTM_RECORD_DELIMITER_ROLE_COLLISION`. The defence
+    therefore survives in the form it was needed in (no stream whose escaping **and** whose
+    declaration are both clean is refused by a tail code) and not in the form it was written in.
+    **That replacement is scoped to the STREAM and does not hold per message**: the collision is
+    reported once per set change rather than once per record, so a second header re-declaring the
+    same colliding set raises nothing while the tail codes in its message fire again, leaving a
+    consumer that scopes warnings to a message looking at one of the three codes standing entirely
+    alone. Also measured, and stated because "three splitting roles" reads as three reachable
+    collisions: the **field** role cannot collide with the escape role at all, because the
+    declaration is the three characters after the field separator and stops at the next one, so
+    such a header terminates itself one character short and is refused.
+  - **"One place further right" understates.** It is a floor, not a figure, and it was already
+    known to be wrong in one direction (the tie class, where the offset is zero). It is wrong in
+    the other direction too, and every corpus in this family fixes the axis that shows it: they
+    carry exactly one contested construct per record. The competing reading resumes a character
+    further on at each contested position, so it falls further out of step and the gap widens once
+    per construct. `A&Z&|&BX&Z&|&F&C` reads **three** fields against **one**, and a chain of n
+    constructs displaces by n, measured to n = 6. **The number of warnings is not the displacement
+    either, in either direction**: over 3,072 firing tuples on a two-construct corpus, one warning
+    sits on a displacement of two in 1,568 of them (a gained boundary whose tail is a recognized
+    mnemonic is excluded from the report and still displaces) and two warnings sit on a
+    displacement of one in 320 (one of the constructs is a tie). A consumer cannot recover the
+    offset by counting, and the corrected surfaces say to read the raw line instead. The practical
+    consequence is that one code covers two opposite outcomes: on
+    `R|1|^^^687|28.6&F&|&Z&U/L||||F` the sender's trailing `F` lands **in** the status slot and
+    reads as `final`, while on `R|1|^^^687|28.6&Z&|&BX&Z&|&F&U/L||||F` the same displacement runs
+    twice, the `F` overshoots, and the status reads `unspecified`.
+  - **Both corrections are stated once and pointed at, rather than restated per sink.** That is the
+    rule the tail-residue slice paid three refuter passes for: a paraphrase at each sink is a
+    separate claim that goes stale on its own, and seven copies of one had survived two sweeps. The
+    displacement now lives in one paragraph on `ShiftedFieldsSink`; the companion scope lives in one
+    paragraph on the tail test in `src/common/escapes.ts`. The other two sinks, all three warning
+    factories, `src/profiles/safety.ts`, `README.md` and `docs-content/troubleshooting.md` point at
+    those or carry a scoped statement, and the three runtime warning **messages**, which no gate in
+    this repo reads for truth, now say "at least one place" and tell the operator not to count.
+  - **Both were RED before and are GREEN after, against the retired assertions verbatim.**
+    `alignment-shifted-fields.test.ts` asserted `leftmost.length === competing.length + 1` and
+    `alignment-unrecognized-tail.test.ts` asserted an escape companion on every firing tuple; on the
+    swept axes the first reads 10 against an expected 9 and the second reads false. Both files now
+    scope those assertions to the corpus that measures them instead of stating them as universals.
+    Pinned in `test/records/alignment-companion-universal.test.ts` and
+    `test/records/alignment-offset-rephasing.test.ts`, each sweeping the axis its family's corpora
+    hold fixed, each carrying a negative control that is run rather than declared.
+
 - **A header delimiter-declaration surplus loses all 31 of the C0/`DEL` characters that can reach
   it, and the published surfaces stated the preservation rule without that exception.**
   `PRE-EXISTING`; the

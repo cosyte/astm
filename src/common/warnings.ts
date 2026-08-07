@@ -722,21 +722,20 @@ export function ambiguousEscapeAlignment(position: AstmPosition): AstmRecordWarn
 /**
  * Build an `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` warning. Emitted when a competing escape
  * alignment decided a **field** boundary and the escape character the reading taken resumes on
- * heads no sequence this codec can interpret, so every field after that point sits one place further
- * right than
- * the competing alignment puts it. On a result record that reaches the units and the **result
+ * heads no sequence this codec can interpret, so every field after that point sits further right
+ * than the competing alignment puts it. On a result record that reaches the units and the **result
  * status**: a trailing status letter lands in field 9 under the reading taken and in no field at
- * all under the competing one. **Except where the sequence past the boundary carries the field
- * separator itself**, where the two readings read the same number of fields in different places and
- * no field index moves; see {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS}.
+ * all under the competing one. **How far the fields are displaced, and why counting these warnings
+ * does not give it, is stated once on {@link ShiftedFieldsSink}**; it is at least one place and it
+ * is not a fixed one.
  *
  * A profile may **not** tolerate this code. **Which tolerable escape report accompanies it depends
  * on the tail**: {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} where the tail heads no
  * sequence at all, and {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE} where it heads one whose
- * body is unrecognized. Both report strictly weaker facts, and wherever the escape role is a
- * character distinct from the three splitting roles one of them always fires beside this code. It
- * fires alongside {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} where that also
- * applies. The reading
+ * body is unrecognized. Both report strictly weaker facts. **Which of them accompanies this code,
+ * and the declaration under which neither does, is stated once on the tail test itself**; see
+ * {@link ShiftedFieldsSink}. It fires alongside
+ * {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} where that also applies. The reading
  * is unchanged: this reports the shift, it does not repair it.
  *
  * @example
@@ -752,11 +751,13 @@ export function alignmentShiftedFields(position: AstmPosition): AstmRecordWarnin
       "A field boundary here is one of two escape alignments the bytes carry, and the reading that " +
       "took it resumes on an escape character heading no sequence this reader can interpret, which " +
       "the other alignment uses to close one. The two readings disagree, and both consume every " +
-      "byte, so neither is forced. Usually every later field is one place further right than the " +
-      "other reading puts it, so a result's units and status may be read out of slots the sender " +
-      "did not put them in; one measured class does not shift at all, where the sequence past the " +
-      "boundary carries the field separator itself and the two readings read the same number of " +
-      "fields with different contents. The reading was kept and every byte is preserved.",
+      "byte, so neither is forced. Every later field is at least one place further right than the " +
+      "other reading puts it, and further again for each additional contested construct in the " +
+      "record, so a result's units and status may be read out of slots the sender did not put them " +
+      "in; one measured class does not shift at all, where the sequence past the boundary carries " +
+      "the field separator itself and the two readings read the same number of fields with " +
+      "different contents. Counting these warnings does not give the offset. Read the raw line. " +
+      "The reading was kept and every byte is preserved.",
     position,
   };
 }
@@ -772,18 +773,17 @@ export function alignmentShiftedFields(position: AstmPosition): AstmRecordWarnin
  * repeat alone: everything past the boundary stays in `repeats` and leaves every modeled slot, so a
  * result value truncates and a Universal Test ID or a patient name loses the components that sat
  * after it. At a **later** boundary nothing modeled moves and this still fires, which is
- * over-reporting relative to those slots and never under-reporting, and **where the sequence past
- * the boundary carries the repeat separator itself** the two readings read the same number of
- * repeats in different places, so the field is not read as more repeats at all; see
- * {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD}.
+ * over-reporting relative to those slots and never under-reporting. **By how many repeats the two
+ * readings differ, including the tie class where they do not differ at all, is stated once on
+ * {@link ShiftedFieldsSink}.**
  *
  * A profile may **not** tolerate this code. **Which tolerable escape report accompanies it depends
  * on the tail**: {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} where the tail heads no
  * sequence at all, and {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE} where it heads one whose
- * body is unrecognized. Both report strictly weaker facts, and wherever the escape role is a
- * character distinct from the three splitting roles one of them always fires beside this code. It
- * fires alongside {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} where that also
- * applies. The reading
+ * body is unrecognized. Both report strictly weaker facts. **Which of them accompanies this code,
+ * and the declaration under which neither does, is stated once on the tail test itself**; see
+ * {@link ShiftedFieldsSink}. It fires alongside
+ * {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} where that also applies. The reading
  * is unchanged: this reports the gained boundary, it does not repair it.
  *
  * @example
@@ -799,12 +799,13 @@ export function alignmentTruncatedField(position: AstmPosition): AstmRecordWarni
       "A repeat boundary here is one of two escape alignments the bytes carry, and the reading that " +
       "took it resumes on an escape character heading no sequence this reader can interpret, which " +
       "the other alignment uses to close one. The two readings disagree, and both consume every " +
-      "byte, so neither is forced. Usually this field is read as more repeats than the other " +
-      "reading gives it, and its modeled value and components are taken from the first repeat " +
-      "alone, so where that boundary is the first one the rest of the field leaves every modeled " +
-      "slot; one measured class reads the same number of repeats, where the sequence past the " +
-      "boundary carries the repeat separator itself. The reading was " +
-      "kept and every byte is preserved.",
+      "byte, so neither is forced. This field is read as at least one more repeat than the other " +
+      "reading gives it, and one more again for each additional contested construct, and its " +
+      "modeled value and components are taken from the first repeat alone, so where that boundary " +
+      "is the first one the rest of the field leaves every modeled slot; one measured class reads " +
+      "the same number of repeats, where the sequence past the boundary carries the repeat " +
+      "separator itself. Counting these warnings does not give the difference. Read the raw line. " +
+      "The reading was kept and every byte is preserved.",
     position,
   };
 }
@@ -812,26 +813,24 @@ export function alignmentTruncatedField(position: AstmPosition): AstmRecordWarni
 /**
  * Build an `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` warning. Emitted when a competing escape
  * alignment decided a **component** boundary and the escape character the reading taken resumes on
- * heads no sequence this codec can interpret, so every component after that point sits one place
- * further right
+ * heads no sequence this codec can interpret, so every component after that point sits further right
  * than the competing alignment puts it. No field number changes and nothing leaves the record, and
  * that is the difference from {@link alignmentShiftedFields} and {@link alignmentTruncatedField}:
  * what moves is which modeled slot each component lands in, so a Universal Test ID's coding scheme
  * and local code, or a patient's given and middle names, are read out of positions the competing
  * alignment does not put them in. **Every gained boundary at or before the last modeled component
  * index moves those slots, not only the first**; past that index, and inside a **later repeat**,
- * nothing named moves and this still fires, which is over-reporting and never under-reporting, and
- * **where the sequence past the boundary carries the component separator itself** the two readings
- * read the same number of components in different places, so no component index moves at all. See
- * {@link WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS}.
+ * nothing named moves and this still fires, which is over-reporting and never under-reporting.
+ * **How far the components are displaced, including the tie class where they do not move at all, is
+ * stated once on {@link ShiftedFieldsSink}**; it is at least one place and it is not a fixed one.
  *
  * A profile may **not** tolerate this code. **Which tolerable escape report accompanies it depends
  * on the tail**: {@link WARNING_CODES.ASTM_UNPAIRED_ESCAPE_CHARACTER} where the tail heads no
  * sequence at all, and {@link WARNING_CODES.ASTM_UNKNOWN_ESCAPE_SEQUENCE} where it heads one whose
- * body is unrecognized. Both report strictly weaker facts, and wherever the escape role is a
- * character distinct from the three splitting roles one of them always fires beside this code. It
- * fires alongside {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} where that also
- * applies. The reading
+ * body is unrecognized. Both report strictly weaker facts. **Which of them accompanies this code,
+ * and the declaration under which neither does, is stated once on the tail test itself**; see
+ * {@link ShiftedFieldsSink}. It fires alongside
+ * {@link WARNING_CODES.ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT} where that also applies. The reading
  * is unchanged: this reports the moved components, it does not repair them.
  *
  * @example
@@ -847,12 +846,14 @@ export function alignmentShiftedComponents(position: AstmPosition): AstmRecordWa
       "A component boundary here is one of two escape alignments the bytes carry, and the reading " +
       "that took it resumes on an escape character heading no sequence this reader can interpret, " +
       "which the other alignment uses to close one. The two readings disagree, and both consume " +
-      "every byte, so neither is forced. Usually every later component of this field sits one " +
-      "place further right than the other reading puts it, so a test identity's coding scheme and " +
+      "every byte, so neither is forced. Every later component of this field sits at least one " +
+      "place further right than the other reading puts it, and further again for each additional " +
+      "contested construct, so a test identity's coding scheme and " +
       "local code, or a patient's given and middle names, may be read out of slots the sender did " +
       "not put them in; one measured class does not move at all, where the sequence past the " +
       "boundary carries the component separator itself and the two readings read the same number " +
-      "of components with different contents. The reading was kept and every byte is preserved.",
+      "of components with different contents. Counting these warnings does not give the offset. " +
+      "Read the raw line. The reading was kept and every byte is preserved.",
     position,
   };
 }

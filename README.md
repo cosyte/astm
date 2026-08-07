@@ -285,8 +285,9 @@ read as more repeats at all, and that class was already refused by
 survive a re-emit either: catch it on the first read.
 
 **And where that gained boundary is a COMPONENT boundary, nothing leaves the record and the slots
-MOVE.** Components are modeled inside a field, so every component after the gained boundary sits one
-place further right than the competing alignment puts it. On the canonical set,
+MOVE.** Components are modeled inside a field, so every component after the gained boundary sits at
+least one place further right than the competing alignment puts it, and further again for each
+additional contested construct the field carries. On the canonical set,
 `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal Test ID of four components, so `L` is the coding
 scheme and `687` the vendor's local code; the competing alignment reads three, and `687` is the
 **coding scheme**. A code-system selector and a vendor's local code are not the same thing.

@@ -238,8 +238,8 @@ character as `&E&`.
 `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` asks the same question as the two codes above, on the
 **component** separator, which is the third and last role a split is taken on. Nothing shifts between
 fields and nothing leaves the record, which is why neither of the other two can see it: components
-are modeled _inside_ a field, so every component after the gained boundary sits **one place further
-right** than the competing alignment puts it. The slots that indexes into are named things.
+are modeled _inside_ a field, so every component after the gained boundary sits **at least one place
+further right** than the competing alignment puts it. The slots that indexes into are named things.
 
 Both are reachable on the **canonical** set, so no unusual declaration is needed:
 
@@ -288,6 +288,37 @@ Like the codes above it does not survive a re-emit: catch it on the first read o
 **What to do:** read the raw line, check the field's components against the raw bytes before trusting
 a coding scheme or a name part, and ask the sender to escape a literal escape character as `&E&`.
 
+## How far a contested alignment displaces things, and why you cannot count it
+
+The three codes above each say things sit **further right** than the competing alignment puts them.
+This is the one place that says how far, because it is one fact and restating it per code is how it
+went stale before.
+
+**It is a floor, not a figure: at least one place, and not a fixed one.** It is wrong in both
+directions to read it as exactly one:
+
+- **Zero, on the tie class.** Where the sequence past the boundary carries the split delimiter itself
+  as its body, both readings return the same number of segments in different places. Each code above
+  names its own example, and `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` has already refused those
+  records.
+- **More than one, once a record carries more than one contested construct.** The competing reading
+  resumes one character further on at each contested position, so it re-phases and the gap widens
+  once per construct. `A&Z&|&BX&Z&|&F&C` reads **three** fields against the competing alignment's
+  **one**.
+
+**The number of warnings is not the displacement either, in either direction.** A gained boundary
+whose tail is a recognized mnemonic is excluded from the report and still displaces, so one warning
+can sit on a displacement of two; and where one of several constructs is a tie, two warnings can sit
+on a displacement of one.
+
+The practical consequence is worth stating plainly, because the two cases look identical in a log.
+On `R|1|^^^687|28.6&F&|&Z&U/L||||F` the sender's trailing `F` lands **in** the status slot and reads
+as `final`. On `R|1|^^^687|28.6&Z&|&BX&Z&|&F&U/L||||F` the same displacement runs twice, the `F`
+overshoots the status slot, and the status reads `unspecified`. One code, two opposite outcomes.
+
+**What to do:** do not step back by one and do not count warnings. Read the raw line and count the
+delimiters yourself.
+
 ## A header declared one character in two delimiter roles
 
 `ASTM_RECORD_DELIMITER_ROLE_COLLISION` says the `H` record named the same character in two of the
@@ -301,6 +332,23 @@ profile expecting an ordinary vendor set left a strict parse accepting it. Emit 
 with `ASTM_EMIT_INVALID_DELIMITERS`, so `serializeAstmRecords(msg, msg.delimiters)` throws on such a
 message. If you own the sending side, fix the declaration; if you do not, treat the affected
 records' repeat and component structure as unrecoverable rather than as read.
+
+**Where the escape role is one of the colliding roles, this code is the only thing standing beside a
+contested-alignment warning.** Everywhere else, one of the two tolerable escape reports
+(`ASTM_UNPAIRED_ESCAPE_CHARACTER` or `ASTM_UNKNOWN_ESCAPE_SEQUENCE`) always fires next to the three
+codes above, because firing requires an escape character the reader cannot interpret. On a colliding
+set one byte both opens a sequence and ends a segment, the split claims it first, and neither escape
+report ever sees a sequence to raise: the alignment warning arrives with **neither** companion. The
+stream is still refused, by this code, which no profile may tolerate.
+
+**This one is reported once per set change, not once per record.** A second header re-declaring the
+same colliding set raises nothing, while the alignment warnings in its message fire again. If you
+scope warnings to a message rather than to the stream, you can see one of those three codes standing
+entirely alone, with nothing in that message explaining it. Look back at the stream's first header.
+
+A set naming the escape character as the **field** separator cannot be declared at all: the
+declaration is the three characters after the field separator and stops at the next one, so such a
+header terminates itself one character short and is refused outright.
 
 ## A framed stream lost a frame, or a checksum is wrong
 
