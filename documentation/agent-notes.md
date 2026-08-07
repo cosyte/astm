@@ -25,6 +25,8 @@ not removed, because the correction is usually the lesson.
 - [Known defects live on `main`](#known-defects-live-on-main-recorded-here-so-they-survive-independently-of-any-backlog) (one section each; the count is not written down, because it moves)
 - [Engineering Guardrails](#engineering-guardrails) (the `attw` wrapper)
 - [Standing disciplines (every change)](#standing-disciplines-every-change) (public-surface bookkeeping, and the em dash gate)
+- [The PHI sweep has two halves](#the-phi-sweep-has-two-halves-and-one-of-them-is-not-the-other) (scan roots, the source-embedded view, the observation rule)
+- [`pnpm check`: a local gate run that says what it did not do](#pnpm-check-a-local-gate-run-that-says-what-it-did-not-do)
 
 <a id="docs-sidebar"></a>
 
@@ -2158,3 +2160,147 @@ Disciplines 1 to 3 are one line each and stay in `CLAUDE.md`. These two carry th
      `unset -f` it, and `check-no-emdash.sh` additionally carries a **scanner visibility probe** that
      refuses when the scanner reports nothing about a NUL-bearing probe file. `unset` fixes the shim
      we know about; the probe catches the next one nobody has seen. Do not delete either.
+
+<a id="guardrails"></a>
+
+### Engineering guardrails, relocated verbatim from `CLAUDE.md` 2026-08-07 to make room for a trap
+
+- No `any`. No unjustified `as` casts. Use `unknown` and narrow.
+- JSDoc (with `@example`) on every public export: the JSDoc lint rule is an **error** on public
+  exports, so this is enforced, not optional.
+- Immutable by default. Mutation only via explicit methods.
+- No `console.*` in library code. Throw typed errors or return results.
+- Short, testable functions over big parsing blobs.
+- Postel's Law: parser is liberal (lenient default + warnings), serializer is conservative (always
+  emits spec-clean output).
+- Fatal errors only for unrecoverable structural corruption (Tier-3 codes). Everything else is a
+  warning with a stable code + positional context.
+- Coverage: per-directory >= 90% on all four metrics (`pnpm test:coverage`).
+
+<a id="phi-scan-scope"></a>
+
+## The PHI sweep has two halves, and one of them is not the other
+
+Landed 2026-08-07. Every figure below is from this repo, re-derived here; **no sibling's residual
+list was ported, and the answer differed from all of them.**
+
+### What the sweep used to read
+
+Roots were `src` and `test/fixtures`, and the walk exempts `.md`. Measured against `git ls-files`:
+
+| | files |
+|---|---|
+| tracked | 165 |
+| observed by the all-mode walk | 59 |
+| **scanned by NEITHER route** | **106** |
+| of those, under `test/` | **66** |
+| of those 66, carrying an inline `P\|` record literal | **31** |
+
+Roots are now `src`, `test`, `scripts`. `docs-content/` is deliberately not one: it is markdown
+prose, which the walk exempts anyway, and its samples are documentation that may legitimately quote
+a violator value. The command that answers what that costs is written beside `WALK_ROOT_NAMES`.
+
+### The half that enumeration does not buy
+
+**Enumerating a file is not reading it.** The record detector splits on newlines and asks whether a
+line begins with `P`. This package writes most of its ASTM streams as `.ts` string literals whose
+record separator is the two characters `\` and `r`, so every one of them arrived as a single line
+beginning with a quote or a space and the detector returned without looking. **That was true inside
+`src/` too, which has been a walk root all along:** a JSDoc `@example` carrying a patient name and a
+birthdate was read by nobody.
+
+So a second **source-embedded view** decodes the escape sequences a source file uses to embed the
+stream, and the detector runs over it **in addition to** the raw bytes. Both halves shipped
+together; shipping the roots alone would have bought the SSN/email floor and nothing else.
+
+The delta here is **not** the same as the one a sibling measured by naming the bytes directly:
+pointing the base scanner at one of these files by path also exited 0, because the base could not
+read the literal either. **Both halves were open in this repo.**
+
+### The anti-fabrication clauses, and why each exists
+
+- **The decode is ONE left-to-right pass and consumes `\\` as a pair.** A chained or global
+  substitution rewrites an escaped backslash followed by `r` into a real carriage return, and any
+  `P|` after it then begins a line and is reported as a patient the file never contained. Pinned by
+  a case that is green on the shipped decoder and **red on a copy with the pair arm removed**.
+- **The decoded view runs only on a closed set of SOURCE extensions.** Under the canonical
+  declaration the backslash is the **repeat delimiter**, so decoding a `.astm` fixture would splice
+  a record boundary into the middle of a repeat. Pinned by a case that is green on the shipped set
+  and **red on a copy with `.astm` admitted to it**.
+- **A line that merely starts with `P` is not a patient record.** The first run reported four
+  patient names out of `check-no-internal-refs.sh`, whose `PROJECT_PREFIXES='A|B|C|...'` alternation
+  starts with the letter and separates on the default field delimiter. The guard is the second
+  field, taken from **this package's own builder** (`buildPatientLine` writes the sequence number
+  there unconditionally) and **not claimed off any clause of any standard**. Its bound: a patient
+  record whose second field is not a short digit run is not read.
+- **A token still carrying `${` is source syntax, not a value.** The decoded view decodes escapes;
+  it does not evaluate expressions. Its bound: **a name assembled at run time is outside this scan**
+  and is the reviewer's to read.
+
+### Observation, per root and overall
+
+The scanner had no rule that a sweep observing zero targets must refuse, so a tree with the roots
+gone printed `OK: no hits` and exited 0. Now `refuseUnobserved` refuses when **a declared root
+observed zero files**, when **the invocation as a whole observed zero**, and when **git tracks
+in-scope files under a root that the walk did not observe**.
+
+Both clauses are needed and neither implies the other. A **count** cannot see any of it, because a
+count counts the roots that did exist; a per-root **floor of one** cannot see a root emptied of all
+but one file, which is what the `git ls-files` reconciliation catches. Cases pin: a missing root, an
+**empty** root, a **dangling** link root (`existsSync` follows the link and answers false, so the
+walk returns before `readdirSync`), a root that is a **regular file**, a healthy total hiding an
+unopened root, and a tracked file gone from the worktree.
+
+**Exit 2, derived from this scanner's own contract** (0 clean, 1 hits, 2 invocation error), not
+ported: siblings differ, one exiting 2 and another 1 for the same condition. The regular-file root
+previously raised an uncaught `ENOTDIR`, which exits **1**, the one code that means "hits found".
+
+### Two more things this slice changed, and one it did not
+
+- **`REPO_ROOT` is derived from the scanner's own file location, never `process.cwd()`,** and every
+  `git` subprocess is pinned to it. Run from a parent checkout the old scanner walked that tree,
+  read that tree's allow-list, and reported clean about a package it never opened. Pinned by a
+  negative control that runs this package's scanner with its cwd set to another repo.
+- **The scanner's own test file composes its violator values rather than writing them.** The sweep
+  now reads that file, and its negative corpus is the one place violator shapes legitimately live.
+  Composing keeps the floor absolute: **no allow-list entry, no whole-file bypass, nothing
+  weakened.**
+- **NOT changed, and stated so it is not mistaken for closed: the `--staged` predicate is narrower
+  than the walk's roots.** A commit staging only `test/**/*.test.ts` or `scripts/**` is not blocked
+  by the pre-commit hook; the widened corpus is caught in CI instead. Widening it decides what a
+  **commit** is blocked on rather than what the scanner can see, so it is not a rider on the walk.
+
+<a id="gate-coverage"></a>
+
+## `pnpm check`: a local gate run that says what it did not do
+
+Landed 2026-08-07, in the same slice and for the same reason.
+
+The meta-repo's local runner walks a **fixed list of script names** and prints what it ran and what
+it skipped. Over this repo that read **12 ran, 14 skipped, and green.** The 14 enumerate as
+`gen:all`, `check`, `verify:contrast`, `check:copy-drift`, `check:og-cards`, `brand:check`,
+`check:brand-lock`, `check:published-urls`, `check:docs-token-drift`, `test` (deliberate: coverage
+runs it), `test:build`, `og:build`, `size`, `verify:exports`. **Thirteen of them are skipped because
+this repo defines no such script**, which for a parser repo is correct for all thirteen, and the
+runner's own policy expects only `test:coverage`, `build` and `attw`, all three of which ran.
+
+**So the 14 are not the defect.** The defect is the class the list cannot show at all: a gate this
+repo runs in CI under a name no fixed list has heard of is not skipped, it is **invisible**, because
+a name absent from a list is indistinguishable from a repo with no such gate. This repo has two:
+the nightly `test:fuzz` job over the two byte-level surfaces, and the `pack:docs` artifact build the
+release pipeline runs. Neither carries a `check:`/`verify:` prefix, so the runner's unladdered-script
+warning cannot see them either.
+
+`scripts/check-gate-coverage.ts` is derived from **this repo's own files** rather than from any
+runner's list, and it is wired to `check` on purpose: that is a name the runner already walks, so
+one of the 14 silent skips is now a step that runs and can go red. It asserts that every command
+this repo's workflows run is reachable as `pnpm run <script>` or is **declared with the reason it is
+not**, that every `run-<x>: true` input passed to a shared pipeline has the `<x>` script the pipeline
+will call, and that the two prefix-less gates above still exist. **Every declared-unreachable entry
+is printed on every run**, so "a local gate run means less than CI" is a sentence a reader is shown
+rather than one they have to derive.
+
+**Its bound, stated so its green is not read as wider than it is:** it asserts nothing about the
+SHARED pipelines this repo calls. Their ladders are not in this tree to read, so a gate added there
+is outside every check in the file. `grep -h 'uses: cosyte' .github/workflows/*.yml` names what is
+delegated.

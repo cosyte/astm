@@ -11,6 +11,39 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Added
 
+- **The PHI commit-gate now reads a stream written as a source string literal, and refuses a sweep
+  that did not observe its corpus.** Two separate holes, closed together because closing one alone
+  buys only the cross-cutting SSN/email floor.
+  - **Scan roots.** The all-mode walk covers `src`, `test` and `scripts`, where it previously
+    covered `src` and `test/fixtures` only. Measured against `git ls-files`: 106 of 165 tracked
+    files were scanned by neither enumerating route, 66 of them under `test/`, and 31 of those 66
+    carry an inline patient-record literal. Those fixtures were read by hand before.
+  - **A source-embedded view.** The record-aware detector splits on newlines and asks whether a line
+    begins with the patient-record type letter. Most of this package's streams are string literals
+    whose record separator is an escape sequence, so every one of them arrived as a single line
+    beginning with a quote and was never read, including inside `src`, which the walk already
+    covered. The detector now also runs over a view with those escape sequences decoded, in addition
+    to the raw bytes. The decode is one left-to-right pass that consumes an escaped backslash as a
+    pair, and it runs only on a closed set of source file extensions, so it cannot invent a record
+    boundary in wire data whose backslash is the repeat delimiter.
+  - **An observation rule.** A sweep refuses (exit 2) when a declared root observed no files, when
+    the invocation as a whole observed none, and when git tracks in-scope files under a root that
+    the walk did not observe. A missing root, an emptied root, a dangling symbolic link as a root,
+    and a root that is a regular file are all covered; the last previously raised an uncaught
+    `ENOTDIR`, which exits 1, the code that means hits were found.
+  - **A precision guard**, so a line that merely starts with the patient-record type letter is not
+    read as a patient record: its second field must be a short digit run, which this package's own
+    builder always writes there.
+  - The scanner resolves its repository from its own file location rather than from the working
+    directory, and every `git` subprocess it runs is pinned to that repository. Run from a parent
+    checkout it previously walked that tree and reported clean about this package having never
+    opened it.
+- **`pnpm check`, a gate-coverage check** (`scripts/check-gate-coverage.ts`). It asserts that every
+  command this repository's own workflows run is reachable as a `pnpm run` script or is declared
+  with the reason it is not, that every `run-<x>: true` input passed to a shared pipeline has the
+  script that pipeline will call, and that the two gates whose names carry no recognisable prefix
+  still exist. Every declared-unreachable entry is printed on every run.
+
 - **Two parse-path warning codes for two readings the parser could not defend, both landing on the
   profile safety gate** (`ASTM-FRAME-RESIDUALS`, defects 4 and 11). Both are additive: no existing
   warning was removed or renamed, no split changed, and every extracted value is byte-identical to
