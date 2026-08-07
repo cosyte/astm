@@ -104,7 +104,10 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   up to a status of `final` the sender never wrote there; that is
   `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` (not tolerable either). It stays silent in exactly one
   case, where that trailing escape character heads a sequence this reader RECOGNIZES, which is the
-  escape mechanism working and the only tail on which a stream's escaping can be clean. **That
+  escape mechanism working and the only tail on which a stream's escaping can be clean, **wherever
+  the escape role is a character distinct from the three splitting roles**. Where a header names the
+  escape character in a splitting role too, these codes can fire with neither escape report beside
+  them, and `ASTM_RECORD_DELIMITER_ROLE_COLLISION` is what refuses the stream. **That
   silence is a trade and not a claim that nothing was lost there**: the gained boundary is exactly as
   real, and on that tail it is `warnings: []`, so `R|1|^^^687|28.6&F&|&F&U/L||||F` reads nine fields
   against the competing alignment's eight with a status of `final` and nothing reported at all,

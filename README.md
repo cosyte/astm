@@ -244,7 +244,10 @@ gained repeat or component boundary does reach a modeled slot, and each of those
 its own below. It stays silent in exactly one case,
 where the trailing escape character heads a sequence this reader RECOGNIZES: that is the escape
 mechanism working, and refusing it would refuse well-formed traffic. That is the only tail on which
-a stream's escaping can be clean, which is why it is the only exclusion. **That silence is a trade
+a stream's escaping can be clean, and so the only exclusion, **wherever the escape role is a
+character distinct from the three splitting roles**. Where a header names the escape character in a
+splitting role too, these codes can fire with neither escape report beside them, and what refuses the
+stream is `ASTM_RECORD_DELIMITER_ROLE_COLLISION` instead. **That silence is a trade
 and not a claim that nothing was lost there**: the gained field boundary is exactly as real, and on
 that tail it is `warnings: []`, so `R|1|^^^687|28.6&F&|&F&U/L||||F` reads nine fields against the
 competing alignment's eight and hands back a status of `final` with nothing reported at all. Read

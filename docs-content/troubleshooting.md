@@ -166,8 +166,9 @@ by its own code in the next section. And it stays silent in exactly one case, wh
 escape character past the boundary heads a sequence this reader RECOGNIZES, because the reading
 taken is then the one making sense of those bytes: under a set naming the field separator `F`,
 `28.6&F&F&F&U/L` is that separator escaped, written, and escaped again, which is entirely well
-formed. That is the only tail on which a stream's escaping can be clean, which is why it is the only
-exclusion. **That silence is a trade, not a claim that nothing was lost there**: on that tail the
+formed. That is the only tail on which a stream's escaping can be clean, and so the only exclusion,
+**wherever the escape role is a character distinct from the three splitting roles**; where it is not,
+see "A header declared one character in two delimiter roles" below. **That silence is a trade, not a claim that nothing was lost there**: on that tail the
 gained field boundary is exactly as real and nothing at all is reported, so
 `R|1|^^^687|28.6&F&|&F&U/L||||F` reads nine fields against the other alignment's eight and hands back
 a status of `final` with `warnings: []`. **Treat an escape character sitting next to a delimiter as
