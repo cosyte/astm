@@ -39,6 +39,19 @@
  * refused. That is asserted here rather than assumed, because "three splitting roles" would
  * otherwise read as three reachable collisions.
  *
+ * **WHICH SPLIT GAINS THE BOUNDARY IS A DIFFERENT AXIS FROM WHICH ROLE THE COLLISION IS IN, AND THE
+ * FIRST TWO ARMS OF THIS FILE HELD IT FIXED.** The role a declaration puts the swept character in
+ * decides where the collision is; the role of the delimiter the contested reading gains a boundary
+ * on decides which of the three tail codes fires. They are independent. The two arms above carry the
+ * swept character inside a single field of the carrier, so no field boundary is ever in contest and
+ * `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` is observed **zero** times in either of them, which is
+ * asserted below rather than left to be noticed. Its orphan population was therefore not measured by
+ * the corpus whose zeros certify the correction, even though the correction is stated over all three
+ * codes. The two field arms sweep that axis: the collision stays in the repeat or component role,
+ * where it is expressible, and the gained boundary is on the **field** separator, which the swept
+ * character never is. That is what makes a `SHIFTED_FIELDS` orphan reachable at all, and it is why
+ * the field role being uncollidable does not put the field **code** out of reach.
+ *
  * **It is a report, not a repair, and no guard moves in this file.** No code is added, removed or
  * renamed, no split changes, no extracted value moves, and no stream's disposition changes: every
  * tuple in the orphan class is already refused by the untolerable collision code, before and after.
@@ -165,10 +178,20 @@ interface Tuple {
   readonly declaration: string;
   readonly role: (typeof COLLIDABLE_ROLES)[number];
   readonly arm: "distinct" | "collides";
+  /**
+   * Which split the contested reading gains its boundary on, which is what decides the tail code.
+   * `tail` gains it on the role the swept character was declared into; `field` gains it on the field
+   * separator, so the code observed is `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`.
+   */
+  readonly axis: "tail" | "field";
   readonly raw: string;
   /** Observed, never predicted. */
   readonly seen: readonly string[];
+  /** The one code this tuple is measuring, decided by the axis and not by the declaration alone. */
+  readonly observed: string;
   readonly fires: boolean;
+  /** Any of the three tail codes fired, whichever this tuple was built to observe. */
+  readonly anyTail: boolean;
   /** A tail code fired and neither escape companion did. The retired universal denied these exist. */
   readonly orphan: boolean;
   readonly collides: boolean;
@@ -179,18 +202,23 @@ const tupleOf = (
   role: (typeof COLLIDABLE_ROLES)[number],
   arm: "distinct" | "collides",
   text: string,
+  axis: "tail" | "field",
 ): Tuple => {
   const set = declaredSet(declaration, role, arm);
   const raw = carrier(set.header, text);
   const seen = codes(raw);
-  const fires = seen.includes(ROLE_CODE[role]);
+  const observed = axis === "field" ? SHIFT : ROLE_CODE[role];
+  const fires = seen.includes(observed);
   return {
     declaration,
     role,
     arm,
+    axis,
     raw,
     seen,
+    observed,
     fires,
+    anyTail: seen.some((c) => TAIL_CODES.includes(c)),
     orphan: fires && !seen.some((c) => ESCAPE_COMPANIONS.includes(c)),
     collides: seen.includes(COLLISION),
   };
@@ -206,7 +234,7 @@ const distinctCorpus: readonly Tuple[] = DECLARATION_ALPHABET.flatMap((ch) =>
   COLLIDABLE_ROLES.flatMap((role) =>
     BODY_ALPHABET.flatMap((body) =>
       BODY_ALPHABET.map((tailBody) =>
-        tupleOf(ch, role, "distinct", `28.6&${body}&${ch}&${tailBody}&U/L`),
+        tupleOf(ch, role, "distinct", `28.6&${body}&${ch}&${tailBody}&U/L`, "tail"),
       ),
     ),
   ),
@@ -228,14 +256,62 @@ const collidesCorpus: readonly Tuple[] = DECLARATION_ALPHABET.flatMap((ch) =>
     RUN_LENGTHS.flatMap((n) =>
       PREFIXES.flatMap((prefix) =>
         SUFFIXES.map((suffix) =>
-          tupleOf(ch, role, "collides", `${prefix}${ch.repeat(n)}${suffix}`),
+          tupleOf(ch, role, "collides", `${prefix}${ch.repeat(n)}${suffix}`, "tail"),
         ),
       ),
     ),
   ),
 );
 
-const corpus: readonly Tuple[] = [...distinctCorpus, ...collidesCorpus];
+/**
+ * The **field** axis, which both arms above hold fixed. The contested construct is a run of the
+ * declared escape character, then the **field separator**, then a shorter run of the same character:
+ * the reading taken closes a triple, takes the separator as a boundary and resumes on the tail,
+ * while the competing reading opens its triple one character later and swallows the separator whole.
+ * The tail run is deliberately short, because a run of three or more is itself a triple whose body
+ * is a recognized mnemonic and is therefore the excluded tail.
+ *
+ * **The payload is built from the DECLARED escape character, never from a hardcoded `&`.** That is
+ * the trap this file already caught once: an arm that carries a character the header did not declare
+ * into the escape role is measuring a different package, and reports a comforting zero.
+ */
+const HEAD_RUNS = [3, 4, 5] as const;
+const TAIL_RUNS = [1, 2, 3] as const;
+
+const fieldArm = (arm: "distinct" | "collides"): readonly Tuple[] =>
+  DECLARATION_ALPHABET.flatMap((ch) =>
+    COLLIDABLE_ROLES.flatMap((role) => {
+      const { escape } = declaredSet(ch, role, arm);
+      return HEAD_RUNS.flatMap((n) =>
+        TAIL_RUNS.flatMap((m) =>
+          PREFIXES.flatMap((prefix) =>
+            SUFFIXES.map((suffix) =>
+              tupleOf(
+                ch,
+                role,
+                arm,
+                `${prefix}${escape.repeat(n)}|${escape.repeat(m)}${suffix}`,
+                "field",
+              ),
+            ),
+          ),
+        ),
+      );
+    }),
+  );
+
+/** The field axis with the escape role left at `&`, which is the two-sided control's other side. */
+const fieldDistinctCorpus: readonly Tuple[] = fieldArm("distinct");
+
+/** The field axis with the escape role collided into the declared splitting role. */
+const fieldCollidesCorpus: readonly Tuple[] = fieldArm("collides");
+
+const corpus: readonly Tuple[] = [
+  ...distinctCorpus,
+  ...collidesCorpus,
+  ...fieldDistinctCorpus,
+  ...fieldCollidesCorpus,
+];
 
 describe("the corpus itself, or its zeros certify nothing", () => {
   it("sweeps the escape role, which is the axis every other corpus in this family fixes", () => {
@@ -253,7 +329,17 @@ describe("the corpus itself, or its zeros certify nothing", () => {
         PREFIXES.length *
         SUFFIXES.length,
     );
-    for (const arm of [distinctCorpus, collidesCorpus]) {
+    for (const arm of [fieldDistinctCorpus, fieldCollidesCorpus]) {
+      expect(arm).toHaveLength(
+        DECLARATION_ALPHABET.length *
+          COLLIDABLE_ROLES.length *
+          HEAD_RUNS.length *
+          TAIL_RUNS.length *
+          PREFIXES.length *
+          SUFFIXES.length,
+      );
+    }
+    for (const arm of [distinctCorpus, collidesCorpus, fieldDistinctCorpus, fieldCollidesCorpus]) {
       expect(arm.filter((t) => t.fires).length).toBeGreaterThan(0);
     }
     // The arms must actually differ in the declaration they emit, or "collides" is a relabelling.
@@ -266,12 +352,33 @@ describe("the corpus itself, or its zeros certify nothing", () => {
     // the string this file built, so a corpus that mislabels an arm cannot pass.
     for (const t of corpus) expect(t.collides).toBe(t.arm === "collides");
   });
+
+  it("observes the field code nowhere in the two arms that used to be the whole corpus", () => {
+    // THE BLIND SPOT, MEASURED RATHER THAN DESCRIBED. The correction this file certifies is stated
+    // over all three tail codes, and for a while the corpus carrying it never once observed
+    // `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`: both arms keep the contested construct inside a single
+    // field of the carrier, so no field boundary is ever in contest. This assertion reds if either
+    // of those two arms ever starts reaching the field split, which would mean the field arms below
+    // are no longer the only thing measuring it.
+    for (const t of [...distinctCorpus, ...collidesCorpus]) {
+      expect({ raw: t.raw, sawFieldCode: false }).toEqual({
+        raw: t.raw,
+        sawFieldCode: t.seen.includes(SHIFT),
+      });
+    }
+    // And the field arms observe exactly that code, or they are measuring the same axis again under
+    // a different name.
+    for (const t of [...fieldDistinctCorpus, ...fieldCollidesCorpus])
+      expect(t.observed).toBe(SHIFT);
+    for (const t of [...distinctCorpus, ...collidesCorpus]) expect(t.observed).not.toBe(SHIFT);
+  });
 });
 
 describe("the retired universal, refuted", () => {
   it("pins this file's own corpus figures", () => {
     // `#defect-12`'s standing trap is that a corpus moves every figure, so name the corpus by a
-    // constant that is IN THE TREE: these are `distinctCorpus` and `collidesCorpus` above.
+    // constant that is IN THE TREE: these are `distinctCorpus`, `collidesCorpus`,
+    // `fieldDistinctCorpus` and `fieldCollidesCorpus` above.
     expect(distinctCorpus).toHaveLength(2304);
     expect(distinctCorpus.filter((t) => t.fires)).toHaveLength(1536);
     expect(distinctCorpus.filter((t) => t.orphan)).toHaveLength(0);
@@ -280,17 +387,35 @@ describe("the retired universal, refuted", () => {
     expect(collidesCorpus.filter((t) => t.fires)).toHaveLength(648);
     expect(collidesCorpus.filter((t) => t.orphan)).toHaveLength(288);
 
+    // The field axis, on the same footing. These are the figures for the population the two arms
+    // above cannot reach, and they are pinned rather than bounded so that a drift reds the suite.
+    expect(fieldDistinctCorpus).toHaveLength(1296);
+    expect(fieldDistinctCorpus.filter((t) => t.fires)).toHaveLength(432);
+    expect(fieldDistinctCorpus.filter((t) => t.orphan)).toHaveLength(0);
+
+    expect(fieldCollidesCorpus).toHaveLength(1296);
+    expect(fieldCollidesCorpus.filter((t) => t.fires)).toHaveLength(360);
+    expect(fieldCollidesCorpus.filter((t) => t.orphan)).toHaveLength(144);
+
     // The property the whole correction turns on, over the union.
     expect(corpus.filter((t) => t.orphan && !t.collides)).toHaveLength(0);
   });
 
   it("fires a tail code with neither escape companion, which the universal said was unreachable", () => {
     const orphans = corpus.filter((t) => t.orphan);
-    expect(orphans.length).toBeGreaterThan(0);
+    expect(orphans).toHaveLength(288 + 144);
     // Every one of them is on the colliding arm. That is the whole scope of the correction: the
     // sentence is true wherever the escape role is a character distinct from the three splitting
     // roles, and false only where it is not.
     for (const t of orphans) expect(t.arm).toBe("collides");
+    // And the orphan class is not confined to the two codes the first two arms observe. Each of the
+    // three is reached by at least one orphan, which is what the file's zeros now certify over.
+    for (const code of TAIL_CODES) {
+      expect({ code, reached: true }).toEqual({
+        code,
+        reached: orphans.some((t) => t.observed === code),
+      });
+    }
   });
 
   it("holds tuple for tuple wherever the escape role is distinct, which is where it is now scoped", () => {
@@ -320,11 +445,33 @@ describe("the retired universal, refuted", () => {
       COMPONENTS,
     );
   });
+
+  it("names a field-code orphan in full, on a declaration whose collision is in another role", () => {
+    // The population the two original arms could not reach, reproducible by hand. `H|F^F` names `F`
+    // as the repeat separator AND as the escape character, so the collision is in the repeat role,
+    // while the boundary the readings disagree about is on the FIELD separator, which `F` is not.
+    // The reading taken closes `FFF` and takes the `|`; the competing one opens its triple a
+    // character later and swallows the `|` whole. The trailing `F` heads no interpretable sequence,
+    // so the field code fires, and the repeat split has already claimed every one of those bytes, so
+    // neither escape reporter has anything to say.
+    const raw = "H|F^F\rP|1||LAB-0001\rC|1|I|FFF|F|G\rL|1|N\r";
+    const seen = codes(raw);
+    expect(seen).toContain(SHIFT);
+    expect(seen).toContain(COLLISION);
+    for (const companion of ESCAPE_COMPANIONS) expect(seen).not.toContain(companion);
+    // Lengthening the tail run to three makes it a triple whose body is a recognized mnemonic, which
+    // is the excluded tail, so the code goes silent. Recorded because it shows the field orphan is a
+    // property of the geometry here too, exactly as it is on the run arm above.
+    expect(codes("H|F^F\rP|1||LAB-0001\rC|1|I|FFF|FFF|G\rL|1|N\r")).not.toContain(SHIFT);
+  });
 });
 
 describe("what replaces it, and it is weaker in exactly one place", () => {
   it("never fires a tail code alone: an escape companion or the collision, on every firing tuple", () => {
-    for (const t of corpus.filter((x) => x.fires)) {
+    // Read on `anyTail` rather than on the code each tuple was BUILT to observe, so a tuple that
+    // raises a tail code the arm was not aimed at is inside the claim too. Reading it on `fires`
+    // would let exactly that kind of tuple out through the same door this slice is closing.
+    for (const t of corpus.filter((x) => x.anyTail)) {
       expect({
         raw: t.raw,
         accompanied: true,
@@ -333,6 +480,11 @@ describe("what replaces it, and it is weaker in exactly one place", () => {
         accompanied: t.seen.some((c) => ESCAPE_COMPANIONS.includes(c)) || t.collides,
       });
     }
+    // And `anyTail` is a strictly wider population than `fires` on this corpus, or the widening
+    // above is a no-op dressed up as a strengthening.
+    expect(corpus.filter((t) => t.anyTail).length).toBeGreaterThan(
+      corpus.filter((t) => t.fires).length,
+    );
   });
 
   it("refuses no stream whose escaping and declaration are both clean, which is the defence", () => {
@@ -349,11 +501,16 @@ describe("what replaces it, and it is weaker in exactly one place", () => {
           ].includes(c),
         ),
     );
-    expect(clean.length).toBeGreaterThan(0);
-    expect(clean.filter((t) => t.fires)).toHaveLength(0);
     // And a clean tuple needs both bodies recognized, so the population is the mnemonic square of
-    // the distinct arm. Derived from the alphabets, never typed in.
+    // the tail axis's distinct arm. DERIVED from the alphabets, never typed in, and pinned rather
+    // than merely bounded: a lower bound of one cannot go red when the population moves, which is
+    // the whole defect this slice is closing on its sibling file.
+    expect(clean).toHaveLength(
+      MNEMONICS.length ** 2 * DECLARATION_ALPHABET.length * COLLIDABLE_ROLES.length,
+    );
+    expect(clean.filter((t) => t.anyTail)).toHaveLength(0);
     for (const t of clean) expect(t.arm).toBe("distinct");
+    for (const t of clean) expect(t.axis).toBe("tail");
   });
 
   it("changes no stream's disposition, because the collision already refused every orphan", () => {
@@ -424,7 +581,7 @@ describe("negative controls, run rather than declared", () => {
         RUN_LENGTHS.flatMap((n) =>
           PREFIXES.flatMap((prefix) =>
             SUFFIXES.map((suffix) =>
-              tupleOf(ch, role, "distinct", `${prefix}${ch.repeat(n)}${suffix}`),
+              tupleOf(ch, role, "distinct", `${prefix}${ch.repeat(n)}${suffix}`, "tail"),
             ),
           ),
         ),
@@ -436,6 +593,36 @@ describe("negative controls, run rather than declared", () => {
     // about nothing.
     expect(TAIL_CODES).toContain(ROLE_CODE.repeat);
     expect(TAIL_CODES).toContain(ROLE_CODE.component);
+  });
+
+  it("fails when the field arm is perturbed back to a distinct escape role", () => {
+    // The same two-sided control on the axis this slice adds, and it is not the same control: the
+    // field arm's payload is built from the DECLARED escape character, so perturbing the role
+    // perturbs the bytes with it. That is deliberate. A carrier that kept emitting the collided
+    // character while the header declared `&` would carry no escape sequences at all and report a
+    // comforting zero, which is the vacuous control this file caught in itself once already.
+    expect(fieldDistinctCorpus.filter((t) => t.orphan)).toHaveLength(0);
+    expect(fieldCollidesCorpus.filter((t) => t.orphan).length).toBeGreaterThan(0);
+    // Both sides have to fire, or the zero is a zero about a population that never reached the code.
+    expect(fieldDistinctCorpus.filter((t) => t.fires).length).toBeGreaterThan(0);
+    expect(fieldCollidesCorpus.filter((t) => t.fires).length).toBeGreaterThan(0);
+  });
+
+  it("fails when the field arm's boundary is measured on the wrong delimiter role", () => {
+    // The field arm claims its contested boundary is on the FIELD separator. Rebuilding it with the
+    // component separator in place of the `|` has to move the observed population off the field
+    // code, or the arm is not measuring the role it names.
+    const wrongRole = DECLARATION_ALPHABET.flatMap((ch) =>
+      COLLIDABLE_ROLES.flatMap((role) => {
+        const { escape } = declaredSet(ch, role, "collides");
+        return HEAD_RUNS.flatMap((n) =>
+          TAIL_RUNS.map((m) =>
+            tupleOf(ch, role, "collides", `${escape.repeat(n)}^${escape.repeat(m)}`, "field"),
+          ),
+        );
+      }),
+    );
+    expect(wrongRole.filter((t) => t.fires)).toHaveLength(0);
   });
 
   it("uses a mnemonic set the corpus actually exercises, so the alphabet is not decorative", () => {

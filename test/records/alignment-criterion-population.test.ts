@@ -254,9 +254,11 @@ const cleanTails = 1;
  * covers exactly one role, and the three columns are mutually disjoint. Every count is derived from
  * the corpus constants rather than written down, so a later axis moves them with it. **All three
  * splitting roles are wired now, so `tailRoles` has reached its ceiling: there is no fourth role,
- * because nothing splits on the escape role. `tailTails` has reached its ceiling too: the third
- * tail is the one on which a stream can be escape-clean, and refusing those is the over-refusal
- * this whole file exists to record.**
+ * because nothing splits on the escape role. `tailTails` has reached its ceiling too: on the
+ * declarations this corpus reaches, which hold the escape role at `&`, the third tail is the one on
+ * which a stream can be escape-clean, and refusing those is the over-refusal this whole file exists
+ * to record. What that scope is worth is measured in
+ * `test/records/alignment-companion-universal.test.ts` rather than restated here.**
  *
  * Every figure below that names an acceptance is re-derived against that, rather than left quoting
  * a base that no longer exists. **Never quote one of these numbers against a different sha.**

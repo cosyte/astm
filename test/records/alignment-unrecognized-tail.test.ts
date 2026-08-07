@@ -22,9 +22,11 @@
  * a reading that resumes on a bare escape character has.
  *
  * **WHAT STAYS SILENT, AND IT IS THE WHOLE OF THE OVER-REFUSAL ARGUMENT.** The third tail, where the
- * escape character heads a sequence this codec **recognizes**, is untouched. That is the only tail
- * on which a stream can be escape-clean at all, so it is the only one whose refusal could reach
- * traffic whose escaping is working. Under a set naming the field separator `F`, `28.6&F&F&F&U/L` is
+ * escape character heads a sequence this codec **recognizes**, is untouched. On the declarations
+ * this corpus reaches it is the only tail on which a stream can be escape-clean, so it is the only
+ * one whose refusal could reach traffic whose escaping is working; the bound on that is measured in
+ * `test/records/alignment-companion-universal.test.ts` and is not restated here. Under a set naming
+ * the field separator `F`, `28.6&F&F&F&U/L` is
  * the sender escaping that separator, writing it, and escaping it again: nothing is reported and
  * nothing is refused. Refusing that is the failure that sank a preceding candidate criterion for
  * this family, and the criterion here **cannot** commit it: wherever the escape role is a character
