@@ -2224,7 +2224,7 @@ what a consumer is shown, and the string appears **zero** times in `dist/index.d
 scoped here, at no cost to any published surface. **Check which kind of comment a sentence is before
 deferring it for being shipped.**
 
-**The same check retired a claim-about-a-claim one paragraph above it.** The doc block on the
+**The same check retired a claim-about-a-claim in the same file.** The doc block on the
 private `headsInterpretableSequence` read "this is the single place that says what happens there",
 which `README.md` and
 `docs-content/limitations.md` had already falsified, and which this slice would have falsified again.
@@ -2242,7 +2242,7 @@ cannot", "structurally out of reach", "on no escape-clean stream at all"), and a
 "only" near "escape-clean" cannot see it.
 
 **Pass 2: the REMEDY falsified three more of them, and that is the part that generalizes.** Scoping
-the `escapes.ts` comment was right, but three surviving sentences said the slice was confined to
+the `escapes.ts` comment was right, but surviving sentences said the slice was confined to
 `test/` and that `src/` was byte-identical, so **the fix turned the slice's own record false.** **An
 enumeration of where a change lives is a claim that every later edit can break, and it buys
 nothing.** Both dispositions were **DELETION**, per the standing rule, never a longer list: what
