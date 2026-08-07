@@ -166,6 +166,7 @@ describe("the fabricated status, measured against both alignments of the same by
     const leftmost = splitEscapeAware(FABRICATED_RECORD, "|", "&");
     const competing = competingSplit(FABRICATED_RECORD, "|", "&");
     // The boundary the reading GAINED: one more field, and every field after it shifted one place.
+    // ONE contested construct, so ONE place. Not a universal: see `alignment-offset-rephasing.test.ts`.
     expect(leftmost).toHaveLength(competing.length + 1);
     // Field 9 (the result status) exists under the reading taken and does not exist under the other.
     // That is the whole defect: the letter is the sender's, the SLOT is the alignment's.
@@ -346,8 +347,13 @@ describe("the streams it must NOT touch, which is what the tail axis decides", (
     const seen = codes(residue);
     expect(seen).toContain(SHIFT);
     // The harm is the same harm, measured rather than asserted: 9 fields against the competing
-    // alignment's 8, every later field one place right, and a status in a slot the other reading
-    // does not have. Identical to the bare-tail fixture at the top of this file.
+    // alignment's 8, and a status in a slot the other reading does not have. Identical to the
+    // bare-tail fixture at the top of this file.
+    //
+    // THE `+ 1` HERE IS THIS FIXTURE'S FIGURE, NOT A UNIVERSAL, and writing it as one was a defect
+    // on three consumer surfaces. This record carries exactly ONE contested construct, as every
+    // corpus in this family does; a record carrying two is displaced by two. The displacement is
+    // swept in `alignment-offset-rephasing.test.ts` and stated once on `ShiftedFieldsSink`.
     const line = "R|1|^^^687|28.6&F&|&Z&U/L||||F";
     expect(splitEscapeAware(line, "|", "&")).toHaveLength(
       competingSplit(line, "|", "&").length + 1,

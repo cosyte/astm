@@ -1897,6 +1897,7 @@ the escape role is a character distinct from the three splitting roles"; the col
 already `ASTM_RECORD_DELIMITER_ROLE_COLLISION`. (2) "One place further right" **understates where a
 second contested construct follows and the competing alignment re-phases**: `A&Z&|&BX&Z&|&F&C` reads
 three fields against one. Breaks identically at base. Both want their own slice.
+**BOTH CLOSED 2026-08-07 in their own slice; see `#defect-17-claim-residuals` below.**
 
 **▶ THE GENERAL RULE, WHICH IS WHAT TO CARRY FORWARD.** **Recording a refuted universal in the test
 that refuted it is not the same as correcting the claims that rested on it**, and **the correction is
@@ -1982,6 +1983,161 @@ slice rather than being relocated.
 raised:** raising it is a deliberate act needing its own commit and its own argument. **Do not write
 the current byte count here**: it was recorded once before and was stale within the same slice, twice
 over. **Derive it: `wc -c astm/CLAUDE.md` against that repo's `REPO_CLAUDE` entry.**
+
+<a id="defect-17-claim-residuals"></a>
+
+### Defect 17's two claim residues, closed 2026-08-07
+
+Both were named by the third refuter pass on the tail-residue slice, tagged `PRE-EXISTING`, and
+backlogged there rather than closed. Neither was ever a guard defect. **No guard moved in this slice
+either**: no code added, removed or renamed, no split changed, no extracted value moved, no stream's
+disposition changed, and no public surface moved. **These are residues OF defect 17, not a new
+occurrence**, so defect 8's count of the times the claim rather than the guard was the defect is
+unchanged and must not be bumped for this slice.
+
+**▶ (1) THE COMPANION UNIVERSAL, AND THE CORPORA ALL FIXED THE AXIS THAT BREAKS IT.** The three tail
+codes rest on one defence against over-refusal: firing requires an escape character heading no
+sequence this codec can interpret, and the package already reports each of those, so a stream whose
+escaping raises nothing can never be refused. Every corpus in this family declares its swept
+character into one of the three splitting roles and **leaves the escape role at `&`**, so none of
+them could see a declaration naming the escape character in a splitting role too. There one byte both
+opens a sequence and ends a segment, the split claims it first, and neither escape report ever sees a
+sequence to raise: **a tail code fires with neither companion.** Measured exhaustively over all four
+role assignments during the build, and pinned on the committed corpus so every figure quoted anywhere
+is re-derivable from the tree (`alignment-companion-universal.test.ts` asserts its own): **distinct
+arm 2,304 tuples, 1,536 fire, 0 orphans; collides arm 1,008 tuples, 648 fire, 288 orphans; 0 orphan in
+either arm lacking `ASTM_RECORD_DELIMITER_ROLE_COLLISION`** (which is not tolerable). So the defence survives in the
+form it was needed in, **no stream whose escaping AND whose declaration are both clean is refused by
+a tail code**, and not in the form it was written in.
+
+**🔴 THE REPLACEMENT IS SCOPED TO THE STREAM AND IS FALSE PER MESSAGE, WHICH IS THE SHARP EDGE AND
+WAS NOT IN THE BACKLOG LINE.** The collision is reported **once per set change, not once per
+record**. A second header re-declaring the same colliding set raises nothing while the tail codes in
+its message fire again, so a consumer scoping warnings to a message sees one of the three codes
+standing entirely alone, with no companion and no collision in that message's own record range.
+Measured: on a two-message stream the collision sits at `recordIndex` 0 and the second message's tail
+code at `recordIndex` 5 with nothing beside it. **Never write the replacement without its scope.**
+
+**Also measured, because "three splitting roles" reads as three reachable collisions:** the **field**
+role cannot collide with the escape role at all. The declaration is the three characters after the
+field separator and **stops at the next occurrence of that separator**, so such a header terminates
+itself one character short and is refused outright. The collides arm therefore has **two** roles.
+
+**The orphan class is a run, not an independent tail axis**, which is why the two arms of the corpus
+are deliberately different shapes: on a colliding set the escape character and the splitting
+delimiter are the same byte, so the body and tail axes collapse into the length of the run of that
+byte. Sweeping the collides arm on the distinct arm's shape holds its only real axis fixed and
+reports a comforting zero, which is the mistake this file exists to correct. **A run of 5 fires as an
+orphan and a run of 7 does not**, so the class is a property of the geometry and not of the
+declaration alone.
+
+**▶ (2) "ONE PLACE FURTHER RIGHT" IS A FLOOR, NOT A FIGURE, AND IT IS WRONG IN BOTH DIRECTIONS.**
+The tie class (offset **zero**) was already named and measured. The other direction was not: every
+corpus in this family carries **exactly one contested construct per record**. The competing reading
+resumes a character further on at each contested position, so it falls further out of step and the
+gap widens **once per construct**. `A&Z&|&BX&Z&|&F&C` reads **three** fields against **one**, and a
+chain of n constructs displaces by **n**, measured to n = 6.
+
+**🔴 THE NUMBER OF WARNINGS IS NOT THE DISPLACEMENT EITHER, IN EITHER DIRECTION, AND THIS IS THE PART
+A READER WOULD HAVE GUESSED WRONG.** Over **3,072** firing tuples on a two-construct corpus:
+**1,568** carry **one** warning on a displacement of **two** (a gained boundary whose tail is a
+recognized mnemonic is excluded from the report and still displaces, which is the standing
+over-refusal defence doing exactly what it is for), and **320** carry **two** warnings on a
+displacement of **one** (one of the constructs is a tie). **A consumer cannot recover the offset by
+counting, and every corrected surface says to read the raw line instead.**
+
+**The harm is not academic and it is two-directional, on one code.** On
+`R|1|^^^687|28.6&F&|&Z&U/L||||F` the sender's trailing `F` lands **in** the status slot and reads
+`final`, which is the fabrication `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` was written for. On
+`R|1|^^^687|28.6&Z&|&BX&Z&|&F&U/L||||F` the same displacement runs **twice**, the `F` **overshoots**
+the status slot, and the status reads `unspecified`. Same code, opposite outcomes, and the retired
+sentence about the size of the displacement is what a reader would have used to tell them apart.
+
+**▶ 🔴 THE FIRST PASS OF THIS SLICE WAS REFUTED, AND ON EXACTLY THE TRAP THE ITEM NAMES. READ THIS
+BEFORE THE NEXT CLAIM CORRECTION.** Two things went wrong and both generalize.
+
+**(a) THE MAGNITUDE WAS PARAPHRASED IN THREE VOCABULARIES AND THE FIRST SWEEP ONLY KNEW ONE.** A
+newline-folded grep for `one place further right` finds a fraction of the claim. The same fact was
+also written **"shifts every later field one place"** and **"moves one slot along"**, and those two
+carried most of the surviving copies: **nineteen** across `escapes.ts`, `warnings.ts` (including the
+three `WARNING_CODES` **registry entries**, which are the primary surface a consumer reads, and the
+three runtime messages), `safety.ts`, `reference-corpus.ts` (a runtime **string**), `parse.ts`,
+`tokenize.ts`, `README.md`, and **all three** of `docs-content/troubleshooting.md`, `quickstart.md`
+and `limitations.md`, the last two of which the first pass never touched and which ship in the
+**immutable** docs tarball. **SWEEP THE FACT, NOT THE PHRASE: enumerate every wording the fact has
+ever been written in before grepping, and grep each.**
+
+**(b) THE CORRECTION ASSERTED ITS OWN COMPLETENESS AND WAS FALSE WHEN WRITTEN.** The new paragraph
+said "THIS IS THE ONE PLACE IN THE PACKAGE THAT STATES IT" while eight other places still stated it,
+two of them **in the same doc comment**. **A completeness claim is itself a claim, it is the easiest
+kind to falsify, and it buys nothing.** The wording now says what the other surfaces do (name the
+KIND of cost) rather than asserting a count of where the magnitude appears.
+
+**(c) A THIRD, SMALLER ONE: THE CORRECTION FOR HOLE 1 WAS PUT ON A PRIVATE FUNCTION** and reached no
+consumer, while the retired universal stood on four **exported** doc comments. **Check that a
+correction lands in `dist/index.d.ts` when the sentence it replaces does.**
+
+**▶ THE SINK RULE, AS APPLIED AFTER THE REFUTATION.** Every other surface names the **KIND** of cost
+(fields shift, the field truncates, components move along the list) and leaves the **MAGNITUDE** to
+one paragraph, on the **exported** `ShiftedFieldsSink`, which all three warning factories already
+point at. Both corrections live there, so both reach `dist/index.d.ts`. That removed restatements
+rather than adding a qualifier to each, which is the whole point of the rule.
+
+**🔴 "AT LEAST ONE PLACE" WAS REJECTED AS THE REPLACEMENT WORDING, AND IT WAS THE OBVIOUS ONE.** It
+**contradicts the tie class named in the same sentence**, where the displacement is zero, and the
+predecessor's hedge ("usually one place") was at least internally consistent. The refuter caught it
+on the runtime messages. Every corrected surface now says the displacement is **not fixed** and names
+its **three** values (zero on the tie class, one on a single construct, one more per additional
+construct). The three runtime **messages** cannot point at a symbol, so they carry that in full and
+tell the operator that counting these warnings does not give the displacement. No gate in this repo
+reads a message for truth.
+
+**▶ RED BEFORE, GREEN AFTER, AGAINST THE RETIRED ASSERTIONS VERBATIM.** Both holes were pinned by
+running the committed assertions that encoded them on the swept axes:
+`alignment-shifted-fields.test.ts`'s `leftmost.length === competing.length + 1` reads **10 against an
+expected 9**, and `alignment-unrecognized-tail.test.ts`'s companion assertion reads **false**. Both
+files now **scope** those assertions to the corpus that measures them rather than stating them as
+universals; neither assertion was deleted, because each is still true of its own fixture and that is
+the point.
+
+**▶ THE MEASUREMENT FILES AND THEIR CONTROLS.** `test/records/alignment-companion-universal.test.ts`
+and `test/records/alignment-offset-rephasing.test.ts`, each sweeping the axis its family's corpora
+hold fixed. Both carry the standing `maximalTolerance` control, built by spreading this package's own
+`TOLERABLE_CODES` so a copy pointed at a sibling parser fails on the spread. The companion file adds
+a two-sided perturbation (the collides arm re-run with the escape role moved back to `&`, which must
+empty the orphan class) and a wrong-role control; the offset file adds a wrong-delimiter-role control
+and asserts the transcribed competing split reproduces its input bytes. **One control was caught
+vacuous during the build**: the corpus carrier originally hardcoded `&` as the escape character while
+the collides arm declared another, so that arm carried no escape sequences at all and reported zero
+orphans. **A corpus that builds its payload from anything other than the declared set is measuring a
+different package.**
+
+**▶ THREE `PRE-EXISTING` LINES THE THREE PASSES NAMED, BACKLOGGED, NOT CLOSED HERE.** (1) The
+unqualified retired universal ("the only tail on which a stream can be escape-clean at all") survives
+verbatim in **three test comments**: `alignment-shifted-components.test.ts`,
+`alignment-shifted-fields.test.ts` and `alignment-truncated-field.test.ts`. Not shipped, false in the
+same way the nine corrected surfaces were. (2) `alignment-companion-universal.test.ts` wires only
+`repeat` and `component`, so the **`ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` orphan population is never
+measured by the corpus whose zeros certify the correction** (pass 3 found 128 such orphans by its own
+sweep and confirmed the claim holds on them, so this is coverage, not falsity). (3) The three figures
+the changelog and changeset quote from `alignment-offset-rephasing.test.ts` (**3,072 / 1,568 / 320**)
+are asserted only as `toBeGreaterThan(0)` there, so they can drift with the suite staying green;
+`alignment-companion-universal.test.ts` pins its own with `toHaveLength` and is the pattern to copy.
+
+**▶ 🔴 THE SHAPE WARNING PASS 3 LEFT, WHICH IS WORTH MORE THAN ITS FINDINGS.** Each of the three
+passes found one more **claim about a claim** ("this is the one place that states it", "the only
+figures any surface may quote", "neither speaks for the other"), none of which any test can hold
+true. **That is a shape problem, not a hardening problem.** The rule that falls out of it, and it is
+the one to carry into the next claim correction on this family: **when a claim-about-coverage is
+wrong, DELETE it rather than repair it.** A repair is a fourth assertion of the same kind. The last
+one was deleted rather than rewritten, on pass 3's own recommendation.
+
+**▶ WHAT WAS DELIBERATELY NOT TAKEN, all still open.** Withholding the shifted, truncated or moved
+slots (changes an extracted value on a published package and cascades into
+`ASTM_RECORD_UNITS_ABSENT`); narrowing `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, which still fires
+where no field is truncated (renaming a stable code is breaking, and narrowing changes which streams
+a published package refuses); and **defect 9**. **The pair-count criterion stays REJECTED over 864
+tuples and must not be re-proposed.**
 
 <a id="defects-closed-elsewhere"></a>
 

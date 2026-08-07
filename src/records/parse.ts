@@ -375,8 +375,8 @@ function buildRecord(
   // character the reading resumes on heads no sequence this codec can INTERPRET (none at all, or one
   // whose body is not a recognized mnemonic and is therefore preserved verbatim rather than read),
   // the boundary was bought with bytes the reading cannot read, and on the FIELD separator that
-  // boundary shifts every later field one
-  // place: on an `R` the sender's trailing status letter lands in field 9 under this reading and in
+  // boundary shifts every later field, by a displacement that is not fixed:
+  // on an `R` the sender's trailing status letter lands in field 9 under this reading and in
   // no field at all under the other, so a `final` can be an artifact of the alignment. Fires
   // alongside the two above, never instead of them.
   const onAlignmentShiftedFields = (fieldIndex: number): void => {
@@ -396,7 +396,7 @@ function buildRecord(
   };
   // The same contested position and the same tail test a third time, on the COMPONENT separator,
   // where the cost is a third thing again. Nothing leaves the record and no field number changes:
-  // every component after the gained boundary moves one slot along, because components are modeled
+  // every component after the gained boundary moves along the component list, because components are modeled
   // INSIDE a field. So a Universal Test ID's coding scheme and local code, and a patient's given
   // and middle names, are read out of positions the competing alignment does not put them in.
   // Fires alongside the others, never instead of them.

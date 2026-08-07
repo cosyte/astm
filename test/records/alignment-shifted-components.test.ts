@@ -200,6 +200,9 @@ describe("the moved slots, measured against both alignments of the same bytes", 
     const competing = competingSplit(MOVED_IDENTITY_FIELD, "^", "&");
     // The boundary the reading GAINED: one more component, and every component after it one place
     // further right. Nothing left the record and no field number moved.
+    // ONE contested construct in this field, so ONE place. The `+ 1` is this fixture's figure and
+    // NOT a universal: a field carrying two constructs is displaced by two. Swept in
+    // `alignment-offset-rephasing.test.ts`, stated once on `ShiftedFieldsSink`.
     expect(leftmost).toHaveLength(competing.length + 1);
 
     const id = results(parseAstmRecords(MOVED_IDENTITY))[0]?.universalTestId;

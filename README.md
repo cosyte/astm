@@ -244,7 +244,10 @@ gained repeat or component boundary does reach a modeled slot, and each of those
 its own below. It stays silent in exactly one case,
 where the trailing escape character heads a sequence this reader RECOGNIZES: that is the escape
 mechanism working, and refusing it would refuse well-formed traffic. That is the only tail on which
-a stream's escaping can be clean, which is why it is the only exclusion. **That silence is a trade
+a stream's escaping can be clean, and so the only exclusion, **wherever the escape role is a
+character distinct from the three splitting roles**. Where a header names the escape character in a
+splitting role too, these codes can fire with neither escape report beside them, and what refuses the
+stream is `ASTM_RECORD_DELIMITER_ROLE_COLLISION` instead. **That silence is a trade
 and not a claim that nothing was lost there**: the gained field boundary is exactly as real, and on
 that tail it is `warnings: []`, so `R|1|^^^687|28.6&F&|&F&U/L||||F` reads nine fields against the
 competing alignment's eight and hands back a status of `final` with nothing reported at all. Read
@@ -285,8 +288,10 @@ read as more repeats at all, and that class was already refused by
 survive a re-emit either: catch it on the first read.
 
 **And where that gained boundary is a COMPONENT boundary, nothing leaves the record and the slots
-MOVE.** Components are modeled inside a field, so every component after the gained boundary sits one
-place further right than the competing alignment puts it. On the canonical set,
+MOVE.** Components are modeled inside a field, so every component after the gained boundary sits
+further right than the competing alignment puts it, by a displacement that is **not fixed**: one
+place where the field carries a single contested construct, one more for each additional one, and
+none at all on the tie class. Counting warnings does not give it. On the canonical set,
 `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal Test ID of four components, so `L` is the coding
 scheme and `687` the vendor's local code; the competing alignment reads three, and `687` is the
 **coding scheme**. A code-system selector and a vendor's local code are not the same thing.
@@ -407,15 +412,15 @@ outside it:
   where the leftmost alignment lets a delimiter split that a competing alignment would have held,
   gains a boundary instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also
   not tolerable. Where that gained boundary is a **field** boundary and the reading taken resumes on
-  an escape character heading no sequence it can interpret, every later field shifts one place and a
+  an escape character heading no sequence it can interpret, every later field shifts and a
   result's units
   and status are read out of slots the other alignment does not put them in: that raises
   `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable either. Where it is a **repeat** boundary
   nothing shifts, but the field is read out of its first repeat alone, so a gained first boundary
   truncates a value and costs a test identity or a patient name the components that sat after it:
   that raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either. Where it is a
-  **component** boundary nothing leaves the record and every component after it moves one slot
-  along, so a coding scheme, a vendor local code or a given name is read out of a position the other
+  **component** boundary nothing leaves the record and every component after it moves along the
+  component list, so a coding scheme, a vendor local code or a given name is read out of a position the other
   alignment does not put it in: that raises `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, not
   tolerable either.
 

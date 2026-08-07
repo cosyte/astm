@@ -204,7 +204,7 @@ function toField(
   //
   // The component split below is wired to the THIRD sink on that same predicate, and what it costs
   // is neither of the other two: nothing leaves the record and no field number changes, and every
-  // component after the gained boundary moves one slot along, because `components` IS a component
+  // component after the gained boundary moves along the component list, because `components` IS a component
   // list. So a Universal Test ID's coding scheme and local code, and a patient name's given and
   // middle parts, are read out of positions the competing alignment does not put them in. Unlike
   // the repeat case EVERY gained boundary at or before the LAST MODELED COMPONENT INDEX moves

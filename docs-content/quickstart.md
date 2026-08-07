@@ -137,7 +137,7 @@ for (const w of warnings) {
 > alignment lets a delimiter split that a competing alignment would have held, gains a boundary
 > instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also not tolerable.
 > Where that gained boundary is a **field** boundary and the reading taken resumes on an escape
-> character heading no sequence it can interpret, every later field shifts one place, so a result's
+> character heading no sequence it can interpret, every later field shifts, so a result's
 > units and status
 > are read out of slots the other alignment does not put them in and a status can read `final` where
 > the sender wrote nothing in that slot: `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable
@@ -146,7 +146,7 @@ for (const w of warnings) {
 > boundary truncates a value and costs a Universal Test ID or a patient name the components that sat
 > after it. That is `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either. Where it is a
 > **component** boundary nothing leaves the record and no field number changes, and every component
-> after it moves one slot along, so a test identity's coding scheme and local code, and a patient's
+> after it moves along the component list, so a test identity's coding scheme and local code, and a patient's
 > given and middle names, are read out of positions the other alignment does not put them in. That is
 > `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, not tolerable either, and it completes the set: those
 > three are the three roles a split is taken on. **All three shift claims have one measured
@@ -355,8 +355,8 @@ character heading no sequence it can interpret, so a result's units and status m
 `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` on the subset where it is a **repeat** boundary, where no
 field moves and the field it divides is instead read out of its first repeat alone, and
 `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` on the subset where it is a **component** boundary, where
-nothing leaves the record and every component after it moves one slot along, so a coding scheme or a
-given name is read out of a position the other alignment does not put it in. Emitting
+nothing leaves the record and every component after it moves along the component list, so a coding
+scheme or a given name is read out of a position the other alignment does not put it in. Emitting
 normalizes all
 of them away rather than preserving them, so none reaches a second generation: catch them on the
 first read. The low-level

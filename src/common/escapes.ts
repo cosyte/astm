@@ -77,7 +77,7 @@
  * mnemonic and is therefore preserved verbatim rather than read), the boundary was
  * bought with bytes this reading cannot read, while the competing alignment is
  * precisely the reading that can. On the **field** separator that gained boundary
- * shifts every later field one place, so a result record's units and **result
+ * shifts every later field, so a result record's units and **result
  * status** are read out of slots the competing alignment does not put them in, and
  * a status of `final` can be a consequence of the alignment rather than something
  * the sender wrote there. That is `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`; see
@@ -96,7 +96,7 @@
  *
  * **The same question asked on the component separator has a third answer again, and
  * so a third code.** There the components neither leave the record nor change field
- * number: they move one slot along, because components are modeled *inside* a field.
+ * number: they move along the component list, because components are modeled *inside* a field.
  * A Universal Test ID's coding scheme and local code, and a patient's given and middle
  * names, are then read out of positions the competing alignment does not put them in.
  * That is `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`; see {@link ShiftedComponentsSink},
@@ -207,7 +207,7 @@ export type AmbiguousAlignmentSink = (segmentIndex: number) => void;
  *   and the boundary is bought with bytes this reading cannot read either way.
  *
  * Wired **only to the split taken on the field separator**, because that is the
- * whole of its claim: a gained *field* boundary shifts every later field one place,
+ * whole of its claim: a gained *field* boundary shifts every later field,
  * so a record's modeled slots after it are decided by the alignment rather than by
  * the sender's own positions. On a result record that is the units slot and the
  * **result status** slot: the sender's trailing letter lands in field 9 under the
@@ -222,8 +222,8 @@ export type AmbiguousAlignmentSink = (segmentIndex: number) => void;
  * reported by {@link TruncatedFieldSink}, on the same tail test and under its own
  * code, because what it costs is a different thing. The **component** half is
  * reported by {@link ShiftedComponentsSink}, on that same tail test and under a code of
- * its own again, because what it costs is a third thing: there the components move one
- * slot along rather than leaving the record. The
+ * its own again, because what it costs is a third thing: there the components move along the
+ * component list rather than leaving the record. The
  * callback lets the parser surface a value-free
  * `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` warning. Optional so the split can be used
  * purely.
@@ -250,9 +250,10 @@ export type AmbiguousAlignmentSink = (segmentIndex: number) => void;
  * for this family.
  *
  * **That exclusion is not a matter of degree, which is why it is the only one.** It
- * is the sole tail on which a stream's escaping can be clean at all: on the other
- * two the package already reports a deviation, so this report can never be the
- * reason a well-formed stream is refused. A tail comparison that instead weighs
+ * is the sole tail on which a stream's escaping can be clean at all, wherever the
+ * escape role is a character distinct from the three splitting roles: on the other two
+ * the package already reports a deviation. **Where the escape role is NOT distinct that
+ * reasoning does not hold**; see the companion paragraph on {@link ShiftedFieldsSink}. A tail comparison that instead weighs
  * which alignment the bytes *prefer* would exclude the unrecognized body too (the
  * competing alignment leaves two escape characters bare there against the reading
  * taken's one unreadable body) and it is the wrong question: these codes report a
@@ -267,25 +268,68 @@ export type AmbiguousAlignmentSink = (segmentIndex: number) => void;
  * this bound makes. **Read the raw line when an escape character sits next to a
  * delimiter, whether or not anything fired.**
  *
- * **⚠️ THE SHIFT IS NOT UNIVERSAL OVER THE FIRING POPULATION, AND THE EXCEPTION IS
- * NAMED RATHER THAN LEFT TO BE FOUND.** Where the sequence past the boundary carries
- * the **field separator itself** as its body, the reading taken holds that character
- * inside an opaque atom while the competing alignment splits on it, so the two
- * readings return the **same number** of fields in **different places**: no field
- * index moves, and what differs is the **contents** of the fields at and after the
- * boundary. Under the canonical set `R|1|^^^687|28.6&F&|&|&U/L||||F` reads nine
- * fields under both, with the status `F` in field 9 under both, and units of `&|&U/L`
- * against `&U/L`. That class is bounded and costs no stream its disposition: the tail
- * body is then a splitting delimiter in force, so
- * `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` has already refused the record. What
- * holds on **every** firing tuple is that the two readings disagree and that both
- * consume every byte, so neither is forced.
+ * **⚠️ HOW FAR THE DISPLACEMENT RUNS. Every other surface names the KIND of cost and
+ * leaves the magnitude to this paragraph**, because a restatement is a separate claim
+ * that goes stale on its own, and on this family they have.
+ *
+ * **The displacement is not fixed, and "one place" describes only the single-construct
+ * case the three codes were first measured on.** It takes three values, and two of them
+ * were left out of every surface that quoted a figure:
+ *
+ * - **Zero, on the tie class.** Where the sequence past the boundary carries the
+ *   **field separator itself** as its body, the reading taken holds that character
+ *   inside an opaque atom while the competing alignment splits on it, so the two
+ *   readings return the **same number** of fields in **different places**: no field
+ *   index moves and what differs is the **contents**. `R|1|^^^687|28.6&F&|&|&U/L||||F`
+ *   reads nine fields under both, status `F` in field 9 under both, units `&|&U/L`
+ *   against `&U/L`. That class costs no stream its disposition: the tail body is a
+ *   splitting delimiter in force, so `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` has
+ *   already refused the record.
+ * - **One, on a record carrying exactly one contested construct.** This is the case
+ *   every corpus in this family was built on, and the only one "one place" was ever
+ *   true of.
+ * - **One more for each additional contested construct.** The competing reading resumes
+ *   a character further on at each contested position, so it falls further out of step
+ *   with the reading taken and the gap widens once per construct.
+ *   `A&Z&|&BX&Z&|&F&C` reads **three** fields against **one**.
+ *
+ * **The number of these warnings is not the displacement either, in either
+ * direction.** A gained boundary whose tail is a recognized mnemonic is excluded from
+ * the report and still displaces, so one warning can sit on a displacement of two; and
+ * where one of several constructs is a tie, two warnings can sit on a displacement of
+ * one. A consumer cannot recover the offset by counting. **Read the raw line.**
+ *
+ * What holds on **every** firing tuple is that the two readings disagree, that both
+ * consume every byte so neither is forced, and that the reading taken never reads
+ * **fewer** segments than the competing one. Measured in
+ * `test/records/alignment-offset-rephasing.test.ts`.
+ *
+ * **⚠️ WHICH REPORTS ACCOMPANY THIS ONE, AND THE DECLARATION ON WHICH NONE DOES.** The
+ * exclusion above rests on a defence against over-refusal: firing requires an escape
+ * character heading no sequence this codec can interpret, and the package reports each
+ * of those in its own right, so a stream whose escaping raises nothing is never refused
+ * because of these codes. **That defence is true wherever the escape role is a
+ * character distinct from the three splitting roles, and it is FALSE where it is not.**
+ * On a set naming the escape character in a splitting role too, one byte both opens a
+ * sequence and ends a segment, the split claims it first, and neither
+ * `ASTM_UNPAIRED_ESCAPE_CHARACTER` nor `ASTM_UNKNOWN_ESCAPE_SEQUENCE` ever sees a
+ * sequence to raise: this fires with **neither** companion. What refuses the stream
+ * there is the declaration itself, as `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, which no
+ * profile may tolerate. So the defence survives only in the form **no stream whose
+ * escaping AND whose declaration are both clean is refused by one of these codes.**
+ *
+ * **That replacement is scoped to the STREAM and does not hold per message**: the
+ * collision is reported once per set change rather than once per record, so a second
+ * header re-declaring the same colliding set raises nothing while these codes fire
+ * again in its message. A consumer scoping warnings to a message can therefore see one
+ * of them standing entirely alone. The **field** role cannot collide with the escape
+ * role at all: the declaration is the three characters after the field separator and
+ * stops at the next one, so such a header terminates itself one character short and is
+ * refused. Measured in `test/records/alignment-companion-universal.test.ts`.
  *
  * @param segmentIndex - The 0-based index of the field being accumulated when the
- *   contested boundary was taken. Every field after it is one place further right
- *   than the competing alignment puts it, **except** where the sequence past the
- *   boundary carries the field separator as its body, where the two readings return
- *   the same number of fields with different contents instead.
+ *   contested boundary was taken. For how far the fields after it are displaced, see
+ *   the displacement paragraph above: it is not a fixed one place.
  */
 export type ShiftedFieldsSink = (segmentIndex: number) => void;
 
@@ -341,7 +385,8 @@ export type ShiftedFieldsSink = (segmentIndex: number) => void;
  * the repeat separator `F`, `28.6&F&F&F&U/L` is that separator escaped, written, and
  * escaped again, with nothing reported at all. Refusing that is the over-refusal that
  * sank an earlier candidate criterion for this family, and that tail is the only one
- * on which a stream's escaping can be clean. Where the tail heads a sequence whose
+ * on which a stream's escaping can be clean, on the declarations the companion
+ * paragraph on {@link ShiftedFieldsSink} scopes that to. Where the tail heads a sequence whose
  * body is *unrecognized*, the reading taken consumes a triple it cannot read, the
  * truncation is the same truncation, and this reports it.
  *
@@ -368,7 +413,9 @@ export type ShiftedFieldsSink = (segmentIndex: number) => void;
  *   contested boundary was taken, so `0` is the boundary that ends the first repeat
  *   and is the one that reaches a modeled slot. It is **not** a field index: the
  *   caller splitting one field into repeats already knows which field it is in, and
- *   reports that.
+ *   reports that. For how many repeats the two readings differ by, and why the count
+ *   of these warnings does not give it, see the displacement paragraph on
+ *   {@link ShiftedFieldsSink}.
  */
 export type TruncatedFieldSink = (segmentIndex: number) => void;
 
@@ -384,8 +431,8 @@ export type TruncatedFieldSink = (segmentIndex: number) => void;
  * **What a gained component boundary costs, and it is neither of the other two.** No
  * field number changes, so nothing shifts between field-indexed slots, and nothing
  * leaves the record, so nothing truncates. Components are modeled **inside** a field,
- * so what happens is that every component after the gained boundary is one place
- * further right than the competing alignment puts it, and the slots that indexes into
+ * so what happens is that every component after the gained boundary sits further right
+ * than the competing alignment puts it, and the slots that indexes into
  * are named things: a Universal Test ID's LOINC-candidate slot, test name, **coding
  * scheme** and **local code**; a patient name's last, first and middle. Under the
  * canonical set `&F&^&GLU^L^687` reads four components, so `L` is the coding scheme
@@ -432,7 +479,8 @@ export type TruncatedFieldSink = (segmentIndex: number) => void;
  * separator `F`, `GLU&F&F&F&L` is that separator escaped, written, and escaped again,
  * with nothing reported at all. Refusing that is the over-refusal that sank an earlier
  * candidate criterion for this family, and that tail is the only one on which a
- * stream's escaping can be clean. Where the tail heads a sequence whose body is
+ * stream's escaping can be clean, on the declarations the companion paragraph on
+ * {@link ShiftedFieldsSink} scopes that to. Where the tail heads a sequence whose body is
  * *unrecognized*, the reading taken consumes a triple it cannot read, the slots move
  * exactly as far, and this reports it.
  *
@@ -443,28 +491,24 @@ export type TruncatedFieldSink = (segmentIndex: number) => void;
  * still sit where an alignment guess put them. Reporting it would refuse a stream whose
  * escaping is working.
  *
- * **⚠️ THE MOVE IS NOT UNIVERSAL OVER THE FIRING POPULATION, AND THE EXCEPTION IS NAMED
- * RATHER THAN LEFT TO BE FOUND.** It is a **third** bound running the other way, and it
- * differs from the two above: those two fire where nothing named moves because of where
- * the boundary sits, while this one is about the bytes past it. Where the sequence past
- * the boundary carries the **component separator itself** as its body, the reading taken
- * holds that character inside an opaque atom while the competing alignment splits on it,
- * so the two readings return the **same number** of components in **different places**:
- * no component index moves, and what differs is the **contents**. Under the canonical
- * set `DOE&F&^&^&JANE^A` reads three components under both, with `A` the middle name
- * under both. That class is bounded and costs no stream its disposition: the tail body
- * is then a splitting delimiter in force, so
- * `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` has already refused the record. What holds
- * on **every** firing tuple is that the two readings disagree and that both consume
- * every byte, so neither is forced.
+ * **⚠️ HOW FAR THE COMPONENTS MOVE IS THE DISPLACEMENT {@link ShiftedFieldsSink}
+ * STATES, READ ON THE COMPONENT SEPARATOR.** It is not fixed, and it takes three values
+ * and not one: zero on the tie class (`DOE&F&^&^&JANE^A` reads three
+ * components under both, with `A` the middle name under both, and
+ * `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` has already refused that record), and
+ * more than one once a field carries more than one contested construct. That paragraph
+ * is not repeated here on purpose: it is one claim, stated where the link points.
+ *
+ * This third bound differs from the two above in what it is about: those two fire where
+ * nothing named moves because of where the boundary **sits**, while the tie class is
+ * about the bytes **past** it. What holds on **every** firing tuple is that the two
+ * readings disagree and that both consume every byte, so neither is forced.
  *
  * @param segmentIndex - The 0-based index of the component being accumulated when the
- *   contested boundary was taken. Every component after it is one place further right
- *   than the competing alignment puts it, **except** where the sequence past the
- *   boundary carries the component separator as its body, where the two readings return
- *   the same number of components with different contents instead. It is **not** a field
- *   index, and it is **not** a repeat index: the caller splitting one repeat into
- *   components already knows both, and reports the field.
+ *   contested boundary was taken. It is **not** a field index, and it is **not** a
+ *   repeat index: the caller splitting one repeat into components already knows both,
+ *   and reports the field. For how far the components after it move, see the
+ *   displacement paragraph on {@link ShiftedFieldsSink}.
  */
 export type ShiftedComponentsSink = (segmentIndex: number) => void;
 
@@ -503,9 +547,26 @@ function isEscapeSequenceAt(text: string, i: number, escape: string): boolean {
  * role is a character distinct from the three splitting roles, every position this
  * rejects is one the package already reports (as an unpaired escape character or as
  * an unrecognized escape sequence), so a stream whose escaping raises nothing can
- * never be refused because of it. **A declaration that names the escape character in
- * a splitting role too is outside that statement**, and is already reported by
- * `ASTM_RECORD_DELIMITER_ROLE_COLLISION`.
+ * never be refused because of it.
+ *
+ * **A declaration that names the escape character in a splitting role too is outside
+ * that statement, and this is the single place that says what happens there.** One
+ * byte then both opens a sequence and ends a segment, the splitting pass claims it
+ * first, and neither escape report ever sees a sequence to raise: a tail code fires
+ * with **neither** companion. What still refuses the stream is the declaration
+ * itself, as `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, which no profile may tolerate.
+ * So the property above survives in the form it is needed in (no stream whose
+ * escaping **and** whose declaration are both clean is refused by a tail code) and
+ * not in the form it was written in.
+ *
+ * **That replacement is scoped to the STREAM, and it does not hold per message.** The
+ * collision is reported once per set change rather than once per record, so a second
+ * header re-declaring the same colliding set raises nothing while the tail codes in
+ * its message fire again. A consumer scoping warnings to a message can therefore see
+ * a tail code standing entirely alone. Measured in
+ * `test/records/alignment-companion-universal.test.ts`, which also records that the
+ * **field** role cannot collide with the escape role at all: such a declaration
+ * terminates itself one character short and the header is refused.
  */
 function headsInterpretableSequence(text: string, i: number, escape: string): boolean {
   return isEscapeSequenceAt(text, i, escape) && isMnemonicBody(text.charAt(i + 1));
@@ -723,8 +784,8 @@ export function splitEscapeAware(
       // nothing shifts, and where the gained boundary is the FIRST one in the field the field's own
       // modeled reading stops at it, because a field is modeled out of its FIRST REPEAT alone; on
       // the COMPONENT separator nothing shifts between fields and nothing leaves the record, and
-      // every component after the boundary moves one slot along, because components are modeled
-      // INSIDE a field. Each of the last two fires at a position where nothing modeled moves (a
+      // every component after the boundary moves along the component list, because components are
+      // modeled INSIDE a field. Each of the last two fires at a position where nothing modeled moves (a
       // later repeat boundary, a component boundary in a later repeat) and does so anyway, which is
       // over-reporting relative to those slots and never under. The caller wires whichever sink
       // names its role. There is no fourth: nothing splits on the escape role.
