@@ -550,7 +550,7 @@ function isEscapeSequenceAt(text: string, i: number, escape: string): boolean {
  * never be refused because of it.
  *
  * **A declaration that names the escape character in a splitting role too is outside
- * that statement, and this is the single place that says what happens there.** One
+ * that statement.** One
  * byte then both opens a sequence and ends a segment, the splitting pass claims it
  * first, and neither escape report ever sees a sequence to raise: a tail code fires
  * with **neither** companion. What still refuses the stream is the declaration
@@ -774,9 +774,16 @@ export function splitEscapeAware(
       // recognized mnemonic (preserved verbatim and never guessed, ASTM_UNKNOWN_ESCAPE_SEQUENCE).
       // In both the reading bought a boundary with a byte it cannot read, and the modeled cost is
       // the same one. Only a RECOGNIZED tail is excluded, and that exclusion is what keeps this off
-      // conformant traffic: firing here always coincides with an escape deviation this package
-      // already reports, so a stream whose escaping is entirely well formed can never be refused by
-      // it. That is the property a preceding candidate criterion for this family did not have.
+      // conformant traffic: WHEREVER THE ESCAPE ROLE IS A CHARACTER DISTINCT FROM THE THREE
+      // SPLITTING ROLES, firing here always coincides with an escape deviation this package already
+      // reports, so a stream whose escaping is entirely well formed is not refused by it. That is
+      // the property a preceding candidate criterion for this family did not have. OFF THAT AXIS
+      // THE SENTENCE IS FALSE and must not be restated without the scope: on a declaration naming
+      // the escape character in a splitting role too, the splitting pass claims the byte first and
+      // all three sinks below fire on a stream that is escape-clean, with the declaration itself
+      // refused instead as ASTM_RECORD_DELIMITER_ROLE_COLLISION. Swept, one stream per sink, in
+      // test/records/alignment-companion-universal.test.ts; the scoped statement a consumer is
+      // shown is the ShiftedFieldsSink doc comment above.
       //
       // ONE predicate, THREE sinks, deliberately. This split does not know which delimiter role it
       // is being taken on, and the role decides what the gained boundary costs: on the FIELD

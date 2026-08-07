@@ -2139,6 +2139,124 @@ where no field is truncated (renaming a stable code is breaking, and narrowing c
 a published package refuses); and **defect 9**. **The pair-count criterion stays REJECTED over 864
 tuples and must not be re-proposed.**
 
+<a id="alignment-corpus-blind-spot"></a>
+
+### The three measurement holes those corrections left, closed 2026-08-07
+
+All three were named by the refuter passes on the slice above, tagged `PRE-EXISTING`, and backlogged
+there. **No guard moved here either**: no runtime code is added, removed or renamed, no split
+changes, no extracted value moves, no stream's disposition changes, and no exported surface moves.
+
+**▶ 🔴 (1) THE CORPUS CERTIFYING THE COMPANION CORRECTION OBSERVED ONE OF ITS THREE CODES ZERO
+TIMES, AND THE REASON IS A SECOND AXIS NOBODY HAD SEPARATED.** The correction is stated over all
+three tail codes. `alignment-companion-universal.test.ts` wired `COLLIDABLE_ROLES` to `repeat` and
+`component`, correctly, because the field role cannot collide with the escape role at all. **But the
+role the collision is IN and the role the gained boundary is ON are different axes**, and only the
+first was being swept. Both arms carried the contested construct inside a single field of the
+carrier, so no field boundary was ever in contest, and
+`ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` was observed **zero** times across all 3,312 tuples. That zero
+is now an assertion, not a remark: it reds if either arm ever starts reaching the field split.
+
+**The field code is reachable as an orphan even though the field ROLE is not collidable**, which is
+the part that reads as a contradiction until the two axes are separated. The collision sits in the
+repeat or component role, where it is expressible; the boundary the two readings disagree about is
+on the **field separator**, which the swept character never is. `H|F^F` declares `F` as the repeat
+separator **and** as the escape character; on `C|1|I|FFF|F|G` the reading taken closes `FFF`, takes
+the `|`, and resumes on a trailing `F` that heads no interpretable sequence, while the competing
+reading opens its triple a character later and swallows the `|` whole. The field code fires, and the
+repeat split has already claimed every one of those bytes, so **neither escape reporter has anything
+to raise.**
+
+Two field arms, pinned: **distinct 1,296 tuples, 432 fire, 0 orphans; collides 1,296 tuples, 360
+fire, 144 orphans.** All 144 carry `ASTM_RECORD_DELIMITER_ROLE_COLLISION` and are refused by the
+widest gate-legal profile before and after, so **no stream's disposition changed.** The union
+assertions now read over all four arms and on the wider **`anyTail`** population rather than on the
+one code each arm was built to observe: reading them on the per-arm code would let a tuple raising a
+code its arm was not aimed at out through the same door this slice is closing.
+
+**The payload is built from the DECLARED escape character**, which is this file's own standing trap:
+an arm emitting a character the header did not declare into the escape role carries no escape
+sequences and reports a comforting zero. That is why perturbing the field arm back to a distinct
+escape role perturbs its bytes too, and why the control is stated as two-sided.
+
+**▶ 🩺 (2) THREE FIGURES WERE ASSERTED AS "MORE THAN ZERO", AND THE PROOF THAT MATTERS IS THE
+CONTROL, NOT THE PIN.** `alignment-offset-rephasing.test.ts` bounded its firing population, its
+under-stating class and its over-stating class below by one. **Measured: shrinking that corpus's
+`BODY_ALPHABET` by one character halves it (3,072 firing tuples become 1,617) and the pre-slice file
+passes 12 of 12.** With the figures pinned the same perturbation reds six assertions, each naming
+its own new value. **A lower bound of one is not a pin, and this is what that costs.**
+
+Pinned: **3,072 firing, 1,568 at one warning on a displacement of two, 320 at two warnings on a
+displacement of one, 64 in the tie class**, plus the **whole joint distribution** of report count
+against displacement, which is the strongest form available and makes every counting claim in the
+file falsifiable in one place.
+
+**🔴 PINNING THE TABLE FOUND SOMETHING NONE OF THE THREE FIGURES CARRIED, AND IT WAS FOUND BY BEING
+WRONG FIRST.** The table was first written with a `reports=0 offset=0` cell of 1,024, by assuming
+the non-reporting tuples were the undisplaced ones. **There is no such cell.** The 1,024 split
+**128** at a displacement of one and **896** at two: **every tuple this code says nothing about is
+displaced anyway.** That is the recognized-tail exclusion behaving as intended, and it is a **third**
+direction in which counting warnings fails, this one silent. **`reports` counts one code only, so
+this is not a claim that those streams raise nothing at all** (several raise an escape deviation of
+their own); do not restate it as `warnings: []`.
+
+**▶ (3) THE RETIRED UNIVERSAL, AND THE SITES THIS SLICE CHANGED.** The backlog line named
+`alignment-shifted-components`, `alignment-shifted-fields` and `alignment-truncated-field`. Changed
+here: those three, plus `alignment-unrecognized-tail.test.ts` and
+`alignment-criterion-population.test.ts`, which state the same fact in different words, plus the
+corollary about the escape companion at the "refuses NOT ONE escape-clean stream" tests in the first
+three, plus one parenthetical in `CLAUDE.md`. **Sites, not a count of the fact.**
+
+**Each was CUT or SCOPED, never re-qualified in its own words.** A qualifier written fresh at each
+site is a fresh paraphrase of one fact, which is the sink rule's exact failure mode. What stands in
+each place instead is that file's **own** bound, which is a fact about its constants and can be
+checked by reading them (it holds the escape role at `&`), plus a pointer to the file that measures
+what the bound is worth. The scoping wording is copied verbatim in shape from
+`alignment-unrecognized-tail.test.ts`, where the preceding slice had already established it.
+
+**🔴 THE `escapes.ts` SITE THE REFUTER NAMED, AND THE PREMISE FOR DEFERRING IT WAS ITSELF WRONG.**
+`src/common/escapes.ts` stated the parent universal unqualified at the predicate's own implementation
+site ("so a stream whose escaping is entirely well formed can never be refused by it"), several
+hundred lines below the scoped doc comments on `ShiftedFieldsSink`. The first remedy draft deferred
+it as a shipped surface whose correction would move `dist/index.d.ts`. **Measured, that was false on
+both counts**: it is a `//` comment, which this repo's own rule 4 says is ungated because it is not
+what a consumer is shown, and the string appears **zero** times in `dist/index.d.ts`. So it was
+scoped here, at no cost to any published surface. **Check which kind of comment a sentence is before
+deferring it for being shipped.**
+
+**The same check retired a claim-about-a-claim in the same file.** The doc block on the
+private `headsInterpretableSequence` read "this is the single place that says what happens there",
+which `README.md` and
+`docs-content/limitations.md` had already falsified, and which this slice would have falsified again.
+**DELETED, not repaired**, per the standing rule, and it too is absent from `dist/index.d.ts`.
+
+The earlier `[Unreleased]` changelog paragraph is kept as written, marked with where it is scoped
+later in the same release, because the measurement that entry records starts from it.
+
+**▶ 🛑 THIS SLICE WAS REFUTED TWICE ON THE SAME SENTENCE SHAPE, AND BOTH ARE WORTH CARRYING.** Pass 1:
+the first draft said the universal "WAS IN FIVE TEST COMMENTS, NOT THE THREE THAT WERE RECORDED",
+said it had swept the **fact**, and said `src/` was already scoped. **All three were completeness
+claims and the third was measurably false**, with unqualified counter-instances standing in files
+this slice had already edited. **The corollary is a different wording of the same fact** ("and it
+cannot", "structurally out of reach", "on no escape-clean stream at all"), and a sweep keyed on
+"only" near "escape-clean" cannot see it.
+
+**Pass 2: the REMEDY falsified three more of them, and that is the part that generalizes.** Scoping
+the `escapes.ts` comment was right, but surviving sentences said the slice was confined to
+`test/` and that `src/` was byte-identical, so **the fix turned the slice's own record false.** **An
+enumeration of where a change lives is a claim that every later edit can break, and it buys
+nothing.** Both dispositions were **DELETION**, per the standing rule, never a longer list: what
+stands is the testable half (no guard, no behaviour, no exported surface) and the sites, with no
+total anywhere. **Never write a total here, and never enumerate the directories you touched.**
+
+**▶ THE MEASUREMENT AND ITS NEGATIVE CONTROL.** Every figure above was taken by a script importing
+`src/index.ts` directly, and each was re-run against `@cosyte/hl7`'s entry point, where both scripts
+fail outright rather than reporting a number. `alignment-companion-universal.test.ts` keeps the
+standing `maximalTolerance` control built by spreading this package's own `TOLERABLE_CODES`, so a
+copy pointed at a sibling parser fails on the spread; **`alignment-offset-rephasing.test.ts` has no
+such control and never did.** Its controls are the transcribed competing split, which must reproduce
+its input bytes, and the wrong-delimiter-role measurement.
+
 <a id="defects-closed-elsewhere"></a>
 
 ### Two further defects, closed and folded away

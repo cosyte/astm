@@ -560,8 +560,11 @@ const tailBodyOf = (suffix: string): string | undefined =>
  * taken can INTERPRET the construct it resumed on, not whether it can consume one: a body this
  * codec does not recognize is preserved verbatim and never guessed at, so a reading that resumes on
  * one bought its boundary with bytes it cannot read exactly as a reading that resumes on a bare
- * escape character does. The recognized tail is the only exclusion, and it is the one that matters,
- * because it is the only tail on which a stream can be escape-clean at all.
+ * escape character does. The recognized tail is the only exclusion, and what that exclusion is
+ * worth is measured in `test/records/alignment-companion-universal.test.ts` rather than restated
+ * here. **This corpus holds the escape role at `&`**, so it cannot reach a declaration that names
+ * the escape character in a splitting role too, and on those a stream IS escape-clean under one of
+ * the other two tails.
  *
  * **DERIVED from `TAIL_SUFFIXES` and the mnemonic set, not typed out**, so a tail added to that
  * constant is classified by the rule the package applies rather than by a name someone wrote beside
@@ -613,10 +616,18 @@ describe("what the truncation report moves, on the strict-accepted tier", () => 
     }
     // THE FINDING that separates this criterion from the pair count measured and rejected before
     // it. That one refused 48 of the 96 escape-clean tuples in this same corpus. This one refuses
-    // none, and it cannot: firing requires the escape character past the boundary either to head no
-    // sequence or to head one whose body this codec does not recognize, and this package already
-    // reports each of those as a deviation in its own right. Widening the tail axis from one tail
-    // to two therefore costs nothing on the axis the rejected criterion failed on.
+    // none of them: firing requires the escape character past the boundary either to head no
+    // sequence or to head one whose body this codec does not recognize, and this package reports
+    // each of those as a deviation in its own right. Widening the tail axis from one tail to two
+    // therefore costs nothing on the axis the rejected criterion failed on.
+    //
+    // SCOPED: THIS CORPUS HOLDS THE ESCAPE ROLE AT `&`, AND THE SENTENCE ABOVE IS FALSE OFF THAT
+    // AXIS. Where a declaration names the escape character in a splitting role too, the split
+    // claims that character before either escape reporter can see a sequence, so this code fires on
+    // a stream that is escape-clean by the predicate this file judges with. The collision code,
+    // which no profile may tolerate, refuses those streams instead. Swept, with one such stream per
+    // tail code, in `alignment-companion-universal.test.ts`. The zero here is true of THIS corpus
+    // and is deliberately not written as a universal.
     expect(fires.filter((t) => t.escapeClean)).toHaveLength(0);
     for (const t of fires) {
       const seen = codes(t.raw);

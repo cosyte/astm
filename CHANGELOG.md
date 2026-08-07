@@ -444,6 +444,10 @@ this file is maintained by hand (Changesets handles the version bump and publish
   that could ever protect conformant traffic, and refusing it is the over-refusal that sank a
   criterion measured and rejected for this same family. The widened predicate **cannot** refuse an
   escape-clean stream: every position it now rejects already raises an escape deviation of its own.
+  **Both sentences in this paragraph are scoped later in this same release**, under "The companion
+  universal is false where the declaration names the escape character in a splitting role too": they
+  hold wherever the escape role is a character distinct from the three splitting roles, and not where
+  it is not. They are kept as written because the measurement this entry records starts from them.
 
   **That remaining silence is a TRADE, and it is not a claim that nothing was lost there.** On the
   excluded tail the gained boundary is exactly as real, and it is not merely under-reported: it is
@@ -1071,6 +1075,53 @@ this file is maintained by hand (Changesets handles the version bump and publish
   runtime code changed and the built output is identical.**
 
 ### Documented
+
+- **The corpus that certifies the contested-alignment correction never observed one of the three
+  codes it certifies, and three of the figures the correction quotes were asserted only as "more
+  than zero".** `PRE-EXISTING`, all three named by the refuter passes on the preceding slice and
+  backlogged there rather than closed. No guard moves: no runtime code is added, removed or renamed,
+  no split changes, no extracted value moves, no stream's disposition changes, and no exported
+  surface moves.
+  - **The companion corpus wired only the repeat and component roles, so the
+    `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` orphan population was outside it.** Which role a
+    declaration puts the swept character in decides where the collision is; which delimiter the
+    contested reading gains a boundary on decides which of the three codes fires. They are
+    independent axes, and both arms of that corpus held the second one fixed by keeping the
+    contested construct inside a single field of the carrier. Measured, that corpus observes
+    `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` **zero** times, which is now asserted rather than left to
+    be noticed. Two field arms sweep it: the collision stays in the repeat or component role, where
+    it is expressible, while the gained boundary is on the field separator, which the swept
+    character never is. That is what puts a field-code orphan in reach even though the field role
+    cannot collide with the escape role. The arms pin their own figures: the distinct arm is 1,296
+    tuples where 432 fire and **0** are orphans, the colliding arm is 1,296 tuples where 360 fire
+    and **144** are orphans, and every one of those 144 carries
+    `ASTM_RECORD_DELIMITER_ROLE_COLLISION` and is refused by the widest profile the safety gate
+    permits, before and after. `H|F^F` with `C|1|I|FFF|F|G` is one of them, written out in full. The
+    union assertions that carry the correction now read over all four arms, and on the wider
+    "any tail code fired" population rather than on the one code each arm was built to observe.
+  - **Three figures could drift with the suite staying green.** The report-count corpus asserted its
+    firing population, its under-stating class and its over-stating class as "more than zero", so a
+    corpus that had quietly lost nine tenths of each would still have passed. They are pinned now
+    (3,072 firing, 1,568 carrying one warning on a displacement of two, 320 carrying two warnings on
+    a displacement of one, 64 in the tie class), together with the whole joint distribution of
+    report count against displacement, so any cell that moves reds the suite and names itself.
+    Pinning the table surfaced a fact none of the three figures carried: **there is no cell at zero
+    reports and zero displacement.** Every tuple this code says nothing about is displaced anyway,
+    by one or by two, which is the standing exclusion for a recognized tail doing what it is for and
+    is the silent third direction in which counting warnings fails.
+  - **The retired universal, and the sites this entry changed.** The three test files that were
+    recorded, plus `alignment-unrecognized-tail.test.ts` and
+    `alignment-criterion-population.test.ts`, which word the same fact differently, plus the
+    corollary about the escape companion at the "refuses NOT ONE escape-clean stream" tests in the
+    first three. Each is cut or scoped rather than re-qualified in fresh words: the unqualified
+    sentence is gone, the corpus's own bound (it holds the escape role at `&`) is stated in its
+    place, and what that bound is worth is named at the file that measures it. The predicate's own
+    implementation site in `src/common/escapes.ts` is scoped too, and the claim in the doc block on
+    the private `headsInterpretableSequence` that it was "the single place that says what happens
+    there" is deleted rather than repaired, having already been false against the README. Neither string reaches `dist/index.d.ts`, and no
+    behaviour, no warning code and no documented surface moves. The paragraph earlier in this
+    release that states it unqualified is kept as written, because the measurement it records starts
+    from it, and now says where it is scoped.
 
 - **Two claims the contested-alignment codes rest on were false, and both were on consumer
   surfaces.** `PRE-EXISTING`, both named by the third refuter pass on the tail-residue slice and

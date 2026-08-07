@@ -201,10 +201,48 @@ describe("the report count is not the offset, in both directions", () => {
     // offset would report a comforting confirmation of the retired claim. That is precisely how the
     // claim survived: every corpus this family built carried one construct per record.
     const firing = twoConstructCorpus.filter((t) => t.reports > 0);
-    expect(firing.length).toBeGreaterThan(0);
     expect(new Set(firing.map((t) => t.offset)).size).toBeGreaterThan(1);
     expect(new Set(firing.map((t) => t.reports)).size).toBeGreaterThan(1);
     expect(twoConstructCorpus).toHaveLength(BODY_ALPHABET.length ** 4);
+    // PINNED, not bounded. The three figures the changelog and the notes quote off this file are
+    // this one and the two below, and a lower bound of one cannot go red when the number moves: it
+    // would still pass on a corpus that had quietly lost nine tenths of its firing population.
+    expect(firing).toHaveLength(3072);
+  });
+
+  it("pins the whole joint distribution of report count against displacement", () => {
+    // THE STRONGEST FORM AVAILABLE HERE, and the reason it is worth the lines: every claim this file
+    // makes about counting warnings is a statement about one cell of this table, so pinning the
+    // table makes each of them falsifiable at once. A cell that moves reds the suite and names
+    // itself. `#defect-12`'s standing trap applies: these are figures about `twoConstructCorpus`
+    // above and about no other space.
+    const joint = new Map<string, number>();
+    for (const t of twoConstructCorpus) {
+      const key = `reports=${t.reports} offset=${t.offset}`;
+      joint.set(key, (joint.get(key) ?? 0) + 1);
+    }
+    expect(Object.fromEntries([...joint].sort(([a], [b]) => a.localeCompare(b)))).toEqual({
+      "reports=0 offset=1": 128,
+      "reports=0 offset=2": 896,
+      "reports=1 offset=0": 32,
+      "reports=1 offset=1": 448,
+      "reports=1 offset=2": 1568,
+      "reports=2 offset=0": 32,
+      "reports=2 offset=1": 320,
+      "reports=2 offset=2": 672,
+    });
+  });
+
+  it("displaces on every tuple that reports nothing, which the table above is what caught", () => {
+    // Read off the table rather than argued. There is no `reports=0 offset=0` cell: on this corpus
+    // every tuple the field code says nothing about is displaced anyway, by one or by two. That is
+    // the standing exclusion (a gained boundary whose tail is a recognized mnemonic) doing what it
+    // is for, and it is the reason "count the warnings" fails in the silent direction as well as in
+    // the two loud ones. **This says nothing about the stream's OTHER warnings**: `reports` counts
+    // occurrences of one code, and several of these tuples raise an escape deviation of their own.
+    const silent = twoConstructCorpus.filter((t) => t.reports === 0);
+    expect(silent).toHaveLength(1024);
+    expect(silent.filter((t) => t.offset === 0)).toHaveLength(0);
   });
 
   it("under-states: one report on a displacement of two", () => {
@@ -212,7 +250,7 @@ describe("the report count is not the offset, in both directions", () => {
     // displaces. That exclusion is the standing over-refusal defence and is not touched here; what
     // it means is that a report count is a floor on the displacement, never the displacement.
     const understated = twoConstructCorpus.filter((t) => t.reports === 1 && t.offset === 2);
-    expect(understated.length).toBeGreaterThan(0);
+    expect(understated).toHaveLength(1568);
   });
 
   it("over-states: two reports on a displacement of one", () => {
@@ -220,15 +258,13 @@ describe("the report count is not the offset, in both directions", () => {
     // counting reports overshoots. Neither direction is safe, which is why the corrected sentence
     // tells a reader to read the raw line rather than to compute a correction.
     const overstated = twoConstructCorpus.filter((t) => t.reports === 2 && t.offset === 1);
-    expect(overstated.length).toBeGreaterThan(0);
+    expect(overstated).toHaveLength(320);
   });
 
   it("still reaches the tie class, which stays exactly as it was measured", () => {
     // Offset zero is the already-named exception and it survives the widening unchanged. It is
     // asserted here so that widening the axis cannot quietly retire it.
-    expect(
-      twoConstructCorpus.filter((t) => t.reports > 0 && t.offset === 0).length,
-    ).toBeGreaterThan(0);
+    expect(twoConstructCorpus.filter((t) => t.reports > 0 && t.offset === 0)).toHaveLength(64);
   });
 
   it("never displaces leftward, so the direction of the claim was never in question", () => {

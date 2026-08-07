@@ -298,7 +298,7 @@ and refuted formulation: `#defects`.
     Each, 864 tuples: 192 fire, 64 move, **0 back, 0 escape-clean** (the pair count refused 48),
     disjoint. **CORPORA FIX AXES: SWEEP THEM** ((b)/(c) index; TAIL BODY 3,456: 2,304/528/0, 0 of
     384 clean). **ONE CONSTRUCT deep; no re-emit reaches any.**
-    **⚖️ ONLY a RECOGNIZED tail is excluded (the ONLY ESCAPE-CLEAN one): the whole over-refusal
+    **⚖️ ONLY a RECOGNIZED tail is excluded (the ONLY ESCAPE-CLEAN one, ESCAPE ROLE DISTINCT): the whole over-refusal
     defence. "The bytes PREFER it" was the old reason: TRUE, NOT the question (these report a COST).
     🔴 THAT SILENCE IS A TRADE, NOT "nothing was lost"; a draft DROPPED that hedge from SIX
     surfaces and the ADVICE from a SEVENTH. On it the cost is `warnings: []`
