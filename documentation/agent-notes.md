@@ -2144,9 +2144,8 @@ tuples and must not be re-proposed.**
 ### The three measurement holes those corrections left, closed 2026-08-07
 
 All three were named by the refuter passes on the slice above, tagged `PRE-EXISTING`, and backlogged
-there. **No guard moved here either** and **no public surface moved at all**: every edit is under
-`test/`, in `CHANGELOG.md`, in this file, or in one parenthetical of `CLAUDE.md`. `src/`,
-`README.md` and `docs-content/` are byte-identical.
+there. **No guard moved here either**: no runtime code is added, removed or renamed, no split
+changes, no extracted value moves, no stream's disposition changes, and no exported surface moves.
 
 **▶ 🔴 (1) THE CORPUS CERTIFYING THE COMPANION CORRECTION OBSERVED ONE OF ITS THREE CODES ZERO
 TIMES, AND THE REASON IS A SECOND AXIS NOBODY HAD SEPARATED.** The correction is stated over all
@@ -2225,25 +2224,30 @@ what a consumer is shown, and the string appears **zero** times in `dist/index.d
 scoped here, at no cost to any published surface. **Check which kind of comment a sentence is before
 deferring it for being shipped.**
 
-**The same check retired a claim-about-a-claim one paragraph above it.** The `ShiftedFieldsSink` doc
-block read "this is the single place that says what happens there", which `README.md` and
+**The same check retired a claim-about-a-claim one paragraph above it.** The doc block on the
+private `headsInterpretableSequence` read "this is the single place that says what happens there",
+which `README.md` and
 `docs-content/limitations.md` had already falsified, and which this slice would have falsified again.
 **DELETED, not repaired**, per the standing rule, and it too is absent from `dist/index.d.ts`.
 
-Two copies are kept on purpose: the earlier `[Unreleased]` changelog paragraph, marked with where it
-is scoped later in the same release because the measurement that entry records starts from it, and
-the earlier slice's narrative in **this** file, which a later section is how it supersedes.
+The earlier `[Unreleased]` changelog paragraph is kept as written, marked with where it is scoped
+later in the same release, because the measurement that entry records starts from it.
 
-**▶ 🛑 THE PASS-1 REFUTATION OF THIS SLICE, AND IT IS THE SAME ONE AGAIN.** The first draft of this
-section said the universal "WAS IN FIVE TEST COMMENTS, NOT THE THREE THAT WERE RECORDED", said it
-had swept the **fact**, and said `src/` was already scoped. **All three were completeness claims and
-the third was measurably false**, with four unqualified counter-instances standing, three of them in
-files this slice had already edited. **The corollary is a different wording of the same fact** ("and
-it cannot", "structurally out of reach", "on no escape-clean stream at all"), and a sweep keyed on
-"only" near "escape-clean" cannot see it. **This is the third consecutive slice on this family to be
-refuted on a completeness claim about its own sweep.** The disposition was to **DELETE the count and
-the two claims**, exactly as the standing rule says, and to name sites instead. **Never write a
-total here. Name what you changed and name what you know remains.**
+**▶ 🛑 THIS SLICE WAS REFUTED TWICE ON THE SAME SENTENCE SHAPE, AND BOTH ARE WORTH CARRYING.** Pass 1:
+the first draft said the universal "WAS IN FIVE TEST COMMENTS, NOT THE THREE THAT WERE RECORDED",
+said it had swept the **fact**, and said `src/` was already scoped. **All three were completeness
+claims and the third was measurably false**, with unqualified counter-instances standing in files
+this slice had already edited. **The corollary is a different wording of the same fact** ("and it
+cannot", "structurally out of reach", "on no escape-clean stream at all"), and a sweep keyed on
+"only" near "escape-clean" cannot see it.
+
+**Pass 2: the REMEDY falsified three more of them, and that is the part that generalizes.** Scoping
+the `escapes.ts` comment was right, but three surviving sentences said the slice was confined to
+`test/` and that `src/` was byte-identical, so **the fix turned the slice's own record false.** **An
+enumeration of where a change lives is a claim that every later edit can break, and it buys
+nothing.** Both dispositions were **DELETION**, per the standing rule, never a longer list: what
+stands is the testable half (no guard, no behaviour, no exported surface) and the sites, with no
+total anywhere. **Never write a total here, and never enumerate the directories you touched.**
 
 **▶ THE MEASUREMENT AND ITS NEGATIVE CONTROL.** Every figure above was taken by a script importing
 `src/index.ts` directly, and each was re-run against `@cosyte/hl7`'s entry point, where both scripts

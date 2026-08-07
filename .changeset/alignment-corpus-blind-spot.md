@@ -3,9 +3,8 @@
 ---
 
 Close the three measurement holes the contested-alignment claim corrections left behind. No guard
-moves and no public surface moves: the change is test coverage, pinned figures, and doc comments
-inside `test/`. No runtime code is added, removed or renamed, no split changes, no extracted value
-moves, and no stream's disposition changes.
+moves: no runtime code is added, removed or renamed, no split changes, no extracted value moves, no
+stream's disposition changes, and no exported surface moves.
 
 **The corpus that certifies the companion correction never observed one of the three codes it
 certifies.** Which splitting role a declaration puts the swept character in decides where the
@@ -43,7 +42,7 @@ NOT ONE escape-clean stream" tests in the first three. Each is cut or scoped rat
 in fresh words: the unqualified sentence is gone, the corpus's own bound (it holds the escape role at
 `&`) is stated in its place, and what that bound is worth is named at the file that measures it
 instead of being paraphrased again. The predicate's own implementation site in
-`src/common/escapes.ts` is scoped too, and the claim one paragraph above it that it was "the single
-place that says what happens there" is deleted rather than repaired, having already been false
-against the README. Neither string reaches `dist/index.d.ts`, and no behaviour, no warning code and
+`src/common/escapes.ts` is scoped too, and the claim in the doc block on the private
+`headsInterpretableSequence` that it was "the single place that says what happens there" is deleted
+rather than repaired, having already been false against the README. Neither string reaches `dist/index.d.ts`, and no behaviour, no warning code and
 no documented surface moves.

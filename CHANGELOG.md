@@ -1079,10 +1079,9 @@ this file is maintained by hand (Changesets handles the version bump and publish
 - **The corpus that certifies the contested-alignment correction never observed one of the three
   codes it certifies, and three of the figures the correction quotes were asserted only as "more
   than zero".** `PRE-EXISTING`, all three named by the refuter passes on the preceding slice and
-  backlogged there rather than closed. No guard moves and no public surface moves: the whole change
-  is test coverage, pinned figures, and doc comments inside `test/`. No runtime code is added,
-  removed or renamed, no split changes, no extracted value moves, and no stream's disposition
-  changes.
+  backlogged there rather than closed. No guard moves: no runtime code is added, removed or renamed,
+  no split changes, no extracted value moves, no stream's disposition changes, and no exported
+  surface moves.
   - **The companion corpus wired only the repeat and component roles, so the
     `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` orphan population was outside it.** Which role a
     declaration puts the swept character in decides where the collision is; which delimiter the
@@ -1117,9 +1116,9 @@ this file is maintained by hand (Changesets handles the version bump and publish
     first three. Each is cut or scoped rather than re-qualified in fresh words: the unqualified
     sentence is gone, the corpus's own bound (it holds the escape role at `&`) is stated in its
     place, and what that bound is worth is named at the file that measures it. The predicate's own
-    implementation site in `src/common/escapes.ts` is scoped too, and the claim one paragraph above
-    it that it was "the single place that says what happens there" is deleted rather than repaired,
-    having already been false against the README. Neither string reaches `dist/index.d.ts`, and no
+    implementation site in `src/common/escapes.ts` is scoped too, and the claim in the doc block on
+    the private `headsInterpretableSequence` that it was "the single place that says what happens
+    there" is deleted rather than repaired, having already been false against the README. Neither string reaches `dist/index.d.ts`, and no
     behaviour, no warning code and no documented surface moves. The paragraph earlier in this
     release that states it unqualified is kept as written, because the measurement it records starts
     from it, and now says where it is scoped.
