@@ -99,7 +99,7 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   reported as `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` (also not tolerable). Where that gained
   boundary is a **field** boundary and the reading taken resumes on an escape character heading no
   sequence this reader can _interpret_ (none at all, or one whose body is not a recognized mnemonic
-  and is therefore kept verbatim rather than read), every later field shifts one place and a
+  and is therefore kept verbatim rather than read), every later field shifts and a
   result's units and **status** are read out of slots the competing alignment does not put them in,
   up to a status of `final` the sender never wrote there; that is
   `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS` (not tolerable either). It stays silent in exactly one
@@ -125,8 +125,8 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   one component holding a decoded field separator, with the local code in no modeled slot. That is
   `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD` (not tolerable either), on the same tail bound; at a later
   boundary it fires and nothing modeled moves, which is over-reporting and never under-reporting. A gained
-  **component** boundary reaches a modeled slot differently again, moving it one slot along rather
-  than dropping it, so `&F&^&GLU^L^687` reads `687` as a vendor local code under the alignment taken
+  **component** boundary reaches a modeled slot differently again, moving it along the component list
+  rather than dropping it, so `&F&^&GLU^L^687` reads `687` as a vendor local code under the alignment taken
   and as the **coding scheme** under the other, and `DOE&F&^&JANE^A` reads `A` as a middle name under
   one and as the **given** name under the other. That is
   `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` (not tolerable either), on the same tail bound; there

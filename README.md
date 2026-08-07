@@ -285,9 +285,10 @@ read as more repeats at all, and that class was already refused by
 survive a re-emit either: catch it on the first read.
 
 **And where that gained boundary is a COMPONENT boundary, nothing leaves the record and the slots
-MOVE.** Components are modeled inside a field, so every component after the gained boundary sits at
-least one place further right than the competing alignment puts it, and further again for each
-additional contested construct the field carries. On the canonical set,
+MOVE.** Components are modeled inside a field, so every component after the gained boundary sits
+further right than the competing alignment puts it, by a displacement that is **not fixed**: one
+place where the field carries a single contested construct, one more for each additional one, and
+none at all on the tie class. Counting warnings does not give it. On the canonical set,
 `R|1|&F&^&GLU^L^687|28.6|U/L||||F` reads a Universal Test ID of four components, so `L` is the coding
 scheme and `687` the vendor's local code; the competing alignment reads three, and `687` is the
 **coding scheme**. A code-system selector and a vendor's local code are not the same thing.
@@ -408,15 +409,15 @@ outside it:
   where the leftmost alignment lets a delimiter split that a competing alignment would have held,
   gains a boundary instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also
   not tolerable. Where that gained boundary is a **field** boundary and the reading taken resumes on
-  an escape character heading no sequence it can interpret, every later field shifts one place and a
+  an escape character heading no sequence it can interpret, every later field shifts and a
   result's units
   and status are read out of slots the other alignment does not put them in: that raises
   `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable either. Where it is a **repeat** boundary
   nothing shifts, but the field is read out of its first repeat alone, so a gained first boundary
   truncates a value and costs a test identity or a patient name the components that sat after it:
   that raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either. Where it is a
-  **component** boundary nothing leaves the record and every component after it moves one slot
-  along, so a coding scheme, a vendor local code or a given name is read out of a position the other
+  **component** boundary nothing leaves the record and every component after it moves along the
+  component list, so a coding scheme, a vendor local code or a given name is read out of a position the other
   alignment does not put it in: that raises `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, not
   tolerable either.
 

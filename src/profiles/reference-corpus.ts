@@ -97,7 +97,7 @@ export const referenceCorpus: AstmProfile = defineAstmProfile({
         "repeat alone, so a value truncates and a test identity empties, which raises " +
         "ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD, untolerable here too. Where it is a component " +
         "boundary, nothing leaves the record and no field number changes, and every component " +
-        "after it moves one slot along, so a test identity's coding scheme and local code and a " +
+        "after it moves along the component list, so a test identity's coding scheme and local code and a " +
         "patient's given and middle names are read out of positions the other alignment does not " +
         "put them in, which raises ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS, untolerable here as " +
         "well. Each of those three shift claims has one measured exception, where the sequence " +

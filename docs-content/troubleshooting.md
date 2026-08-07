@@ -143,7 +143,7 @@ at all, or it heads one whose body is not a recognized mnemonic and is therefore
 rather than read. Consuming a sequence is not interpreting one.
 
 **On the field separator that matters clinically, because a gained field boundary shifts every later
-field one place.** `R|1|^^^687|28.6&F&|&U/L||||F` reads **nine** fields under the alignment taken and
+field.** `R|1|^^^687|28.6&F&|&U/L||||F` reads **nine** fields under the alignment taken and
 **eight** under the other, so the sender's trailing `F` is read out of field 9, the result status,
 under the first and out of no field at all under the second. The parse hands back units of `&U/L` and
 a status of `final`, and both are consequences of the alignment rather than values the sender placed
@@ -218,8 +218,8 @@ under-reporting, so **check `repeats` on the field the warning names rather than
 is wrong**.
 
 Two further bounds, both deliberate. It is wired to the **repeat** separator only: a gained **component**
-boundary reaches a modeled slot too, and differently, moving it one slot along rather than dropping
-it, which is the next section's code. And the tail bound is the previous
+boundary reaches a modeled slot too, and differently, moving it along the component list rather than
+dropping it, which is the next section's code. And the tail bound is the previous
 section's, for the same reason, and so is its one exclusion: where the escape character past the
 boundary heads a sequence this reader RECOGNIZES, this stays silent, because `28.6&R&\&R&U/L` is the
 repeat separator escaped, written, and escaped again, and refusing it would refuse a well-formed
@@ -238,8 +238,8 @@ character as `&E&`.
 `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` asks the same question as the two codes above, on the
 **component** separator, which is the third and last role a split is taken on. Nothing shifts between
 fields and nothing leaves the record, which is why neither of the other two can see it: components
-are modeled _inside_ a field, so every component after the gained boundary sits **at least one place
-further right** than the competing alignment puts it. The slots that indexes into are named things.
+are modeled _inside_ a field, so every component after the gained boundary sits **further right**
+than the competing alignment puts it, by a displacement that is not fixed. The slots that indexes into are named things.
 
 Both are reachable on the **canonical** set, so no unusual declaration is needed:
 
@@ -291,20 +291,21 @@ a coding scheme or a name part, and ask the sender to escape a literal escape ch
 ## How far a contested alignment displaces things, and why you cannot count it
 
 The three codes above each say things sit **further right** than the competing alignment puts them.
-This is the one place that says how far, because it is one fact and restating it per code is how it
-went stale before.
+This section says how far, so that the three above name the KIND of cost and leave the magnitude
+here: it is one fact, and restating it per code is how it went stale before.
 
-**It is a floor, not a figure: at least one place, and not a fixed one.** It is wrong in both
-directions to read it as exactly one:
+**The displacement is not fixed, and it takes three values rather than one.** "One place" describes
+only the single-construct case the three codes were first measured on:
 
 - **Zero, on the tie class.** Where the sequence past the boundary carries the split delimiter itself
   as its body, both readings return the same number of segments in different places. Each code above
   names its own example, and `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` has already refused those
   records.
-- **More than one, once a record carries more than one contested construct.** The competing reading
-  resumes one character further on at each contested position, so it re-phases and the gap widens
-  once per construct. `A&Z&|&BX&Z&|&F&C` reads **three** fields against the competing alignment's
-  **one**.
+- **One, on a record carrying a single contested construct.** This is what every published figure for
+  these codes was measured on, and the only case "one place" was ever true of.
+- **One more for each additional contested construct.** The competing reading resumes one character
+  further on at each contested position, so it falls further out of step and the gap widens once per
+  construct. `A&Z&|&BX&Z&|&F&C` reads **three** fields against the competing alignment's **one**.
 
 **The number of warnings is not the displacement either, in either direction.** A gained boundary
 whose tail is a recognized mnemonic is excluded from the report and still displaces, so one warning

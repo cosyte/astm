@@ -1085,8 +1085,11 @@ this file is maintained by hand (Changesets handles the version bump and publish
     this family fixes the escape role at `&`, so none of them could see the case that breaks it. On
     a colliding set one byte both opens a sequence and ends a segment, the split claims it first,
     and neither escape report ever sees a sequence to raise: a tail code fires with **neither**
-    companion. Measured exhaustively over all four role assignments, 145,800 tuples: 116,640 fire,
-    1,377 are orphans, and **0** of those lack `ASTM_RECORD_DELIMITER_ROLE_COLLISION`. The defence
+    companion. Measured on the committed corpus in
+    `test/records/alignment-companion-universal.test.ts`, whose figures that file pins so they can be
+    re-derived: the distinct arm is 2,304 tuples, 1,536 fire, **0** are orphans; the collides arm is
+    1,008 tuples, 648 fire, **288** are orphans, and **0** orphan in either arm lacks
+    `ASTM_RECORD_DELIMITER_ROLE_COLLISION`. The defence
     therefore survives in the form it was needed in (no stream whose escaping **and** whose
     declaration are both clean is refused by a tail code) and not in the form it was written in.
     **That replacement is scoped to the STREAM and does not hold per message**: the collision is
@@ -1113,14 +1116,26 @@ this file is maintained by hand (Changesets handles the version bump and publish
     `R|1|^^^687|28.6&F&|&Z&U/L||||F` the sender's trailing `F` lands **in** the status slot and
     reads as `final`, while on `R|1|^^^687|28.6&Z&|&BX&Z&|&F&U/L||||F` the same displacement runs
     twice, the `F` overshoots, and the status reads `unspecified`.
-  - **Both corrections are stated once and pointed at, rather than restated per sink.** That is the
-    rule the tail-residue slice paid three refuter passes for: a paraphrase at each sink is a
-    separate claim that goes stale on its own, and seven copies of one had survived two sweeps. The
-    displacement now lives in one paragraph on `ShiftedFieldsSink`; the companion scope lives in one
-    paragraph on the tail test in `src/common/escapes.ts`. The other two sinks, all three warning
-    factories, `src/profiles/safety.ts`, `README.md` and `docs-content/troubleshooting.md` point at
-    those or carry a scoped statement, and the three runtime warning **messages**, which no gate in
-    this repo reads for truth, now say "at least one place" and tell the operator not to count.
+  - **Every other surface now names the KIND of cost and leaves the MAGNITUDE to one paragraph.**
+    That is the rule the tail-residue slice paid three refuter passes for: a paraphrase at each sink
+    is a separate claim that goes stale on its own, and seven copies of one had survived two sweeps.
+    Both corrected statements live on `ShiftedFieldsSink`, which is exported and therefore reaches
+    `dist/index.d.ts`, and which all three warning factories already point at. The magnitude was
+    being paraphrased in **three** different vocabularies ("one place further right", "shifts every
+    later field one place", "moves one slot along"), which is why the first sweep of this slice
+    missed most of them; a newline-folded grep over all three found nineteen, in
+    `src/common/escapes.ts`, `src/common/warnings.ts` (including the three `WARNING_CODES` registry
+    entries and the three runtime messages), `src/profiles/safety.ts`,
+    `src/profiles/reference-corpus.ts` (a runtime string), `src/records/parse.ts`,
+    `src/records/tokenize.ts`, `README.md`, `docs-content/troubleshooting.md`,
+    `docs-content/quickstart.md` and `docs-content/limitations.md`. All of them are corrected. The
+    three runtime **messages**, which no gate in this repo reads for truth, now say the displacement
+    is not fixed, name its three values, and tell the operator that counting warnings does not give
+    it.
+  - **"At least one place" was rejected as the replacement wording**, although it was the obvious
+    one: it contradicts the tie class named in the same sentence, where the displacement is zero.
+    Every corrected surface says the displacement is **not fixed** and names its three values
+    instead.
   - **Both were RED before and are GREEN after, against the retired assertions verbatim.**
     `alignment-shifted-fields.test.ts` asserted `leftmost.length === competing.length + 1` and
     `alignment-unrecognized-tail.test.ts` asserted an escape companion on every firing tuple; on the

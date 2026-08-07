@@ -99,10 +99,11 @@
  * the first one that reaches a MODELED SLOT rather than a boundary.** It reports
  * that a contested alignment decided a **field** boundary while the reading taken
  * resumes on an escape character heading no sequence this codec can interpret, so
- * every later field sits at least one place further right than the competing alignment
- * puts it (**except where the sequence past the boundary carries the field separator
- * itself**, where the two readings read the same number of fields in different
- * places, and further still where the record carries a second contested construct).
+ * every later field sits further right than the competing alignment puts it, by a
+ * displacement that is not fixed (**except where the sequence past the boundary carries
+ * the field separator itself**, where the two readings read the same number of fields in
+ * different places, and further still where the record carries a second contested
+ * construct).
  * On a result record that
  * moves the units and the **result status**: the sender's trailing letter is read out
  * of field 9 under the reading taken and out of no field at all under the other, so a
@@ -145,9 +146,9 @@
  * role.** It reports a contested alignment deciding a **component** boundary. Nothing
  * shifts between fields and nothing leaves the record, which is why neither of the two
  * above could cover it: components are modeled **inside** a field, so every component
- * after the gained boundary is at least one place further right than the competing
- * alignment puts it (**except where the sequence past the boundary carries the
- * component separator itself**, where the two readings read the same number of
+ * after the gained boundary sits further right than the competing alignment puts it, by
+ * a displacement that is not fixed (**except where the sequence past the boundary carries
+ * the component separator itself**, where the two readings read the same number of
  * components in different places, and further still where the field carries a second
  * contested construct). That indexes into named slots. A Universal Test ID's four components are the
  * LOINC-candidate slot, the test name, the **coding scheme** and the **local code**, so
@@ -374,7 +375,7 @@ import type { AnyAstmWarningCode } from "./types.js";
  * `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS` is not on this list and must not be added
  * to it either. It reports the same contested alignment deciding a **component**
  * boundary, where nothing leaves the record and no field number changes, and every
- * component after it moves one slot along instead: a Universal Test ID's coding scheme
+ * component after it moves along the component list instead: a Universal Test ID's coding scheme
  * and local code, and a patient's given and middle names, are read out of positions the
  * competing alignment does not put them in. Reporting a code system, a vendor's local
  * code or a given name that the bytes do not unambiguously carry fails the first half of

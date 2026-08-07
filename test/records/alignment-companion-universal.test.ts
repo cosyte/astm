@@ -269,6 +269,23 @@ describe("the corpus itself, or its zeros certify nothing", () => {
 });
 
 describe("the retired universal, refuted", () => {
+  it("pins the corpus's own figures, so no figure quoted elsewhere is unreproducible", () => {
+    // THE ONLY FIGURES ANY SURFACE MAY QUOTE FOR THIS SLICE, because they are the ones a maintainer
+    // can re-derive from the tree. `#defect-12`'s standing trap is that a corpus moves every figure,
+    // so name the corpus by a constant that is IN THE TREE: these are `distinctCorpus` and
+    // `collidesCorpus` above, and nothing else.
+    expect(distinctCorpus).toHaveLength(2304);
+    expect(distinctCorpus.filter((t) => t.fires)).toHaveLength(1536);
+    expect(distinctCorpus.filter((t) => t.orphan)).toHaveLength(0);
+
+    expect(collidesCorpus).toHaveLength(1008);
+    expect(collidesCorpus.filter((t) => t.fires)).toHaveLength(648);
+    expect(collidesCorpus.filter((t) => t.orphan)).toHaveLength(288);
+
+    // The property the whole correction turns on, over the union.
+    expect(corpus.filter((t) => t.orphan && !t.collides)).toHaveLength(0);
+  });
+
   it("fires a tail code with neither escape companion, which the universal said was unreachable", () => {
     const orphans = corpus.filter((t) => t.orphan);
     expect(orphans.length).toBeGreaterThan(0);

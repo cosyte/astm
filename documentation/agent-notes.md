@@ -2003,8 +2003,10 @@ character into one of the three splitting roles and **leaves the escape role at 
 them could see a declaration naming the escape character in a splitting role too. There one byte both
 opens a sequence and ends a segment, the split claims it first, and neither escape report ever sees a
 sequence to raise: **a tail code fires with neither companion.** Measured exhaustively over all four
-role assignments, **145,800 tuples: 116,640 fire, 1,377 orphans, 0 of them lacking
-`ASTM_RECORD_DELIMITER_ROLE_COLLISION`** (which is not tolerable). So the defence survives in the
+role assignments during the build, and pinned on the committed corpus so every figure quoted anywhere
+is re-derivable from the tree (`alignment-companion-universal.test.ts` asserts its own): **distinct
+arm 2,304 tuples, 1,536 fire, 0 orphans; collides arm 1,008 tuples, 648 fire, 288 orphans; 0 orphan in
+either arm lacking `ASTM_RECORD_DELIMITER_ROLE_COLLISION`** (which is not tolerable). So the defence survives in the
 form it was needed in, **no stream whose escaping AND whose declaration are both clean is refused by
 a tail code**, and not in the form it was written in.
 
@@ -2051,15 +2053,43 @@ counting, and every corrected surface says to read the raw line instead.**
 the status slot, and the status reads `unspecified`. Same code, opposite outcomes, and the retired
 sentence about the size of the displacement is what a reader would have used to tell them apart.
 
-**▶ THE SINK RULE WAS APPLIED, NOT RESTATED.** This is the rule the tail-residue slice paid three
-passes for. The displacement now lives in **one** paragraph, on `ShiftedFieldsSink`; the companion
-scope lives in **one** paragraph, on the tail test in `src/common/escapes.ts`. `TruncatedFieldSink`,
-`ShiftedComponentsSink` and all three warning factories **point** at those instead of paraphrasing,
-which removed restatements rather than adding qualifiers to them. `src/profiles/safety.ts` keeps a
-scoped restatement because it argues admissibility rather than pointing, exactly as the previous pass
-decided. The three runtime **messages** cannot point at a symbol, so they are self-contained: they
-say "at least one place", they say "and further again for each additional contested construct", and
-they tell the operator that counting these warnings does not give the offset. No gate in this repo
+**▶ 🔴 THE FIRST PASS OF THIS SLICE WAS REFUTED, AND ON EXACTLY THE TRAP THE ITEM NAMES. READ THIS
+BEFORE THE NEXT CLAIM CORRECTION.** Two things went wrong and both generalize.
+
+**(a) THE MAGNITUDE WAS PARAPHRASED IN THREE VOCABULARIES AND THE FIRST SWEEP ONLY KNEW ONE.** A
+newline-folded grep for `one place further right` finds a fraction of the claim. The same fact was
+also written **"shifts every later field one place"** and **"moves one slot along"**, and those two
+carried most of the surviving copies: **nineteen** across `escapes.ts`, `warnings.ts` (including the
+three `WARNING_CODES` **registry entries**, which are the primary surface a consumer reads, and the
+three runtime messages), `safety.ts`, `reference-corpus.ts` (a runtime **string**), `parse.ts`,
+`tokenize.ts`, `README.md`, and **all three** of `docs-content/troubleshooting.md`, `quickstart.md`
+and `limitations.md`, the last two of which the first pass never touched and which ship in the
+**immutable** docs tarball. **SWEEP THE FACT, NOT THE PHRASE: enumerate every wording the fact has
+ever been written in before grepping, and grep each.**
+
+**(b) THE CORRECTION ASSERTED ITS OWN COMPLETENESS AND WAS FALSE WHEN WRITTEN.** The new paragraph
+said "THIS IS THE ONE PLACE IN THE PACKAGE THAT STATES IT" while eight other places still stated it,
+two of them **in the same doc comment**. **A completeness claim is itself a claim, it is the easiest
+kind to falsify, and it buys nothing.** The wording now says what the other surfaces do (name the
+KIND of cost) rather than asserting a count of where the magnitude appears.
+
+**(c) A THIRD, SMALLER ONE: THE CORRECTION FOR HOLE 1 WAS PUT ON A PRIVATE FUNCTION** and reached no
+consumer, while the retired universal stood on four **exported** doc comments. **Check that a
+correction lands in `dist/index.d.ts` when the sentence it replaces does.**
+
+**▶ THE SINK RULE, AS APPLIED AFTER THE REFUTATION.** Every other surface names the **KIND** of cost
+(fields shift, the field truncates, components move along the list) and leaves the **MAGNITUDE** to
+one paragraph, on the **exported** `ShiftedFieldsSink`, which all three warning factories already
+point at. Both corrections live there, so both reach `dist/index.d.ts`. That removed restatements
+rather than adding a qualifier to each, which is the whole point of the rule.
+
+**🔴 "AT LEAST ONE PLACE" WAS REJECTED AS THE REPLACEMENT WORDING, AND IT WAS THE OBVIOUS ONE.** It
+**contradicts the tie class named in the same sentence**, where the displacement is zero, and the
+predecessor's hedge ("usually one place") was at least internally consistent. The refuter caught it
+on the runtime messages. Every corrected surface now says the displacement is **not fixed** and names
+its **three** values (zero on the tie class, one on a single construct, one more per additional
+construct). The three runtime **messages** cannot point at a symbol, so they carry that in full and
+tell the operator that counting these warnings does not give the displacement. No gate in this repo
 reads a message for truth.
 
 **▶ RED BEFORE, GREEN AFTER, AGAINST THE RETIRED ASSERTIONS VERBATIM.** Both holes were pinned by
