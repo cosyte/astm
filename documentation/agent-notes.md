@@ -2570,10 +2570,13 @@ refuses, so a clean run's read count equals the tracked count. **There is no exc
 binary skip and no NUL skip, and here that is not a style preference:** this repository tracks
 **NUL-bearing prose-bearing TypeScript sources, most of them tests**, which a NUL partition would
 drop in silence. This repo's own em-dash gate records that hazard. **No count is written here**, for
-the reason above: the first draft said "two" and the same commit made it three. Derive it with
-`git ls-files -z | xargs -0 grep -laP '\x00'`. **The `-a` is load-bearing**: without it grep treats a
-NUL-bearing file as binary and prints nothing, so the derivation reads as "none". The first
-replacement for the stale count had that bug, which is the same class as the count it replaced.
+the reason above. Derive it with `git ls-files -z | xargs -0 grep -laP '\x00'`.
+
+**Two flags in that line are load-bearing and both fail silently.** `-a`: without it grep treats a
+NUL-bearing file as binary and prints nothing, so the derivation reads as "none". **`-z` is a
+record-separator switch, not a NUL filter**: it makes NUL the separator, so `grep -lz .` matches
+every non-empty file and cannot find NUL-bearing ones at all. That second one is the trap, because
+`-z` reads like a NUL flag and the sibling `check-no-emdash.sh` uses it for its real purpose.
 
 **EVERY TRACKED FILE IS SCANNED, AND THAT INCLUDES SURFACES THAT LEAVE THE REPO.** A backticked
 anchor written into `README.md`, `docs-content/` or a `src/` comment is a live pointer that has to

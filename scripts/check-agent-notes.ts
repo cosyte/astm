@@ -157,13 +157,16 @@
  *    preference: this repository tracks NUL-BEARING FILES, prose-bearing
  *    TypeScript sources that a NUL partition would drop in silence, and MOST OF
  *    THEM ARE TESTS. NO COUNT IS WRITTEN HERE, because a count without its
- *    enumeration cannot self-correct and this one moved inside the very commit
- *    that first wrote it down. Derive it (the `-a` is load-bearing: without it
- *    grep treats a NUL-bearing file as binary and prints nothing, which is a
- *    derivation that reads as "none" and is how the first version of this line
- *    was wrong):
+ *    enumeration cannot self-correct. Derive it:
  *
  *      git ls-files -z | xargs -0 grep -laP '\x00'
+ *
+ *    TWO FLAGS IN THAT LINE ARE LOAD-BEARING AND BOTH FAIL SILENTLY. `-a`:
+ *    without it grep treats a NUL-bearing file as binary and prints nothing, so
+ *    the derivation reads as "none". `-z` IS A RECORD-SEPARATOR SWITCH, NOT A
+ *    NUL FILTER: it makes NUL the separator, so `grep -lz .` matches every
+ *    non-empty file and cannot find NUL-bearing ones at all. Both directions
+ *    were run before this line was written.
  *
  *    This repo's own em-dash gate records the same hazard. A sibling gate that
  *    skips NUL-bearing files has to disclose the miss; here it would be a live
@@ -246,10 +249,10 @@
  *     THE SURFACE, NOT THE LIST: this enumeration will go stale, the rule will
  *     not.
  *
- * Reference a section by TITLE on any surface that ships, never by anchor. Both
- * of those surfaces are clean today, so this is a latent bound rather than a
- * live one; it is disclosed because THE SAME MECHANISM IS WHAT MADE THIS GATE'S
- * OWN TEST FILE RED, and that one was not latent.
+ * Reference a section by TITLE on any surface that ships, never by anchor. Those
+ * surfaces are clean today, so this is a latent bound rather than a live one; it
+ * is disclosed because THE SAME MECHANISM IS WHAT MADE THIS GATE'S OWN TEST FILE
+ * RED, and that one was not latent.
  *
  * SECURITY: the one subprocess call uses execFileSync with array args. No shell
  * form.
