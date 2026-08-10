@@ -35,6 +35,26 @@ const REPO_ROOT = process.cwd();
 const CHECKER = join(REPO_ROOT, "scripts", "check-agent-notes.ts");
 const TSX_BIN = join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
+/**
+ * A backtick, spelled as an escape so THIS FILE NEVER LITERALLY CONTAINS A POINTER.
+ *
+ * It has to hold itself to the rule it tests, for the same reason the checker builds its own
+ * patterns at run time: this file is TRACKED, so the gate scans it as part of the corpus, and a
+ * fixture pointer spelled literally here is indistinguishable from a real one in `CLAUDE.md`. Left
+ * spelled out, these fixtures reported two anchors that exist only in a fixture as dangling
+ * pointers into the real record. The alternative, exempting this path, is the exclusion list the gate refuses to have, and
+ * it would hide a genuinely broken pointer written in a test.
+ *
+ * A LOCAL RUN BEFORE `git add` CANNOT SEE THIS, and that is the structural gap rather than an
+ * oversight: the corpus is `git ls-files`, so a NEW file is invisible until it is staged. CI checks
+ * out a tree where it is tracked. Re-run the gate AFTER staging, never only before.
+ */
+const TICK = "\u0060";
+/** This tree's live pointer form, BUILT rather than spelled. */
+const pointer = (anchor: string): string => `${TICK}#${anchor}${TICK}`;
+/** The path-qualified form a sibling repo writes, also built rather than spelled. */
+const pathPointer = (anchor: string): string => `documentation/agent-notes.md#${anchor}`;
+
 const trees: string[] = [];
 afterAll(() => {
   for (const t of trees) rmSync(t, { recursive: true, force: true });
@@ -51,7 +71,7 @@ interface RunResult {
  * because an exemption that matches nothing is a refusal by design, and one case
  * omits it deliberately to prove that.
  */
-const PLACEHOLDER = "a bare `#anchor` below is an anchor in that file";
+const PLACEHOLDER = `a bare ${pointer("anchor")} below is an anchor in that file`;
 
 /** A minimal `CLAUDE.md`: the path link, the placeholder, and whatever pointers a case wants. */
 function claudeMd(body: string, opts: { pathLink?: boolean; placeholder?: boolean } = {}): string {
@@ -104,7 +124,9 @@ const TWO_SECTIONS = record([
 describe("the contract holds", () => {
   it("passes on a well-formed tree and reports what it covered", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Never do X. Why: `#defect-1`. Phases: `#status-history`."),
+      "CLAUDE.md": claudeMd(
+        `Never do X. Why: ${pointer("defect-1")}. Phases: ${pointer("status-history")}.`,
+      ),
       "documentation/agent-notes.md": TWO_SECTIONS,
     });
     const r = run(dir);
@@ -116,10 +138,9 @@ describe("the contract holds", () => {
 
   it("covers a pointer in a source comment, not just markdown", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`),
       "documentation/agent-notes.md": TWO_SECTIONS,
-      "src/thing.ts":
-        "// The standing trap here is recorded at `#status-history`.\nexport const x = 1;\n",
+      "src/thing.ts": `// The standing trap here is recorded at ${pointer("status-history")}.\nexport const x = 1;\n`,
     });
     const r = run(dir);
     expect(r.code).toBe(0);
@@ -128,7 +149,7 @@ describe("the contract holds", () => {
 
   it("does not red a container heading that legitimately has no body of its own", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defects`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defects")}.`),
       "documentation/agent-notes.md": `# astm: agent notes\n\n<a id="defects"></a>\n\n## Known defects\n\n### Defect 1\n\nThe body.\n`,
     });
     expect(run(dir).code).toBe(0);
@@ -138,7 +159,7 @@ describe("the contract holds", () => {
 describe("a broken contract is caught", () => {
   it("reds when a pointer names an anchor that does not exist", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`. Why: `#defect-99`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}. Why: ${pointer("defect-99")}.`),
       "documentation/agent-notes.md": TWO_SECTIONS,
     });
     const r = run(dir);
@@ -149,7 +170,7 @@ describe("a broken contract is caught", () => {
 
   it("reds when the section an anchor is BOUND to is emptied", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`. Phases: `#status-history`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}. Phases: ${pointer("status-history")}.`),
       "documentation/agent-notes.md": record([
         { anchor: "defect-1", heading: "Defect 1: something", body: "The measurement." },
         { anchor: "status-history", heading: "Status", body: "" },
@@ -166,7 +187,7 @@ describe("a broken contract is caught", () => {
     // anchor, never a heading slug, so a check that only examined slugs would
     // cover nothing at all here.
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`),
       "documentation/agent-notes.md": record([
         { anchor: "defect-1", heading: "Defect 1: a long title nobody would ever spell", body: "" },
       ]),
@@ -178,7 +199,7 @@ describe("a broken contract is caught", () => {
 
   it("reds when CLAUDE.md stops linking the record by path, since bare anchors need it", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`.", { pathLink: false }),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`, { pathLink: false }),
       "documentation/agent-notes.md": TWO_SECTIONS,
     });
     const r = run(dir);
@@ -190,7 +211,7 @@ describe("a broken contract is caught", () => {
     const dir = makeTree({
       "CLAUDE.md": claudeMd("No pointers here."),
       "documentation/agent-notes.md": TWO_SECTIONS,
-      "README.md": "See `#defect-1`.\n",
+      "README.md": `See ${pointer("defect-1")}.\n`,
     });
     const r = run(dir);
     expect(r.code).toBe(1);
@@ -214,7 +235,7 @@ describe("it refuses rather than guessing", () => {
     // The ported-matcher tripwire. A gate that reported OK here would be the
     // exact defect this class keeps producing, one direction later.
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: [x](documentation/agent-notes.md#defect-1)."),
+      "CLAUDE.md": claudeMd(`Why: [x](${pathPointer("defect-1")}).`),
       "documentation/agent-notes.md": TWO_SECTIONS,
     });
     const r = run(dir);
@@ -225,7 +246,7 @@ describe("it refuses rather than guessing", () => {
 
   it("refuses when the declared non-pointer matches nothing, so a skip cannot go phantom", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`.", { placeholder: false }),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`, { placeholder: false }),
       "documentation/agent-notes.md": TWO_SECTIONS,
     });
     const r = run(dir);
@@ -240,7 +261,9 @@ describe("it refuses rather than guessing", () => {
     // exemption absorbed it with a reason that did not describe it. An exclusion
     // that can quietly widen is the phantom defect from the other side.
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`. The form is a bare `#anchor`, spelled out."),
+      "CLAUDE.md": claudeMd(
+        `Why: ${pointer("defect-1")}. The form is a bare ${pointer("anchor")}, spelled out.`,
+      ),
       "documentation/agent-notes.md": TWO_SECTIONS,
     });
     const r = run(dir);
@@ -250,7 +273,7 @@ describe("it refuses rather than guessing", () => {
 
   it("refuses when a tracked file is missing from the worktree", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`),
       "documentation/agent-notes.md": TWO_SECTIONS,
       "src/gone.ts": "export const x = 1;\n",
     });
@@ -262,7 +285,7 @@ describe("it refuses rather than guessing", () => {
   });
 
   it("refuses when the record is absent entirely", () => {
-    const dir = makeTree({ "CLAUDE.md": claudeMd("Why: `#defect-1`.") });
+    const dir = makeTree({ "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`) });
     const r = run(dir);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("documentation/agent-notes.md is not among the tracked files");
@@ -270,7 +293,7 @@ describe("it refuses rather than guessing", () => {
 
   it("refuses on a non-ASCII heading rather than guessing its slug", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`),
       "documentation/agent-notes.md": `# astm: agent notes\n\n<a id="defect-1"></a>\n\n## Defect 1: café semantics\n\nBody.\n`,
     });
     const r = run(dir);
@@ -284,7 +307,7 @@ describe("the corpus and the encoding bound, pinned in both directions", () => {
     // Not hypothetical: this repository tracks NUL-bearing TypeScript sources,
     // one of them a test. A NUL partition would drop them in silence.
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`),
       "documentation/agent-notes.md": TWO_SECTIONS,
       "src/nul.ts": Buffer.from(`export const SEP = " ";\n// see \`#status-history\`\n`, "utf8"),
     });
@@ -298,10 +321,10 @@ describe("the corpus and the encoding bound, pinned in both directions", () => {
     const win1252 = Buffer.concat([
       Buffer.from("// caf", "ascii"),
       Buffer.from([0xe9]),
-      Buffer.from(" see `#status-history`\n", "ascii"),
+      Buffer.from(` see ${pointer("status-history")}\n`, "ascii"),
     ]);
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`),
       "documentation/agent-notes.md": TWO_SECTIONS,
       "src/legacy.ts": win1252,
     });
@@ -312,9 +335,9 @@ describe("the corpus and the encoding bound, pinned in both directions", () => {
 
   it("does NOT match a pointer in a UTF-16 file, which is the disclosed miss", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`),
       "documentation/agent-notes.md": TWO_SECTIONS,
-      "src/utf16.ts": Buffer.from("// see `#status-history`\n", "utf16le"),
+      "src/utf16.ts": Buffer.from(`// see ${pointer("status-history")}\n`, "utf16le"),
     });
     const r = run(dir);
     expect(r.code).toBe(0);
@@ -324,7 +347,7 @@ describe("the corpus and the encoding bound, pinned in both directions", () => {
 
   it("ignores an anchor that is inside a fenced code block", () => {
     const dir = makeTree({
-      "CLAUDE.md": claudeMd("Why: `#defect-1`. Why: `#fenced`."),
+      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}. Why: ${pointer("fenced")}.`),
       "documentation/agent-notes.md":
         `# astm: agent notes\n\n<a id="defect-1"></a>\n\n## Defect 1\n\nBody.\n\n` +
         '```html\n<a id="fenced"></a>\n```\n',
@@ -336,6 +359,22 @@ describe("the corpus and the encoding bound, pinned in both directions", () => {
 });
 
 describe("this repository's own tree", () => {
+  it("keeps the gate and its own tests free of literally-spelled pointers", () => {
+    // The rule that had to be learned the expensive way, pinned so it cannot be
+    // undone by a later edit. Both files are TRACKED and therefore part of the
+    // corpus, so a pointer spelled literally in either is scanned against the
+    // real record exactly as one in `CLAUDE.md` would be. Build them; never
+    // spell them. Exempting these paths is the exclusion list the gate refuses
+    // to have, and it would hide a genuinely broken pointer written in a test.
+    const live = new RegExp(TICK + "#[A-Za-z0-9._-]+" + TICK, "g");
+    const qualified = /agent-notes\.md#[A-Za-z0-9._-]+/g;
+    for (const rel of ["scripts/check-agent-notes.ts", "test/scripts/agent-notes.test.ts"]) {
+      const text = readFileSync(join(REPO_ROOT, rel), "utf8");
+      expect(text.match(live), `${rel} spells a live-form pointer`).toBeNull();
+      expect(text.match(qualified), `${rel} spells a qualified pointer`).toBeNull();
+    }
+  });
+
   it("passes its own contract", () => {
     const r = run(REPO_ROOT);
     expect(r.stderr).toBe("");

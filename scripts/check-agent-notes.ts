@@ -154,11 +154,17 @@
  *  - THERE IS NO EXCLUSION LIST, NO BINARY SKIP AND NO NUL SKIP, so on a clean
  *    run the read count EQUALS the tracked count and there is no residue for a
  *    reader to interpret. DO NOT ADD ONE, and on this tree that is not a style
- *    preference: this repository tracks TWO NUL-BEARING FILES, both of them
- *    prose-bearing TypeScript sources that a NUL partition would drop in
- *    silence, and one of them is a test. This repo's own em-dash gate records
- *    that exact hazard. A sibling gate that skips NUL-bearing files has to
- *    disclose the miss; here it would be a live hole rather than a latent one.
+ *    preference: this repository tracks NUL-BEARING FILES, prose-bearing
+ *    TypeScript sources that a NUL partition would drop in silence, and one of
+ *    them is a test. NO COUNT IS WRITTEN HERE, because a count without its
+ *    enumeration cannot self-correct and this one moved inside the very commit
+ *    that first wrote it down. Derive it:
+ *
+ *      git ls-files -z | xargs -0 grep -lz . 2>/dev/null
+ *
+ *    This repo's own em-dash gate records the same hazard. A sibling gate that
+ *    skips NUL-bearing files has to disclose the miss; here it would be a live
+ *    hole rather than a latent one.
  *  - Both files the contract is about must be present in what was actually
  *    opened. A phantom path cannot yield green, because green requires having
  *    read them.
@@ -221,11 +227,23 @@
  *  - Not GitHub's duplicate-anchor suffixing beyond the `-1`, `-2` sequence
  *    below, and no other link target in the repo. THIS IS NOT A LINK CHECKER.
  *
- * ONE HAZARD FOLLOWS FROM HAVING NO EXCLUSION LIST: DO NOT WRITE A POINTER INTO
- * A CHANGESET SUMMARY. The summary becomes the `CHANGELOG.md` entry, that file
- * is tracked, and a pointer archived there freezes the anchor it names forever,
- * because renaming the section would red this gate on a published record nobody
- * may hand-edit. Reference a section by TITLE in a changeset, never by anchor.
+ * THE HAZARD THAT FOLLOWS FROM HAVING NO EXCLUSION LIST, AND IT IS WIDER THAN
+ * THE ONE FILE THIS NOTE ORIGINALLY NAMED. Every tracked file is scanned, so a
+ * backticked anchor is a live pointer WHEREVER it is written, including on
+ * surfaces that leave this repository:
+ *
+ *   - A CHANGESET SUMMARY becomes the `CHANGELOG.md` entry, which is tracked, so
+ *     a pointer archived there freezes the anchor it names forever: renaming the
+ *     section would red this gate on a published record nobody may hand-edit.
+ *   - `docs-content/` is tarred VERBATIM into an IMMUTABLE release asset, so a
+ *     pointer written there is frozen the same way and cannot be corrected in
+ *     place, only superseded.
+ *   - `README.md` and every source comment are scanned too.
+ *
+ * Reference a section by TITLE on any surface that ships, never by anchor. Both
+ * of those surfaces are clean today, so this is a latent bound rather than a
+ * live one; it is disclosed because THE SAME MECHANISM IS WHAT MADE THIS GATE'S
+ * OWN TEST FILE RED, and that one was not latent.
  *
  * SECURITY: the one subprocess call uses execFileSync with array args. No shell
  * form.
@@ -602,8 +620,10 @@ for (const p of pointers) {
 //
 //    THE BINDING IS THE PART THAT IS SPECIFIC TO THIS TREE, AND GETTING IT WRONG
 //    MAKES THE ASSERTION VACUOUS RATHER THAN WRONG, WHICH IS WORSE. Measured: all
-//    36 explicit anchors here are a bare tag alone on a line, then a blank line,
-//    then a heading. So an anchor is not a section of its own; it is the stable
+//    explicit anchors here are a bare tag alone on a line, then a blank line,
+//    then a heading (no count: the run prints one, and this one went stale in
+//    the commit that first wrote it). So an anchor is not a section of its own;
+//    it is the stable
 //    NAME of the section the heading opens. Treated separately, the anchor looks
 //    like an empty section (its body is the heading line) and the heading looks
 //    unreferenced (no pointer spells its slug), so a naive pass skips BOTH and

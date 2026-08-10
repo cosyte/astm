@@ -39,9 +39,18 @@ this file is maintained by hand (Changesets handles the version bump and publish
     when it matches nothing (a phantom skip) and when it matches more than once. The second case
     fired during this change's own build.
   - The corpus is `git ls-files` reconciled as sets, with **no exclusion list, no binary skip and no
-    NUL skip**; this repository tracks two NUL-bearing TypeScript sources that a NUL partition would
-    drop in silence. A pointer is matched if and only if the file spells it in ASCII bytes, pinned in
-    both directions by test.
+    NUL skip**; this repository tracks NUL-bearing TypeScript sources, one of them a test, that a NUL
+    partition would drop in silence. A pointer is matched if and only if the file spells it in ASCII
+    bytes, pinned in both directions by test. Every tracked file is scanned, so a backticked anchor
+    is a live pointer wherever it is written, **including `README.md` and `docs-content/`, which
+    ships in an immutable release asset**: reference a section by title on any surface that ships.
+  - **CI caught a defect the local run structurally could not, and the gate was right.** Because the
+    corpus is the index, a new file is invisible until staged: `verify.sh` ran green while both new
+    files were untracked, and CI went red once they were tracked, because the gate's own test file
+    spelled pointers in its fixtures that were then scanned against the real record. Both the checker
+    and its test now **build** pointer strings at run time rather than spelling them, pinned by a
+    test; exempting those paths would have been the exclusion list the gate refuses to have. **Re-run
+    a corpus-scanning gate after staging, never only before.**
 
 - **The PHI commit-gate now reads a stream written as a source string literal, and refuses a sweep
   that did not observe its corpus.** Two separate holes, closed together because closing one alone

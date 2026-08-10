@@ -2517,8 +2517,9 @@ anchor looked like an empty section (its body is the heading line) and the headi
 unreferenced (no pointer spells its slug), so the pass skipped **both**, and a deliberately emptied
 section still printed `OK`. Only a positive control found it.
 
-Measured layout, uniform across all 36 anchors: a bare tag alone on a line, one blank line, then a
-heading. So an anchor is **not a section**; it is the stable **name** of the section the heading
+Measured layout, uniform across every anchor: a bare tag alone on a line, one blank line, then a
+heading. **No count is written here** (the run prints one): the first draft of this paragraph said
+"36", and the same commit added the thirty-seventh. So an anchor is **not a section**; it is the stable **name** of the section the heading
 opens, and the two are bound into one unit. **Prove a matcher non-vacuous with a positive control
 before believing any green** is the general form, and this is the local instance of it.
 
@@ -2541,13 +2542,43 @@ to the one occurrence it describes**, so both are refusals:
   red. An exclusion that can quietly widen is the phantom defect arriving from the other side. The
   remedy in prose is to **say "a backticked bare anchor" rather than writing one**.
 
+### The defect CI caught that the local run structurally could not
+
+**A LOCAL GREEN BEFORE `git add` MEANS LESS THAN A CI GREEN, AND THIS GATE IS THE SHARPEST CASE OF
+IT IN THE REPO.** The corpus is `git ls-files`, so a **new** file is invisible to it until it is
+staged. `scripts/verify.sh` ran green on this very change while both new files were still untracked;
+CI checked out a tree where they were tracked and went red on both Node versions.
+
+What it found: **the gate's own test file spells pointers in its fixtures**, and being tracked, those
+fixtures were scanned against the **real** record exactly as a pointer in `CLAUDE.md` would be. Two
+anchors that exist only inside a fixture were reported as dangling. The gate was right; the test file
+was wrong.
+
+The remedy is the rule the checker already applies to itself, extended to its test: **build the
+pointer, never spell it.** Both files construct pointer strings at run time from a backtick written
+as an escape, so neither contains one literally, and a test pins that so a later edit cannot undo it.
+**The alternative, exempting those two paths, is the exclusion list this gate refuses to have**, and
+it would hide a genuinely broken pointer written in a test.
+
+**The general form, which is this repo's known shape: re-run a corpus-scanning gate AFTER staging,
+never only before.** Any check whose corpus comes from the index has it.
+
 ### The corpus, the encoding, and what a green does not mean
 
 The corpus is `git ls-files`, **reconciled as sets**: every tracked path is opened or the run
 refuses, so a clean run's read count equals the tracked count. **There is no exclusion list, no
-binary skip and no NUL skip, and here that is not a style preference:** this repository tracks **two
-NUL-bearing files, both prose-bearing TypeScript sources and one of them a test**, which a NUL
-partition would drop in silence. This repo's own em-dash gate records that hazard.
+binary skip and no NUL skip, and here that is not a style preference:** this repository tracks
+**NUL-bearing prose-bearing TypeScript sources, one of them a test**, which a NUL partition would
+drop in silence. This repo's own em-dash gate records that hazard. **No count is written here**, for
+the reason above: the first draft said "two" and the same commit made it three. Derive it with
+`git ls-files -z | xargs -0 grep -lz .`.
+
+**EVERY TRACKED FILE IS SCANNED, AND THAT INCLUDES SURFACES THAT LEAVE THE REPO.** A backticked
+anchor written into `README.md` or `docs-content/` is a live pointer that has to resolve, and
+`docs-content/` is tarred into an **immutable** release asset, so a pointer archived there freezes
+the anchor it names exactly as one in `CHANGELOG.md` does. Both are clean today, so this is latent
+rather than live, and it is the same mechanism that made the gate's own test file red. **Reference a
+section by title on any surface that ships.**
 
 **The encoding rule is one sentence and must not be restated as a list of encodings: a pointer is
 matched if and only if the file spells it in ASCII bytes.** A Windows-1252 file is matched, a UTF-16
