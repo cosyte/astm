@@ -11,6 +11,47 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Added
 
+- **The two-file contract between `CLAUDE.md` and `documentation/agent-notes.md` is now gated**
+  (`pnpm check:agent-notes`, `scripts/check-agent-notes.ts`), with the teeth in
+  `test/scripts/agent-notes.test.ts` so it rides the required `ci / verify` matrix rather than
+  adding a workflow that would have to be made a required context separately. It asserts that every
+  pointer resolves, that no section a pointer reaches is empty, that the record stays reachable from
+  the always-read file, and that the always-read file still links the record by path. It asserts
+  **no** ecosystem-wide contract: several cosyte repos carry no such record at all, and a gate
+  phrased as though every repo did would be an overclaim.
+  - **The matcher was re-derived against this tree rather than ported, and that was the whole job.**
+    Both sibling spellings score **zero** here: the path-qualified form used by `ccda` and `mllp`,
+    and the basename-qualified form used by `terminology`. Every pointer in this repository is a
+    third spelling neither sibling gate matches, a backtick-quoted anchor with no filename at all. A
+    verbatim port would have reported "all resolving" over a corpus it never opened. Both sibling
+    forms are matched anyway so a pasted pointer is never invisible, and the live form falling to
+    zero is a refusal rather than a pass.
+  - **The anchor space is this record's explicit `<a id>` tags, not GitHub heading slugs.** Not one
+    pointer here resolves to a heading slug, because the headings carry long titles with dates and
+    status in them. A gate checking only slugs, which is what the siblings check, would have
+    reported every pointer in the repository as dangling.
+  - **An early draft was vacuous rather than wrong, and only a positive control found it.** Treating
+    an explicit anchor and the heading it precedes as separate sections made the empty-section
+    assertion cover nothing: the anchor looked empty and the heading looked unreferenced, so both
+    were skipped and a deliberately emptied section still printed `OK`. Anchors are now bound to the
+    heading they name.
+  - **The one declared non-pointer is pinned to the single sentence it describes**, and refuses both
+    when it matches nothing (a phantom skip) and when it matches more than once. The second case
+    fired during this change's own build.
+  - The corpus is `git ls-files` reconciled as sets, with **no exclusion list, no binary skip and no
+    NUL skip**; this repository tracks NUL-bearing TypeScript sources, most of them tests, that a NUL
+    partition would drop in silence. A pointer is matched if and only if the file spells it in ASCII
+    bytes, pinned in both directions by test. Every tracked file is scanned, so a backticked anchor
+    is a live pointer wherever it is written, **including `README.md` and `docs-content/`, which
+    ships in an immutable release asset**: reference a section by title on any surface that ships.
+  - **CI caught a defect the local run structurally could not, and the gate was right.** Because the
+    corpus is the index, a new file is invisible until staged: `verify.sh` ran green while both new
+    files were untracked, and CI went red once they were tracked, because the gate's own test file
+    spelled pointers in its fixtures that were then scanned against the real record. Both the checker
+    and its test now **build** pointer strings at run time rather than spelling them, pinned by a
+    test; exempting those paths would have been the exclusion list the gate refuses to have. **Re-run
+    a corpus-scanning gate after staging, never only before.**
+
 - **The PHI commit-gate now reads a stream written as a source string literal, and refuses a sweep
   that did not observe its corpus.** Two separate holes, closed together because closing one alone
   buys only the cross-cutting SSN/email floor.

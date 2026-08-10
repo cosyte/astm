@@ -26,6 +26,7 @@ not removed, because the correction is usually the lesson.
 - [Engineering Guardrails](#engineering-guardrails) (the `attw` wrapper)
 - [Standing disciplines (every change)](#standing-disciplines-every-change) (public-surface bookkeeping, and the em dash gate)
 - [The shared engineering guardrails](#the-shared-engineering-guardrails-relocated-verbatim-from-claudemd-2026-08-07) and one `attw` trap, both relocated out of `CLAUDE.md` 2026-08-07
+- [The two-file contract, and why the matcher had to be re-derived here](#the-two-file-contract-and-why-the-matcher-had-to-be-re-derived-here) (both sibling matchers score zero on this tree)
 - [The PHI sweep has two halves](#the-phi-sweep-has-two-halves-and-one-of-them-is-not-the-other) (scan roots, the source-embedded view, the observation rule)
 - [`pnpm check`: a local gate run that says what it did not do](#pnpm-check-a-local-gate-run-that-says-what-it-did-not-do)
 
@@ -2464,6 +2465,143 @@ Part of the `attw` gate's trap list; it belongs with `#attw`.
 - **Do not port the sibling's prose with its code.** Re-take every measured claim here; a first draft
   shipped two that were not, and the refuter caught both. **Never quote a sibling's timing**: `#attw`
   carries this package's own.
+
+<a id="agent-notes-contract"></a>
+
+## The two-file contract, and why the matcher had to be re-derived here
+
+`scripts/check-agent-notes.ts` checks the contract between `CLAUDE.md` and this file: that every
+pointer resolves, that no section a pointer reaches is empty, and that this file stays reachable from
+the one every worker reads. The teeth are `test/scripts/agent-notes.test.ts`, so it rides the
+required `ci / verify` matrix rather than adding a fourth workflow that would have to be made a
+required context separately. Reporting is not gating. **Which contexts are actually required is not
+written down**: read it with `gh api repos/cosyte/astm/rulesets`.
+
+**IT ASSERTS NO UNIVERSAL, DELIBERATELY.** The two-file split landed across the cosyte tree, but
+several repos carry no `documentation/agent-notes.md` at all, so a gate phrased as "every repo has
+these two files" would be an overclaim its own siblings disprove. **No list and no count of those
+repos is written here**, because the set moves as repos gain the record. Derive it from the meta-repo
+checkout: `for d in $(git submodule status | awk '{print $2}'); do [ -e "$d/documentation/agent-notes.md" ] || echo "$d"; done`.
+
+### The measurement, which is the whole reason this is not a port
+
+**BOTH SIBLING MATCHERS SCORE ZERO ON THIS TREE.** Counted before anything was written, across
+every tracked file:
+
+- the **path-qualified** form (this file's full path, then the anchor) that `ccda` and `mllp` write:
+  **none**;
+- the **basename-qualified** form (this file's basename, then the anchor) that `terminology` writes
+  and calls its bare form: **none**;
+- a **third spelling neither sibling gate matches**, a backtick-quoted anchor with **no filename at
+  all**, resolved by the rule `CLAUDE.md` states in its opening blockquote: **all of them**.
+
+A verbatim port would have reported "all resolving" over a corpus it never opened, which is the
+defect this gate class has now produced twice. The count is printed on every run and is deliberately
+not written down here. Both sibling forms are matched anyway, so a pointer pasted in from a sibling
+is checked from its first day; the **live** form going to zero is a **refusal**, because that is what
+the ported-matcher defect looks like from inside. The converse is not: zero of either sibling form is
+the normal state here.
+
+**AND THE MATCHER WAS ONLY HALF OF IT. THE ANCHOR SPACE IS NOT GITHUB HEADING SLUGS.** Every
+resolving pointer here resolves to an **explicit `<a id>` tag**, and **not one** resolves to a
+heading slug: the headings carry long titles with dates and status in them, so their computed slugs
+look nothing like the short stable names the pointers use. A gate that accepted only heading slugs,
+which is what the siblings check, would have reported **every pointer in this repository as
+dangling**. Both kinds are accepted, because both render as link targets on GitHub.
+
+### The vacuity the positive control caught, which no green would have shown
+
+An early draft treated an explicit anchor and the heading it precedes as two separate sections. On
+this tree that made the empty-section assertion **vacuous rather than wrong**, which is worse: the
+anchor looked like an empty section (its body is the heading line) and the heading looked
+unreferenced (no pointer spells its slug), so the pass skipped **both**, and a deliberately emptied
+section still printed `OK`. Only a positive control found it.
+
+Measured layout, uniform across every anchor: a bare tag alone on a line, one blank line, then a
+heading. **No count is written here** (the run prints one): the first draft of this paragraph said
+"36", and the same commit added the thirty-seventh. So an anchor is **not a section**; it is the stable **name** of the section the heading
+opens, and the two are bound into one unit. **Prove a matcher non-vacuous with a positive control
+before believing any green** is the general form, and this is the local instance of it.
+
+### The one declared non-pointer, and why an unexercised skip refuses
+
+`CLAUDE.md`'s opening blockquote **defines** the pointer syntax, and to define it the sentence has to
+spell a pointer-shaped token as a placeholder. It names no section. Nothing structural separates it
+from a real pointer, so it is declared in the script as an exact file-and-anchor pair with its
+reason, in the same shape `scripts/check-gate-coverage.ts` uses next door: **a disclosure, printed on
+every run, not a suppression.** Two rules matter more than the entry, and **the declaration is pinned
+to the one occurrence it describes**, so both are refusals:
+
+- **An exemption that matches nothing is a refusal, not a pass.** A skip nobody exercises is how an
+  exclusion list goes phantom, the prose describing a thing that no longer exists. Reword the
+  placeholder and the gate stops rather than passing.
+- **An exemption that matches MORE than its one sentence is also a refusal**, and this one fired
+  during the gate's own build. The trap line added to `CLAUDE.md` announcing the gate **spelled the
+  placeholder** while describing the pointer form, and the exemption **silently absorbed it**,
+  attaching a reason about the opening blockquote to a bullet three hundred lines away. Nothing went
+  red. An exclusion that can quietly widen is the phantom defect arriving from the other side. The
+  remedy in prose is to **say "a backticked bare anchor" rather than writing one**.
+
+### The defect CI caught that the local run structurally could not
+
+**A LOCAL GREEN BEFORE `git add` MEANS LESS THAN A CI GREEN, AND THIS GATE IS THE SHARPEST CASE OF
+IT IN THE REPO.** The corpus is `git ls-files`, so a **new** file is invisible to it until it is
+staged. `scripts/verify.sh` ran green on this very change while both new files were still untracked;
+CI checked out a tree where they were tracked and went red on both Node versions.
+
+What it found: **the gate's own test file spells pointers in its fixtures**, and being tracked, those
+fixtures were scanned against the **real** record exactly as a pointer in `CLAUDE.md` would be. The
+run reported **four dangling pointers naming three distinct anchors**, none of which exists in the
+record. The gate was right; the test file was wrong.
+
+The remedy is the rule the checker already applies to itself, extended to its test: **build the
+pointer, never spell it.** Both files construct pointer strings at run time from a backtick written
+as an escape, so neither contains one literally, and a test pins that so a later edit cannot undo it.
+**The alternative, exempting those two paths, is the exclusion list this gate refuses to have**, and
+it would hide a genuinely broken pointer written in a test.
+
+**The general form, which is this repo's known shape: re-run a corpus-scanning gate AFTER staging,
+never only before.** Any check whose corpus comes from the index has it.
+
+### The corpus, the encoding, and what a green does not mean
+
+The corpus is `git ls-files`, **reconciled as sets**: every tracked path is opened or the run
+refuses, so a clean run's read count equals the tracked count. **There is no exclusion list, no
+binary skip and no NUL skip, and here that is not a style preference:** this repository tracks
+**NUL-bearing prose-bearing TypeScript sources, most of them tests**, which a NUL partition would
+drop in silence. This repo's own em-dash gate records that hazard. **No count is written here**, for
+the reason above. Derive it with `git ls-files -z | xargs -0 grep -laP '\x00'`.
+
+**Two flags in that line are load-bearing and both fail silently.** `-a`: without it grep treats a
+NUL-bearing file as binary and prints nothing, so the derivation reads as "none". **`-z` is a
+record-separator switch, not a NUL filter**: it makes NUL the separator, so `grep -lz .` matches
+every non-empty file and cannot find NUL-bearing ones at all. That second one is the trap, because
+`-z` reads like a NUL flag and the sibling `check-no-emdash.sh` uses it for its real purpose.
+
+**EVERY TRACKED FILE IS SCANNED, AND THAT INCLUDES SURFACES THAT LEAVE THE REPO.** A backticked
+anchor written into `README.md`, `docs-content/` or a `src/` comment is a live pointer that has to
+resolve, and `docs-content/` and `src/` are both tarred **verbatim** into **immutable** release
+assets, so a pointer archived there freezes the anchor it names exactly as one in `CHANGELOG.md`
+does. They are clean today, so this is latent rather than live, and it is the same mechanism that
+made the gate's own test file red. **Reference a section by title on any surface that ships**: the
+rule is the surface, not the list, because the list will go stale and the rule will not.
+
+**The encoding rule is one sentence and must not be restated as a list of encodings: a pointer is
+matched if and only if the file spells it in ASCII bytes.** A Windows-1252 file is matched, a UTF-16
+file is not, and both directions are pinned by test. **UTF-7 IS matched**, because RFC 2152 permits
+the `#` directly; a sibling's first draft filed it as unmatched and nearly propagated that.
+
+A green does **not** mean every trap has a pointer (recognising "a trap" is a judgement about prose,
+and the class no grep can see is the trap phrased as a **deliberate omission**, which carries no
+identifier), nor that a section's prose is accurate or its trap closed. **A pointer is not a
+closure.** An unreferenced anchor is legitimate and is reported rather than failed. **Disclosed
+rather than guarded:** an anchor inside an HTML comment would be counted here and render nothing on
+GitHub; this file contains no HTML comment today, so that is latent rather than live.
+
+**One hazard follows from having no exclusion list: never write a pointer into a changeset summary.**
+The summary becomes the `CHANGELOG.md` entry, that file is tracked, and a pointer archived there
+freezes the anchor it names forever, because renaming the section would red this gate on a published
+record nobody may hand-edit. Reference a section by **title** in a changeset, never by anchor.
 
 <a id="phi-scan-scope"></a>
 

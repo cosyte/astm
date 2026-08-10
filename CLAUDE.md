@@ -5,10 +5,9 @@
 > in that file**, pointing at the section that records how it was measured, kept **verbatim**.
 > Read that section before you touch the code it guards: these are clinical-safety
 > lessons, and several record a claim that measured **false** after it shipped.
-> The meta-repo bounds this file at write time (`.claude/hooks/doc-budget.mjs`, ADR 0023), a
-> per-repo ratchet **lowered as relocations land**. **No number is written here on purpose**: read
-> the entry, and treat headroom as slack to give back. A breach is fixed by relocating narrative
-> into the notes, **never** by dropping a trap. `#claude-md-size`.
+> The meta-repo bounds this file at write time (`.claude/hooks/doc-budget.mjs`, ADR 0023). **No
+> number is written here on purpose**: read the entry, and treat headroom as slack to give back. A
+> breach is relocation into the notes, **never** dropping a trap. `#claude-md-size`.
 
 ## Project
 
@@ -30,10 +29,9 @@ shipped (`ls src/` for the module layout).
 
 ### Traps carried out of the status history
 
-- **Never name a version in prose** here, in `README.md`, or in `docs-content/`. All four read
-  `at 0.0.1` for days after `0.0.2` shipped, and `docs-content/` reaches docs.cosyte.com inside an
-  **immutable** tarball. Derive it: `npm view @cosyte/astm version`; `www.npmjs.com` 403s scripted
-  requests and is not usable. Why: `#status-history`.
+- **Never name a version in prose** here, in `README.md`, or in `docs-content/`. All four went stale
+  once, and `docs-content/` reaches docs.cosyte.com inside an **immutable** tarball. Derive it:
+  `npm view @cosyte/astm version` (`www.npmjs.com` 403s scripts). Why: `#status-history`.
 - **`src/index.ts`'s exported `VERSION` is a different thing and IS bound** (`scripts/sync-version.mjs`
   in the release `version` script + an equality assertion in `test/sanity.test.ts`). Never "restore
   consistency" by re-pinning a number into prose. Why: `#status-history`.
@@ -99,18 +97,16 @@ shipped (`ls src/` for the module layout).
 
 ## The shipped docs sidebar is a published contract
 
-Full text: `#docs-sidebar`.
+Full text, with the spine, the file names and the measurements: `#docs-sidebar`.
 
-- **`docs-content/sidebars.json` is a public contract, not a local build detail**, and the release
-  asset it is tarred into is **immutable**: a bad sidebar is superseded by a later release, never
-  corrected in place. It has shipped wrong once and rendered that way.
-- **Spine: Overview, Installation, Quickstart, Core Concepts, Guides, API Reference,
-  Troubleshooting**, enforced upstream by `scripts/check-ia-conformance.ts`, transcribed by
-  `test/docs-sidebar-ia.test.ts`. **Transcribed, not imported** (a parser repo cannot depend on the
-  docs site), so copies drift and **upstream is the source of truth**.
-- **Categories are optional** ("if you have it, label and order it canonically"), so `{"docs":
-["intro"]}` conforms: **never make the test demand a section**. **"API Reference" is injected by
-  `cosyte/docs`, never authored here.**
+- **`docs-content/sidebars.json` is a public contract, not a local build detail**, and the asset it
+  ships in is **immutable**: a bad sidebar is superseded by a later release, never corrected in
+  place. It has shipped wrong once and rendered that way.
+- **The spine is transcribed from upstream, not imported** (a parser repo cannot depend on the docs
+  site), so the copies drift and **upstream is the source of truth**. Graded by
+  `test/docs-sidebar-ia.test.ts`.
+- **Categories are optional**, so `{"docs":["intro"]}` conforms: **never make the test demand a
+  section**. **"API Reference" is injected by `cosyte/docs`, never authored here.**
 
 ## Known defects live on `main`
 
@@ -328,6 +324,13 @@ The shared ones (no `any`, JSDoc on every public export, immutable by default, n
 Postel's Law, fatal only for structural corruption, per-directory >= 90 coverage, and the rest) are
 `#guardrails-shared`, verbatim. They bind here, and are not copied here.
 
+### The two-file contract is gated
+
+- **Pointers here are a backticked bare anchor, resolved in that file only by the link atop this
+  one: lose it and every pointer goes at once.** `pnpm check:agent-notes`.
+- **Never port a sibling's matcher, and never write a pointer into a changeset**:
+  `#agent-notes-contract`.
+
 ### The `attw` gate: traps
 
 Full text, with every measurement: `#attw`.
@@ -348,10 +351,9 @@ Full text, with every measurement: `#attw`.
 - **The refusal list is NOT a proof of closure and must never be written as one**
   (`--definitely-typed` suppresses the sentence by another mechanism and is deliberately not refused).
   The **preflight** is the net that does not depend on reading a string.
-- **Do not write the repo count down here.** Derive it:
-  `/usr/bin/grep -rl '"attw":' --include=package.json --exclude-dir=node_modules .` from the tree
-  root. Every sibling still invoking the CLI keeps the false green, **including
-  `config/scripts/parser-template/`, which new parser repos are minted from.**
+- **Do not write the repo count down here** (`#attw` carries the derivation). Every sibling still
+  invoking the CLI keeps the false green, **including `config/scripts/parser-template/`, which new
+  parser repos are minted from.**
 - **Do not port a sibling's prose with its code, and never quote its timing**: `#attw-port`.
 
 ## Standing disciplines (every change)
