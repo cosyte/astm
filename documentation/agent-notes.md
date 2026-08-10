@@ -2550,9 +2550,9 @@ staged. `scripts/verify.sh` ran green on this very change while both new files w
 CI checked out a tree where they were tracked and went red on both Node versions.
 
 What it found: **the gate's own test file spells pointers in its fixtures**, and being tracked, those
-fixtures were scanned against the **real** record exactly as a pointer in `CLAUDE.md` would be. Two
-anchors that exist only inside a fixture were reported as dangling. The gate was right; the test file
-was wrong.
+fixtures were scanned against the **real** record exactly as a pointer in `CLAUDE.md` would be. The
+run reported **four dangling pointers naming three distinct anchors**, none of which exists in the
+record. The gate was right; the test file was wrong.
 
 The remedy is the rule the checker already applies to itself, extended to its test: **build the
 pointer, never spell it.** Both files construct pointer strings at run time from a backtick written
@@ -2568,17 +2568,20 @@ never only before.** Any check whose corpus comes from the index has it.
 The corpus is `git ls-files`, **reconciled as sets**: every tracked path is opened or the run
 refuses, so a clean run's read count equals the tracked count. **There is no exclusion list, no
 binary skip and no NUL skip, and here that is not a style preference:** this repository tracks
-**NUL-bearing prose-bearing TypeScript sources, one of them a test**, which a NUL partition would
+**NUL-bearing prose-bearing TypeScript sources, most of them tests**, which a NUL partition would
 drop in silence. This repo's own em-dash gate records that hazard. **No count is written here**, for
 the reason above: the first draft said "two" and the same commit made it three. Derive it with
-`git ls-files -z | xargs -0 grep -lz .`.
+`git ls-files -z | xargs -0 grep -laP '\x00'`. **The `-a` is load-bearing**: without it grep treats a
+NUL-bearing file as binary and prints nothing, so the derivation reads as "none". The first
+replacement for the stale count had that bug, which is the same class as the count it replaced.
 
 **EVERY TRACKED FILE IS SCANNED, AND THAT INCLUDES SURFACES THAT LEAVE THE REPO.** A backticked
-anchor written into `README.md` or `docs-content/` is a live pointer that has to resolve, and
-`docs-content/` is tarred into an **immutable** release asset, so a pointer archived there freezes
-the anchor it names exactly as one in `CHANGELOG.md` does. Both are clean today, so this is latent
-rather than live, and it is the same mechanism that made the gate's own test file red. **Reference a
-section by title on any surface that ships.**
+anchor written into `README.md`, `docs-content/` or a `src/` comment is a live pointer that has to
+resolve, and `docs-content/` and `src/` are both tarred **verbatim** into **immutable** release
+assets, so a pointer archived there freezes the anchor it names exactly as one in `CHANGELOG.md`
+does. They are clean today, so this is latent rather than live, and it is the same mechanism that
+made the gate's own test file red. **Reference a section by title on any surface that ships**: the
+rule is the surface, not the list, because the list will go stale and the rule will not.
 
 **The encoding rule is one sentence and must not be restated as a list of encodings: a pointer is
 matched if and only if the file spells it in ASCII bytes.** A Windows-1252 file is matched, a UTF-16

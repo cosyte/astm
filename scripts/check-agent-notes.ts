@@ -155,12 +155,15 @@
  *    run the read count EQUALS the tracked count and there is no residue for a
  *    reader to interpret. DO NOT ADD ONE, and on this tree that is not a style
  *    preference: this repository tracks NUL-BEARING FILES, prose-bearing
- *    TypeScript sources that a NUL partition would drop in silence, and one of
- *    them is a test. NO COUNT IS WRITTEN HERE, because a count without its
+ *    TypeScript sources that a NUL partition would drop in silence, and MOST OF
+ *    THEM ARE TESTS. NO COUNT IS WRITTEN HERE, because a count without its
  *    enumeration cannot self-correct and this one moved inside the very commit
- *    that first wrote it down. Derive it:
+ *    that first wrote it down. Derive it (the `-a` is load-bearing: without it
+ *    grep treats a NUL-bearing file as binary and prints nothing, which is a
+ *    derivation that reads as "none" and is how the first version of this line
+ *    was wrong):
  *
- *      git ls-files -z | xargs -0 grep -lz . 2>/dev/null
+ *      git ls-files -z | xargs -0 grep -laP '\x00'
  *
  *    This repo's own em-dash gate records the same hazard. A sibling gate that
  *    skips NUL-bearing files has to disclose the miss; here it would be a live
@@ -237,8 +240,11 @@
  *     section would red this gate on a published record nobody may hand-edit.
  *   - `docs-content/` is tarred VERBATIM into an IMMUTABLE release asset, so a
  *     pointer written there is frozen the same way and cannot be corrected in
- *     place, only superseded.
- *   - `README.md` and every source comment are scanned too.
+ *     place, only superseded. `src/` ships verbatim in a release tarball too, so
+ *     a source COMMENT has the same property.
+ *   - `README.md` and every other tracked file are scanned as well. THE RULE IS
+ *     THE SURFACE, NOT THE LIST: this enumeration will go stale, the rule will
+ *     not.
  *
  * Reference a section by TITLE on any surface that ships, never by anchor. Both
  * of those surfaces are clean today, so this is a latent bound rather than a

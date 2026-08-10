@@ -39,7 +39,7 @@ this file is maintained by hand (Changesets handles the version bump and publish
     when it matches nothing (a phantom skip) and when it matches more than once. The second case
     fired during this change's own build.
   - The corpus is `git ls-files` reconciled as sets, with **no exclusion list, no binary skip and no
-    NUL skip**; this repository tracks NUL-bearing TypeScript sources, one of them a test, that a NUL
+    NUL skip**; this repository tracks NUL-bearing TypeScript sources, most of them tests, that a NUL
     partition would drop in silence. A pointer is matched if and only if the file spells it in ASCII
     bytes, pinned in both directions by test. Every tracked file is scanned, so a backticked anchor
     is a live pointer wherever it is written, **including `README.md` and `docs-content/`, which
