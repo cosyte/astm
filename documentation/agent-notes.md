@@ -2814,6 +2814,136 @@ refusal semantics, and it is not this.
 answers to "what does git track" are two things that can disagree about the corpus, so the
 reconciliation and the index route now read **one** `git ls-files -s -z`.
 
+<a id="phi-scan-parameters"></a>
+
+## The PHI scanner reduced to parameters, and the three the engine still lacks
+
+Derived 2026-08-11, against `@cosyte/script-utils/phi-scan` **0.0.2**. **Nothing here has shipped.**
+The branch carrying it is `phi-scan-adopt-engine` and it is deliberately unmerged: the standing
+instruction is that **all process lives in the engine and is parameterized**, and two things this
+repo's scanner does are process rather than ASTM vocabulary. This section is the derivation and the
+engine ask, written down so the adoption is a re-run rather than a re-derivation.
+
+### The blunt answer: YES, `astm` reduces completely, conditional on three engine parameters
+
+Every one of the 1,823 lines is either the machinery the engine already owns, a value in the tables
+below, or one of the three asks in the last subsection. **There is no fourth thing.** The quirk that
+looked most likely to resist, ASTM self-declaring its delimiters inside the message, reduces
+cleanly, and it reduces *better* than a per-repo hook would: HL7 v2 (`MSH|^~\&`) and X12 (`ISA` at
+fixed offsets) are the same shape with different numbers, so one parameter serves three repos.
+
+### The five axes, as data
+
+| axis | value | note |
+|---|---|---|
+| 1 `exitCodes` | `{ clean: 0, hits: 1, refuse: 2 }` | this repo's own contract. **Never ported in or out.** |
+| 2 `scanRoots` | `["."]` | **a widening, not a restatement.** See below. |
+| 2 `excludedPaths` | empty | this repo excludes no path: its own scanner test **composes** every violator value rather than writing one. |
+| 2 `isWalkReadable` | engine default | the shared `.md` exemption, which is the boundary this scanner already had. |
+| 3 `isStagedReadable` | `test/fixtures/**` plus `src/**.ts` | **unchanged, deliberately.** Widening it decides what a **commit** is blocked on: a hook decision, on its own evidence. |
+| 4 `regularBlobModes` | engine default | `{100644, 100755}`. **Three tracked entries are `100755`**, so narrowing to `{100644}` red-locks the repo. |
+| 5 EOL | no parameter | dedup is BY CONTENT. Checked, not assumed: no `.gitattributes`, `core.autocrlf` and `core.eol` unset, Linux CI. |
+| (not an axis) `repoRoot` | the scanner's own file | the engine defaults to `process.cwd()`, and this repo has a pinned negative control against exactly that. **Must be set explicitly.** |
+
+**`scanRoots` must become `["."]`, and it is the one axis whose value CHANGES.** The superseded
+scanner declared `["src", "test", "scripts"]` while its hand-written index route read the blob
+behind **every** index entry, root or not. The engine does not work that way: its union half, its
+index refusals and its `--staged` containment check all key on `isUnderScanRoot`. Measured on this
+tree: **18 tracked non-markdown files sit outside those three names**, and they are read today, so
+carrying the three names across would have narrowed the corpus while looking like a faithful port.
+`["."]` keeps them read, and the engine prunes gitignored directories during descent, so `dist/`,
+`coverage/` and `node_modules/` cost nothing.
+
+**Both mandated pre-checks pass, measured against the candidate rather than reasoned:**
+
+- **No root is `./`-prefixed.** `["."]` is the repository root, which the engine normalises to `.`
+  and short-circuits, not the `./src` spelling that walks correctly while matching no index path.
+  The positive control is that an index-keyed rule still fires: the union half reported a hit at
+  `src/fixture.ts (as git carries it)`, so the roots are not silently empty.
+- **`isStagedReadable` admits nothing outside `scanRoots`.** With `["."]` nothing can be outside.
+  Positive control for the escape itself: a **staged mode-120000 entry** under `test/fixtures/` is
+  **refused at exit 2**, not enumerated and read with the link's target path handed to the detector
+  as content. The refusal does **not** echo the link target, which is itself a PHI surface.
+
+### The detector, as vocabulary
+
+Records split on `CR` / `LF` / `CRLF`; a record's type is its first character.
+
+**Delimiters, self-declared:** read from the first record whose type letter is `H`. Field separator
+is the character at offset 1; the declaration is the slice from offset 2 to the next occurrence of
+that field separator, and is used only when it is at least 3 characters; the component separator is
+the declaration's second character. Fallback when no `H` declares one: field `|`, component `^`.
+**The scanner takes the FIRST declaration only**, where the library re-reads at every `H` and scopes
+forward. That gap is pre-existing and is recorded rather than closed here.
+
+**The one record type read, `P`, and its loci:**
+
+| field (1-based) | kind | locus reported | rule |
+|---|---|---|---|
+| 2 | *structural guard* | (none) | must match `^\d{0,6}$`. A line that merely starts with `P` is not a patient record. |
+| 6 | name | `P-6 (name)` | split on the component separator; each token checked against `allow.names`, upper-cased. |
+| 7 | name | `P-7 (mother's-maiden)` | as field 6. |
+| 8 | dob | `P-8 (dob)` | must match `^\d{4,}$`; compared to `allow.dobs` **verbatim**. |
+
+**Token rules for the name kind:** a token shorter than 2 characters is not read (a bare middle
+initial or a bare delimiter, which the escape-alignment fixtures produce; declaring one would exempt
+that character repository-wide forever), and a token containing `${` is source syntax rather than a
+value.
+
+**Three of the five detector kinds are deliberately absent here: MRN / member id, address, and
+phone.** The green is scoped to what is present, and that scoping is written where the scanner
+reports it. `ID` entries exist in the allow-list format and are consumed today only by the engine's
+own SSN floor.
+
+**Source-embedded view, the only data it needs:** the extension allow-list
+`.ts .tsx .js .mjs .cjs .json .py`. **`.astm` is deliberately absent**, and that absence is the
+anti-fabrication clause: under the canonical declaration the backslash is the **repeat** delimiter,
+so decoding a wire fixture would splice a record boundary into the middle of a repeat and report a
+patient name the fixture does not contain.
+
+### The three the engine must grow
+
+**1. Own the source-embedded view.** Nothing about it is ASTM. Every sibling writes its fixtures as
+source string literals, so every sibling needs it: decode the escape sequences in ONE left-to-right
+pass consuming `\\` as a pair, split additionally on the three quote characters, run the caller's
+detector over the result **in addition to** the raw bytes, and dedupe by hit identity. Parameter:
+the extension set. **Default it CONSERVATIVELY and never to this repo's set.** `.json` belongs in
+`astm`'s allow-list and must **not** be in a shared default, because `fhir`'s **wire format is
+JSON** and decoding it is the same fabrication hazard `.astm` is excluded for here.
+
+**2. Give a detector the target's own path.** `DetectContext` carries only the reported LOCUS, so a
+union-half target arrives as `<path> (as git carries it)` and `extname` over it answers with the
+tail of the origin label. Minimal, additive, non-breaking: a `targetPath` field (and `origin`)
+beside `path`. **This is measured, not anticipated.** On a tracked `.ts` whose committed blob
+carries a patient name and a birthdate as a string literal and whose working-tree copy is clean, the
+superseded scanner exits **1** with three hits and the port onto 0.0.2 prints `[phi-scan] OK: no
+hits` at exit **0**. If ask 1 lands, this repo no longer needs it; the gap is generic and worth
+closing anyway.
+
+**3. A self-declaring-delimiter reader.** Parameterized by: the declaring record's type letter, the
+field-separator offset, the declaration slice bounds, the minimum declaration length, the component
+offset within the declaration, and the fallback set. ASTM, HL7 v2 and X12 are the same shape with
+different numbers.
+
+### One consequence that will hit all thirteen, and costs one line each
+
+**Adoption breaks every throwaway-repo test harness in the fleet.** `test/scripts/phi-scan.test.ts`
+copies `scripts/phi-scan.ts` into a temporary repository and runs it there, which worked while the
+scanner was zero-import. It now carries a bare specifier, so the copy dies with
+`Cannot find module '@cosyte/script-utils/phi-scan'`. Measured on this branch: **18 failed, 13
+passed**, and the 13 that pass are the paths-mode cases that run the scanner in place. **None of the
+18 is a detector regression**, which was checked rather than assumed: the two that read like
+detector cases fail on the same resolution error. The remedy is one line in the harness (link
+`node_modules` into the throwaway root), and it is the same line in all thirteen, so it belongs in
+the template rather than in thirteen separate diffs.
+
+**And one design constraint that comes out of this repo's data rather than its code, worth more
+than the three asks: the `dob` kind must NOT normalise dates.** It must match a declared regex and
+compare to `allow.dobs` **verbatim**. This repo's allow-list carries `2020010`, a deliberately
+**truncated 7-digit** synthetic DOB pinning the partial-timestamp fixture. Any engine `dob` kind
+that parses a date, or normalises `YYYYMMDD` against `YYYY-MM-DD`, silently drops that declaration
+and every fixture behind it.
+
 <a id="gate-coverage"></a>
 
 ## `pnpm check`: a local gate run that says what it did not do
