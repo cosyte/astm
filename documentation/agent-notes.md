@@ -2851,6 +2851,11 @@ behind **every** index entry, root or not. The engine does not work that way: it
 index refusals and its `--staged` containment check all key on `isUnderScanRoot`. Measured on this
 tree: **18 tracked non-markdown files sit outside those three names**, and they are read today, so
 carrying the three names across would have narrowed the corpus while looking like a faithful port.
+**Re-derived with three independent tools (`grep`, `rg`, and a `python3` filter), because `grep -c`
+has returned NO MATCH on a `phi-scan.ts` that `rg` read fine in this very lineage.** The members are
+the seven `.github/workflows/*.yml`, the six root-level manifests and configs (`package.json`,
+`pnpm-lock.yaml`, `tsconfig.json`, `tsup.config.ts`, `vitest.config.ts`, `eslint.config.js`),
+`.changeset/config.json`, `docs-content/sidebars.json`, `LICENSE`, `.gitignore` and `.npmrc`.
 `["."]` keeps them read, and the engine prunes gitignored directories during descent, so `dist/`,
 `coverage/` and `node_modules/` cost nothing.
 
@@ -2858,8 +2863,12 @@ carrying the three names across would have narrowed the corpus while looking lik
 
 - **No root is `./`-prefixed.** `["."]` is the repository root, which the engine normalises to `.`
   and short-circuits, not the `./src` spelling that walks correctly while matching no index path.
-  The positive control is that an index-keyed rule still fires: the union half reported a hit at
-  `src/fixture.ts (as git carries it)`, so the roots are not silently empty.
+  **Two positive controls, because the obvious one is weaker than it reads.** A tracked mode-120000
+  entry under the roots is refused, but that refusal comes from the WALK and proves nothing about
+  the index-keyed rules. The controls that do: the union half reported a hit at
+  `src/fixture.ts (as git carries it)`, an origin label only `unionCandidatePaths` sets; and the
+  same tracked link **deleted from the working tree**, so the walk cannot see it at all, is refused
+  as `1 index entry is not a regular blob`. The index-keyed rules see paths under `["."]`.
 - **`isStagedReadable` admits nothing outside `scanRoots`.** With `["."]` nothing can be outside.
   Positive control for the escape itself: a **staged mode-120000 entry** under `test/fixtures/` is
   **refused at exit 2**, not enumerated and read with the link's target path handed to the detector
