@@ -11,6 +11,40 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Added
 
+- **The PHI sweep now reads the bytes git carries, as a union with the working-tree walk.** All mode
+  reconciled the paths it walked against the paths git tracks, and a comparison of path _sets_ is
+  satisfied by a working tree that carries different content at those paths. Four states were
+  reproduced on the previous release, each printing `[phi-scan] OK: no hits` and exiting `0` over a
+  synthetic stream carrying a patient name, a mother's maiden name, a birthdate and a dashed SSN:
+  decoy content at a tracked path; a tracked path outside every walk root; a tracked symbolic link
+  or nested repository outside every walk root; and an empty index, against which every check passes
+  vacuously. All four now report or refuse. The mechanism is written down in exactly one place,
+  `buildTargetsForIndex` in `scripts/phi-scan.ts`, and every other surface states only what a green
+  means.
+  - **It is a union, never a replacement.** No scan root was narrowed and no clause dropped; a file
+    the walk reads is still read from disk with exactly the views it had, and a blob whose bytes the
+    walk has provably already scanned is skipped, so nothing is reported twice. The skip is a byte
+    comparison rather than a timestamp, a size or a hash, because those are exactly what a decoy
+    defeats.
+  - **The scan reported eighteen tracked files outside every walk root that no route had opened.**
+    One carried this package's own published contact address, which is already public in every
+    release's registry metadata and is not patient data; it is declared in
+    `scripts/phi-allow-list.txt` with the cost of that declaration written beside it, because an
+    allowed email domain is global and applies on every route.
+  - **A positive control proves the sweep opens the corpus it clears.** This package's own manifest
+    is placed at the same out-of-root path in a throwaway tree and the declaration is then struck:
+    the same corpus reports the address at exit `1`. A green over an unopened corpus is
+    indistinguishable from a green over a corpus that was read, so a case showing the scanner
+    passing proves nothing on its own.
+  - **What it deliberately does not do**, so a green is not read as wider than it is: it does not
+    credit a scan root (a root emptied on disk still refuses, though the index carries its files);
+    it does not reach `--staged`, whose scope decides what a _commit_ is blocked on; and markdown
+    stays excluded, which is the walk's own rule rather than a new one. Working-tree bytes at a path
+    outside every scan root are still read by neither route, unchanged from before and now stated.
+  - **Line endings are deliberately not normalized before the byte comparison.** Doing so would
+    compare a derived form of the two byte strings, and content differing only in what the
+    normalizer erases would then be skipped.
+
 - **The two-file contract between `CLAUDE.md` and `documentation/agent-notes.md` is now gated**
   (`pnpm check:agent-notes`, `scripts/check-agent-notes.ts`), with the teeth in
   `test/scripts/agent-notes.test.ts` so it rides the required `ci / verify` matrix rather than

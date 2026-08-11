@@ -28,6 +28,20 @@ EMAILDOMAIN example.org
 EMAILDOMAIN example.net
 EMAILDOMAIN example.test
 
+# This package's own published contact address, reached once the sweep started
+# reading the bytes git carries as well as the working tree: `package.json` sits
+# outside every walk root, so no route had ever opened it. The address is the
+# company's, it is already public in the npm registry metadata of every release,
+# and it is not PHI.
+#
+# STATE THE COST RATHER THAN JUST THE DECLARATION, because an EMAILDOMAIN entry
+# is GLOBAL and ROUTE-BLIND: this exempts every address at this domain, in every
+# file, on every route, forever. What that gives up is an address of the shape
+# `<patient>@cosyte.com` in a fixture. That is judged acceptable because the
+# domain is the company's own and no patient holds an address in it, NOT because
+# the entry is narrow. It is not narrow.
+EMAILDOMAIN cosyte.com
+
 # --- Synthetic person-name tokens (P field 6, Last^First^Middle; P field 7, mother's maiden) ---
 # All fully synthetic.
 NAME DOE

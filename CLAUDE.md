@@ -416,18 +416,18 @@ Mirrors the three disciplines in the meta-repo's `documentation/conventions.md`,
    - **`grep` in the dev container is a shell function wrapping ugrep** with `--ignore-files` forced
      on, so `dist/` is invisible to it. Measure with `/usr/bin/grep`. Both check scripts `unset -f` it
      and `check-no-emdash.sh` carries a **scanner visibility probe**. **Do not delete either.**
-6. **A green PHI sweep is a claim about a corpus it OBSERVED, and its roots are
-   `WALK_ROOT_NAMES`, never a list copied here.** Figures: `#phi-scan-scope`. Traps:
+6. **A green PHI sweep is a claim about a corpus it OBSERVED: `WALK_ROOT_NAMES` UNION what git
+   carries, never a list copied here.** Figures: `#phi-scan-scope`. Traps:
    - **ENUMERATION and DETECTION are separate holes, each "in addition to", never "instead of."**
-     Roots alone buy the SSN/email floor: streams are `.ts` literals the detector read as one line
-     starting with a quote, **`src/` included, a root all along.** A record begins a LINE or a
-     LITERAL; one assembled at run time is read by nobody.
+     Roots alone buy the SSN/email floor; **`src/` was a root all along**: a record begins a LINE or
+     a LITERAL, one assembled at run time is read by nobody.
    - **Anti-fabrication clauses, each pinned by a case that reds without it**: ONE left-to-right
      decode taking `\\` as a PAIR; a closed SOURCE-extension set (a `.astm` backslash is the REPEAT
      delimiter); delimiters read from the LINE view only; a second-field guard from
      `buildPatientLine`, **not any clause.**
-   - **A sweep observing nothing REFUSES: exit 2, derived here, NEVER ported.** No count and no floor
-     of one sees it; reconcile with `git ls-files`. **`REPO_ROOT` is the scanner's file, not
+   - **A sweep observing nothing REFUSES: exit 2, derived here, NEVER ported.** No count or floor of
+     one sees it. **Path SETS clear DECOY bytes, an EMPTY index vacuously, so all mode READS the
+     blobs; never normalize EOL first.** **`REPO_ROOT` is the scanner's file, not
      `process.cwd()`. Open: `--staged` is narrower.**
 7. **`pnpm check` is `scripts/check-gate-coverage.ts`**: a fixed-name-list runner cannot see a gate
    outside its list, so **`test:fuzz`/`pack:docs` are INVISIBLE, not skipped** `#gate-coverage`

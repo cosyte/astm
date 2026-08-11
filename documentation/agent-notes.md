@@ -2704,6 +2704,116 @@ previously raised an uncaught `ENOTDIR`, which exits **1**, the one code that me
   by the pre-commit hook; the widened corpus is caught in CI instead. Widening it decides what a
   **commit** is blocked on rather than what the scanner can see, so it is not a rider on the walk.
 
+### Reconciling path SETS is not reading BYTES (2026-08-11)
+
+The rule above compares **the paths the walk observed against the paths git carries**. That is a
+statement about names, and a working tree can satisfy it completely while the bytes git carries say
+something else. All mode now reads **the blob behind every index entry**, as a **UNION** with the
+walk and never as a replacement: no root was narrowed, no clause dropped, and a file the walk reads
+is still read off disk with exactly the views it had. The mechanism is written out **once**, at
+`buildTargetsForIndex` in `scripts/phi-scan.ts`; nothing here restates it.
+
+**Four states, each reproduced on the base commit before anything was written, each exiting `0` with
+`[phi-scan] OK: no hits` over a synthetic stream carrying a patient name, a mother's maiden name, a
+birthdate and a dashed SSN:**
+
+| state | why neither route saw it |
+|---|---|
+| **decoy content at a tracked path** | the walk read the clean file on disk, and the reconciliation only asked whether a file was *there* |
+| **a tracked path outside every walk root** | `WALK_ROOT_NAMES` is three names and the reconciliation only looks **within** them, so it cannot notice a corpus it was never pointed at |
+| **a tracked symlink or gitlink outside every walk root** | `walk()` classifies entries **inside** a root; git carries a link's **target path**, itself a PHI surface |
+| **an empty index** | every clause of the reconciliation is satisfied for free by having nothing to reconcile against |
+
+**And one state a sibling's list names that was ALREADY closed here, so this route must not be
+credited with it: a tracked file absent from the working tree under a declared root.** That is the
+second clause of `refuseUnobserved`, which this repo has had since 2026-08-07 and which is stronger
+than the reference's per-root floor of one. **The re-derivation mattered: the states this closes
+here are not the states it closed there.**
+
+**18 tracked non-markdown files sit outside all three walk roots** in this repo and neither route
+had ever opened one. One carried a token the floor fires on: the published contact address in
+`package.json`. Already public in every release's registry metadata and **not PHI**, declared as
+`EMAILDOMAIN cosyte.com` **with its cost written beside it** (an `EMAILDOMAIN` entry is **global and
+route-blind**, so it exempts that domain everywhere, on every route, forever).
+
+**The positive control is the whole point of the slice, not a formality.** A green over a corpus
+nobody opened is the defect, so a case showing the scanner passing proves nothing. The committed
+control takes **this package's own `package.json`, byte for byte**, puts it at the same
+out-of-every-walk-root path in a throwaway tree, and then **strikes the declaration**: the same
+corpus reds at exit 1 naming `package.json`. The green is therefore earned by the declaration rather
+than by the file never being opened, and a third case shows the base scanner exiting **0** on the
+undeclared address, because no route reached the path at all.
+
+**17 cases; 10 are red on a copy of the shipped scanner with the index route removed.** The other
+**seven are green on both BY DESIGN** and saying otherwise would be false: the two empty-index cases
+(a separate clause, in `main`), the does-not-credit-a-root negative control, the union regression
+control (a hit found by the walk is reported **once**, because the byte comparison skips a blob
+already scanned), the healthy-tree control, the `--staged`/`paths` scope control, and the premise.
+**SEVEN of the ten are red behaviourally; THREE abort on the fragment guard**, because they build
+their own base copy with `variantIn` and removing the route moves the fragment out from under them.
+**Of those three, two would still fail behaviourally if the guard passed, and exactly ONE would
+not** (the case showing the base scanner never opening the manifest, whose whole subject is the base
+copy). Recorded at this precision because "ten red" reads as ten behavioural reds, and because an
+auditor re-running the mutation the paragraph invites them to run sees three guard aborts rather
+than one. **An earlier draft of this sentence said "one", and it was corrected by the pass-2 gate:
+the remedy written to close a claim-wider-than-its-measurement finding had grown another one.**
+
+**Two things the pass-1 gate found, both claim defects rather than code defects, both fixed before
+the merge, and both worth carrying:**
+
+- **A justification comment asserted a universal about the input space**, the same shape as defect
+  17's four inference errors: it said a path the walk never reached "still has the same bytes on
+  disk", to explain why the re-staging sentence is withheld for `INDEX_ORIGIN`. False of a path
+  deleted or edited in the working tree, reproduced both ways. The **behaviour is right and did not
+  change**; the reason did. The true one is that the sweep **never looked**, so it withholds a
+  sentence it cannot measure rather than asserting agreement it did not observe.
+- **The empty-index refusal fired BEFORE the walk was scanned**, which made the run strictly worse
+  than the superseded scanner's for one input: an empty index with a PHI-bearing fixture on disk
+  exited **1** naming every locus before, and **2** naming nothing after. `A REFUSAL MUST NOT
+  SWALLOW A REAL HIT` is the rule the index route already carried, and it applies to that clause for
+  the same reason. It is now refused after the walk loop, hits printed first, exit still 2.
+
+**The five axes that do not transfer, re-derived here rather than ported:**
+
+- **Exit codes.** `0` clean, `1` hits, `2` refusal, unchanged. Every new refusal is an
+  `InvocationError` returning 2. A top-level backstop was added because **an uncaught throw exits 1**,
+  and 1 is the one code a caller reads as evidence: an allocation failure in the object-store read
+  must not impersonate a finding.
+- **`--staged` scope.** Deliberately **unchanged**, and the reason is not a red-lock: this repo has
+  no mode-blind violator exemption to unscope. It is a **HOOK** decision, because it changes what a
+  **commit** is blocked on, and that is a separate slice.
+- **EOL normalization.** Does **not** fire here, measured rather than assumed: no `.gitattributes`
+  in the tree at all, `core.autocrlf` and `core.eol` both unset, Linux CI. Under `eol=crlf` every
+  blob would diverge from its file, so the skip stops firing and every count doubles. **Fail-safe,
+  and it must NOT be answered by normalizing before comparing:** that compares a derived form, and a
+  decoy differing only in what the normalizer erases would be skipped, which reopens the escape.
+- **Gitlinks.** None tracked. **But the index is not uniformly `100644`: THREE entries are
+  `100755`**, so narrowing `REGULAR_BLOB_MODES` to `{100644}` would red-lock the repo. The count of
+  `100644` entries is deliberately **not** written here: it moves with every commit, including the
+  one carrying this sentence, and a figure that is wrong the moment it lands is worse than none.
+  Derive both: `git ls-files -s | awk '{print $1}' | sort | uniq -c`. A repo with a real submodule
+  cannot use this route unmodified, which is fail-closed and deliberate.
+- **Roots and exclusions.** Three roots, `.md` excluded from **both** routes, gitignore **not**
+  consulted on the index route (a tracked file git carries is content whatever `.gitignore` says),
+  one allow-list addition.
+
+**The `.md` exemption is applied LAST, to readable entries only, and that ordering is a hole rather
+than a style point.** It is a **name** exemption, and a name is no evidence at all about what is on
+the other side of a link. A tracked symlink named `hidden.md` whose target path names a patient is
+refused here; applied first it would have been excused.
+
+**The residual, measured rather than reasoned: working-tree bytes at a path outside every walk root
+are read by neither route, whether or not git tracks the path.** The walk reads three declared roots
+and this route reads what the **index** carries, so the two miss the same place from opposite sides.
+PHI edited into a tracked out-of-root file and left unstaged is not read; an untracked file out
+there is not read at all. **Both halves are base-identical**; what is new is that the claim is
+written down. Closing it means a third enumeration of the untracked working tree, with its own
+refusal semantics, and it is not this.
+
+**One simplification came with it:** `trackedUnder` no longer shells out per root. Two independent
+answers to "what does git track" are two things that can disagree about the corpus, so the
+reconciliation and the index route now read **one** `git ls-files -s -z`.
+
 <a id="gate-coverage"></a>
 
 ## `pnpm check`: a local gate run that says what it did not do
