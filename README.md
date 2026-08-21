@@ -74,7 +74,10 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
   quirk document.
 - **Terminology, bring your own.** `applyLivd(msg, catalog)` maps an analyzer's local test code to a
   LOINC from a consumer-supplied IICC LIVD catalog as an additive, advisory annotation that never
-  mutates the raw code or value and never guesses a LOINC. No LOINC, SNOMED, or LIVD dictionary is
+  mutates the raw code or value and never guesses a LOINC. The catalog is consulted whenever a
+  vendor local code is present and is keyed on that code alone; a value in the Universal Test ID's
+  first component is carried verbatim as an **unvalidated wire value**, never validated, never
+  reported as a LOINC, and never used as a lookup key. No LOINC, SNOMED, or LIVD dictionary is
   bundled: the package stays a structural recognizer and you bring the catalog.
 
 ## Decode a framed byte stream
@@ -268,9 +271,9 @@ alignment gives it. A field's modeled value and components are taken from its **
 alone**, so where the gained boundary is the **first** one everything past it stays on the wire,
 stays in `repeats`, and leaves every modeled slot. On the canonical set, `R|1|^^^687|28.6&S&\&U/L|U/L||||F` reads a value of `28.6^`
 and drops `&U/L`, and `R|1|&F&\&687|28.6|U/L||||F` reads a Universal Test ID of one component
-holding a decoded field separator, so the local code `687` is in no modeled slot and the identity
-comes back as a LOINC candidate nobody wrote. A patient name loses its given and middle names the
-same way. That raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, which **no profile may tolerate**;
+holding a decoded field separator, so the local code `687` is in no modeled slot and the record is
+left with no code to key on at all, only an unvalidated wire value nobody wrote. A patient name
+loses its given and middle names the same way. That raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, which **no profile may tolerate**;
 before it existed the only warnings on those streams were tolerable ones, so a strict parse under a
 legal profile accepted a truncated value and an emptied test identity. The reading is unchanged: it
 reports the gained boundary rather than repairing it. **At a LATER boundary it fires and no modeled
@@ -458,6 +461,49 @@ annotations[0]?.mapping; // { status: "mapped", loinc: "1920-8", loincLongName: 
 warnings; // ASTM_LIVD_UNMAPPED_CODE / ASTM_LIVD_AMBIGUOUS_MAPPING (value-free) for codes with no single LOINC
 ```
 
+**Your catalog answers the analyte-identity question, and the wire never does.** The Universal Test
+ID's first component is a LOINC slot, and the guide this catalog format comes from puts transmitting
+LOINC directly from IVD instruments explicitly out of scope: the analyte arrives as a vendor-defined
+code. So the lookup happens whenever a vendor local code is present, keyed on that code alone, and a
+populated first component neither answers for it nor selects among candidates. **This package
+performs no LOINC validation of any kind**: it never decides whether such a value "looks like" a
+LOINC, so `Glucose` and `2345-7` there are treated identically. The value is carried verbatim as
+`unvalidatedWireValue`, on every disposition, and is never reported as a LOINC.
+
+```ts
+const msg = parseAstmRecords("H|\\^&\rR|1|Glucose^^^687|28.6|U/L||N||F\rL|1\r");
+const [a] = applyLivd(msg, catalog).annotations;
+
+a?.mapping.status; // "mapped": your catalog vouched for 1920-8 (the lookup used "687")
+a?.reportedCode; // "687": the code the catalog was consulted WITH, verbatim
+a?.unvalidatedWireValue; // "Glucose": carried verbatim, vouched for by nothing
+a?.wireValueDisagreesWithCatalog; // true: the two differ, and that is ALL this says
+```
+
+`mapping.status` is a closed discriminant, so a `switch` over it is exhaustive:
+
+| `status`         | what happened                                                                     | warning                       |
+| ---------------- | --------------------------------------------------------------------------------- | ----------------------------- |
+| `mapped`         | your catalog vouched for exactly one LOINC for the vendor local code              | none                          |
+| `unmapped`       | the vendor local code was looked up and your catalog held no entry                | `ASTM_LIVD_UNMAPPED_CODE`     |
+| `ambiguous`      | the code carries several distinct LOINCs; all surfaced, **none chosen**           | `ASTM_LIVD_AMBIGUOUS_MAPPING` |
+| `no-vendor-code` | component 1 is populated and there is no vendor local code: nothing was looked up | none                          |
+| `no-code`        | the Universal Test ID carried no code at all                                      | none                          |
+
+`unvalidatedWireValue` and `wireValueDisagreesWithCatalog` sit **beside** that discriminant and can
+accompany any of its cases. `wireValueDisagreesWithCatalog` is `true` only where your catalog
+vouched for exactly one LOINC, component 1 is populated, and the two are not byte-identical; it is
+`false` everywhere else and is never absent, so an ordinary `R|1|^^^687|...` record ships no
+standing false disagreement. **It reports the difference and nothing else**: both values stay
+surfaced, neither is marked correct, neither is rewritten, and nothing here says the difference was
+settled. Deciding which source to believe is a clinical judgement this library will not make for
+you.
+
+Two corners worth knowing before you write a catalog adapter: a `lookup` that **throws** propagates
+to your caller unchanged rather than reading as a catalog miss (your crash must not be
+indistinguishable from "this code is not in the catalog"), and a hit whose `loinc` is a zero-length
+string is reported as a miss rather than as a vouched-for empty LOINC.
+
 **No LOINC / SNOMED / LIVD dictionary is bundled.** LOINC is © Regenstrief (redistributable only with
 its attribution notice) and the public CDC LIVD file is SARS-CoV-2-specific and carries
 separately-licensed SNOMED CT, so the package ships no terminology data and you bring the catalog (and
@@ -485,8 +531,9 @@ its license obligations).
   to `PROFILE_QUIRK_APPLIED` (it never alters a value) and may force the raw-vs-framed transport; a
   default-deny safety gate refuses to tolerate any safety-critical deviation at definition time.
 - **Terminology recognizer, not a dictionary.** LIVD-aware LOINC recognition is bring-your-own
-  (`applyLivd` over a consumer-supplied catalog): additive, advisory, and never a guessed LOINC. No
-  LOINC / SNOMED / LIVD data is bundled.
+  (`applyLivd` over a consumer-supplied catalog): additive, advisory, and never a guessed LOINC. The
+  catalog answers for the analyte identity, never the wire, and no LOINC validation of any kind is
+  performed. No LOINC / SNOMED / LIVD data is bundled.
 
 ## License
 

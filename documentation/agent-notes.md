@@ -709,19 +709,44 @@ Found by the `conformance-refuter` grading `ASTM-TYPE-LETTER-SECOND-READER` 2026
 
 <a id="defect-9"></a>
 
-### Defect 9: `inline-loinc-candidate` is asserted with no LOINC evidence (open)
+### Defect 9: `inline-loinc-candidate` is asserted with no LOINC evidence (CLOSED 2026-08-21)
 
-**`inline-loinc-candidate` is asserted with no LOINC evidence.**
-`src/common/coding-system.ts` tags **any** non-empty first component as an inline LOINC candidate
-with no format check, so the very ordinary `R|1|Glucose|28.6|U/L||N||F` reports
+**CLOSED 2026-08-21 by `ASTM-14`, and the SECOND half is what made it safety-critical.** Was:
+`src/common/coding-system.ts` tagged **any** non-empty first component as an inline LOINC candidate
+with no format check, so the very ordinary `R|1|Glucose|28.6|U/L||N||F` reported
 `provenance: "inline-loinc-candidate"` with `loincCandidate: "Glucose"`, and `primaryCode()`
-returns `"Glucose"`. That is a code-system provenance claim on evidence that does not support it,
-in a package whose whole discipline is never to guess a code system. `PRE-EXISTING`, untouched by
-`ASTM-TYPE-LETTER-SECOND-READER`. **Deferred again, explicitly, by
-`ASTM-UNESCAPED-ESCAPE-SWALLOWS-TAIL`:** it is a different module and a different question (what
-shape counts as LOINC evidence, and what `provenance` should say when nothing does), and
-answering it inside an escape-codec slice is how a fix outgrows the thing it fixes. It still wants
-its own slice. Found by the `conformance-refuter` grading it, 2026-08-02.
+returned `"Glucose"`. Worse, `mapTestId` in `src/terminology/apply.ts` returned
+`{ status: "inline-loinc" }` on that candidate and **never reached `catalog.lookup`**, so the LIVD
+catalog a consumer supplied was bypassed for **every** record with a populated first component. A
+right value under the wrong analyte is a wrong clinical result, so this was a default pointed in the
+wrong direction rather than a missing validator. `PRE-EXISTING`, reproduced byte-identically on
+`c81f49d`.
+**▶ THE FIX IS A DEMOTION AND A LOOKUP, AND IT INFERS NOTHING.** The catalog is consulted whenever a
+vendor local code is present, keyed on that code **alone** (the mapping key is the vendor
+transmission code, so looking a LOINC-slot value up in a vendor-code index would manufacture hits),
+and a first component is carried verbatim as `unvalidatedWireValue`, never validated, never reported
+as a LOINC, and never the code a result is keyed on, **with or without a catalog**. Where a single
+catalog hit and a populated first component differ, `wireValueDisagreesWithCatalog` reports the byte
+difference and **nothing else**: neither value is suppressed, rewritten or marked correct, and no
+field says the difference was settled. Removed: `loincCandidate`, the `inline-loinc-candidate`
+provenance token, and the `inline-loinc` mapping variant, each with a named replacement in
+`CHANGELOG.md` `[Unreleased]`. `primaryCode()` keeps its name and returns the vendor local code
+alone, so it is now `undefined` where it used to answer with a first-component value: a break with
+no compile error behind it, recorded in the changeset for that reason.
+**▶ NO LOINC SHAPE TEST WAS ADDED, AND THE OPEN QUESTION IT WOULD HAVE NEEDED IS STILL OPEN.** What
+shape counts as LOINC evidence is unresolved (`loinc.org` refuses automated fetching and the FHIR
+LOINC page states no digit count), and the fix deliberately does not depend on it: it rests on the
+mapping guide's own out-of-scope statement, which is settled. Believing component 1 only when it is
+"LOINC-shaped" would be that unverified claim smuggled into a default, so `Glucose` and `2345-7`
+there are treated identically and every route is **positional**, decided by which components are
+populated. **Do not close the gap the other way later by adding a shape test; the package ships no
+LOINC table and could not check one.**
+**▶ WHAT IT DID NOT CLOSE.** A first component that really is a LOINC is still only a value this
+library does not vouch for, and that is the known limitation rather than a residue to fix. The
+catalog's `ambiguous` refusal is untouched: a code carrying several distinct LOINCs is still refused
+rather than disambiguated, and **the wire may never break that tie** (computing the disagreement
+against a candidate list would corroborate exactly one candidate, which is why it is computed only
+against a single hit). Found by the `conformance-refuter` grading it, 2026-08-02.
 
 <a id="defect-10"></a>
 
@@ -1453,7 +1478,10 @@ population was not:
   result. This is the case the defect was named for.
 - **A modeled component list is DELETED, not shifted.** `R|1|&F&\&687|28.6|U/L||||F` reads a
   Universal Test ID whose `components` is `["|"]`: one component holding a **decoded field
-  separator**, tagged `inline-loinc-candidate`, with the local code `687` in no modeled slot at all.
+  separator**, with the local code `687` in no modeled slot at all. It was tagged
+  `inline-loinc-candidate` when this was measured; defect 9's closure retired that token, so it now
+  tags `unvalidated-wire-value-only` and the record has **no code to key on at all**. The deletion
+  this entry is about is unchanged: only what the surviving component is called changed.
   `P|1||MRN-0001||DOE&S&\&JANE^A||19700101|F` reads a last name and **no given or middle name**.
   This half is what 17(a)'s sink could not reach, because components are modeled _inside_ a field.
 
