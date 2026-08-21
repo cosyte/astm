@@ -45,10 +45,13 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
 - **No unit semantics.** Units are surfaced as vendor **free text**: **not UCUM**, not normalized,
   not convertible. A numeric value with no units raises `ASTM_RECORD_UNITS_ABSENT`; a missing unit is
   never defaulted or guessed.
-- **No terminology dictionary.** LOINC and SNOMED are **not bundled** (see licensing below). The
-  Universal Test ID's LOINC slot is _recognized_ when populated; vendor→LOINC mapping requires a
-  **consumer-supplied** IICC LIVD catalog (`applyLivd`), and an unmapped code stays verbatim, never a
-  fabricated LOINC.
+- **No terminology dictionary, and no LOINC validation of any kind.** LOINC and SNOMED are **not
+  bundled** (see licensing below). Vendor→LOINC mapping requires a **consumer-supplied** IICC LIVD
+  catalog (`applyLivd`), keyed on the vendor local code alone, and an unmapped code stays verbatim,
+  never a fabricated LOINC. A value in the Universal Test ID's LOINC slot is surfaced verbatim as an
+  **unvalidated wire value**: this package never checks it, never reports it as a LOINC, and never
+  keys a result on it, so a first component that really is a LOINC is still only a value the library
+  does not vouch for. It ships no LOINC table and could not check one if it wanted to.
 - **No interpretation of `M` / `S` records.** Vendor-defined manufacturer / scientific records
   (QC, calibration, maintenance) are surfaced **verbatim** on `record.rawLine` and never parsed into
   clinical fields: a QC value must not read as a patient result.

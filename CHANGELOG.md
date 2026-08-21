@@ -9,6 +9,77 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: a populated first component no longer bypasses the consumer's LIVD catalog, and no
+  public value reports one as a LOINC** (defect 9). The Universal Test ID's first component is a
+  LOINC slot, and the governing mapping guide puts transmitting LOINC directly from IVD instruments
+  explicitly out of scope: the analyte arrives as a vendor-defined code and a LOINC is what a
+  consumer maps to afterwards. This package answered the analyte-identity question from that slot
+  anyway. `recognizeUniversalTestId` tagged **any** non-empty first component
+  `inline-loinc-candidate` with no evidence whatsoever, `primaryCode()` preferred it over the vendor
+  local code, and `mapTestId` returned `{ status: "inline-loinc" }` on it and **never reached
+  `catalog.lookup`**, so the catalog a consumer supplied was bypassed for every record with a
+  populated first component and `R|1|Glucose|28.6|U/L||N||F` reported a LOINC candidate of
+  `Glucose`. A right value under the wrong analyte is a wrong clinical result, so the direction of
+  that default was the defect.
+
+  **No LOINC shape test was added, and none is coming.** This package performs no LOINC validation
+  of any kind and never decides what a first-component value "looks like": `2345-7` and `Glucose`
+  there are treated identically and every route below is positional, decided by which components are
+  populated. Believing component 1 only when it is "LOINC-shaped" would need a definition of that
+  shape, which is exactly the unverified claim this change is written to avoid.
+
+  Public values **removed or renamed**, each with its replacement:
+  - `UniversalTestId.loincCandidate` is **removed**; `UniversalTestId.unvalidatedWireValue` replaces
+    it, carrying the same verbatim component 1 value under a name that vouches for nothing.
+  - The `inline-loinc-candidate` token is **removed** from `UniversalTestIdProvenance`. A populated
+    component 1 **with** a vendor local code is now `local-code`, since the local code is the
+    identifier; **without** one it is the new token `unvalidated-wire-value-only`, which reports
+    that the value was seen without claiming it is a code, so such a record stays distinguishable
+    from one whose Universal Test ID was empty.
+  - The `LivdMapping` variant `{ status: "inline-loinc", loinc, source: "wire" }` is **removed**:
+    no disposition reports a wire value as a LOINC. Its positional replacement is the new
+    `{ status: "no-vendor-code" }`, a populated component 1 with no vendor local code to look up.
+
+  **The four retained dispositions keep their documented meanings exactly.** `mapped` still means
+  the consumer's catalog vouched for this LOINC and nothing else, never that the library adjudicated
+  the wire against it; `ambiguous` still means more than one distinct candidate with none chosen;
+  `unmapped` is still a miss; `no-code` is still nothing to map. Only which inputs reach them
+  changed. No pre-existing assertion covering those four outcomes for a record with an **empty**
+  first component was edited.
+
+  **`primaryCode()` keeps its name and changes its behavior**, which is a break with no compile
+  error behind it: audit every call site. It now returns the vendor local code and nothing else, so
+  where it used to answer with a first-component value it returns `undefined`, the same absence it
+  already returned for a record carrying nothing usable and which its callers already had to handle.
+  It reports no key rather than a key this library cannot vouch for.
+
+  New on `LivdAnnotation`, alongside the disposition rather than inside it, so both are inspectable
+  without reading prose:
+  - `unvalidatedWireValue`, the verbatim first-component value, carried on **every** disposition
+    (a miss, an ambiguity and a disagreement all keep it) and absent only when component 1 is empty.
+  - `wireValueDisagreesWithCatalog`, `true` if and only if the catalog vouched for exactly one LOINC,
+    component 1 is populated, and the two are not byte-identical. **`false` in every other case and
+    never absent**, including on the ordinary `R|1|^^^687|...` record, so no standing false
+    disagreement ships. It is deliberately not computed against an ambiguous candidate list, which
+    would corroborate exactly one candidate. It reports the difference and nothing else: both values
+    stay surfaced, neither is marked correct, neither is rewritten, and no field claims the
+    difference was settled.
+  - `reportedCode` is now always the code the catalog was consulted **with**, verbatim, and is
+    absent when nothing was looked up.
+
+  Two fail-safe corners are now stated and tested rather than left to be found. A consumer-supplied
+  catalog whose `lookup` throws propagates to the caller unchanged: a consumer's own crash must not
+  be indistinguishable from "your code is not in the catalog", so it is never reported as a miss and
+  no partially annotated result is returned. And a hit whose LOINC is a zero-length string is
+  reported as a miss, exactly as if the catalog held no entry, never as a vouched-for empty LOINC.
+
+  A record with no vendor local code emits **no** warning of its own, and emits neither
+  `ASTM_LIVD_UNMAPPED_CODE` nor `ASTM_LIVD_AMBIGUOUS_MAPPING`: no lookup happened, and a warning
+  asserting one did would claim more than happened. Neither warning's code, message or payload
+  changed.
+
 ### Added
 
 - **The PHI sweep now reads the bytes git carries, as a union with the working-tree walk.** All mode

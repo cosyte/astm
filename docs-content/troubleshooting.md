@@ -203,8 +203,8 @@ Both costs are reachable on the **canonical** set, so no unusual declaration is 
   `&U/L` leaves the result entirely. The competing alignment reads one repeat carrying all of it.
 - **A modeled identity empties.** `R|1|&F&\&687|28.6|U/L||||F` reads a Universal Test ID of one
   component holding a decoded field separator, so the local code `687` is in no modeled slot at all
-  and the identity comes back as a LOINC candidate the sender never wrote. `DOE&S&\&JANE^A` reads
-  a last name and **no given or middle name**.
+  and the record is left with no code to key on, carrying only an unvalidated wire value the sender
+  never wrote. `DOE&S&\&JANE^A` reads a last name and **no given or middle name**.
 
 Before this code existed the only warnings on those streams were tolerable ones, so a strict parse
 under the widest legal profile accepted a truncated value and an emptied test identity. The reading

@@ -92,6 +92,11 @@ const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
 applyLivd(msg, catalog).annotations[0]?.mapping.status; // => "mapped"
 ```
 
+The catalog is consulted whenever a vendor local code is present, and is keyed on that code alone. A
+value in the Universal Test ID's first component is carried verbatim as `unvalidatedWireValue`, is
+never used as a lookup key, and is never reported as a LOINC: this package performs **no LOINC
+validation of any kind**, so it never decides what such a value "looks like".
+
 ## Round-trip a payload
 
 Parse, inspect, and re-emit spec-clean output. The serializer is the conservative inverse of the

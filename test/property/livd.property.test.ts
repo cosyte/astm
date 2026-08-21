@@ -8,12 +8,15 @@ import type { LivdEntry } from "../../src/index.js";
  * The Phase-9 headline safety properties, over arbitrary vendor codes and catalogs.
  * The whole layer exists to hold these, a wrong LOINC mis-identifies a test:
  *
- *   1. NEVER-FABRICATE: any LOINC in an annotation was either on the wire
- *      (inline slot) or present in the catalog for that exact code. The layer
- *      never emits a LOINC from nowhere.
+ *   1. NEVER-FABRICATE: any LOINC in an annotation is one the catalog held for
+ *      that exact vendor code. The layer never emits a LOINC from nowhere, and
+ *      never promotes a value the wire carried into one.
  *   2. ADDITIVE / NEVER-MUTATE: applying LIVD never changes the parsed message.
  *   3. A `mapped` result is always `derived: true` from the catalog; an `unmapped`
  *      or `ambiguous` code never carries a chosen LOINC.
+ *   4. A populated first component never changes the lookup outcome: the catalog is
+ *      consulted with the vendor code alone, and the wire value rides alongside as
+ *      an unvalidated value the library does not vouch for.
  */
 
 // A safe code alphabet (no ASTM delimiters) so the fixture stays well-formed.
@@ -26,7 +29,7 @@ const entryArb: fc.Arbitrary<LivdEntry> = fc.record({
 });
 
 describe("LIVD safety properties", () => {
-  it("never fabricates a LOINC: every annotated LOINC is from the wire or the catalog", () => {
+  it("never fabricates a LOINC: every annotated LOINC is one the catalog held", () => {
     fc.assert(
       fc.property(codeArb, fc.array(entryArb, { maxLength: 12 }), (code, entries) => {
         const catalog = defineLivdCatalog(entries);
@@ -77,22 +80,53 @@ describe("LIVD safety properties", () => {
     );
   });
 
-  it("an inline wire LOINC is surfaced from the wire and never overwritten by the catalog", () => {
+  it("a wire value in component 1 never displaces the catalog and is never a LOINC", () => {
     fc.assert(
       fc.property(
         loincArb,
         codeArb,
         fc.array(entryArb, { maxLength: 8 }),
-        (wireLoinc, code, entries) => {
+        (wireValue, code, entries) => {
           const catalog = defineLivdCatalog(entries);
           const msg = parseAstmRecords(
-            `H|\\^&\rR|1|${wireLoinc}^Name^LN^${code}|5|U/L||N||F\rL|1\r`,
+            `H|\\^&\rR|1|${wireValue}^Name^LN^${code}|5|U/L||N||F\rL|1\r`,
           );
           const [a] = applyLivd(msg, catalog).annotations;
           if (a === undefined) throw new Error("expected exactly one annotation");
-          expect(a.mapping).toEqual({ status: "inline-loinc", loinc: wireLoinc, source: "wire" });
+          // The lookup outcome is the catalog's, for the vendor code, whatever the
+          // wire put in component 1, and the wire value is never promoted.
+          expect(a.mapping.status).toBe(catalog.lookup(code).status);
+          expect(a.reportedCode).toBe(code);
+          expect(a.unvalidatedWireValue).toBe(wireValue);
+          if (a.mapping.status === "mapped") {
+            const held = new Set(entries.filter((e) => e.vendorCode === code).map((e) => e.loinc));
+            expect(held.has(a.mapping.loinc)).toBe(true);
+            // The fact is the byte difference between the two, and nothing more.
+            expect(a.wireValueDisagreesWithCatalog).toBe(wireValue !== a.mapping.loinc);
+          } else {
+            // The catalog vouched for no single LOINC, so there is no disagreement.
+            expect(a.wireValueDisagreesWithCatalog).toBe(false);
+          }
         },
       ),
+    );
+  });
+
+  it("the wire value in component 1 is never a lookup key", () => {
+    fc.assert(
+      fc.property(loincArb, fc.array(entryArb, { maxLength: 8 }), (wireValue, entries) => {
+        // A catalog that WOULD answer for the wire value, and a record with no
+        // vendor code: the key is the vendor transmission code alone, so nothing
+        // is looked up and no LOINC is reported.
+        const catalog = defineLivdCatalog([...entries, { vendorCode: wireValue, loinc: "1920-8" }]);
+        const msg = parseAstmRecords(`H|\\^&\rR|1|${wireValue}|5|U/L||N||F\rL|1\r`);
+        const [a] = applyLivd(msg, catalog).annotations;
+        if (a === undefined) throw new Error("expected exactly one annotation");
+        expect(a.mapping).toEqual({ status: "no-vendor-code" });
+        expect(a.reportedCode).toBeUndefined();
+        expect(a.unvalidatedWireValue).toBe(wireValue);
+        expect(a.wireValueDisagreesWithCatalog).toBe(false);
+      }),
     );
   });
 });

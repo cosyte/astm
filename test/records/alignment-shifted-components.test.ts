@@ -421,13 +421,13 @@ describe("the two index axes the shared corpus cannot see", () => {
       // constant on both sides: that proxy stays green on an UNDER-stated arity, because it would
       // compare two lists that agree only because it stopped short of where they differ.
       const named = {
-        loincCandidate: id?.loincCandidate,
+        unvalidatedWireValue: id?.unvalidatedWireValue,
         testName: id?.testName,
         codingScheme: id?.codingScheme,
         localCode: id?.localCode,
       };
       const rivalNamed = {
-        loincCandidate: rival[0],
+        unvalidatedWireValue: rival[0],
         testName: rival[1],
         codingScheme: rival[2],
         localCode: rival[3],

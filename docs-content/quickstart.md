@@ -464,6 +464,50 @@ const msg = parseAstmRecords("H|\\^&\rR|1|^^^999|5|U/L||N||F\rL|1\r");
 applyLivd(msg, catalog).annotations[0]?.mapping.status; // => "unmapped"
 ```
 
+### Your catalog answers, and the wire never does
+
+The Universal Test ID's first component is a LOINC slot, and the guide this catalog
+format comes from puts transmitting LOINC directly from IVD instruments explicitly out
+of scope: the analyte arrives as a vendor-defined code. So the lookup runs whenever a
+vendor local code is present, keyed on that code alone, and a populated first component
+never answers instead of it. **This package performs no LOINC validation of any kind**,
+so it never decides whether such a value "looks like" a LOINC: `Glucose` and `2345-7`
+there are treated identically. The value is carried verbatim as `unvalidatedWireValue`,
+never reported as a LOINC, and never used as a lookup key.
+
+```ts runnable
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+const catalog = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8" }]);
+const msg = parseAstmRecords("H|\\^&\rR|1|Glucose^^^687|28.6|U/L||N||F\rL|1\r");
+const [a] = applyLivd(msg, catalog).annotations;
+
+a?.reportedCode; // => "687"
+a?.unvalidatedWireValue; // => "Glucose"
+a?.wireValueDisagreesWithCatalog; // => true
+```
+
+`wireValueDisagreesWithCatalog` says the two differ and **nothing else**: both values
+stay surfaced, neither is marked correct, neither is rewritten, and nothing claims the
+difference was settled. It is `true` only where your catalog vouched for exactly one
+LOINC, the first component is populated, and the two are not byte-identical; `false`
+everywhere else, and never absent.
+
+With no vendor local code there is nothing to look up, so nothing is looked up. The
+record reports that, rather than reporting the wire value as a code:
+
+```ts runnable
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+const catalog = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8" }]);
+const msg = parseAstmRecords("H|\\^&\rR|1|Glucose|28.6|U/L||N||F\rL|1\r");
+const [a] = applyLivd(msg, catalog).annotations;
+
+a?.mapping.status; // => "no-vendor-code"
+a?.reportedCode; // => undefined
+a?.unvalidatedWireValue; // => "Glucose"
+```
+
 ## Next
 
 - [Core Concepts](./concepts-archetype): the parser archetype and the tolerance model.

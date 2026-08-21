@@ -80,7 +80,9 @@ shipped (`ls src/` for the module layout).
   the record layer spec-clean. Why: `#status-history`.
 - **Never bundle LOINC / SNOMED / LIVD data, and never emit a guessed LOINC.** The catalog is
   consumer-supplied, the mapping is additive and advisory, a miss or a conflict is
-  `unmapped`/`ambiguous` with a value-free warning. Why: `#status-history`.
+  `unmapped`/`ambiguous` with a value-free warning. **The catalog answers for the analyte identity
+  and the wire never does**, and this package performs **no LOINC validation of any kind**. Why:
+  `#status-history`, `#defect-9`.
 - **Never fabricate structure or a positive acknowledgement.** Checksums and frame numbers are
   computed, never faked; a frame the codec did not vouch for is `NAK`ed and never delivered; a builder
   emits only supplied values (an omitted result status reads `unspecified`, never `final`); an
@@ -193,9 +195,14 @@ and refuted formulation: `#defects`.
    **second, incidental** code because its declaration is read as data: **that is not a second
    reader of the mangled header, and nothing may start treating it as one.**
    `#defect-8`
-9. **Open.** `inline-loinc-candidate` is asserted with no LOINC evidence: any non-empty first component
-   is tagged, so `Glucose` reports as a LOINC candidate. **Do not answer it inside another
-   module's slice**; it wants its own. `#defect-9`
+9. **CLOSED 2026-08-21; the CATALOG BYPASS was the safety-critical half**, not the label:
+   `mapTestId` returned on any non-empty first component before ever reaching `catalog.lookup`. The
+   catalog is consulted whenever a vendor local code is present, keyed on **that code alone**; a
+   first component is an `unvalidatedWireValue`, never a LOINC and **never the code a result is keyed
+   on, with or without a catalog**, so `primaryCode()` now answers `undefined` where it answered
+   `Glucose`. **NO LOINC SHAPE TEST WAS ADDED AND NONE MAY BE**: every route is POSITIONAL, so
+   `Glucose` and `2345-7` there are identical. A disagreement is REPORTED, never resolved, and never
+   computed against an ambiguous candidate list. `#defect-9`
 10. **Open, and deliberately PARTIAL, so the warning's ABSENCE certifies nothing.**
     `ASTM_RECORD_FIELDS_UNSEPARATED` tests one delimiter role in its total form only. A foreign field
     separator that occurs anywhere in the line still splits on the wrong boundaries with zero warnings,
