@@ -11,8 +11,10 @@ Parse real-world, vendor-quirky ASTM and pull fields out in one line, without re
 parser, an immutable model, a spec-clean serializer, and a profile system for vendor quirks. It
 mirrors the API shape of the reference parser, `@cosyte/hl7`.
 
-> **Status:** published on npm, on the pre-alpha `0.0.x` ladder. Both layers are
-> **feature-complete**, but the public surface can still change within `0.0.x`, before `0.1.0`.
+> **Status:** published on npm and public, on a pre-release ladder: the public API is **not yet
+> stable**. Both layers are **feature-complete**, but exported names, options and warning codes can
+> still change from one release to the next, so pin the version you install rather than tracking the
+> latest. Read the version you have with `npm view @cosyte/astm version`.
 > The **record** layer reads `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and
 > escape decode, safety-critical result semantics, patient/order identity depth, the `C` comment
 > record, and host-query classification. The E1381/CLSI-LIS01 **framing** layer decodes framed byte
@@ -65,4 +67,8 @@ are surfaced **verbatim** and never interpreted into clinical fields; their exac
 
 ## Next
 
+- [What it does with patient data](./patient-data): what this library logs, retains and writes, and
+  what stays your responsibility. Read it before you point lab traffic at it.
+- [Vendor profiles](./guides-vendor-profiles): tolerating a documented quirk without turning the
+  parser's judgement off.
 - Read the **API reference** for every export, generated from source.

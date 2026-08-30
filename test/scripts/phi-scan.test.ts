@@ -269,7 +269,12 @@ const repos: string[] = [];
  *
  * EVERY ROOT IS POPULATED ON PURPOSE. The scanner refuses a root it observed
  * nothing in, so an empty one here would refuse before any case's own condition
- * was reached and every such case would pass for the wrong reason.
+ * was reached and every such case would pass for the wrong reason. THAT IS WHY
+ * `docs-content` IS HERE: it became a walk root when the sweep started reading
+ * the shipped docs bundle, and without a file in it every all-mode case in this
+ * file would exit 2 on an unobserved root instead of reaching its own subject.
+ * The page written into it is deliberately an ordinary one, so the root is
+ * observed and contributes no finding.
  *
  * AND THE INDEX IS POPULATED FOR THE SAME KIND OF REASON. All mode reads the
  * bytes git carries as well as the working tree, and refuses an EMPTY index
@@ -287,6 +292,7 @@ function makeRepo(): string {
   mkdirSync(join(root, "scripts"));
   mkdirSync(join(root, "src"));
   mkdirSync(join(root, "test"));
+  mkdirSync(join(root, "docs-content"));
   copyFileSync(
     join(REPO_ROOT, "scripts", "phi-allow-list.txt"),
     join(root, "scripts", "phi-allow-list.txt"),
@@ -294,6 +300,7 @@ function makeRepo(): string {
   copyFileSync(SCANNER_PATH, join(root, "scripts", "phi-scan.ts"));
   writeFileSync(join(root, "src", "ordinary.ts"), "export const answer = 42;\n");
   writeFileSync(join(root, "test", "ordinary.test.ts"), "export const cases = 1;\n");
+  writeFileSync(join(root, "docs-content", "intro.md"), "# Intro\n\nOrdinary prose.\n");
   git(root, ["init", "-q", "."]);
   git(root, ["add", "."]);
   return root;
@@ -984,7 +991,7 @@ describe("phi-scan: the --staged route refuses an UNMERGED in-scope path", () =>
 // case cannot quietly stop measuring anything when the source moves under it.
 
 /** The shipped walk-root declaration, and the scope it superseded. */
-const SHIPPED_WALK_ROOTS = `const WALK_ROOT_NAMES = ["src", "test", "scripts"] as const;`;
+const SHIPPED_WALK_ROOTS = `const WALK_ROOT_NAMES = ["src", "test", "scripts", "docs-content"] as const;`;
 const SUPERSEDED_WALK_ROOTS = `const WALK_ROOT_NAMES = ["src", "test/fixtures"] as const;`;
 
 /** The shipped source-embedding extension set, and an empty one (no decoded view at all). */
@@ -1426,6 +1433,7 @@ describe("phi-scan index corpus: reconciling path SETS is not reading BYTES", ()
     mkdirSync(join(root, "scripts"));
     mkdirSync(join(root, "src"));
     mkdirSync(join(root, "test"));
+    mkdirSync(join(root, "docs-content"));
     copyFileSync(
       join(REPO_ROOT, "scripts", "phi-allow-list.txt"),
       join(root, "scripts", "phi-allow-list.txt"),
@@ -1433,6 +1441,7 @@ describe("phi-scan index corpus: reconciling path SETS is not reading BYTES", ()
     copyFileSync(SCANNER_PATH, join(root, "scripts", "phi-scan.ts"));
     writeFileSync(join(root, "src", "ordinary.ts"), "export const answer = 42;\n");
     writeFileSync(join(root, "test", "ordinary.test.ts"), "export const cases = 1;\n");
+    writeFileSync(join(root, "docs-content", "intro.md"), "# Intro\n\nOrdinary prose.\n");
     git(root, ["init", "-q", "."]);
 
     expect(gitOut(root, ["ls-files"]).trim(), "the premise: nothing is in the index").toBe("");
@@ -1453,6 +1462,7 @@ describe("phi-scan index corpus: reconciling path SETS is not reading BYTES", ()
     mkdirSync(join(root, "scripts"));
     mkdirSync(join(root, "src"));
     mkdirSync(join(root, "test", "fixtures"), { recursive: true });
+    mkdirSync(join(root, "docs-content"));
     copyFileSync(
       join(REPO_ROOT, "scripts", "phi-allow-list.txt"),
       join(root, "scripts", "phi-allow-list.txt"),
@@ -1460,6 +1470,7 @@ describe("phi-scan index corpus: reconciling path SETS is not reading BYTES", ()
     copyFileSync(SCANNER_PATH, join(root, "scripts", "phi-scan.ts"));
     writeFileSync(join(root, "src", "ordinary.ts"), "export const answer = 42;\n");
     writeFileSync(join(root, "test", "fixtures", "patient.astm"), SYNTHETIC_PHI);
+    writeFileSync(join(root, "docs-content", "intro.md"), "# Intro\n\nOrdinary prose.\n");
     git(root, ["init", "-q", "."]);
 
     expect(gitOut(root, ["ls-files"]).trim(), "the premise: nothing is in the index").toBe("");
@@ -1594,8 +1605,12 @@ describe("phi-scan index corpus: the positive control on the corpus it claims to
   // so a case that only shows the scanner passing proves nothing. This one takes
   // THIS PACKAGE'S OWN `package.json`, byte for byte, and puts it at the same
   // out-of-every-walk-root path in a throwaway tree. It is the file that made the
-  // gap concrete: 18 tracked non-markdown files sit outside all three walk roots
-  // in this repo, and this is the one carrying a token the floor fires on.
+  // gap concrete: measured on the tree that declared three walk roots, 18 tracked
+  // non-markdown files sat outside every one of them, and this is the one
+  // carrying a token the floor fires on. `docs-content` is a walk root now and
+  // that figure is 17 on this tree, because `docs-content/sidebars.json` moved
+  // inside one; `package.json` did not move and the case is unchanged. THE COUNT
+  // IS QUOTED WITH THE ROOT SET IT WAS TAKEN ON, because it is a function of it.
   //
   // The green is then shown to be EARNED BY THE DECLARATION rather than by the
   // file never being opened, which is the only difference that matters and the
@@ -1611,7 +1626,7 @@ describe("phi-scan index corpus: the positive control on the corpus it claims to
     expect(OWN_MANIFEST).toMatch(/[A-Za-z0-9._%+-]+@cosyte\.com/);
     // ...and it really does sit outside every declared walk root.
     const scanner = readFileSync(SCANNER_PATH, "utf8");
-    expect(scanner).toContain(`const WALK_ROOT_NAMES = ["src", "test", "scripts"] as const;`);
+    expect(scanner).toContain(SHIPPED_WALK_ROOTS);
   });
 
   it("the sweep OPENS it: strike the declaration and the same corpus reds (exit 1)", () => {
