@@ -515,8 +515,26 @@ The operator decides, per repo, before any release; this file surfaces them so t
 something to read. Nothing in this list may be read as approval, and nothing publishes until
 section 5's precondition is met.
 
-Four of the entries are the public values the LIVD changeset removes or redefines, and
-`primaryCode()` is the one that produces **no compile error at all**.
+Entries 1 to 4 are the public values the LIVD changeset removes or redefines, and `primaryCode()`
+is the one that produces **no compile error at all**.
+
+The eight candidates at a glance, so the decision has an index and not eight pages of prose. Each
+one is argued in full under its own heading below, and the class after the dash is what a
+consumer's BUILD does, not how severe the change is:
+
+1. `UniversalTestId.loincCandidate` - removed: a compile error on every read.
+2. The `"inline-loinc-candidate"` token of `UniversalTestIdProvenance` - removed: a compile error
+   wherever the literal is written.
+3. The `LivdMapping` variant `{ status: "inline-loinc" }` - removed: a compile error in an
+   exhaustive switch.
+4. `primaryCode()` - behaviour changed: **no compile error at all**; the answer moves at run time.
+5. `LivdAnnotation.reportedCode` - meaning changed: no compile error.
+6. `AbnormalFlag.vocabulary` and `ResultStatus.vocabulary` - required property added: a compile
+   error only where a consumer constructs one of those values.
+7. `AbnormalFlagCode` widened by `HU` and `LU` - union widened: a compile error in an exhaustive
+   switch, plus a silent behaviour change for a feed sending either letter.
+8. `LivdAnnotation.wireValueDisagreesWithCatalog` - required property added: a compile error only
+   where a consumer constructs a `LivdAnnotation`.
 
 ### 1. `UniversalTestId.loincCandidate` (removed)
 
@@ -591,12 +609,41 @@ Four of the entries are the public values the LIVD changeset removes or redefine
   deprecated `H>` and `L<` stay unrecognized deliberately.
 - **Status:** awaits the operator's decision before any release.
 
+### 8. `LivdAnnotation.wireValueDisagreesWithCatalog` (required property added)
+
+- **Effect a consumer sees:** a compile error only where the consumer **constructs** a
+  `LivdAnnotation` themselves, typically a test double or a fixture, because a required property was
+  added to an exported interface. It is entry 6's rule on a different interface. Reading an
+  annotation is unaffected and additive: the property is present on every annotation the library
+  produces, and is `false` in every case except a catalog that vouched for exactly one LOINC
+  disagreeing with a populated component 1.
+- **Migration:** take the annotation from `applyLivd`'s own output, or from `lookupLivdForRecord`
+  for a single record, rather than constructing one by hand, so a stub tracks the library. Where a
+  literal is unavoidable, `wireValueDisagreesWithCatalog: false` is the value every other
+  disposition carries, and it must not be written `true` to mean "unknown": the field reports a
+  measured disagreement and nothing else.
+- **Status:** awaits the operator's decision before any release.
+
+The other two members the LIVD changeset adds to `LivdAnnotation` are **optional**
+(`unvalidatedWireValue`, and `reportedCode`, which is entry 5 for its changed meaning rather than
+for its declaration), as is the added `UniversalTestId.unvalidatedWireValue`. An optional member
+added to an exported interface breaks no construction, so none of them is an entry here. The rule
+that decides it is the declaration, not the changeset heading: a member a consumer must supply to
+construct the value is a break, and a member they may omit is additive.
+
 ## 5. Unresolved
 
 An unresolved entry is a pending changeset that cannot be classified from its own text plus the
 change it documents, recorded with the question that blocks it. **While any unresolved entry stands,
 the stability certification in section 3 is withheld**, and the test grades that rule rather than
 trusting this sentence.
+
+**How to write one, and what the guard reads.** Write each unresolved entry as its own `- ` list
+item inside the marked region below, naming the changeset and the question. The guard does not
+depend on that shape: it reads the region as CLEAR only when the region opens with `None`, so any
+other text in it, a bare sentence included, counts as unresolved, an empty region counts as
+unresolved, and a bullet under a `None.` still counts. The bullet form is the readable one; the
+rule is that saying nothing never reads as saying none.
 
 <!-- unresolved:begin -->
 

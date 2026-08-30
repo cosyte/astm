@@ -17,7 +17,10 @@
  *     one actually carries;
  *   - the surface the record enumerates is exactly what the entry point re-exports, values
  *     and types both, with every added and every removed identifier named on failure;
- *   - an unresolved entry in the record withholds the stability certification.
+ *   - the counts the record states in prose, which sit outside every marker, match what it
+ *     enumerates, so the paragraph promising the list cannot go stale is true of itself too;
+ *   - an unresolved entry in the record withholds the stability certification, whether it is
+ *     written as a bullet or as a sentence, and a region that says nothing does not say "none".
  *
  * WHEN IT GOES RED AFTER THE RELEASE, THAT IS THE DESIGN. Once Changesets consumes this set
  * the pending set is empty and the published base has moved, and this gate fails with a
@@ -225,12 +228,33 @@ function identifiersIn(region: string): string[] {
   return out;
 }
 
-/** Every `- ` list item in a region, which is how an unresolved entry is written. */
+/** Every `- ` list item in a region. */
 function listItemsIn(region: string): string[] {
   return region
     .split(/\r?\n/)
     .filter((line) => /^-\s+\S/.test(line))
     .map((line) => line.trim());
+}
+
+/**
+ * Every unresolved entry a region carries, under the only reading that cannot be defeated by
+ * formatting: a bullet is an entry, and so is any other text that does not open with `None`.
+ *
+ * WHY IT IS NOT A LIST SCAN. An unresolved entry is written by whoever could not classify a
+ * changeset, and nothing obliges them to reach for a bullet. Counting only `- ` lines would leave
+ * a sentence-shaped entry invisible and the certification standing over an open question, which
+ * is the exact case the rule exists for. Bullets are read first, so a `None.` opener cannot hide
+ * one underneath it, and an EMPTY region counts as unresolved because a region that says nothing
+ * has not said "none".
+ */
+function unresolvedEntriesIn(region: string): string[] {
+  const items = listItemsIn(region);
+  if (items.length > 0) return items;
+  const text = region.trim();
+  if (text.length === 0) {
+    return ["the unresolved region is empty: write `None.`, or list what is unresolved"];
+  }
+  return /^none\b/i.test(text) ? [] : [text];
 }
 
 /**
@@ -279,7 +303,7 @@ interface CertificationGrade {
  * audit behind it does.
  */
 function gradeCertification(document: string): CertificationGrade {
-  const unresolved = listItemsIn(readRegion(document, "unresolved"));
+  const unresolved = unresolvedEntriesIn(readRegion(document, "unresolved"));
   const certification = findRegion(document, "certification") ?? "";
   const certified = certification.trim().length > 0;
   const violation =
@@ -288,6 +312,36 @@ function gradeCertification(document: string): CertificationGrade {
         "remain unresolved"
       : undefined;
   return { unresolved, certified, violation };
+}
+
+interface StatedCounts {
+  readonly values: number;
+  readonly types: number;
+  readonly identifiers: number;
+}
+
+/**
+ * The three counts the record states in prose, in the same paragraph that promises the
+ * enumeration cannot go stale in silence.
+ *
+ * They sit OUTSIDE the marked regions, so the surface comparison below never reads them: an
+ * export added to the entry point and dutifully added to the list would leave the sentence
+ * quietly wrong. Reading them here is what makes that promise true of the whole paragraph rather
+ * than of the list alone.
+ */
+function statedCounts(document: string): StatedCounts {
+  const match = /Counts:\s*\*\*(\d+) values, (\d+) types, (\d+) identifiers\*\*/.exec(document);
+  if (!match) {
+    throw new Error(
+      "the record states no surface counts, so the paragraph promising the enumeration cannot " +
+        "go stale has nothing to grade",
+    );
+  }
+  return {
+    values: Number(match[1]),
+    types: Number(match[2]),
+    identifiers: Number(match[3]),
+  };
 }
 
 /** Every `| file | as written | applied |` row of the audit table. */
@@ -419,6 +473,22 @@ describe("the public export surface the record certifies", () => {
     expect(recorded.types.length).toBeGreaterThan(0);
   });
 
+  it("states counts that match what it enumerates, so the prose cannot go stale either", () => {
+    // The counts are prose outside every marker, so nothing else in this file reads them. Without
+    // this case the sentence promising the list cannot go stale in silence is itself the thing
+    // that goes stale in silence.
+    const stated = statedCounts(RECORD);
+    expect(stated.values).toBe(recorded.values.length);
+    expect(stated.types).toBe(recorded.types.length);
+    expect(stated.identifiers).toBe(recorded.values.length + recorded.types.length);
+  });
+
+  it("refuses a record that states no counts at all", () => {
+    expect(() => statedCounts("an enumeration with no counts above it")).toThrow(
+      /states no surface counts/,
+    );
+  });
+
   it("names both the added and the removed identifiers when the two differ", () => {
     const message = describeDrift("value", ["kept", "gone"], ["kept", "fresh"]);
     expect(message).toContain("ADDED to the package: fresh");
@@ -458,6 +528,13 @@ describe("the stability certification", () => {
   const NOTHING_OPEN = "<!-- unresolved:begin -->\nNone.\n<!-- unresolved:end -->";
   const ONE_OPEN =
     "<!-- unresolved:begin -->\n- `some-changeset.md`: what does it change?\n<!-- unresolved:end -->";
+  const PROSE_OPEN =
+    "<!-- unresolved:begin -->\nThe host-query changeset cannot be classified from its own " +
+    "text: does it remove a public value?\n<!-- unresolved:end -->";
+  const SAYS_NOTHING = "<!-- unresolved:begin -->\n\n<!-- unresolved:end -->";
+  const NONE_OVER_A_BULLET =
+    "<!-- unresolved:begin -->\nNone.\n- `some-changeset.md`: what does it change?\n" +
+    "<!-- unresolved:end -->";
 
   it("is made by the record, and nothing in it is unresolved", () => {
     const grade = gradeCertification(RECORD);
@@ -470,6 +547,26 @@ describe("the stability certification", () => {
     expect(gradeCertification(`${ONE_OPEN}\n${CERTIFIED}`).violation).toMatch(/unresolved/);
     expect(gradeCertification(`${ONE_OPEN}\n${WITHHELD}`).violation).toBeUndefined();
     expect(gradeCertification(`${NOTHING_OPEN}\n${CERTIFIED}`).violation).toBeUndefined();
+  });
+
+  it("sees an unresolved entry written as a sentence, not only as a bullet", () => {
+    // Nothing obliges the author of an open question to reach for a bullet, and the region in
+    // this repo's own record is a paragraph. A guard that reads only `- ` lines would certify
+    // over an unresolved entry it could not see, which is the case the rule exists for.
+    expect(gradeCertification(`${PROSE_OPEN}\n${CERTIFIED}`).violation).toMatch(/unresolved/);
+    expect(gradeCertification(`${PROSE_OPEN}\n${WITHHELD}`).violation).toBeUndefined();
+  });
+
+  it("treats an empty unresolved region as unresolved, because it has not said none", () => {
+    const grade = gradeCertification(`${SAYS_NOTHING}\n${CERTIFIED}`);
+    expect(grade.unresolved).toHaveLength(1);
+    expect(grade.violation).toMatch(/unresolved/);
+  });
+
+  it("does not let a none marker hide a bullet written under it", () => {
+    expect(gradeCertification(`${NONE_OVER_A_BULLET}\n${CERTIFIED}`).violation).toMatch(
+      /unresolved/,
+    );
   });
 
   it("refuses a record with no unresolved region at all", () => {
