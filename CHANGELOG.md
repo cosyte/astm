@@ -11,6 +11,13 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Changed
 
+- **The unrecognized-flag and unrecognized-status warning messages name the same attribution the
+  interpreted value reports.** `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG` now names the code system
+  identifier and version the flag was graded against, and `ASTM_RECORD_UNDEFINED_RESULT_STATUS` now
+  states that no citable published source binds the status letter set. Both read the same constants
+  the interpreted values read, so message and value cannot drift apart. Both warning **codes** are
+  unchanged, and both messages remain value-free: position and fixed prose only, never the field
+  text, the result value, or any other field content.
 - **BREAKING: a populated first component no longer bypasses the consumer's LIVD catalog, and no
   public value reports one as a LOINC** (defect 9). The Universal Test ID's first component is a
   LOINC slot, and the governing mapping guide puts transmitting LOINC directly from IVD instruments
@@ -81,6 +88,42 @@ this file is maintained by hand (Changesets handles the version bump and publish
   changed.
 
 ### Added
+
+- **Every interpreted abnormal flag and result status reports the vocabulary it was graded against,
+  and `HU`/`LU` are recognized.** The `R` record's flag (field 7) and status (field 9) letters come
+  from vocabularies maintained on other bodies' schedules, while the record grammar around them is
+  archived and frozen, so this package's exposure to a moving vocabulary was real and invisible from
+  the outside: a consumer holding `{ recognized: false, meaning: "undefined" }` could not tell a code
+  **no published vocabulary defines** from one **this library had not caught up to**. That
+  distinction is now carried on the value itself.
+  - `AbnormalFlag.vocabulary` names the code system by `system` and `version`, present whether or not
+    the letter was recognized. It is the HL7 v3 ObservationInterpretation code system, which carries
+    the concepts kept aligned with the HL7 v2 Table 0078 interpretation codes previously named in
+    prose only. **The version records what this library compared against**, not what the sender
+    meant, and it is not a conformance claim about any instrument.
+  - `ResultStatus.vocabulary` is always the explicit **no citable published source**
+    (`attributed: false`, with fixed prose in `reason`). The normative text that would bind the
+    status letter set is purchase-gated and was not read; a neighbouring HL7 table whose letters
+    partly agree is deliberately **not** adopted in its place, because asserting that binding is not
+    something the public record supports. Saying the set is unattributed is the honest answer and is
+    distinguishable from an attribution that is simply absent; it never carries an identifier.
+  - `HU` (`"significantly-high"`) and `LU` (`"significantly-low"`) are recognized. Both are active
+    concepts in the graded vocabulary and were absent from the sixteen letters this package
+    recognized, so a feed sending either got a warning and `"undefined"`. They are distinct from
+    `H`/`L`, from `HH`/`LL` and from the directional `U`/`D`, all six of which keep their readings
+    unchanged. The recognized set is eighteen: `L`, `H`, `LL`, `HH`, `<`, `>`, `N`, `A`, `AA`, `U`,
+    `D`, `B`, `W`, `S`, `R`, `I`, `HU`, `LU`.
+  - New public values: `ABNORMAL_FLAG_CODES` (the recognized set as a list),
+    `ABNORMAL_FLAG_VOCABULARY`, `RESULT_STATUS_VOCABULARY`, `describeVocabulary`, and the
+    `NamedVocabulary` / `UnattributedVocabulary` / `VocabularyAttribution` types.
+  - **No tolerance was widened.** Recognition stays exact match after the existing trim: no case
+    folding, so `hu` and `f` are reported unrecognized with their raw text intact. No other concept
+    from that code system is adopted, including the deprecated `H>` and `L<` whose replacements
+    `HU`/`LU` are; those stay unrecognized, which is the fail-safe direction. An unrecognized flag is
+    still never `normal` and an absent status is still never `final`.
+  - **Nothing reaches the wire.** The attribution is interpretation output; a parsed and
+    re-serialized record emits byte-identical output, pinned by literal expected strings in
+    `test/records/golden-round-trip.test.ts`. No new dependency.
 
 - **The PHI sweep now reads the bytes git carries, as a union with the working-tree walk.** All mode
   reconciled the paths it walked against the paths git tracks, and a comparison of path _sets_ is

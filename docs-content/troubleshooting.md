@@ -68,6 +68,19 @@ the parser does not recognize is surfaced as `"undefined"`, never coerced to `"n
 unparseable reference range is surfaced verbatim with no invented bound. In every case the library
 refuses to hand you a confident wrong value: inspect the warning and decide.
 
+An `"undefined"` flag or status also tells you **what it was graded against**, so you can act on the
+difference. `flag.vocabulary` names the code system and the version this library compared the letter
+with (a version that says what was compared, **not** what the sender meant), so a letter that is
+absent from that version is a gap to report rather than a mystery. `status.vocabulary.attributed` is
+always `false`: no citable published source binds the status letters, and `status.vocabulary.reason`
+says why. The `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG` and `ASTM_RECORD_UNDEFINED_RESULT_STATUS`
+warning messages carry the same attribution, and remain value-free.
+
+Recognition is **exact match** after the surrounding whitespace is trimmed. A lower-case `hu` or `f`
+is reported unrecognized with its raw text intact rather than folded into a match: widening
+recognition is how a parser starts guessing. Normalize the case yourself if your instrument really
+sends it that way.
+
 ## `ASTM_UNPAIRED_ESCAPE_CHARACTER`: a value carries a bare ampersand
 
 An escape sequence is the escape character, **one** body character, and the escape character again

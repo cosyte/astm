@@ -22,9 +22,12 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
 - **Records (E1394 / LIS02-A2).** `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` are read with per-header
   delimiter self-declaration and escape decode, so an escaped delimiter inside a value reads as one
-  component. Result semantics are modeled and fail-safe: HL7 Table 0078 abnormal flags, result status
-  (a correction `C` or cancel `X` never reads as active-final), reference ranges kept verbatim, and a
-  missing unit flagged rather than defaulted. The practice-, laboratory-, and third patient IDs stay
+  component. Result semantics are modeled and fail-safe: abnormal flags graded against the HL7 v3
+  ObservationInterpretation code system, result status (a correction `C` or cancel `X` never reads as
+  active-final), reference ranges kept verbatim, and a missing unit flagged rather than defaulted.
+  Every interpreted flag and status reports the vocabulary it was graded against, recognized or not,
+  so an unknown code is distinguishable from one the library has not caught up to; the status letter
+  set reports that **no citable published source** binds it. The practice-, laboratory-, and third patient IDs stay
   distinct; a `C` comment attaches to its parent by position and an orphan is surfaced, never dropped;
   a partial timestamp is preserved and flagged, never zero-filled. A `Q`-bearing message is classified
   as a host query and is never read as a result set, and `M`/`S` vendor QC and calibration records are

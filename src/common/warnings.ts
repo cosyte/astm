@@ -9,6 +9,11 @@
  */
 
 import type { AstmPosition } from "./position.js";
+import {
+  ABNORMAL_FLAG_VOCABULARY,
+  RESULT_STATUS_VOCABULARY,
+  describeVocabulary,
+} from "./vocabulary.js";
 
 /**
  * Stable string codes for every Tier-2 warning the record parser may emit.
@@ -978,7 +983,9 @@ export function ambiguousValueSplit(position: AstmPosition): AstmRecordWarning {
 
 /**
  * Build an `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG` warning. The flag is surfaced as
- * `undefined` (never coerced to `normal`); the warning carries only the position.
+ * `undefined` (never coerced to `normal`); the warning carries only the position
+ * and fixed prose naming the **same** vocabulary the interpreted flag reports,
+ * read from the one shared constant so the two cannot drift apart.
  *
  * @example
  * ```ts
@@ -989,7 +996,10 @@ export function ambiguousValueSplit(position: AstmPosition): AstmRecordWarning {
 export function undefinedAbnormalFlag(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG,
-    message: "Abnormal flag is not in HL7 Table 0078, surfaced as undefined, never as normal.",
+    message:
+      `Abnormal flag is not a code in the vocabulary it was ` +
+      `${describeVocabulary(ABNORMAL_FLAG_VOCABULARY)}, ` +
+      `surfaced as undefined, never as normal.`,
     position,
   };
 }
@@ -997,6 +1007,8 @@ export function undefinedAbnormalFlag(position: AstmPosition): AstmRecordWarning
 /**
  * Build an `ASTM_RECORD_UNDEFINED_RESULT_STATUS` warning. The status is surfaced
  * as `undefined` and, like every non-final status, never reads as active-final.
+ * The message carries the **same** attribution the interpreted status reports
+ * (there is no citable source for this letter set), from the one shared constant.
  *
  * @example
  * ```ts
@@ -1007,7 +1019,9 @@ export function undefinedAbnormalFlag(position: AstmPosition): AstmRecordWarning
 export function undefinedResultStatus(position: AstmPosition): AstmRecordWarning {
   return {
     code: WARNING_CODES.ASTM_RECORD_UNDEFINED_RESULT_STATUS,
-    message: "Result status is not a recognized status letter, surfaced as undefined.",
+    message:
+      `Result status is not a recognized status letter, surfaced as undefined. ` +
+      `${describeVocabulary(RESULT_STATUS_VOCABULARY)}`,
     position,
   };
 }

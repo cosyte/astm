@@ -5,9 +5,9 @@
  * fields **raw**. This module turns those raw letters into modeled, **fail-safe**
  * semantics, under one rule: **never a confident wrong value.**
  *
- * - An **abnormal flag** (field 7) is recognized against HL7 Table 0078; an
- *   unrecognized flag is surfaced as `undefined` (with a warning) and is **never
- *   coerced to `normal`**.
+ * - An **abnormal flag** (field 7) is recognized against a **named** published
+ *   vocabulary; an unrecognized flag is surfaced as `undefined` (with a warning)
+ *   and is **never coerced to `normal`**.
  * - A **result status** (field 9) is modeled so a **correction (`C`)** or a
  *   **cancellation (`X`)** can never read as an active-final result, and an
  *   **absent** status is a typed `unspecified`: **never assumed `F` (final)**.
@@ -15,19 +15,36 @@
  *   pair; an unparseable range is surfaced **verbatim**, a bound is **never
  *   fabricated**.
  *
+ * Every interpreted flag and status also carries the **vocabulary it was graded
+ * against**, recognized or not, so an unknown code is distinguishable from one
+ * this library has not caught up to. The status set's attribution is the
+ * explicit "no citable published source": see `../common/vocabulary.js`.
+ *
  * Every bound and code is surfaced verbatim; nothing is collapsed, reconciled,
  * or converted. Units are handled at the record layer (a numeric value without
  * units warns; units are never defaulted, guessed, or converted, see
  * `./parse.ts`).
  */
 
+import {
+  ABNORMAL_FLAG_VOCABULARY,
+  RESULT_STATUS_VOCABULARY,
+  type NamedVocabulary,
+  type UnattributedVocabulary,
+} from "../common/vocabulary.js";
+
 /* ────────────────────────────── abnormal flags ────────────────────────────── */
 
 /**
- * The recognized abnormal-flag letters, from **HL7 v2.2 Table 0078** (the flag
- * *value* set, a published fact set, not CLSI prose). Read in the context of an
- * `R` record's field 7: here `S`/`R`/`I` are the microbiology susceptibility
- * codes and `R` is **not** the repeat delimiter.
+ * The recognized abnormal-flag letters, graded against
+ * {@link ABNORMAL_FLAG_VOCABULARY} (the flag *value* set, a published fact set,
+ * not CLSI prose). That code system carries the concepts kept aligned with the
+ * HL7 v2 Table 0078 interpretation codes. Read in the context of an `R` record's
+ * field 7: here `S`/`R`/`I` are the microbiology susceptibility codes and `R` is
+ * **not** the repeat delimiter.
+ *
+ * Recognition is **exact match** after the surrounding whitespace is trimmed:
+ * letter case is never folded, so `hu` is unrecognized and stays that way.
  */
 export type AbnormalFlagCode =
   | "L"
@@ -45,12 +62,14 @@ export type AbnormalFlagCode =
   | "W"
   | "S"
   | "R"
-  | "I";
+  | "I"
+  | "HU"
+  | "LU";
 
 /**
- * The modeled meaning of a recognized {@link AbnormalFlagCode}, plus the two
- * fail-safe sentinels: `undefined` (a flag was present but is not in Table 0078),
- * which is **never** collapsed to `normal`.
+ * The modeled meaning of a recognized {@link AbnormalFlagCode}, plus the
+ * fail-safe sentinel `undefined` (a flag was present but is not in the graded
+ * vocabulary), which is **never** collapsed to `normal`.
  */
 export type AbnormalFlagMeaning =
   | "below-normal"
@@ -69,13 +88,21 @@ export type AbnormalFlagMeaning =
   | "susceptible"
   | "resistant"
   | "intermediate"
+  | "significantly-high"
+  | "significantly-low"
   | "undefined";
 
 /**
- * HL7 Table 0078 flag letter → modeled meaning. `U`/`D` are **directional**
- * significant-change flags (up / down), *not* units or a delta magnitude, a
- * distinction that misreads a trend if collapsed. `LL`/`HH` are panic (critical)
- * low/high; `<`/`>` are off-scale low/high; `AA` is very-abnormal.
+ * Flag letter → modeled meaning. `U`/`D` are **directional** significant-change
+ * flags (up / down), *not* units or a delta magnitude, a distinction that
+ * misreads a trend if collapsed. `LL`/`HH` are panic (critical) low/high;
+ * `<`/`>` are off-scale low/high; `AA` is very-abnormal.
+ *
+ * `HU`/`LU` are **significantly high / significantly low**: outside the
+ * reference or therapeutic interval by enough to want attention, but *not* yet
+ * critical. They are a magnitude relative to an interval, so they are distinct
+ * from `H`/`L` (merely outside it), from `HH`/`LL` (critical), and from the
+ * directional `U`/`D` (a change since the last result).
  */
 const ABNORMAL_FLAG_MEANINGS: Readonly<Record<AbnormalFlagCode, AbnormalFlagMeaning>> = {
   L: "below-normal",
@@ -94,39 +121,70 @@ const ABNORMAL_FLAG_MEANINGS: Readonly<Record<AbnormalFlagCode, AbnormalFlagMean
   S: "susceptible",
   R: "resistant",
   I: "intermediate",
+  HU: "significantly-high",
+  LU: "significantly-low",
 };
+
+/**
+ * Every abnormal-flag letter this library recognizes, in declaration order. A
+ * letter outside this list is surfaced verbatim as unrecognized, never guessed
+ * into a meaning.
+ *
+ * @example
+ * ```ts
+ * import { ABNORMAL_FLAG_CODES } from "@cosyte/astm";
+ * ABNORMAL_FLAG_CODES.includes("HU"); // true
+ * ```
+ */
+export const ABNORMAL_FLAG_CODES: readonly AbnormalFlagCode[] = Object.freeze(
+  Object.keys(ABNORMAL_FLAG_MEANINGS) as AbnormalFlagCode[],
+);
 
 /**
  * A recognized (or explicitly *un*recognized) abnormal flag. The raw field text
  * is always preserved; `recognized` is `false` and `meaning` is `"undefined"`
- * for any letter outside Table 0078, the flag is surfaced, never dropped, and
- * **never coerced to `normal`**.
+ * for any letter outside the graded vocabulary, the flag is surfaced, never
+ * dropped, and **never coerced to `normal`**.
+ *
+ * `vocabulary` is present either way, so a consumer holding an unrecognized flag
+ * can tell a code no published vocabulary defines from one this library has not
+ * caught up to.
  *
  * @example
  * ```ts
  * import { interpretAbnormalFlag } from "@cosyte/astm";
  * const f = interpretAbnormalFlag("HH");
- * f.meaning;    // "critically-above-normal"
- * f.recognized; // true
+ * f.meaning;            // "critically-above-normal"
+ * f.recognized;         // true
+ * f.vocabulary.version; // the code system version compared against
  * ```
  */
 export interface AbnormalFlag {
   /** The verbatim field text, exactly as received. */
   readonly raw: string;
-  /** The Table 0078 code, present only when the raw text is a recognized flag. */
+  /** The recognized code, present only when the raw text is a recognized flag. */
   readonly code?: AbnormalFlagCode;
   /** The modeled meaning; `"undefined"` (never `"normal"`) for an unrecognized flag. */
   readonly meaning: AbnormalFlagMeaning;
-  /** Whether the raw text matched a Table 0078 flag. */
+  /** Whether the raw text matched a flag in the graded vocabulary. */
   readonly recognized: boolean;
+  /**
+   * The published code system this flag was graded against, named by identifier
+   * and version. Always present, recognized or not. The version says what this
+   * library compared against, **not** what the sender meant.
+   */
+  readonly vocabulary: NamedVocabulary;
 }
 
 /**
- * Interpret an `R`-record abnormal-flag field (field 7) against HL7 Table 0078.
+ * Interpret an `R`-record abnormal-flag field (field 7) against
+ * {@link ABNORMAL_FLAG_VOCABULARY}.
  *
  * Leading/trailing whitespace is ignored for the lookup but the `raw` text is
- * preserved verbatim. An unrecognized flag yields `{ recognized: false, meaning:
- * "undefined" }`, surfaced, never dropped, and **never `"normal"`**.
+ * preserved verbatim. Matching is otherwise **exact**: letter case is never
+ * folded. An unrecognized flag yields `{ recognized: false, meaning:
+ * "undefined" }`, surfaced, never dropped, and **never `"normal"`**, and still
+ * carries the vocabulary it was graded against.
  *
  * @param raw - The verbatim field-7 text.
  * @returns The interpreted flag.
@@ -134,15 +192,22 @@ export interface AbnormalFlag {
  * ```ts
  * import { interpretAbnormalFlag } from "@cosyte/astm";
  * interpretAbnormalFlag("U").meaning;   // "significant-change-up"
+ * interpretAbnormalFlag("HU").meaning;  // "significantly-high"
  * interpretAbnormalFlag("ZZ").meaning;  // "undefined" (never "normal")
  * ```
  */
 export function interpretAbnormalFlag(raw: string): AbnormalFlag {
   const key = raw.trim();
   if (isAbnormalFlagCode(key)) {
-    return { raw, code: key, meaning: ABNORMAL_FLAG_MEANINGS[key], recognized: true };
+    return {
+      raw,
+      code: key,
+      meaning: ABNORMAL_FLAG_MEANINGS[key],
+      recognized: true,
+      vocabulary: ABNORMAL_FLAG_VOCABULARY,
+    };
   }
-  return { raw, meaning: "undefined", recognized: false };
+  return { raw, meaning: "undefined", recognized: false, vocabulary: ABNORMAL_FLAG_VOCABULARY };
 }
 
 function isAbnormalFlagCode(value: string): value is AbnormalFlagCode {
@@ -155,6 +220,10 @@ function isAbnormalFlagCode(value: string): value is AbnormalFlagCode {
  * The recognized result-status letters (`R`-record field 9). The clinically
  * load-bearing members are **`C` (correction, supersedes a previously
  * transmitted value)** and **`X` (cannot be done / cancelled)**.
+ *
+ * This set is bound by **no citable published source**: see
+ * {@link RESULT_STATUS_VOCABULARY}, which every interpreted status carries. As
+ * with the flags, matching is exact after trimming; letter case is never folded.
  */
 export type ResultStatusCode = "F" | "C" | "P" | "R" | "S" | "I" | "X";
 
@@ -196,12 +265,17 @@ const RESULT_STATUS_MEANINGS: Readonly<Record<ResultStatusCode, ResultStatusMean
  *   transmitted one.
  * - **`cancelled`** is `true` for `X`: the result cannot be done / was cancelled.
  *
+ * `vocabulary` is always the explicit "no citable published source": this letter
+ * set is modeled from what analyzers send, not from a vocabulary this library
+ * can name.
+ *
  * @example
  * ```ts
  * import { interpretResultStatus } from "@cosyte/astm";
- * interpretResultStatus("C").isActiveFinal; // false (a correction is not active-final)
- * interpretResultStatus("X").cancelled;     // true
- * interpretResultStatus(undefined).meaning; // "unspecified" (never "final")
+ * interpretResultStatus("C").isActiveFinal;      // false (a correction is not active-final)
+ * interpretResultStatus("X").cancelled;          // true
+ * interpretResultStatus(undefined).meaning;      // "unspecified" (never "final")
+ * interpretResultStatus("F").vocabulary.attributed; // false: nothing is cited
  * ```
  */
 export interface ResultStatus {
@@ -219,6 +293,12 @@ export interface ResultStatus {
   readonly supersedes: boolean;
   /** `true` for `X`: the result cannot be done / was cancelled. */
   readonly cancelled: boolean;
+  /**
+   * The explicit statement that this letter set is bound by **no citable
+   * published source**. Always present and always unattributed, so an absent
+   * attribution and an unattributable one never look alike.
+   */
+  readonly vocabulary: UnattributedVocabulary;
 }
 
 /**
@@ -229,14 +309,18 @@ export interface ResultStatus {
  * (recognized `false`). In every non-`F` case `isActiveFinal` is `false`, so a
  * correction, a cancellation, or an unknown status can never read as current.
  *
+ * Every returned status carries {@link RESULT_STATUS_VOCABULARY}: the explicit
+ * statement that no published source binding this letter set can be cited.
+ *
  * @param raw - The verbatim field-9 text, or `undefined`/empty when absent.
  * @returns The modeled status.
  * @example
  * ```ts
  * import { interpretResultStatus } from "@cosyte/astm";
  * const s = interpretResultStatus("F");
- * s.isActiveFinal; // true
- * s.supersedes;    // false
+ * s.isActiveFinal;          // true
+ * s.supersedes;             // false
+ * s.vocabulary.attributed;  // false: nothing is cited for this set
  * ```
  */
 export function interpretResultStatus(raw: string | undefined): ResultStatus {
@@ -247,6 +331,7 @@ export function interpretResultStatus(raw: string | undefined): ResultStatus {
       isActiveFinal: false,
       supersedes: false,
       cancelled: false,
+      vocabulary: RESULT_STATUS_VOCABULARY,
     };
   }
   const key = raw.trim();
@@ -259,6 +344,7 @@ export function interpretResultStatus(raw: string | undefined): ResultStatus {
       isActiveFinal: key === "F",
       supersedes: key === "C",
       cancelled: key === "X",
+      vocabulary: RESULT_STATUS_VOCABULARY,
     };
   }
   return {
@@ -268,6 +354,7 @@ export function interpretResultStatus(raw: string | undefined): ResultStatus {
     isActiveFinal: false,
     supersedes: false,
     cancelled: false,
+    vocabulary: RESULT_STATUS_VOCABULARY,
   };
 }
 
