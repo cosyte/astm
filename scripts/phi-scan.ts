@@ -178,13 +178,49 @@ const OVERRIDE_LOG_PATH = join(REPO_ROOT, "phi-scan-overrides.md");
  * text in the same tree. `src` because a JSDoc `@example` is a fixture a
  * consumer reads.
  *
- * `docs-content/` is deliberately NOT a root: it is markdown prose, which the
- * walk exempts anyway (see `walk`), and its samples are documentation that may
- * legitimately quote a violator value. To see what that costs at any moment:
- * `git ls-files docs-content | xargs /usr/bin/grep -n 'P|1'` (its records sit
- * inside fenced blocks and inline spans, so they do not begin a line).
+ * `docs-content` because the bundle is PUBLISHED AND IMMUTABLE. Its pages are
+ * tarred into a release asset the docs site re-fetches forever, so an identifier
+ * written into an example there cannot be corrected in place by any later diff
+ * to any repo: it is superseded by a later release and renders until then. This
+ * root was deliberately absent before, on the reasoning that markdown is prose
+ * and a documentation sample may legitimately quote a violator value. That
+ * reasoning is why a README, a changelog and the bypass log stay exempt, and it
+ * is kept for them; what it does not survive is the immutability of THIS bundle,
+ * where the reviewer's judgement has no second chance behind it.
  */
-const WALK_ROOT_NAMES = ["src", "test", "scripts"] as const;
+const WALK_ROOT_NAMES = ["src", "test", "scripts", "docs-content"] as const;
+
+/**
+ * The shipped docs bundle, named once so the three places that apply the
+ * markdown exemption cannot disagree about where it stops.
+ */
+const DOCS_BUNDLE_ROOT = "docs-content";
+
+/**
+ * Markdown is exempt from the sweep EXCEPT inside the shipped docs bundle.
+ *
+ * ONE PLACE, THREE CALLERS, and that is the reason this is a function rather
+ * than a repeated `endsWith`: `walk` decides what is opened, `inWalkScope`
+ * decides what the reconciliation expects the walk to have opened, and
+ * `buildTargetsForIndex` decides which of the bytes git carries are read. Two of
+ * the three disagreeing is either a root that refuses because it "missed" a file
+ * it was never meant to open, or a corpus reported clean over bytes nobody read.
+ *
+ * THIS IS AN ENUMERATION RULE AND NOTHING ELSE. No detector moved with it: a
+ * page opened here gets exactly the floor and the record-aware pass every other
+ * target gets, and what a green means is unchanged and still stated once, in
+ * `scanTarget`.
+ *
+ * THE CARVE-OUT IS BY PATH, NOT BY NAME, deliberately. A file's name says
+ * nothing about which corpus it belongs to, and this rule is about the corpus:
+ * `README.md` is a page a reader browses at a URL that can be corrected, and
+ * `docs-content/intro.md` is bytes inside a tarball that cannot.
+ */
+function isMarkdownExempt(repoRelPath: string): boolean {
+  const p = repoRelPath.toLowerCase();
+  if (!p.endsWith(".md")) return false;
+  return !p.startsWith(`${DOCS_BUNDLE_ROOT}/`);
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -429,9 +465,12 @@ function walk(dir: string, out: string[], unscannable: Unscannable[]): void {
     if (e.isDirectory()) {
       walk(full, out, unscannable);
     } else if (e.isFile()) {
-      // README/markdown docs may legitimately describe violator values; they
-      // are documentation, not fixtures.
-      if (e.name.toLowerCase().endsWith(".md")) continue;
+      // Markdown outside the shipped docs bundle may legitimately describe
+      // violator values; it is documentation, not fixtures. Inside the bundle it
+      // is read, because those bytes are published immutably. The rule is
+      // `isMarkdownExempt`, and it is keyed on the repo-relative PATH rather
+      // than on `e.name`, which cannot say which corpus the entry is in.
+      if (isMarkdownExempt(normalizePath(full))) continue;
       out.push(full);
     } else {
       // Deliberately NOT subject to the `.md` exemption above. That exemption is
@@ -500,11 +539,12 @@ function trackedUnder(rootRel: string, trackedPaths: ReadonlySet<string>): strin
 
 /**
  * The walk's own in-scope rule, in one place, so the enumeration and the
- * reconciliation cannot drift apart. `.md` is the walk's pre-existing exemption
- * (see `walk`); an ignored entry is out of scope for both.
+ * reconciliation cannot drift apart. `isMarkdownExempt` is the walk's markdown
+ * exemption, shared rather than restated (see `walk`); an ignored entry is out
+ * of scope for both.
  */
 function inWalkScope(repoRelPath: string, ignored: Set<string>): boolean {
-  if (repoRelPath.toLowerCase().endsWith(".md")) return false;
+  if (isMarkdownExempt(repoRelPath)) return false;
   return !ignored.has(repoRelPath);
 }
 
@@ -942,9 +982,11 @@ function buildTargetsForStaged(): Target[] {
  *   - IT DOES NOT REACH `--staged` OR `paths`. `--staged` is the pre-commit
  *     hook, so its scope decides what a COMMIT is BLOCKED on; widening it is a
  *     hook decision and is not this. `paths` is bounded by the caller's argv.
- *   - MARKDOWN IS EXCLUDED, copied from `walk()` rather than invented: a README
- *     or an override log legitimately describes a violator value. That is the
- *     ONE exclusion, and it is why an index entry can be skipped here.
+ *   - MARKDOWN IS EXCLUDED OUTSIDE THE SHIPPED DOCS BUNDLE, through `walk()`'s
+ *     own predicate rather than a second copy of it: a README or an override log
+ *     legitimately describes a violator value, while a page inside the bundle is
+ *     published immutably and is read. That is the ONE exclusion, and it is why
+ *     an index entry can be skipped here.
  *   - GITIGNORE IS NOT CONSULTED, deliberately unlike the walk. A tracked file
  *     that also matches an ignore rule is still content git carries, and the
  *     walk's ignore rule is about entries it found on disk.
@@ -1216,10 +1258,12 @@ function buildTargetsForIndex(
     "Remove it from the index, or replace it with a regular file.",
   );
 
-  // NOW the `.md` name rule, over entries whose bytes this route can actually
-  // read. It is `walk()`'s own rule, copied rather than invented.
+  // NOW the markdown rule, over entries whose bytes this route can actually
+  // read. It is `walk()`'s own rule, SHARED rather than copied: `isMarkdownExempt`
+  // is the single predicate, so this route cannot start disagreeing with the walk
+  // about which markdown belongs to the sweep.
   const readable = entries.filter(
-    (e) => REGULAR_BLOB_MODES.has(e.mode) && !e.path.toLowerCase().endsWith(".md"),
+    (e) => REGULAR_BLOB_MODES.has(e.mode) && !isMarkdownExempt(e.path),
   );
   const blobs = readBlobs([...new Set(readable.map((e) => e.oid))]);
 
@@ -1567,12 +1611,14 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): Buffer {
   //     - THE STRUCTURAL GUARD. A patient record whose second field is
   //       not a short digit run is not read. Argued below.
   //     - FILES NOT READ. In all mode the corpus is `WALK_ROOT_NAMES`
-  //       on disk UNION every path the index carries, and `.md` is
-  //       exempt from both. So the bytes git carries are read wherever
-  //       they sit, and what is left out is working-tree bytes at a path
-  //       outside every walk root: the residual is stated once, at
-  //       `buildTargetsForIndex`. `--staged` is narrower again, at its
-  //       own predicate, and `paths` is the caller's argv.
+  //       on disk UNION every path the index carries, and markdown is
+  //       exempt from both EXCEPT inside the shipped docs bundle, which
+  //       is read because its bytes are published immutably
+  //       (`isMarkdownExempt`). So the bytes git carries are read
+  //       wherever they sit, and what is left out is working-tree bytes
+  //       at a path outside every walk root: the residual is stated
+  //       once, at `buildTargetsForIndex`. `--staged` is narrower again,
+  //       at its own predicate, and `paths` is the caller's argv.
   //
   //   Keep fixtures synthetic and declare their identifiers in
   //   scripts/phi-allow-list.txt.

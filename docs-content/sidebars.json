@@ -15,12 +15,12 @@
       "type": "category",
       "label": "Core Concepts",
       "collapsed": false,
-      "items": ["concepts-archetype", "architecture"]
+      "items": ["concepts-archetype", "architecture", "patient-data"]
     },
     {
       "type": "category",
       "label": "Guides",
-      "items": ["guides-overview"]
+      "items": ["guides-overview", "guides-vendor-profiles"]
     },
     {
       "type": "category",

@@ -1,7 +1,7 @@
 ---
 id: limitations
 title: What it does, and does not do
-sidebar_position: 1
+sidebar_position: 2
 ---
 
 # What `@cosyte/astm` does, and does not do
