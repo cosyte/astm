@@ -194,14 +194,31 @@ const r = results(parseAstmRecords(raw))[0];
 
 r?.status.isActiveFinal; // false, a correction is not active-final
 r?.status.supersedes; // true, this value replaces a prior one
-r?.flag?.meaning; // "above-normal" (HL7 Table 0078); an unknown flag → "undefined", never "normal"
+r?.flag?.meaning; // "above-normal"; an unknown flag → "undefined", never "normal"
 r?.range?.kind; // "closed" (low "10", high "40"); an unparseable range → "unparsed", no invented bound
+```
+
+Both interpreted views also say **what they were graded against**, present whether or not the letter
+was recognized, so an unknown code is distinguishable from one this library has not caught up to:
+
+```ts
+import { parseAstmRecords, results } from "@cosyte/astm";
+
+const r = results(parseAstmRecords(raw))[0];
+
+r?.flag?.vocabulary.attributed; // true: the flag letters have a named code system
+r?.flag?.vocabulary.system; // its identifier
+r?.flag?.vocabulary.version; // the version THIS LIBRARY compared against, not what the sender meant
+r?.status.vocabulary.attributed; // false: no citable published source binds the status letters
+r?.status.vocabulary.reason; // fixed prose saying so
 ```
 
 > Units are vendor **free text**, never UCUM. A _numeric_ result value with no units raises an
 > `ASTM_RECORD_UNITS_ABSENT` warning: a missing unit is flagged, never defaulted, guessed, or
 > converted. The reference-range delimiter is `[OSS-derived]`; anything that
-> does not match `low-high` / `<high` / `>low` is surfaced verbatim.
+> does not match `low-high` / `<high` / `>low` is surfaced verbatim. Flag recognition is exact-match
+> after trimming, so `hu` is not `HU`; see the limitations page for the vocabularies and the
+> eighteen letters recognized.
 
 ## Tell a query apart from a result upload
 

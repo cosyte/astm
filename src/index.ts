@@ -94,6 +94,7 @@ export type { AstmStreamMessage, AmbiguousCode } from "./records/messages.js";
 export { classifyMessage } from "./records/host-query.js";
 export { fieldScalar, tokenizeHeader, tokenizeRecord } from "./records/tokenize.js";
 export {
+  ABNORMAL_FLAG_CODES,
   interpretAbnormalFlag,
   interpretResultStatus,
   parseReferenceRange,
@@ -108,6 +109,16 @@ export type {
   ResultStatusCode,
   ResultStatusMeaning,
 } from "./records/result-semantics.js";
+export {
+  ABNORMAL_FLAG_VOCABULARY,
+  RESULT_STATUS_VOCABULARY,
+  describeVocabulary,
+} from "./common/vocabulary.js";
+export type {
+  NamedVocabulary,
+  UnattributedVocabulary,
+  VocabularyAttribution,
+} from "./common/vocabulary.js";
 export type {
   AstmField,
   AstmMessage,
