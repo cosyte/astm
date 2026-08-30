@@ -7,18 +7,398 @@
 
 # @cosyte/astm
 
-> ASTM parser, serializer, and builder for Node.js and TypeScript: **lenient on parse,
-> spec-clean on emit**.
+> Read a real analyzer's ASTM traffic in one line, and never get a confident wrong value back.
+
+[![npm version](https://img.shields.io/npm/v/@cosyte/astm.svg)](https://www.npmjs.com/package/@cosyte/astm)
+[![CI](https://github.com/cosyte/astm/actions/workflows/ci.yml/badge.svg)](https://github.com/cosyte/astm/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/cosyte/astm/blob/main/LICENSE)
+[![Node: >=22.0.0](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org)
+
+ASTM parser, serializer, and builder for Node.js and TypeScript: lenient on parse, spec-clean on emit.
+
+- [Why this exists](#why-this-exists)
+- [Status](#status)
+- [Install](#install)
+- [Usage](#usage)
+- [PHI and safety](#phi-and-safety)
+- [API](#api)
+- [Compatibility](#compatibility)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Why this exists
+
+Lab integration teams receive ASTM off analyzers that each read the standard a little differently, and the usual answer is a hand-rolled split on `|` and `^` that hands back a confidently wrong value the first time a vendor escapes a delimiter or redeclares the set mid-stream. `@cosyte/astm` removes that: it reads the delimiters each header declares, decodes escape sequences before it splits a value, keeps the practice- and laboratory-assigned patient IDs distinct, and reports every deviation it tolerated as a stable, value-free warning. The nearest alternatives are the open-source ASTM codecs, `python-astm` and `senaite.astm`, which are Python and which hardcode the canonical `|\^&` delimiter set. This is a typed, zero-dependency Node.js package built on the rule those do not enforce: a deviation it cannot resolve is surfaced to you rather than resolved on your behalf, so it does not hand back a value the bytes do not carry.
+
+## Status
+
+`0.1.0`. The public API is settled and is stable enough to depend on. The record, framing, transport, emit, profile and terminology layers are all shipped, and their exported names, options and return shapes are what a consumer builds against. Warning and error codes are part of that surface: consumers branch on `w.code`, so renaming one is a breaking change and is treated as one.
+
+Two public surfaces are still moving, named here rather than left to be found:
+
+- **The contents of the built-in profile registry.** `defineAstmProfile()`, the safety gate and the registry API are settled; what ships today is `default` plus the corpus-grounded `referenceCorpus`. Named per-vendor profiles are deliberately withheld until a public, vendor-attributed quirk document grounds them, so that set will grow.
+- **The warning and error code sets.** A code is added when a deviation is measured that nothing reported before, and a new code is safety-critical by default, so a profile that tolerated the old reports does not tolerate the new one. Adding a code is additive, though it can change which streams a `{ strict: true }` parse refuses; renaming one is breaking and is treated as breaking.
+
+## Install
+
+```bash
+# Requires Node.js >=22.0.0. Ships dual ESM + CJS, with zero runtime dependencies.
+pnpm add @cosyte/astm
+# or
+npm install @cosyte/astm
+```
+
+- **Node.js `>=22.0.0`.** That floor is `package.json` `engines.node`; nothing below it is supported.
+- **Dual ESM and CJS.** `import` resolves to `dist/index.mjs` and `require` to `dist/index.cjs`, each with its own type declarations, so the package loads from either module system without an interop shim.
+- **Zero runtime dependencies.** `dependencies` is empty and the package imports no Node built-in.
+
+## Usage
+
+Hand a de-framed record stream to `parseAstmRecords` and read the result in one line. Every value below is synthetic.
+
+```ts
+import { parseAstmRecords, patient, results } from "@cosyte/astm";
+
+// Synthetic ASTM records, CR-delimited. The header declares the delimiters.
+const stream =
+  "H|\\^&|||analyzer^1|||||||P|LIS02-A2|20240115103000\r" +
+  "P|1|PRACTICE-0001|LAB-0002|||||F\r" +
+  "O|1|SPEC-7|ACC-42|^^^687|||20240115102500\r" +
+  "R|1|^^^687|28.6|U/L|10-40|N||F\r" +
+  "L|1|N\r";
+
+const msg = parseAstmRecords(stream);
+const [first] = results(msg);
+
+console.log(first?.value, first?.units);
+console.log(first?.status.meaning, first?.status.isActiveFinal);
+console.log(first?.flag?.meaning);
+console.log(first?.universalTestId?.localCode);
+console.log(patient(msg)?.practiceAssignedId, patient(msg)?.laboratoryAssignedId);
+console.log(msg.warnings.length);
+```
+
+```text
+28.6 U/L
+final true
+normal
+687
+PRACTICE-0001 LAB-0002
+0
+```
+
+Six things are worth reading off that output. The value and the units are surfaced raw, never converted and never defaulted. `status.isActiveFinal` is `true` only for a plain `F`, so a correction (`C`) or a cancellation (`X`) can never read as an active final result. An unrecognized abnormal flag reads `undefined`, never `normal`. The identifier a result is keyed on is the vendor local code in the Universal Test ID's fourth component. The practice- and laboratory-assigned patient IDs stay distinct, because collapsing them is the primary result-misfiling path. And `warnings` is empty here only because this stream is spec-clean: on vendor-quirky input it fills with stable, value-free codes instead of throwing, which is what the rest of this file is about.
+
+That block is executed on every test run and its output is asserted against the text beside it (`test/readme-usage.test.ts`), so an example that drifts from the package fails the build rather than misleading a reader.
+
+## PHI and safety
+
+ASTM instrument traffic carries PHI. This section says what the library does with it and, where a guarantee cannot be grounded in the code, states the limit instead.
+
+**What the library does not do.** It never logs: there is no logger, no `console` call and no log sink anywhere in `src/`. It never writes to disk and never opens a network connection; it imports no Node built-in and declares zero runtime dependencies. It retains nothing across calls: `parseAstmRecords` returns a deep-frozen model, and the only module-level state in the package is which vendor profile is selected as the default, which is configuration rather than data. It owns no socket: `ltpReduce` is a pure reducer that returns the actions to take, and you write the bytes.
+
+**What can reach a log through this library.** Every warning and every fatal error raised on stream content carries a stable code plus a position (the record's ordinal index, its type letter, and the 1-based field and component indices) and never a field value, so one can be logged verbatim without leaking a name, an identifier or a result value. Three messages in the package do quote a value back, and all three quote an argument you passed rather than anything read off the wire: an out-of-range `startFrameNumber`, and the options object and the profile name handed to `defineAstmProfile()`. That is the bound, stated rather than rounded up into a claim that no message ever quotes anything.
+
+**What you still own.** The parsed model holds the patient data you handed it, in your process, for as long as you keep it, so retention, encryption at rest, transport security, access control and audit are all yours. So is anything you print: a value-free warning does not make `JSON.stringify(msg)` safe, and the raw line the parser preserves verbatim on a deviation is the patient's data. The library also never redacts, masks or de-identifies. It surfaces what arrived.
+
+**One limit about this repository rather than about your data.** The committed PHI scan (`pnpm phi-scan`) is a starter. It enforces a cross-cutting SSN and non-test-email floor plus a check on the `P` record's name components, and structured field-level detection for address, phone and comment free text is not implemented here. It guards this repository's own fixtures, tests and examples; it makes no claim about a stream you feed the library. Every record in this file and in the test suite is synthetic.
+
+## API
 
 `@cosyte/astm` is a zero-dependency TypeScript toolkit that follows the cosyte parser archetype: a lenient
 parser that turns real-world, vendor-quirky input into **warnings** rather than failures, paired with
 a serializer that always emits spec-clean output (Postel's Law). It mirrors the API shape of the
 reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
 
-> **Status:** published on npm, on the pre-alpha `0.0.x` ladder. Both layers are
-> feature-complete, but the public surface can still change within `0.0.x`, before `0.1.0`.
+Every export carries JSDoc that compiles into `dist/index.d.ts`, so the full signature reference is what your editor already shows on hover; the source is at [github.com/cosyte/astm/tree/main/src](https://github.com/cosyte/astm/tree/main/src). What follows is the shape of each layer and the caveats that bite.
 
-## What it covers
+### Parse records
+
+```ts
+import { parseAstmRecords, results, patient } from "@cosyte/astm";
+
+// A de-framed ASTM record stream (CR-delimited records; the header declares the delimiters).
+const msg = parseAstmRecords(raw);
+
+results(msg)[0]?.value; // the measured value, surfaced raw
+results(msg)[0]?.units; // vendor free-text units (a missing unit is a warning, never a default)
+patient(msg)?.practiceAssignedId; // kept distinct from laboratoryAssignedId (the misfiling guard)
+msg.warnings; // stable, value-free positional tolerance warnings (never throws on quirks)
+```
+
+The parser is **lenient by default** (vendor quirks become warnings, not failures) and refuses to
+produce a confident wrong value: an embedded escaped delimiter reads as one component, an unknown
+record type is surfaced (never dropped), and a missing unit is flagged (never defaulted). A
+`{ strict: true }` mode escalates every tolerated deviation to a thrown error.
+
+### Several messages in one stream
+
+A message runs from its `H` header to its `L` terminator, so a stream can carry several. `messages()`
+splits a parsed stream into them, and each entry carries only its own records, so a patient is only
+ever paired with the results that message actually carried:
+
+```ts
+import { parseAstmRecords, messages } from "@cosyte/astm";
+
+for (const m of messages(parseAstmRecords(raw))) {
+  m.patient?.practiceAssignedId; // the P for THIS message
+  m.results; // the Rs for THIS message
+  m.delimiters; // the set THIS message's records were read with
+}
+```
+
+The flat accessors above (`patient`, `results`, `orders`, `comments`, `query`) read the whole stream,
+so they **throw** `AstmAmbiguousStreamError` on a stream they cannot answer for rather than answering
+across patients:
+
+- `ASTM_AMBIGUOUS_MULTI_MESSAGE` from any of the five, when the stream carries more than one message.
+- `ASTM_AMBIGUOUS_MULTI_PATIENT` from `patient()` only, when a **single** message carries more than
+  one `P` record. "The first `P`" is a guess about whose result it is, so it is refused there too.
+
+**Both are breaking**, and the second one reaches single-message callers: a lone message carrying
+several patients used to answer with the first of them. A stream that is one message with at most one
+patient is unchanged, and so is a result-only message with no `P` at all, which still answers
+`undefined`. `commentsFor()` is unchanged on every stream, because the parent record you hand it
+already names the message.
+
+Splitting reads each record's type letter, so check for an `ASTM_RECORD_UNKNOWN_TYPE` warning before
+you trust the split. A header the reader does not recognize as a header, one carrying a stray leading
+byte for instance, opens no message, and the messages either side of it merge back into one, so a
+patient can end up holding results that arrived under a different header. The
+parser warns on that record and a `{ strict: true }` parse refuses the stream. That warning is the
+only report the merge produces, so a profile is not allowed to tolerate it: the code is refused when
+a profile is defined, and a warning carrying it is not downgraded whatever profile is in force. Do
+not gate on the warning count, though, because the records that merged in can raise warnings of
+their own.
+
+Delimiters are re-read at each header too, so if the unrecognized one declared a different set, the
+records after it are read with the previous set and their fields can be lost rather than merely
+misfiled. `ASTM_RECORD_FIELDS_UNSEPARATED` reports a record that suffered the total form of that:
+the delimiters in force found no field separator in it at all, so the whole line read back as one
+field and none of its modeled fields survived. On a result record that is the value, the units and
+the status at once, so treat it as a lost result, not a formatting nit. The fields are never
+reconstructed, because the set the sender used is unknown and guessing at it would invent data. The
+code is safety-critical, and it does not need a mangled header to fire: a lone record written in
+another set trips it too.
+
+**Its absence does not certify that a record was read in its own set**, and this is the important
+half. The check tests one of the four delimiter roles, the **field** separator, and only in its
+total form, where no unescaped separator occurs in the line. Two classes of the same loss sit
+outside it:
+
+- A foreign set whose **field** separator happens to occur somewhere in the line still splits, on
+  the wrong boundaries and in silence. A single stray `|` in an otherwise `*`-separated result loses
+  the value, the units and the status with no warning at all, while the identical record without
+  that one byte is reported. This also happens **inside** a run of these warnings, so even a run
+  does not mean every record in it was checked.
+- A set differing in the **repeat, component or escape** role usually splits into fields normally,
+  and the damage then varies. A mis-split component can cost a test identity while the value and
+  units survive. The escape role's worst case has **narrowed, not gone**: a bare escape character no
+  longer merges the rest of the record (it reads as a literal and raises
+  `ASTM_UNPAIRED_ESCAPE_CHARACTER`), but an `&X&` sequence whose body is an unrecognized character
+  that is itself a delimiter in force is an opaque
+  atom, so that delimiter does not split and the value, the units and the status can still go
+  together. That one raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not tolerable,
+  alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The split itself is unchanged. Its mirror,
+  where the leftmost alignment lets a delimiter split that a competing alignment would have held,
+  gains a boundary instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also
+  not tolerable. Where that gained boundary is a **field** boundary and the reading taken resumes on
+  an escape character heading no sequence it can interpret, every later field shifts and a
+  result's units
+  and status are read out of slots the other alignment does not put them in: that raises
+  `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable either. Where it is a **repeat** boundary
+  nothing shifts, but the field is read out of its first repeat alone, so a gained first boundary
+  truncates a value and costs a test identity or a patient name the components that sat after it:
+  that raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either. Where it is a
+  **component** boundary nothing leaves the record and every component after it moves along the
+  component list, so a coding scheme, a vendor local code or a given name is read out of a position the other
+  alignment does not put it in: that raises `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, not
+  tolerable either.
+
+All are accepted limits, for two different reasons: widening the field-separator check would mean
+deciding which set a record ought to have had, which is the same guess the parser declines to make
+elsewhere, and narrowing the escape atom would break the guarantee it exists for. So they are
+written down rather than papered over. Read the warning as "this record definitely lost its
+fields", never as "no other record did". If
+delimiter drift is a real risk on your feed, parse with `{ strict: true }`, which refuses both an
+outright collapse and an unrecognized type letter, and treat `ASTM_RECORD_UNKNOWN_TYPE` as
+invalidating what follows it rather than expecting this warning to enumerate the damage.
+
+An unrecognized type letter also makes the message **kind** unknowable, because the letter that
+could not be read may have been the very `Q` that decides it. `classification.kind` is
+`indeterminate` in that case rather than `results` or `orders`, and `classification.hasUnrecognized`
+says why. A `Q` that was read still wins outright.
+
+### Decode a framed byte stream
+
+```ts
+import { decodeAstmFrames, parseFramedAstm, results } from "@cosyte/astm";
+
+// A raw ASTM byte stream off a serial line or socket.
+const { records, frames, warnings } = decodeAstmFrames(framedBytes);
+frames[0]?.checksum.valid; // the modulo-256 checksum verdict (emitted uppercase, accepted lowercase)
+warnings; // ASTM_FRAME_* deviations, each with a frame number + byte offset (never the record bytes)
+
+// Or compose both layers: decode frames → parse the trusted, reassembled records.
+const { message } = parseFramedAstm(framedBytes);
+results(message)[0]?.value; // only checksum-verified frames ever reach the record parser
+```
+
+A checksum mismatch, a sequence gap, an unterminated frame, and an oversize (>240) frame are each a
+**warning** in the default lenient mode (surfaced, flagged, never silently trusted) and a thrown
+`AstmFrameStrictError` under `{ strict: true }`.
+
+### Drive the transport (framed vs raw) + the LTP protocol
+
+ASTM transport is not uniform: **serial** always frames, but over **TCP it varies within a single
+vendor**, the cobas 4800 and Iguana keep the full `ENQ`/`ACK` + `STX`/checksum framing, while the
+cobas b121 drops it and streams de-framed record bytes directly. Detect which you have, then drive the
+pure protocol reducer with your own socket I/O.
+
+```ts
+import {
+  detectFraming,
+  decodeAstmFrames,
+  parseAstmRecords,
+  ltpInitialState,
+  ltpReduce,
+} from "@cosyte/astm";
+
+// 1. Route by the stream's leading byte (STX/ENQ ⇒ framed; a bare record letter ⇒ raw).
+const { framing } = detectFraming(leadingBytes); // "framed" | "raw"  (override: { override: "raw" })
+if (framing === "raw") {
+  // cobas b121 raw-TCP: no handshake, no frames, parse the record bytes directly.
+  parseAstmRecords(rawBytes);
+}
+
+// 2. Framed transport: drive the pure receiver-side state machine. YOU own the socket + clock.
+let state = ltpInitialState();
+function onControlOrFrame(event) {
+  const { state: next, actions, warnings } = ltpReduce(state, event);
+  state = next;
+  for (const a of actions) {
+    if (a.type === "sendAck") socket.write(Uint8Array.of(0x06)); // ACK, only ever for a good frame
+    if (a.type === "sendNak") socket.write(Uint8Array.of(0x15)); // NAK, bad checksum ⇒ retransmit
+    if (a.type === "deliverRecord") parseAstmRecords(a.record); // a complete, trusted record
+  }
+  void warnings; // ASTM_LTP_*, value-free (a code + at most a frame number)
+}
+// Feed events as you read them: { type: "enq" }, { type: "frame", frame: decodeAstmFrames(b).frames[0] }, …
+```
+
+The reducer is deterministic and fully testable without a socket. Its inviolable rule: a frame the
+codec did not vouch for (bad checksum, unterminated, or out of sequence) yields `sendNak`, **never** a
+fabricated `sendAck`, and is **never** appended to a record. A `NAK` drives retransmit, not acceptance.
+The interactive contention/timeout/retransmit **timing** is the consumer's: this layer models the
+state transitions, not the wall-clock timers.
+
+### Map local codes to LOINC (LIVD, bring-your-own)
+
+An analyzer sends a proprietary local test code in the Universal Test ID; a standard LOINC is mapped
+downstream. Supply your own IICC LIVD ("LOINC to Vendor IVD") catalog and annotate a message, the
+mapping is **additive and advisory**: it never touches the raw code or value, and an unmapped or
+ambiguous code is surfaced as such, **never a guessed LOINC**.
+
+```ts
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+// Your LIVD catalog: the vendor transmission code (Vendor Analyte Code) → LOINC.
+const catalog = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8", loincLongName: "AST" }]);
+
+const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
+const { annotations, warnings } = applyLivd(msg, catalog);
+
+annotations[0]?.mapping; // { status: "mapped", loinc: "1920-8", loincLongName: "AST", source: "livd", derived: true }
+warnings; // ASTM_LIVD_UNMAPPED_CODE / ASTM_LIVD_AMBIGUOUS_MAPPING (value-free) for codes with no single LOINC
+```
+
+**Your catalog answers the analyte-identity question, and the wire never does.** The Universal Test
+ID's first component is a LOINC slot, and the guide this catalog format comes from puts transmitting
+LOINC directly from IVD instruments explicitly out of scope: the analyte arrives as a vendor-defined
+code. So the lookup happens whenever a vendor local code is present, keyed on that code alone, and a
+populated first component neither answers for it nor selects among candidates. **This package
+performs no LOINC validation of any kind**: it never decides whether such a value "looks like" a
+LOINC, so `Glucose` and `2345-7` there are treated identically. The value is carried verbatim as
+`unvalidatedWireValue`, on every disposition, and is never reported as a LOINC.
+
+```ts
+const msg = parseAstmRecords("H|\\^&\rR|1|Glucose^^^687|28.6|U/L||N||F\rL|1\r");
+const [a] = applyLivd(msg, catalog).annotations;
+
+a?.mapping.status; // "mapped": your catalog vouched for 1920-8 (the lookup used "687")
+a?.reportedCode; // "687": the code the catalog was consulted WITH, verbatim
+a?.unvalidatedWireValue; // "Glucose": carried verbatim, vouched for by nothing
+a?.wireValueDisagreesWithCatalog; // true: the two differ, and that is ALL this says
+```
+
+`mapping.status` is a closed discriminant, so a `switch` over it is exhaustive:
+
+| `status`         | what happened                                                                     | warning                       |
+| ---------------- | --------------------------------------------------------------------------------- | ----------------------------- |
+| `mapped`         | your catalog vouched for exactly one LOINC for the vendor local code              | none                          |
+| `unmapped`       | the vendor local code was looked up and your catalog held no entry                | `ASTM_LIVD_UNMAPPED_CODE`     |
+| `ambiguous`      | the code carries several distinct LOINCs; all surfaced, **none chosen**           | `ASTM_LIVD_AMBIGUOUS_MAPPING` |
+| `no-vendor-code` | component 1 is populated and there is no vendor local code: nothing was looked up | none                          |
+| `no-code`        | the Universal Test ID carried no code at all                                      | none                          |
+
+`unvalidatedWireValue` and `wireValueDisagreesWithCatalog` sit **beside** that discriminant and can
+accompany any of its cases. `wireValueDisagreesWithCatalog` is `true` only where your catalog
+vouched for exactly one LOINC, component 1 is populated, and the two are not byte-identical; it is
+`false` everywhere else and is never absent, so an ordinary `R|1|^^^687|...` record ships no
+standing false disagreement. **It reports the difference and nothing else**: both values stay
+surfaced, neither is marked correct, neither is rewritten, and nothing here says the difference was
+settled. Deciding which source to believe is a clinical judgement this library will not make for
+you.
+
+Two corners worth knowing before you write a catalog adapter: a `lookup` that **throws** propagates
+to your caller unchanged rather than reading as a catalog miss (your crash must not be
+indistinguishable from "this code is not in the catalog"), and a hit whose `loinc` is a zero-length
+string is reported as a miss rather than as a vouched-for empty LOINC.
+
+**No LOINC / SNOMED / LIVD dictionary is bundled.** LOINC is © Regenstrief (redistributable only with
+its attribution notice) and the public CDC LIVD file is SARS-CoV-2-specific and carries
+separately-licensed SNOMED CT, so the package ships no terminology data and you bring the catalog (and
+its license obligations).
+
+> **Scope your catalog to the source device fleet.** The ASTM Universal Test ID carries no manufacturer
+> to disambiguate against, so the catalog keys on the vendor transmission code alone. Two different
+> instruments that reuse the same code for different analytes would both match: supply a catalog built
+> for the analyzers you actually receive from. (Conflicting entries _within_ one catalog are caught and
+> surfaced as `ambiguous`, never resolved to a guess.)
+
+### The cosyte parser archetype
+
+- **Postel's Law**: liberal parser (lenient default + warnings), conservative serializer (always
+  spec-clean), so quirks don't propagate downstream on round-trip.
+- **Tiered tolerance**: Tier 0/1 silent, Tier 2 warning + recovery (escalates in strict mode),
+  Tier 3 fatal always.
+- **Stable warning codes**: warnings carry stable string codes + positional context; consumers
+  branch on `w.code`, so renaming a code is a breaking change.
+- **Zero runtime dependencies**: Node stdlib only (healthcare integrations vet every dependency).
+- **Dual ESM + CJS**: built with `tsup`, validated with `attw`.
+- **Immutability**: parsed models are immutable; mutation is via explicit methods.
+- **Profile system**: a `defineAstmProfile()` API for vendor quirks, with built-in profiles authored
+  through the same public API. A profile only ever downgrades an _expected_, non-safety-critical warning
+  to `PROFILE_QUIRK_APPLIED` (it never alters a value) and may force the raw-vs-framed transport; a
+  default-deny safety gate refuses to tolerate any safety-critical deviation at definition time.
+- **Terminology recognizer, not a dictionary.** LIVD-aware LOINC recognition is bring-your-own
+  (`applyLivd` over a consumer-supplied catalog): additive, advisory, and never a guessed LOINC. The
+  catalog answers for the analyte identity, never the wire, and no LOINC validation of any kind is
+  performed. No LOINC / SNOMED / LIVD data is bundled.
+
+## Compatibility
+
+- **Record content: ASTM E1394 / CLSI LIS02-A2.** `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` are read; an unrecognized type letter is surfaced, never dropped.
+- **Framing and transport: ASTM E1381 / CLSI LIS01-A2.** Modulo-256 checksum, frame-number sequencing, the 240-byte multi-frame split, and a pure `ENQ`/`ACK`/`NAK`/`EOT` receiver state machine.
+- **Delimiters come from the stream, never from an assumption.** They are read at every `H` and scoped forward, and records already read keep the set they were read with.
+- **Framed and raw TCP are both handled.** Serial always frames; over TCP it varies within one vendor, so `detectFraming` routes cobas 4800 and Iguana (framed) from cobas b121 (framing dropped).
+- **No named per-vendor profile ships.** The engine, the registry and the safety gate are public; the built-in set is `default` plus the corpus-grounded `referenceCorpus`. Named profiles for cobas, Sysmex, ADVIA, Mindray and Snibe stay gated behind a public, vendor-attributed quirk document, and firsthand inspection of the public corpus found the record layer spec-clean for them.
+- **Three behaviors are reasoned from this reader rather than cited to a clause.** LIS02-A2 sections 5.4 and 6.2 are withheld from CLSI's free sample and the paywalled editions were not read here, so the forward-scoping rule for redeclared delimiters, the Latin-1 wire encoding and the reserved-byte set are this package's reading, not a quotation.
+- **The result-status letter set is bound by no citable published source**, and every interpreted status reports that in its `vocabulary` rather than implying an attribution it does not have. Abnormal flags are graded against HL7 v3 ObservationInterpretation and report that vocabulary too, recognized or not.
+- **The wire is read as Latin-1**, one byte per character. A character above `U+00FF` handed to the frame encoder is a typed error rather than a silently truncated byte, and a raw `STX`, `ETB` or `ETX` byte in a record is refused for the same reason: framing has no escape sequence for them.
+- **No LOINC, SNOMED or LIVD dictionary is bundled**, and no LOINC is ever guessed. You bring the catalog and its license obligations.
+
+### What it covers
 
 - **Records (E1394 / LIS02-A2).** `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` are read with per-header
   delimiter self-declaration and escape decode, so an escaped delimiter inside a value reads as one
@@ -82,94 +462,6 @@ reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
   first component is carried verbatim as an **unvalidated wire value**, never validated, never
   reported as a LOINC, and never used as a lookup key. No LOINC, SNOMED, or LIVD dictionary is
   bundled: the package stays a structural recognizer and you bring the catalog.
-
-## Decode a framed byte stream
-
-```ts
-import { decodeAstmFrames, parseFramedAstm, results } from "@cosyte/astm";
-
-// A raw ASTM byte stream off a serial line or socket.
-const { records, frames, warnings } = decodeAstmFrames(framedBytes);
-frames[0]?.checksum.valid; // the modulo-256 checksum verdict (emitted uppercase, accepted lowercase)
-warnings; // ASTM_FRAME_* deviations, each with a frame number + byte offset (never the record bytes)
-
-// Or compose both layers: decode frames → parse the trusted, reassembled records.
-const { message } = parseFramedAstm(framedBytes);
-results(message)[0]?.value; // only checksum-verified frames ever reach the record parser
-```
-
-A checksum mismatch, a sequence gap, an unterminated frame, and an oversize (>240) frame are each a
-**warning** in the default lenient mode (surfaced, flagged, never silently trusted) and a thrown
-`AstmFrameStrictError` under `{ strict: true }`.
-
-## Drive the transport (framed vs raw) + the LTP protocol
-
-ASTM transport is not uniform: **serial** always frames, but over **TCP it varies within a single
-vendor**, the cobas 4800 and Iguana keep the full `ENQ`/`ACK` + `STX`/checksum framing, while the
-cobas b121 drops it and streams de-framed record bytes directly. Detect which you have, then drive the
-pure protocol reducer with your own socket I/O.
-
-```ts
-import {
-  detectFraming,
-  decodeAstmFrames,
-  parseAstmRecords,
-  ltpInitialState,
-  ltpReduce,
-} from "@cosyte/astm";
-
-// 1. Route by the stream's leading byte (STX/ENQ ⇒ framed; a bare record letter ⇒ raw).
-const { framing } = detectFraming(leadingBytes); // "framed" | "raw"  (override: { override: "raw" })
-if (framing === "raw") {
-  // cobas b121 raw-TCP: no handshake, no frames, parse the record bytes directly.
-  parseAstmRecords(rawBytes);
-}
-
-// 2. Framed transport: drive the pure receiver-side state machine. YOU own the socket + clock.
-let state = ltpInitialState();
-function onControlOrFrame(event) {
-  const { state: next, actions, warnings } = ltpReduce(state, event);
-  state = next;
-  for (const a of actions) {
-    if (a.type === "sendAck") socket.write(Uint8Array.of(0x06)); // ACK, only ever for a good frame
-    if (a.type === "sendNak") socket.write(Uint8Array.of(0x15)); // NAK, bad checksum ⇒ retransmit
-    if (a.type === "deliverRecord") parseAstmRecords(a.record); // a complete, trusted record
-  }
-  void warnings; // ASTM_LTP_*, value-free (a code + at most a frame number)
-}
-// Feed events as you read them: { type: "enq" }, { type: "frame", frame: decodeAstmFrames(b).frames[0] }, …
-```
-
-The reducer is deterministic and fully testable without a socket. Its inviolable rule: a frame the
-codec did not vouch for (bad checksum, unterminated, or out of sequence) yields `sendNak`, **never** a
-fabricated `sendAck`, and is **never** appended to a record. A `NAK` drives retransmit, not acceptance.
-The interactive contention/timeout/retransmit **timing** is the consumer's: this layer models the
-state transitions, not the wall-clock timers.
-
-## Install
-
-```bash
-npm install @cosyte/astm
-```
-
-## Parse
-
-```ts
-import { parseAstmRecords, results, patient } from "@cosyte/astm";
-
-// A de-framed ASTM record stream (CR-delimited records; the header declares the delimiters).
-const msg = parseAstmRecords(raw);
-
-results(msg)[0]?.value; // the measured value, surfaced raw
-results(msg)[0]?.units; // vendor free-text units (a missing unit is a warning, never a default)
-patient(msg)?.practiceAssignedId; // kept distinct from laboratoryAssignedId (the misfiling guard)
-msg.warnings; // stable, value-free positional tolerance warnings (never throws on quirks)
-```
-
-The parser is **lenient by default** (vendor quirks become warnings, not failures) and refuses to
-produce a confident wrong value: an embedded escaped delimiter reads as one component, an unknown
-record type is surfaced (never dropped), and a missing unit is flagged (never defaulted). A
-`{ strict: true }` mode escalates every tolerated deviation to a thrown error.
 
 ### An unescaped ampersand does not cost you the rest of the record
 
@@ -346,198 +638,28 @@ because every such set is by definition non-canonical, so the only warning it us
 always refused these sets (`ASTM_EMIT_INVALID_DELIMITERS`), which is how the gap first showed: a
 message that parsed clean threw when it was serialized back against its own declared delimiters.
 
-### Several messages in one stream
+## Contributing
 
-A message runs from its `H` header to its `L` terminator, so a stream can carry several. `messages()`
-splits a parsed stream into them, and each entry carries only its own records, so a patient is only
-ever paired with the results that message actually carried:
+Issues and pull requests are welcome at [github.com/cosyte/astm](https://github.com/cosyte/astm). Ask a question by opening an [issue](https://github.com/cosyte/astm/issues); there is no separate forum.
 
-```ts
-import { parseAstmRecords, messages } from "@cosyte/astm";
+A contribution has to clear the same gates CI runs, and every one of them runs locally:
 
-for (const m of messages(parseAstmRecords(raw))) {
-  m.patient?.practiceAssignedId; // the P for THIS message
-  m.results; // the Rs for THIS message
-  m.delimiters; // the set THIS message's records were read with
-}
+```bash
+pnpm install
+pnpm run typecheck
+pnpm run lint
+pnpm run test
+pnpm run build
+pnpm run format:check
+pnpm run check:no-emdash
+pnpm run check:no-internal-refs
+pnpm run phi-scan
 ```
 
-The flat accessors above (`patient`, `results`, `orders`, `comments`, `query`) read the whole stream,
-so they **throw** `AstmAmbiguousStreamError` on a stream they cannot answer for rather than answering
-across patients:
+Three house rules reject a change on sight. **No real patient data**, in a fixture, a test, an example or a commit message: every record in this repository is synthetic, and `pnpm phi-scan` runs on every commit. **No em dash anywhere**, including commit messages (`pnpm run check:no-emdash`); write a comma, a colon, a period or parentheses instead. **No internal project bookkeeping on a public surface** (`pnpm run check:no-internal-refs`): this file, the shipped docs and every JSDoc comment say what the software does, never how the change got made.
 
-- `ASTM_AMBIGUOUS_MULTI_MESSAGE` from any of the five, when the stream carries more than one message.
-- `ASTM_AMBIGUOUS_MULTI_PATIENT` from `patient()` only, when a **single** message carries more than
-  one `P` record. "The first `P`" is a guess about whose result it is, so it is refused there too.
-
-**Both are breaking**, and the second one reaches single-message callers: a lone message carrying
-several patients used to answer with the first of them. A stream that is one message with at most one
-patient is unchanged, and so is a result-only message with no `P` at all, which still answers
-`undefined`. `commentsFor()` is unchanged on every stream, because the parent record you hand it
-already names the message.
-
-Splitting reads each record's type letter, so check for an `ASTM_RECORD_UNKNOWN_TYPE` warning before
-you trust the split. A header the reader does not recognize as a header, one carrying a stray leading
-byte for instance, opens no message, and the messages either side of it merge back into one, so a
-patient can end up holding results that arrived under a different header. The
-parser warns on that record and a `{ strict: true }` parse refuses the stream. That warning is the
-only report the merge produces, so a profile is not allowed to tolerate it: the code is refused when
-a profile is defined, and a warning carrying it is not downgraded whatever profile is in force. Do
-not gate on the warning count, though, because the records that merged in can raise warnings of
-their own.
-
-Delimiters are re-read at each header too, so if the unrecognized one declared a different set, the
-records after it are read with the previous set and their fields can be lost rather than merely
-misfiled. `ASTM_RECORD_FIELDS_UNSEPARATED` reports a record that suffered the total form of that:
-the delimiters in force found no field separator in it at all, so the whole line read back as one
-field and none of its modeled fields survived. On a result record that is the value, the units and
-the status at once, so treat it as a lost result, not a formatting nit. The fields are never
-reconstructed, because the set the sender used is unknown and guessing at it would invent data. The
-code is safety-critical, and it does not need a mangled header to fire: a lone record written in
-another set trips it too.
-
-**Its absence does not certify that a record was read in its own set**, and this is the important
-half. The check tests one of the four delimiter roles, the **field** separator, and only in its
-total form, where no unescaped separator occurs in the line. Two classes of the same loss sit
-outside it:
-
-- A foreign set whose **field** separator happens to occur somewhere in the line still splits, on
-  the wrong boundaries and in silence. A single stray `|` in an otherwise `*`-separated result loses
-  the value, the units and the status with no warning at all, while the identical record without
-  that one byte is reported. This also happens **inside** a run of these warnings, so even a run
-  does not mean every record in it was checked.
-- A set differing in the **repeat, component or escape** role usually splits into fields normally,
-  and the damage then varies. A mis-split component can cost a test identity while the value and
-  units survive. The escape role's worst case has **narrowed, not gone**: a bare escape character no
-  longer merges the rest of the record (it reads as a literal and raises
-  `ASTM_UNPAIRED_ESCAPE_CHARACTER`), but an `&X&` sequence whose body is an unrecognized character
-  that is itself a delimiter in force is an opaque
-  atom, so that delimiter does not split and the value, the units and the status can still go
-  together. That one raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not tolerable,
-  alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. The split itself is unchanged. Its mirror,
-  where the leftmost alignment lets a delimiter split that a competing alignment would have held,
-  gains a boundary instead of losing one and raises `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`, also
-  not tolerable. Where that gained boundary is a **field** boundary and the reading taken resumes on
-  an escape character heading no sequence it can interpret, every later field shifts and a
-  result's units
-  and status are read out of slots the other alignment does not put them in: that raises
-  `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`, not tolerable either. Where it is a **repeat** boundary
-  nothing shifts, but the field is read out of its first repeat alone, so a gained first boundary
-  truncates a value and costs a test identity or a patient name the components that sat after it:
-  that raises `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`, not tolerable either. Where it is a
-  **component** boundary nothing leaves the record and every component after it moves along the
-  component list, so a coding scheme, a vendor local code or a given name is read out of a position the other
-  alignment does not put it in: that raises `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`, not
-  tolerable either.
-
-All are accepted limits, for two different reasons: widening the field-separator check would mean
-deciding which set a record ought to have had, which is the same guess the parser declines to make
-elsewhere, and narrowing the escape atom would break the guarantee it exists for. So they are
-written down rather than papered over. Read the warning as "this record definitely lost its
-fields", never as "no other record did". If
-delimiter drift is a real risk on your feed, parse with `{ strict: true }`, which refuses both an
-outright collapse and an unrecognized type letter, and treat `ASTM_RECORD_UNKNOWN_TYPE` as
-invalidating what follows it rather than expecting this warning to enumerate the damage.
-
-An unrecognized type letter also makes the message **kind** unknowable, because the letter that
-could not be read may have been the very `Q` that decides it. `classification.kind` is
-`indeterminate` in that case rather than `results` or `orders`, and `classification.hasUnrecognized`
-says why. A `Q` that was read still wins outright.
-
-## Map local codes to LOINC (LIVD, bring-your-own)
-
-An analyzer sends a proprietary local test code in the Universal Test ID; a standard LOINC is mapped
-downstream. Supply your own IICC LIVD ("LOINC to Vendor IVD") catalog and annotate a message, the
-mapping is **additive and advisory**: it never touches the raw code or value, and an unmapped or
-ambiguous code is surfaced as such, **never a guessed LOINC**.
-
-```ts
-import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
-
-// Your LIVD catalog: the vendor transmission code (Vendor Analyte Code) → LOINC.
-const catalog = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8", loincLongName: "AST" }]);
-
-const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
-const { annotations, warnings } = applyLivd(msg, catalog);
-
-annotations[0]?.mapping; // { status: "mapped", loinc: "1920-8", loincLongName: "AST", source: "livd", derived: true }
-warnings; // ASTM_LIVD_UNMAPPED_CODE / ASTM_LIVD_AMBIGUOUS_MAPPING (value-free) for codes with no single LOINC
-```
-
-**Your catalog answers the analyte-identity question, and the wire never does.** The Universal Test
-ID's first component is a LOINC slot, and the guide this catalog format comes from puts transmitting
-LOINC directly from IVD instruments explicitly out of scope: the analyte arrives as a vendor-defined
-code. So the lookup happens whenever a vendor local code is present, keyed on that code alone, and a
-populated first component neither answers for it nor selects among candidates. **This package
-performs no LOINC validation of any kind**: it never decides whether such a value "looks like" a
-LOINC, so `Glucose` and `2345-7` there are treated identically. The value is carried verbatim as
-`unvalidatedWireValue`, on every disposition, and is never reported as a LOINC.
-
-```ts
-const msg = parseAstmRecords("H|\\^&\rR|1|Glucose^^^687|28.6|U/L||N||F\rL|1\r");
-const [a] = applyLivd(msg, catalog).annotations;
-
-a?.mapping.status; // "mapped": your catalog vouched for 1920-8 (the lookup used "687")
-a?.reportedCode; // "687": the code the catalog was consulted WITH, verbatim
-a?.unvalidatedWireValue; // "Glucose": carried verbatim, vouched for by nothing
-a?.wireValueDisagreesWithCatalog; // true: the two differ, and that is ALL this says
-```
-
-`mapping.status` is a closed discriminant, so a `switch` over it is exhaustive:
-
-| `status`         | what happened                                                                     | warning                       |
-| ---------------- | --------------------------------------------------------------------------------- | ----------------------------- |
-| `mapped`         | your catalog vouched for exactly one LOINC for the vendor local code              | none                          |
-| `unmapped`       | the vendor local code was looked up and your catalog held no entry                | `ASTM_LIVD_UNMAPPED_CODE`     |
-| `ambiguous`      | the code carries several distinct LOINCs; all surfaced, **none chosen**           | `ASTM_LIVD_AMBIGUOUS_MAPPING` |
-| `no-vendor-code` | component 1 is populated and there is no vendor local code: nothing was looked up | none                          |
-| `no-code`        | the Universal Test ID carried no code at all                                      | none                          |
-
-`unvalidatedWireValue` and `wireValueDisagreesWithCatalog` sit **beside** that discriminant and can
-accompany any of its cases. `wireValueDisagreesWithCatalog` is `true` only where your catalog
-vouched for exactly one LOINC, component 1 is populated, and the two are not byte-identical; it is
-`false` everywhere else and is never absent, so an ordinary `R|1|^^^687|...` record ships no
-standing false disagreement. **It reports the difference and nothing else**: both values stay
-surfaced, neither is marked correct, neither is rewritten, and nothing here says the difference was
-settled. Deciding which source to believe is a clinical judgement this library will not make for
-you.
-
-Two corners worth knowing before you write a catalog adapter: a `lookup` that **throws** propagates
-to your caller unchanged rather than reading as a catalog miss (your crash must not be
-indistinguishable from "this code is not in the catalog"), and a hit whose `loinc` is a zero-length
-string is reported as a miss rather than as a vouched-for empty LOINC.
-
-**No LOINC / SNOMED / LIVD dictionary is bundled.** LOINC is © Regenstrief (redistributable only with
-its attribution notice) and the public CDC LIVD file is SARS-CoV-2-specific and carries
-separately-licensed SNOMED CT, so the package ships no terminology data and you bring the catalog (and
-its license obligations).
-
-> **Scope your catalog to the source device fleet.** The ASTM Universal Test ID carries no manufacturer
-> to disambiguate against, so the catalog keys on the vendor transmission code alone. Two different
-> instruments that reuse the same code for different analytes would both match: supply a catalog built
-> for the analyzers you actually receive from. (Conflicting entries _within_ one catalog are caught and
-> surfaced as `ambiguous`, never resolved to a guess.)
-
-## The cosyte parser archetype
-
-- **Postel's Law**: liberal parser (lenient default + warnings), conservative serializer (always
-  spec-clean), so quirks don't propagate downstream on round-trip.
-- **Tiered tolerance**: Tier 0/1 silent, Tier 2 warning + recovery (escalates in strict mode),
-  Tier 3 fatal always.
-- **Stable warning codes**: warnings carry stable string codes + positional context; consumers
-  branch on `w.code`, so renaming a code is a breaking change.
-- **Zero runtime dependencies**: Node stdlib only (healthcare integrations vet every dependency).
-- **Dual ESM + CJS**: built with `tsup`, validated with `attw`.
-- **Immutability**: parsed models are immutable; mutation is via explicit methods.
-- **Profile system**: a `defineAstmProfile()` API for vendor quirks, with built-in profiles authored
-  through the same public API. A profile only ever downgrades an _expected_, non-safety-critical warning
-  to `PROFILE_QUIRK_APPLIED` (it never alters a value) and may force the raw-vs-framed transport; a
-  default-deny safety gate refuses to tolerate any safety-critical deviation at definition time.
-- **Terminology recognizer, not a dictionary.** LIVD-aware LOINC recognition is bring-your-own
-  (`applyLivd` over a consumer-supplied catalog): additive, advisory, and never a guessed LOINC. The
-  catalog answers for the analyte identity, never the wire, and no LOINC validation of any kind is
-  performed. No LOINC / SNOMED / LIVD data is bundled.
+A behavior change needs a test that fails without it. Renaming a published warning or error code is a breaking change; adding one is not, though it can change which streams a `{ strict: true }` parse refuses, so say so.
 
 ## License
 
-MIT © Cosyte
+MIT (SPDX identifier `MIT`). Copyright (c) 2026 Cosyte. Full text: [LICENSE](https://github.com/cosyte/astm/blob/main/LICENSE).
