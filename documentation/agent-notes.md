@@ -22,6 +22,7 @@ not removed, because the correction is usually the lesson.
 
 - [The shipped docs sidebar is a published contract](#the-shipped-docs-sidebar-is-a-published-contract)
 - [Status](#status) (the shipped-phase histories, and the version-in-prose trap)
+- [The LIVD unit comparison](#the-livd-unit-comparison-verbatim-on-purpose-and-it-is-not-ucum) (why verbatim, why the disclosure ships on the output, and what is never matched on)
 - [Known defects live on `main`](#known-defects-live-on-main-recorded-here-so-they-survive-independently-of-any-backlog) (one section each; the count is not written down, because it moves)
 - [Engineering Guardrails](#engineering-guardrails) (the `attw` wrapper)
 - [Standing disciplines (every change)](#standing-disciplines-every-change) (public-surface bookkeeping, and the em dash gate)
@@ -294,6 +295,107 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
   clinical fields. `src/common/` holds the value layer, `src/records/` the record layer. Deferred to
   later phases: the E1381 **framing** layer (P5+) and serialize/build (P7). The full sequence is in the
   meta-repo roadmap `operations/roadmaps/astm.md`.
+
+<a id="livd-units"></a>
+
+## The LIVD unit comparison: verbatim on purpose, and it is NOT UCUM
+
+A LIVD catalog entry now carries three optional attributes beside the vendor analyte code
+(`vendorSpecimenDescription`, `vendorResultDescription`, `representativeUnit`), and
+`LivdCatalog.lookup` takes the units the `R` record reported as an optional second argument. This
+section is the reasoning; the imperatives are in `CLAUDE.md`.
+
+**Why the phase existed at all.** One IVD Test Performed to many LOINCs is what the governing
+mapping guide calls the ordinary case, and its own worked examples are the commonest chemistry
+analytes rather than exotica: a serum glucose maps to one LOINC as a mass concentration and to
+another as a substance concentration, and a urine analyte maps to one LOINC at `mmol/L` (a spot
+specimen) and to another at `mmol/(24.h)` (a 24 hour collection). Before this, `LivdEntry` had a
+LOINC, a long name, an analyte name, a manufacturer and a model, and nothing that could tell two
+candidates apart, so `defineLivdCatalog` answered `ambiguous` for every code carrying more than one
+distinct LOINC. **The refusal was never the problem and is unchanged; the RATE was.** A mapping
+layer that answers "I cannot tell you" for glucose is not delivering the outcome it exists for.
+
+**Why the comparison is verbatim, and why saying so is load-bearing rather than pedantic.** UCUM
+2.2 defines a case-insensitive variant of every terminal symbol, and it states that a program
+declaring full conformance "must compare unit expressions by their semantics, i.e. they must detect
+equivalence for different expressions with the same meaning". A verbatim, case-sensitive string
+comparison is therefore **not** UCUM conformance. It is a legitimate limited choice and the right
+first one, because it is the only comparison that cannot invent an equivalence, and inventing one
+here would silently re-identify a test. But a consumer who sees a unit match will read it as a UCUM
+claim unless told otherwise, so **the disclosure is on the output, not only in prose**:
+`unitComparison` carries `comparison: "verbatim-case-sensitive"` and `ucumSemantic: false`. Do not
+"tidy" that field away as redundant with the documentation. The documentation is not in the
+consumer's log; the field is.
+
+**Three refusals that look like over-refusal and are not.** Case (`MG/DL` against `mg/dL`),
+whitespace (` mg/dL` against `mg/dL`), and scale (`mg/L` against `ug/dL`) all leave the answer
+`ambiguous`. Every one of them is a case where "obviously the same unit" is a judgement this package
+has no grounds for: a case-folded match needs the UCUM case-insensitive form, a trimmed match needs
+a normalization neither side declared, and a scaled match needs a conversion, which is a clinical
+claim. The guide's own instruction for units that cannot be converted by an analyte-independent
+scale factor is to define a mapping for each unit, so the catalog is where that is resolved.
+
+**The two descriptions are stored and surfaced, NEVER matched on, and that is the guide's own
+rule.** It says of the specimen description, the result description and the vendor comment that
+"this information is not intended to be parsed by an IVD Software System that automates the mapping
+of vendor IVD transmission codes to LOINC codes". They are free text with no constrained vocabulary,
+so matching them would be a string guess dressed as a mapping. There is a test that reports units
+byte-identical to a row's result description and to another row's specimen description and asserts
+that neither selects.
+
+**A single candidate LOINC is answered whether or not the units agree, and it carries NO
+`unitComparison`.** Two rules meet here and the order matters: an answer that read `mapped` before
+this change must never become `ambiguous` (a units field is not evidence against a mapping the
+catalog only ever gave one answer for), and `unitComparison` means a unit CHOSE this LOINC. Where
+there was only one candidate no unit chose anything, so claiming one did would be false. That is
+why the field is conditional rather than always present, and why a single-candidate answer takes the
+first matching row's attributes exactly as it has always taken the first row's `loincLongName`.
+
+**Blank is not a unit, on either side.** A candidate whose `representativeUnit` is absent, empty or
+whitespace only is not unit qualified: never selected on a unit, and still surfaced among the
+candidates, because hiding a mapping the consumer's own catalog holds would be worse than showing
+one that cannot be chosen. Reported units that are absent, empty or whitespace only read as **no
+units reported** for the same reason. Both directions matter: without the second, a blank units
+field on the wire could select a blank representative unit in the catalog, which is a match nobody
+asserted.
+
+**The added answer fields are CONDITIONAL, and that is a compatibility guarantee rather than a
+style.** `candidateDetails` and `reason` appear only where at least one catalog row for that vendor
+code carries one of the three attributes, and every new `mapped` field is spread conditionally. So a
+catalog carrying none of them returns the object it returned before this existed, key for key, for
+`mapped`, `unmapped` and `ambiguous` alike, and a consumer's deep-equality assertion still holds.
+**Do not "simplify" those conditionals into unconditional fields**: this package is published, so
+that shape is a contract, and the no-regression test asserts the exact key sets.
+
+**Units that cannot be read are a refusal to compare, never a raise.** A truncated record, a record
+with no units field, an empty units field and a record whose fields never separated all yield no
+usable units, and every one still produces a typed annotation. Nothing throws and no record is
+omitted: the ambiguity simply stands. An `O` record has no units field at all by construction, so it
+is always the no-units case.
+
+**A `mapped` answer's `representativeUnit` is provenance about the CATALOG ROW, and reading it as
+"the unit this result was reported in" is wrong.** Where a vendor code carries a single candidate
+LOINC across several rows that spell the unit differently, the answer takes the first row's
+attributes, exactly as it has always taken the first row's `loincLongName`, so it can name a unit
+the record did not report. That is the rule above ("a single candidate LOINC is answered whether or
+not the units agree") seen from the output, and it is deliberate: narrowing it would turn a `mapped`
+answer into `ambiguous`, which is the one regression this phase was not allowed to cause. **Only
+`unitComparison` ever asserts that the two units were equal**, and it is present only where a unit
+actually chose between candidates, so it is the field to branch on and this one is not. Said on the
+type, not only here, because the doc comment is what a consumer is shown.
+
+**The refusal names no CHOSEN LOINC, and that is asserted on its SHAPE, never by searching its JSON
+for the token `"loinc"`.** A refusal surfaces every candidate WITH its LOINC, because "every
+candidate surfaced" requires exactly that, so `candidateDetails` puts that token in the serialized
+answer by design and a string search cannot tell a surfaced candidate from a chosen one. A
+first draft of the property test made that search anyway; it contradicted the `candidateDetails`
+field the same change added, and because `fast-check` is unseeded here the suite then failed at
+random rather than every time, which is the worse failure mode. **Assert the closed set of fields an
+`ambiguous` answer may carry** (`status`, `candidates`, `candidateDetails`, `reason`): it is the
+stricter claim, because it fails on a field that names a choice whatever that field is called, and
+it is deterministic. **Do not reintroduce the token search**, and when a property here goes red,
+suspect the assertion before the code: an unseeded property that reds one run in six is reporting a
+real counterexample, not flaking.
 
 <a id="defects"></a>
 

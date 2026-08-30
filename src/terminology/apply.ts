@@ -19,6 +19,15 @@
  * difference is reported as its own fact
  * ({@link LivdAnnotation.wireValueDisagreesWithCatalog}) and is **never resolved**:
  * both values are surfaced, and nothing here picks between them.
+ *
+ * **The units DO answer, and only for choosing between the catalog's own
+ * candidates.** One vendor analyte code legitimately maps to several LOINCs that
+ * differ by reporting unit, so the catalog is consulted with the vendor code AND with
+ * the units field 5 of the `R` record carried, verbatim. That comparison is exact and
+ * case sensitive, never a UCUM semantic comparison, and a unit-selected answer says
+ * so on its output. It only ever narrows the candidate list the consumer's own
+ * catalog produced: it can never introduce a LOINC, never overrides the catalog, and
+ * a record with no readable units simply leaves the ambiguity standing.
  */
 
 import { deepFreeze } from "../common/freeze.js";
@@ -26,7 +35,12 @@ import { recognizeUniversalTestId } from "../common/coding-system.js";
 import type { UniversalTestId, UniversalTestIdProvenance } from "../common/coding-system.js";
 import type { AstmMessage, OrderRecord, ResultRecord } from "../records/types.js";
 
-import type { LivdCatalog } from "./catalog.js";
+import type {
+  LivdAmbiguityReason,
+  LivdCandidate,
+  LivdCatalog,
+  LivdUnitComparison,
+} from "./catalog.js";
 import { livdAmbiguousMapping, livdUnmappedCode } from "./warnings.js";
 import type { AstmLivdWarning } from "./warnings.js";
 
@@ -53,11 +67,29 @@ export type LivdMapping =
       readonly status: "mapped";
       readonly loinc: string;
       readonly loincLongName?: string;
+      /** The chosen catalog row's Vendor Specimen Description, verbatim, when supplied. */
+      readonly vendorSpecimenDescription?: string;
+      /** The chosen catalog row's Vendor Result Description, verbatim, when supplied. */
+      readonly vendorResultDescription?: string;
+      /** The chosen catalog row's representative unit, verbatim, when supplied. */
+      readonly representativeUnit?: string;
+      /**
+       * Present **if and only if** the record's units chose this LOINC from more than one candidate,
+       * and it states what that comparison was: verbatim and case sensitive, not UCUM semantic.
+       */
+      readonly unitComparison?: LivdUnitComparison;
       readonly source: "livd";
       readonly derived: true;
     }
   | { readonly status: "unmapped" }
-  | { readonly status: "ambiguous"; readonly candidates: readonly string[] }
+  | {
+      readonly status: "ambiguous";
+      readonly candidates: readonly string[];
+      /** Every candidate row with its LIVD attributes, when the catalog supplied any. */
+      readonly candidateDetails?: readonly LivdCandidate[];
+      /** Why the units did not settle it, when the catalog supplied the attributes to say. */
+      readonly reason?: LivdAmbiguityReason;
+    }
   | { readonly status: "no-vendor-code" }
   | { readonly status: "no-code" };
 
@@ -140,7 +172,11 @@ export interface LivdResult {
  * LOINC-slot value up in it would manufacture hits. Which case this is, is decided
  * by which components are populated, never by what a value looks like.
  */
-function mapTestId(uid: UniversalTestId, catalog: LivdCatalog): LivdMapping {
+function mapTestId(
+  uid: UniversalTestId,
+  catalog: LivdCatalog,
+  reportedUnits: string | undefined,
+): LivdMapping {
   const code = uid.localCode;
   if (code === undefined) {
     // Positional, both ways: a populated component 1 with no vendor code is a
@@ -151,7 +187,7 @@ function mapTestId(uid: UniversalTestId, catalog: LivdCatalog): LivdMapping {
       : { status: "no-code" };
   }
 
-  const hit = catalog.lookup(code);
+  const hit = catalog.lookup(code, reportedUnits);
   switch (hit.status) {
     case "mapped":
       // A zero-length LOINC is not an answer: report the miss exactly as for a
@@ -162,14 +198,41 @@ function mapTestId(uid: UniversalTestId, catalog: LivdCatalog): LivdMapping {
         status: "mapped",
         loinc: hit.loinc,
         ...(hit.loincLongName !== undefined ? { loincLongName: hit.loincLongName } : {}),
+        ...(hit.vendorSpecimenDescription !== undefined
+          ? { vendorSpecimenDescription: hit.vendorSpecimenDescription }
+          : {}),
+        ...(hit.vendorResultDescription !== undefined
+          ? { vendorResultDescription: hit.vendorResultDescription }
+          : {}),
+        ...(hit.representativeUnit !== undefined
+          ? { representativeUnit: hit.representativeUnit }
+          : {}),
+        ...(hit.unitComparison !== undefined ? { unitComparison: hit.unitComparison } : {}),
         source: "livd",
         derived: true,
       };
     case "ambiguous":
-      return { status: "ambiguous", candidates: hit.candidates };
+      return {
+        status: "ambiguous",
+        candidates: hit.candidates,
+        ...(hit.candidateDetails !== undefined ? { candidateDetails: hit.candidateDetails } : {}),
+        ...(hit.reason !== undefined ? { reason: hit.reason } : {}),
+      };
     case "unmapped":
       return { status: "unmapped" };
   }
+}
+
+/**
+ * The units the catalog is consulted with: field 5 of an `R` record, verbatim, and
+ * nothing else. An `O` record has no units field, and a record whose units are
+ * missing, empty, or unreadable because the line was truncated or malformed yields
+ * `undefined` here, which the catalog reads as NO UNITS REPORTED. That is a refusal
+ * to compare, never a raise and never a dropped record: the annotation is still
+ * produced, and a code carrying several candidates stays `ambiguous`.
+ */
+function unitsOf(record: ResultRecord | OrderRecord): string | undefined {
+  return record.type === "R" ? record.units : undefined;
 }
 
 /**
@@ -211,7 +274,7 @@ export function lookupLivdForRecord(
 ): LivdAnnotation {
   const uid = testIdOf(record);
   const recognized = uid ?? recognizeUniversalTestId([]);
-  const mapping = mapTestId(recognized, catalog);
+  const mapping = mapTestId(recognized, catalog, unitsOf(record));
   // The code REPORTED as consulted is the code the catalog was consulted WITH.
   const reportedCode = recognized.localCode;
   const wireValue = recognized.unvalidatedWireValue;
