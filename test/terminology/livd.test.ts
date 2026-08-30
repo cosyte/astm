@@ -9,7 +9,13 @@ import {
   orders,
   LIVD_WARNING_CODES,
 } from "../../src/index.js";
-import type { LivdAnnotation, LivdCatalog, LivdLookup, LivdMapping } from "../../src/index.js";
+import type {
+  LivdAnnotation,
+  LivdCatalog,
+  LivdEntry,
+  LivdLookup,
+  LivdMapping,
+} from "../../src/index.js";
 
 /**
  * Phase-9 LIVD-aware LOINC recognition. The safety-critical contract: an additive,
@@ -883,6 +889,84 @@ describe("the refusal paths: every candidate surfaced, no LOINC chosen", () => {
       }
     }
   });
+
+  it("names no CHOSEN LOINC in any field of its own, however many it surfaces", () => {
+    // The never-chose rule, asserted on the answer's SHAPE. A refusal surfaces every
+    // candidate WITH its LOINC, because "every candidate surfaced" requires exactly
+    // that, so the serialized answer legitimately carries the token `"loinc"` and a
+    // search for it cannot tell a surfaced candidate from a chosen answer. A closed
+    // set over the answer's own keys can, and it is the stricter claim: no field of
+    // the refusal names a choice, whatever a later one might be called.
+    const allowed = ["candidateDetails", "candidates", "reason", "status"];
+    const cases: ReadonlyArray<{ code: string; units: string; entries: readonly LivdEntry[] }> = [
+      // Two unit-qualified candidates, neither matching the reported units.
+      {
+        code: "AMB",
+        units: "g/L",
+        entries: [
+          { vendorCode: "AMB", loinc: "1000-9", representativeUnit: "mg/dL" },
+          { vendorCode: "AMB", loinc: "1001-7", representativeUnit: "mmol/L" },
+        ],
+      },
+      // One candidate not unit qualified at all beside one that is, still no match.
+      {
+        code: "AMB",
+        units: "mmol/(24.h)",
+        entries: [
+          { vendorCode: "AMB", loinc: "1000-9" },
+          { vendorCode: "AMB", loinc: "1001-7", representativeUnit: "mg/dL" },
+        ],
+      },
+      // Two candidates matching the same reported units: several matched, so refuse.
+      {
+        code: "AMB",
+        units: "mg/dL",
+        entries: [
+          { vendorCode: "AMB", loinc: "1000-9", representativeUnit: "mg/dL" },
+          { vendorCode: "AMB", loinc: "1001-7", representativeUnit: "mg/dL" },
+        ],
+      },
+      // No usable units reported, so nothing could be compared at all.
+      {
+        code: "AMB",
+        units: "   ",
+        entries: [
+          { vendorCode: "AMB", loinc: "1000-9", representativeUnit: "mg/dL" },
+          { vendorCode: "AMB", loinc: "1001-7", representativeUnit: "mmol/L" },
+        ],
+      },
+      // A plain catalog, carrying none of the three attributes: the pre-change shape.
+      {
+        code: "AMB",
+        units: "mg/dL",
+        entries: [
+          { vendorCode: "AMB", loinc: "1000-9" },
+          { vendorCode: "AMB", loinc: "1001-7" },
+        ],
+      },
+    ];
+
+    for (const { code, units, entries } of cases) {
+      const cat = defineLivdCatalog(entries);
+      const r = cat.lookup(code, units);
+      expect(r.status).toBe("ambiguous");
+      if (r.status !== "ambiguous") continue;
+
+      expect(Object.keys(r).filter((k) => !allowed.includes(k))).toEqual([]);
+      expect(Object.keys(r)).not.toContain("loinc");
+      expect(Object.keys(r)).not.toContain("unitComparison");
+      expect(r.candidates.length).toBeGreaterThan(1);
+      // Every LOINC named deeper in the answer is one of the surfaced candidates, so
+      // no LOINC reaches a consumer through a refusal by any route.
+      for (const d of r.candidateDetails ?? []) expect(r.candidates).toContain(d.loinc);
+
+      // The same holds of the annotation the layer hands a consumer.
+      const { a } = annotate(unitStream(`^^^${code}`, units), cat);
+      expect(a.mapping.status).toBe("ambiguous");
+      if (a.mapping.status !== "ambiguous") continue;
+      expect(Object.keys(a.mapping).filter((k) => !allowed.includes(k))).toEqual([]);
+    }
+  });
 });
 
 describe("a candidate with no usable representative unit is never selected on one", () => {
@@ -1043,6 +1127,13 @@ describe("a single candidate LOINC is answered whether or not the units agree", 
         representativeUnit: "mg/dL",
       });
     }
+    // So a `mapped` answer's `representativeUnit` is provenance about the CATALOG ROW,
+    // never a restatement of what the record reported: here it says `mg/dL` for a
+    // record that reported `mmol/L`, and the catalog holds a `mmol/L` row for that same
+    // LOINC. Nothing was selected on a unit, so there is no `unitComparison` claiming
+    // the two were equal, which is the only field that ever makes that claim.
+    const other = duplicated.lookup("700", "mmol/L");
+    expect(other.status === "mapped" && other.unitComparison).toBeUndefined();
   });
 
   it("never turns an answer that was mapped into ambiguous", () => {

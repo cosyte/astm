@@ -63,6 +63,11 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   letting a matched unit read as a claim that was never made. A unit that matches no candidate,
   matches more than one, or is missing or unreadable leaves the answer `ambiguous` with every
   candidate surfaced and no LOINC chosen.
+- **A `mapped` answer's `representativeUnit` is the catalog row's, not the record's.** It is
+  provenance about the row the answer came from, and where a code carries a single candidate LOINC
+  across several rows spelling the unit differently the answer takes the first row's attributes, so
+  that field can name a unit the record did not report. Only `unitComparison` asserts the two were
+  equal, and it is present only where a unit actually chose between candidates.
 - **No matching on the vendor specimen or result description.** Both are carried verbatim beside the
   representative unit and surfaced for a human to read, and neither is ever compared against
   anything: the guide states directly that this information is not intended to be parsed by software

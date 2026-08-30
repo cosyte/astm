@@ -238,7 +238,16 @@ export type LivdLookup =
       readonly vendorSpecimenDescription?: string;
       /** The chosen row's Vendor Result Description, verbatim, when supplied. Never matched on. */
       readonly vendorResultDescription?: string;
-      /** The chosen row's representative unit, verbatim, when supplied. */
+      /**
+       * The chosen row's representative unit, verbatim, when supplied.
+       *
+       * **This is provenance about the CATALOG ROW, not a restatement of what the record
+       * reported.** Where a vendor code carried a single candidate LOINC across several rows
+       * that spell the unit differently, the answer takes the FIRST row's attributes (exactly
+       * as it has always taken the first row's `loincLongName`), so this can name a unit the
+       * record did not report. Only {@link LivdUnitComparison} asserts the two were equal, and
+       * it is present only where a unit actually chose between candidates.
+       */
       readonly representativeUnit?: string;
       /**
        * Present **if and only if** a unit comparison chose this LOINC from more than one candidate.

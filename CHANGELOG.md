@@ -116,6 +116,12 @@ this file is maintained by hand (Changesets handles the version bump and publish
     vendor code carrying exactly **one** candidate LOINC is answered whether or not the units agree,
     with no `unitComparison`, because no unit chose anything there. An answer that read `mapped`
     before this change can never become `ambiguous`.
+  - A `mapped` answer's `representativeUnit` is provenance about the **catalog row**, not a
+    restatement of what the record reported. Where a vendor code carries a single candidate LOINC
+    across several rows spelling the unit differently, the answer takes the first row's attributes
+    (exactly as it has always taken the first row's `loincLongName`), so that field can name a unit
+    the record did not report. Only `unitComparison` asserts the two were equal, and it is present
+    only where a unit actually chose between candidates: branch on that field, not on this one.
   - `vendorSpecimenDescription` and `vendorResultDescription` are **never matched on**. Both are
     free text, and the guide states directly that this information is not intended to be parsed by
     software that automates the mapping, so they are stored and surfaced for a human and nothing

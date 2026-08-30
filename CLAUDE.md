@@ -91,7 +91,11 @@ shipped (`ls src/` for the module layout).
   be parsed). **Blank is not a unit on either side**, a SINGLE candidate LOINC is answered whether or
   not the units agree and carries NO `unitComparison`, and the added answer fields are
   **conditional** so a catalog with none of the three attributes answers key for key as before: do
-  not make them unconditional. Why: `#livd-units`.
+  not make them unconditional. **A `mapped` answer's `representativeUnit` is the catalog ROW's, not
+  the record's** (first row wins, as `loincLongName` always has); only `unitComparison` ever says the
+  two were equal. **The refusal's never-chose rule is asserted as a CLOSED KEY SET, never by
+  searching its JSON for a `loinc` token**: every candidate is surfaced WITH its LOINC, so that token
+  is there by design and the search reds about one unseeded run in six. Why: `#livd-units`.
 - **Never fabricate structure or a positive acknowledgement.** Checksums and frame numbers are
   computed, never faked; a frame the codec did not vouch for is `NAK`ed and never delivered; a builder
   emits only supplied values (an omitted result status reads `unspecified`, never `final`); an

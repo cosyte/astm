@@ -550,6 +550,12 @@ it is never selected by a unit comparison, and it is still surfaced among the ca
 vendor code carrying exactly **one** candidate LOINC is answered whether or not the units agree, with
 no `unitComparison`, because no unit chose anything there.
 
+On a `mapped` answer, `representativeUnit` is provenance about the **catalog row** rather than a
+restatement of what the record reported: where a code carries a single candidate LOINC across several
+rows that spell the unit differently, the answer takes the first row's attributes, so that field can
+name a unit the record did not report. **Only `unitComparison` says the two were equal**, and it is
+present only where a unit actually chose between candidates. Branch on that field, not on this one.
+
 Two attributes ride along and are **never matched on**: `vendorSpecimenDescription` and
 `vendorResultDescription`. Both are free text, and the guide states directly that this information is
 not intended to be parsed by software that automates the mapping, so they are stored and surfaced

@@ -19,7 +19,12 @@ import type { LivdEntry } from "../../src/index.js";
  *      an unvalidated value the library does not vouch for.
  *   5. ONE ANSWER, NEVER TWO: no catalog and record can ever yield two distinct
  *      LOINCs for one lookup. A record has exactly one annotation, that annotation
- *      names at most one LOINC, and an unsettled ambiguity names none.
+ *      names at most one LOINC, and an unsettled ambiguity names none as the ANSWER
+ *      however many candidates it surfaces. That last part is asserted on the
+ *      answer's own SHAPE (a closed set of allowed fields), never by searching its
+ *      JSON for the token `"loinc"`: a refusal surfaces every candidate WITH its
+ *      LOINC, so that token is present by design, and a search for it cannot tell a
+ *      surfaced candidate from a chosen answer.
  *   6. A UNIT-SELECTED ANSWER'S UNIT IS THE RECORD'S: wherever a lookup reports that
  *      the units chose the LOINC, the chosen candidate's representative unit is
  *      byte-identical to the units that record reported. Verbatim, case sensitive,
@@ -71,6 +76,19 @@ const unitEntryArb: fc.Arbitrary<LivdEntry> = fc
 
 /** One vendor code every generated row shares, so several candidates actually collide. */
 const SHARED_CODE = "SHARED";
+
+/**
+ * Every field an `ambiguous` answer is allowed to carry. Not one of them names a
+ * CHOSEN LOINC, so the closed set IS the never-chose assertion, and it is stricter
+ * than naming the fields to forbid: a future field that named a choice fails this
+ * property whatever it is called.
+ */
+const AMBIGUOUS_FIELDS: ReadonlySet<string> = new Set([
+  "status",
+  "candidates",
+  "candidateDetails",
+  "reason",
+]);
 
 /** A row for that one code: the shape that makes unit selection reachable at all. */
 const sharedRowArb = fc
@@ -198,11 +216,23 @@ describe("LIVD safety properties", () => {
           const chosen = m.status === "mapped" ? [m.loinc] : [];
           expect(chosen.length).toBeLessThanOrEqual(1);
           if (m.status === "ambiguous") {
-            expect(JSON.stringify(m)).not.toContain('"loinc"');
+            // No field of the refusal names a chosen LOINC, asserted as a closed set
+            // over the answer's own keys. A surfaced candidate carries its own `loinc`
+            // because "every candidate surfaced" requires it, so the answer's JSON
+            // legitimately holds that token and a string search cannot separate the
+            // two. The key set can, and forbids `unitComparison` here too: nothing was
+            // selected on a unit.
+            const fields = Object.keys(m);
+            expect(fields.filter((k) => !AMBIGUOUS_FIELDS.has(k))).toEqual([]);
+            expect(fields).not.toContain("loinc");
+            expect(fields).not.toContain("unitComparison");
             expect(m.candidates.length).toBeGreaterThan(1);
-            // Every candidate is a LOINC the catalog really holds for this code.
+            // Every candidate is a LOINC the catalog really holds for this code, and
+            // every LOINC named deeper in the answer is one of those candidates, so no
+            // LOINC reaches a consumer through a refusal by any route.
             const held = new Set(entries.filter((e) => e.vendorCode === code).map((e) => e.loinc));
             for (const c of m.candidates) expect(held.has(c)).toBe(true);
+            for (const d of m.candidateDetails ?? []) expect(m.candidates).toContain(d.loinc);
           }
           // And the annotation's disposition is the catalog's own for that code and
           // those units: nothing between the two re-decides it.

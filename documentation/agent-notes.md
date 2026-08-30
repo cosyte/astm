@@ -373,6 +373,30 @@ usable units, and every one still produces a typed annotation. Nothing throws an
 omitted: the ambiguity simply stands. An `O` record has no units field at all by construction, so it
 is always the no-units case.
 
+**A `mapped` answer's `representativeUnit` is provenance about the CATALOG ROW, and reading it as
+"the unit this result was reported in" is wrong.** Where a vendor code carries a single candidate
+LOINC across several rows that spell the unit differently, the answer takes the first row's
+attributes, exactly as it has always taken the first row's `loincLongName`, so it can name a unit
+the record did not report. That is the rule above ("a single candidate LOINC is answered whether or
+not the units agree") seen from the output, and it is deliberate: narrowing it would turn a `mapped`
+answer into `ambiguous`, which is the one regression this phase was not allowed to cause. **Only
+`unitComparison` ever asserts that the two units were equal**, and it is present only where a unit
+actually chose between candidates, so it is the field to branch on and this one is not. Said on the
+type, not only here, because the doc comment is what a consumer is shown.
+
+**The refusal names no CHOSEN LOINC, and that is asserted on its SHAPE, never by searching its JSON
+for the token `"loinc"`.** A refusal surfaces every candidate WITH its LOINC, because "every
+candidate surfaced" requires exactly that, so `candidateDetails` puts that token in the serialized
+answer by design and a string search cannot tell a surfaced candidate from a chosen one. A
+first draft of the property test made that search anyway; it contradicted the `candidateDetails`
+field the same change added, and because `fast-check` is unseeded here the suite then failed at
+random rather than every time, which is the worse failure mode. **Assert the closed set of fields an
+`ambiguous` answer may carry** (`status`, `candidates`, `candidateDetails`, `reason`): it is the
+stricter claim, because it fails on a field that names a choice whatever that field is called, and
+it is deterministic. **Do not reintroduce the token search**, and when a property here goes red,
+suspect the assertion before the code: an unseeded property that reds one run in six is reporting a
+real counterexample, not flaking.
+
 <a id="defects"></a>
 
 ## Known defects live on `main` (recorded here so they survive independently of any backlog)
