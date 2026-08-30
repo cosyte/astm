@@ -1,5 +1,5 @@
 ---
-"@cosyte/astm": patch
+"@cosyte/astm": minor
 ---
 
 **BREAKING: a populated first component no longer bypasses your LIVD catalog, and is no longer reported as a LOINC.** The Universal Test ID's first component is a LOINC slot that the governing mapping guide puts out of scope for instrument traffic: the analyte arrives as a vendor-defined code, and a LOINC is what a consumer maps to afterwards. This package used to answer the analyte-identity question from that slot instead, tagging any non-empty first component as an inline LOINC candidate with no evidence at all and returning it without ever consulting the catalog, so a record reading `R|1|Glucose|28.6|U/L||N||F` reported a LOINC candidate of `Glucose`. That is defect 9 in this repo's register, and it is closed here.
