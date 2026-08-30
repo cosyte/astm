@@ -105,6 +105,10 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   is reported, because emit returns a plain string.
 - **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
   does **not** decide whether a value is "critical" or act on a correction/cancel.
+- **No claim that a letter set is current.** The record grammar is frozen; the vocabularies whose
+  letters travel in it are not. So every interpreted flag and status says what it was graded
+  against, and one of the two answers is "nothing". See "Which vocabulary a letter was graded
+  against" below.
 - **No proof that an arbitrary delimiter set round-trips.** Emit refuses a set that fails one of the
   three conditions readback requires, and refuses any record whose own type letter the set being
   written with would escape away (`ASTM_EMIT_TYPE_LETTER_COLLISION`), so an emitted stream re-reads
@@ -172,6 +176,42 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
 - **No POCT1-A, no HL7 v2, no "extended" vendor dialects as first-class.** Those are separate
   standards. A vendor that emits HL7 v2 instead of ASTM uses `@cosyte/hl7`.
 
+## Which vocabulary a letter was graded against
+
+The `R` record carries two single-letter vocabularies, the **abnormal flag** (field 7) and the
+**result status** (field 9). The record grammar around them is archived and frozen; the vocabularies
+themselves are maintained elsewhere, on other bodies' schedules. A parser that reports a letter as
+`"undefined"` without saying what it compared against therefore hides a staleness: you cannot tell a
+code **no published vocabulary defines** from a code **this library has not caught up to**.
+
+So every interpreted flag and status carries a `vocabulary` attribution, present whether or not the
+letter was recognized, and the two answers are deliberately different.
+
+- **Abnormal flags are attributed.** They are graded against the HL7 v3 ObservationInterpretation
+  code system, identifier `http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation`,
+  version `4.0.0`, which carries the concepts kept aligned with the HL7 v2 Table 0078 interpretation
+  codes. Read `flag.vocabulary.system` and `flag.vocabulary.version` rather than copying the strings.
+  **That version says what this library compared against; it is not a claim about which version the
+  sender meant**, and it is not a conformance statement about your instrument.
+- **Result statuses are attributed to nothing, and say so.** `status.vocabulary.attributed` is
+  always `false` and `status.vocabulary.reason` carries the fixed prose explaining why: the
+  normative text that would bind that letter set is purchase-gated and has not been read here. A
+  neighbouring HL7 table exists whose letters partly agree, and adopting it would be an assertion
+  nothing in the public record supports, so this library declines to cite a source it cannot stand
+  behind. **An unattributed set is not an absent attribution**: `attributed: false` is a positive
+  statement, distinguishable from a field that is simply missing, and it never carries an identifier.
+
+The eighteen abnormal-flag letters recognized are `L`, `H`, `LL`, `HH`, `<`, `>`, `N`, `A`, `AA`,
+`U`, `D`, `B`, `W`, `S`, `R`, `I`, `HU` and `LU`; `ABNORMAL_FLAG_CODES` is the list itself. Other
+concepts in that code system are deliberately **not** adopted, including the deprecated `H>` and
+`L<` whose replacements `HU` and `LU` are. Recognition is **exact match** after the surrounding
+whitespace is trimmed: `hu` is not `HU`, and the case variant is reported unrecognized rather than
+widened in. Anything outside the list is surfaced verbatim, reported unrecognized, and **never
+coerced to `normal`**, exactly as an unrecognized status is never coerced to `final`.
+
+None of this reaches the wire: the attribution is interpretation output, and a parsed-then-serialized
+record emits the same bytes it always did.
+
 ## The standard, and its "archived" status
 
 The normative standards are **CLSI LIS01-A2** (the low-level transfer protocol, formerly ASTM
@@ -186,8 +226,8 @@ Mindray, Snibe) still implement. `@cosyte/astm` targets the second editions.
 - **The library is MIT.** Zero runtime dependencies; Node stdlib only.
 - **We parse the wire format and ship our own code.** The CLSI standards are copyrighted and
   purchase-gated. We never copy CLSI's descriptive prose into code, JSDoc, or docs. Code **values** we
-  encode (the HL7 Table 0078 abnormal-flag letters, the result-status letters) are **facts**, not
-  CLSI's copyrighted text.
+  encode (the abnormal-flag letters graded against HL7 v3 ObservationInterpretation, the
+  result-status letters graded against nothing citable) are **facts**, not CLSI's copyrighted text.
 - **LOINC and SNOMED are not bundled.** LOINC is © Regenstrief (attribution, no alteration, `X`-prefix
   for local codes); SNOMED redistribution is IHTSDO-governed. Bundling either is a licensing decision
   we do not make for you: bring your own catalog.

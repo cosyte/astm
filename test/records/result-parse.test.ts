@@ -3,7 +3,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { parseAstmRecords, results, WARNING_CODES } from "../../src/index.js";
+import {
+  ABNORMAL_FLAG_VOCABULARY,
+  RESULT_STATUS_VOCABULARY,
+  parseAstmRecords,
+  results,
+  WARNING_CODES,
+} from "../../src/index.js";
 
 /**
  * Integration coverage: the Phase-2 result semantics wired through
@@ -115,6 +121,98 @@ describe("parseAstmRecords: modeled result semantics", () => {
       expect(typeof w.position.recordIndex).toBe("number");
       // The message never embeds a value; it is a fixed, code-scoped string.
       expect(w.message).not.toMatch(/12\.0|weird-range-text|ZZ|COBAS-02|ROE|RICHARD/u);
+    }
+  });
+});
+
+/**
+ * Warning-text coverage for the vocabulary attribution. Every message below is a
+ * synthetic single-record stream written inline: no real patient, specimen or
+ * result data is involved, and no fixture file is added.
+ */
+describe("parseAstmRecords: the unrecognized warnings name the same vocabulary", () => {
+  /** A synthetic `R` record with a chosen flag (field 7) and status (field 9). */
+  const stream = (flag: string, status: string): string =>
+    `H|\\^&\rR|1|^^^900|4.2|U/L|3.5-5.0|${flag}||${status}\rL|1\r`;
+
+  const warningFor = (raw: string, code: string): string | undefined =>
+    parseAstmRecords(raw).warnings.find((w) => w.code === code)?.message;
+
+  it("the unrecognized-FLAG warning names the flag vocabulary's identifier and version", () => {
+    const message = warningFor(
+      stream("ZZ", "F"),
+      WARNING_CODES.ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG,
+    );
+    expect(message).toBeDefined();
+    expect(message).toContain(ABNORMAL_FLAG_VOCABULARY.system);
+    expect(message).toContain(ABNORMAL_FLAG_VOCABULARY.version);
+    // The same attribution the interpreted value reports.
+    const flag = results(parseAstmRecords(stream("ZZ", "F")))[0]?.flag;
+    expect(message).toContain(flag?.vocabulary.system ?? "");
+    expect(message).toContain(flag?.vocabulary.version ?? "");
+  });
+
+  it("the unrecognized-STATUS warning says the set is unattributed, with no identifier", () => {
+    const message = warningFor(stream("N", "Z"), WARNING_CODES.ASTM_RECORD_UNDEFINED_RESULT_STATUS);
+    expect(message).toBeDefined();
+    expect(message).toContain(RESULT_STATUS_VOCABULARY.reason);
+    // Never the flag vocabulary's identifier or version.
+    expect(message).not.toContain(ABNORMAL_FLAG_VOCABULARY.system);
+    expect(message).not.toContain(ABNORMAL_FLAG_VOCABULARY.version);
+    const status = results(parseAstmRecords(stream("N", "Z")))[0]?.status;
+    expect(status?.vocabulary.attributed).toBe(false);
+    expect(message).toContain(status?.vocabulary.reason ?? "");
+  });
+
+  it("both warnings stay VALUE-FREE: no field text, no result value, no other field content", () => {
+    // Every field of the synthetic record, so a leak from any of them reds here.
+    const raw = "H|\\^&\rR|7|^^^ANALYTE-77|91.7|mmol/L|1.1-2.2|QQ||ZZZ||TECH-3\rL|1\r";
+    const msg = parseAstmRecords(raw);
+    const attributed = msg.warnings.filter(
+      (w) =>
+        w.code === WARNING_CODES.ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG ||
+        w.code === WARNING_CODES.ASTM_RECORD_UNDEFINED_RESULT_STATUS,
+    );
+    expect(attributed).toHaveLength(2); // both fired
+    for (const w of attributed) {
+      for (const fieldText of [
+        "QQ", // the raw abnormal flag
+        "ZZZ", // the raw result status
+        "91.7", // the result value
+        "mmol/L", // the units
+        "1.1-2.2", // the reference range
+        "ANALYTE-77", // the test identifier
+        "TECH-3", // the operator
+      ]) {
+        expect(w.message).not.toContain(fieldText);
+      }
+      // Position only: record + field index, never a value.
+      expect(w.position.recordIndex).toBe(1);
+      expect(typeof w.position.fieldIndex).toBe("number");
+    }
+  });
+
+  it("the warning CODES are unchanged by the attribution", () => {
+    const msg = parseAstmRecords(stream("QQ", "ZZZ"));
+    const codes = msg.warnings.map((w) => w.code);
+    expect(codes).toContain("ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG");
+    expect(codes).toContain("ASTM_RECORD_UNDEFINED_RESULT_STATUS");
+  });
+
+  it("a feed sending HU or LU no longer warns at all: it is recognized", () => {
+    for (const [flag, meaning] of [
+      ["HU", "significantly-high"],
+      ["LU", "significantly-low"],
+    ] as const) {
+      const msg = parseAstmRecords(stream(flag, "F"));
+      expect(
+        msg.warnings.some((w) => w.code === WARNING_CODES.ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG),
+      ).toBe(false);
+      const rec = results(msg)[0];
+      expect(rec?.abnormalFlags).toBe(flag); // raw preserved
+      expect(rec?.flag?.recognized).toBe(true);
+      expect(rec?.flag?.meaning).toBe(meaning);
+      expect(rec?.flag?.vocabulary.system).toBe(ABNORMAL_FLAG_VOCABULARY.system);
     }
   });
 });
