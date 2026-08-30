@@ -83,6 +83,15 @@ shipped (`ls src/` for the module layout).
   `unmapped`/`ambiguous` with a value-free warning. **The catalog answers for the analyte identity
   and the wire never does**, and this package performs **no LOINC validation of any kind**. Why:
   `#status-history`, `#defect-9`.
+- **The LIVD unit comparison is VERBATIM and CASE SENSITIVE and it is NOT UCUM, and `unitComparison`
+  says so ON THE OUTPUT: do not "tidy" that field away as redundant with the docs.** Nothing is
+  normalized, case folded, scaled or converted on either side, so `MG/DL`, ` mg/dL` and `ug/dL` are
+  each a DIFFERENT unit from `mg/dL` and each leaves the answer `ambiguous`. **The specimen and
+  result descriptions are stored and surfaced and NEVER matched on** (the guide says they are not to
+  be parsed). **Blank is not a unit on either side**, a SINGLE candidate LOINC is answered whether or
+  not the units agree and carries NO `unitComparison`, and the added answer fields are
+  **conditional** so a catalog with none of the three attributes answers key for key as before: do
+  not make them unconditional. Why: `#livd-units`.
 - **Never fabricate structure or a positive acknowledgement.** Checksums and frame numbers are
   computed, never faked; a frame the codec did not vouch for is `NAK`ed and never delivered; a builder
   emits only supplied values (an omitted result status reads `unspecified`, never `final`); an

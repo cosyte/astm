@@ -482,13 +482,13 @@ a?.wireValueDisagreesWithCatalog; // true: the two differ, and that is ALL this 
 
 `mapping.status` is a closed discriminant, so a `switch` over it is exhaustive:
 
-| `status`         | what happened                                                                     | warning                       |
-| ---------------- | --------------------------------------------------------------------------------- | ----------------------------- |
-| `mapped`         | your catalog vouched for exactly one LOINC for the vendor local code              | none                          |
-| `unmapped`       | the vendor local code was looked up and your catalog held no entry                | `ASTM_LIVD_UNMAPPED_CODE`     |
-| `ambiguous`      | the code carries several distinct LOINCs; all surfaced, **none chosen**           | `ASTM_LIVD_AMBIGUOUS_MAPPING` |
-| `no-vendor-code` | component 1 is populated and there is no vendor local code: nothing was looked up | none                          |
-| `no-code`        | the Universal Test ID carried no code at all                                      | none                          |
+| `status`         | what happened                                                                            | warning                       |
+| ---------------- | ---------------------------------------------------------------------------------------- | ----------------------------- |
+| `mapped`         | your catalog vouched for exactly one LOINC for the vendor local code                     | none                          |
+| `unmapped`       | the vendor local code was looked up and your catalog held no entry                       | `ASTM_LIVD_UNMAPPED_CODE`     |
+| `ambiguous`      | several distinct LOINCs the reported units did not settle; all surfaced, **none chosen** | `ASTM_LIVD_AMBIGUOUS_MAPPING` |
+| `no-vendor-code` | component 1 is populated and there is no vendor local code: nothing was looked up        | none                          |
+| `no-code`        | the Universal Test ID carried no code at all                                             | none                          |
 
 `unvalidatedWireValue` and `wireValueDisagreesWithCatalog` sit **beside** that discriminant and can
 accompany any of its cases. `wireValueDisagreesWithCatalog` is `true` only where your catalog
@@ -503,6 +503,59 @@ Two corners worth knowing before you write a catalog adapter: a `lookup` that **
 to your caller unchanged rather than reading as a catalog miss (your crash must not be
 indistinguishable from "this code is not in the catalog"), and a hit whose `loinc` is a zero-length
 string is reported as a miss rather than as a vouched-for empty LOINC.
+
+### One vendor code, several LOINCs: the units decide
+
+One vendor analyte code mapping to several LOINCs is the **ordinary** case, not an edge: the guide
+this catalog format comes from gives the commonest chemistry analytes as its own worked examples, a
+serum glucose reported as a mass concentration versus a substance concentration, and a urine analyte
+reported as a spot concentration versus a 24 hour excretion rate. Its remedy is a mapping per unit,
+so a catalog row can carry a **representative unit of measure** beside the vendor code, and the
+`R` record already states its units on the wire.
+
+```ts
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+const glucose = defineLivdCatalog([
+  { vendorCode: "GLU", loinc: "2345-7", representativeUnit: "mg/dL" },
+  { vendorCode: "GLU", loinc: "14749-6", representativeUnit: "mmol/L" },
+]);
+
+const msg = parseAstmRecords("H|\\^&\rR|1|^^^GLU|5.5|mmol/L||N||F\rL|1\r");
+applyLivd(msg, glucose).annotations[0]?.mapping;
+// { status: "mapped", loinc: "14749-6", representativeUnit: "mmol/L",
+//   unitComparison: { comparison: "verbatim-case-sensitive", ucumSemantic: false, ... },
+//   source: "livd", derived: true }
+```
+
+**The comparison is verbatim and case sensitive, and it is not UCUM.** A catalog saying `mg/dL` does
+not match a feed saying `MG/DL`, and it never matches `g/L` however convertible the two are: nothing
+is normalized, case folded, scaled or converted on either side. UCUM defines a case-insensitive
+variant of every terminal symbol and requires a program claiming full conformance to compare unit
+expressions by their **semantics**, so this is a deliberately limited choice, the only comparison
+that cannot invent an equivalence. Because you could otherwise read a matched unit as a conformance
+claim this package does not make, every unit-selected answer carries `unitComparison` saying exactly
+what was compared.
+
+Refusing still beats guessing, so all four of these are `ambiguous` with **every candidate surfaced
+and no LOINC chosen**: the units match no candidate, they match more than one, the record reported no
+units (absent, empty, or whitespace only) and the candidates differ only by unit, or the units could
+not be read at all because the record was truncated or malformed. An unreadable units field reads as
+"no units reported": you still get a typed annotation, never an exception and never a dropped record.
+The answer's `reason` says which case it was, and `candidateDetails` carries each candidate row's
+LOINC and LIVD attributes so a human can choose what this package will not.
+
+A candidate whose `representativeUnit` is **absent, empty or whitespace only** is not unit qualified:
+it is never selected by a unit comparison, and it is still surfaced among the candidates. And a
+vendor code carrying exactly **one** candidate LOINC is answered whether or not the units agree, with
+no `unitComparison`, because no unit chose anything there.
+
+Two attributes ride along and are **never matched on**: `vendorSpecimenDescription` and
+`vendorResultDescription`. Both are free text, and the guide states directly that this information is
+not intended to be parsed by software that automates the mapping, so they are stored and surfaced
+verbatim for a human to read. Only the representative unit ever selects. All three attributes are
+**optional**: a catalog carrying none of them answers exactly as it did before they existed, for
+`mapped`, `unmapped` and `ambiguous` alike.
 
 **No LOINC / SNOMED / LIVD dictionary is bundled.** LOINC is © Regenstrief (redistributable only with
 its attribution notice) and the public CDC LIVD file is SARS-CoV-2-specific and carries

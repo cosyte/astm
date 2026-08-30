@@ -508,6 +508,78 @@ a?.reportedCode; // => undefined
 a?.unvalidatedWireValue; // => "Glucose"
 ```
 
+### One vendor code, several LOINCs: the units decide
+
+One vendor analyte code mapping to several LOINCs is the **ordinary** case. The guide
+this catalog format comes from gives the commonest chemistry analytes as its worked
+examples (a serum glucose as a mass concentration versus a substance concentration; a
+urine analyte as a spot concentration versus a 24 hour excretion rate) and its remedy
+is a mapping per unit. So a catalog row carries a **representative unit of measure**,
+and the `R` record already states its units on the wire:
+
+```ts runnable
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+const glucose = defineLivdCatalog([
+  { vendorCode: "GLU", loinc: "2345-7", representativeUnit: "mg/dL" },
+  { vendorCode: "GLU", loinc: "14749-6", representativeUnit: "mmol/L" },
+]);
+const msg = parseAstmRecords("H|\\^&\rR|1|^^^GLU|5.5|mmol/L||N||F\rL|1\r");
+const m = applyLivd(msg, glucose).annotations[0]?.mapping;
+
+m?.status; // => "mapped"
+m?.status === "mapped" ? m.loinc : undefined; // => "14749-6"
+```
+
+**That comparison is verbatim and case sensitive, and it is not UCUM.** Nothing is
+normalized, case folded, scaled or converted on either side, so `MG/DL` does not match
+`mg/dL` and `g/L` never matches `mg/dL` however convertible they are. UCUM requires a
+program claiming full conformance to compare unit expressions by their **semantics**,
+so this is a deliberately limited choice: the only comparison that cannot invent an
+equivalence. Every unit-selected answer says so on its own output, rather than leaving
+you to read a matched unit as a conformance claim this package does not make:
+
+```ts runnable
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+const glucose = defineLivdCatalog([
+  { vendorCode: "GLU", loinc: "2345-7", representativeUnit: "mg/dL" },
+  { vendorCode: "GLU", loinc: "14749-6", representativeUnit: "mmol/L" },
+]);
+const msg = parseAstmRecords("H|\\^&\rR|1|^^^GLU|5.5|mg/dL||N||F\rL|1\r");
+const m = applyLivd(msg, glucose).annotations[0]?.mapping;
+
+m?.status === "mapped" ? m.unitComparison?.comparison : undefined; // => "verbatim-case-sensitive"
+m?.status === "mapped" ? m.unitComparison?.ucumSemantic : undefined; // => false
+```
+
+Refusing still beats guessing. The units matching no candidate, matching more than one,
+or not being readable at all (absent, empty, whitespace only, or lost to a truncated or
+malformed record) are all `ambiguous`, with every candidate surfaced and no LOINC
+chosen. An unreadable units field reads as "no units reported": you get a typed
+annotation, never an exception and never a dropped record.
+
+```ts runnable
+import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
+
+const glucose = defineLivdCatalog([
+  { vendorCode: "GLU", loinc: "2345-7", representativeUnit: "mg/dL" },
+  { vendorCode: "GLU", loinc: "14749-6", representativeUnit: "mmol/L" },
+]);
+const msg = parseAstmRecords("H|\\^&\rR|1|^^^GLU|5.5|MG/DL||N||F\rL|1\r");
+const m = applyLivd(msg, glucose).annotations[0]?.mapping;
+
+m?.status; // => "ambiguous"
+m?.status === "ambiguous" ? m.reason : undefined; // => "no-candidate-matched-units"
+m?.status === "ambiguous" ? [...m.candidates] : []; // => ["2345-7", "14749-6"]
+```
+
+A row's `vendorSpecimenDescription` and `vendorResultDescription` are carried verbatim
+and **never matched on**: both are free text the guide says is not to be parsed by
+software that automates the mapping, so they are surfaced for a human to read. Only the
+representative unit ever selects. All three attributes are optional, and a catalog
+carrying none of them answers exactly as it did before they existed.
+
 ## Next
 
 - [Core Concepts](./concepts-archetype): the parser archetype and the tolerance model.

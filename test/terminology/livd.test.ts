@@ -585,3 +585,636 @@ describe("lookupLivdForRecord", () => {
     expect(lookupLivdForRecord(o, catalog).mapping).toMatchObject({ status: "mapped" });
   });
 });
+
+// ── One vendor analyte code, several LOINCs, and the units that tell them apart ───────
+//
+// The mapping guide describes one IVD Test Performed to many LOINCs as the ORDINARY
+// case, and its own worked examples are the commonest chemistry analytes: a serum
+// glucose reported as a mass concentration versus a substance concentration, and a
+// urine analyte reported as a spot concentration versus a 24 hour excretion rate. The
+// guide's remedy is a mapping per unit, and the `R` record already states its units on
+// the wire, so units, and ONLY units, resolve the ambiguity here. The comparison is
+// exact and case sensitive; nothing is normalized, converted, scaled or case folded,
+// and every unit-selected answer says so rather than letting a consumer read a matched
+// unit as a UCUM conformance claim this package does not make.
+
+/** A one-record `R` stream with a chosen Universal Test ID and a chosen units field. */
+function unitStream(utid: string, units: string): string {
+  return `H|\\^&\rR|1|${utid}|5.5|${units}||N||F\rL|1\r`;
+}
+
+/** The guide's glucose case: one vendor code, mass concentration versus substance concentration. */
+const glucoseCatalog = defineLivdCatalog([
+  {
+    vendorCode: "GLU",
+    loinc: "2345-7",
+    loincLongName: "Glucose [Mass/volume] in Serum or Plasma",
+    vendorSpecimenDescription: "Serum or Plasma",
+    vendorResultDescription: "Numeric mass concentration, mg/dL",
+    representativeUnit: "mg/dL",
+  },
+  {
+    vendorCode: "GLU",
+    loinc: "14749-6",
+    loincLongName: "Glucose [Moles/volume] in Serum or Plasma",
+    vendorSpecimenDescription: "Serum or Plasma",
+    vendorResultDescription: "Numeric substance concentration, mmol/L",
+    representativeUnit: "mmol/L",
+  },
+]);
+
+/** The guide's urine case: a spot concentration versus a 24 hour excretion rate. */
+const urineCatalog = defineLivdCatalog([
+  {
+    vendorCode: "UNA",
+    loinc: "2955-3",
+    vendorSpecimenDescription: "Urine, random",
+    representativeUnit: "mmol/L",
+  },
+  {
+    vendorCode: "UNA",
+    loinc: "2956-1",
+    vendorSpecimenDescription: "Urine, 24 hour collection",
+    representativeUnit: "mmol/(24.h)",
+  },
+]);
+
+describe("a catalog entry carries the three LIVD attributes, verbatim", () => {
+  it("accepts all three beside the vendor analyte code and preserves each byte for byte", () => {
+    // Deliberately awkward text: leading and trailing spaces, doubled internal spaces,
+    // and mixed case. Nothing may trim, collapse or case fold any of it.
+    const specimen = "  Serum  or Plasma  ";
+    const resultText = " Numeric  MASS concentration ";
+    const unit = " mg/dL ";
+    const cat = defineLivdCatalog([
+      {
+        vendorCode: "687",
+        loinc: "1920-8",
+        vendorSpecimenDescription: specimen,
+        vendorResultDescription: resultText,
+        representativeUnit: unit,
+      },
+    ]);
+    expect(cat.lookup("687")).toEqual({
+      status: "mapped",
+      loinc: "1920-8",
+      vendorSpecimenDescription: specimen,
+      vendorResultDescription: resultText,
+      representativeUnit: unit,
+    });
+    // And through the annotation layer, still byte for byte.
+    const { a } = annotate(unitStream("^^^687", "U/L"), cat);
+    expect(a.mapping).toMatchObject({
+      vendorSpecimenDescription: specimen,
+      vendorResultDescription: resultText,
+      representativeUnit: unit,
+    });
+  });
+
+  it("keeps each attribute optional, one at a time", () => {
+    for (const partial of [
+      { vendorSpecimenDescription: "Serum or Plasma" },
+      { vendorResultDescription: "Binary: reactive / non-reactive" },
+      { representativeUnit: "mg/dL" },
+    ]) {
+      const cat = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8", ...partial }]);
+      expect(cat.lookup("687")).toEqual({ status: "mapped", loinc: "1920-8", ...partial });
+    }
+  });
+
+  it("surfaces every candidate row's attributes on an ambiguous answer, verbatim", () => {
+    const r = glucoseCatalog.lookup("GLU");
+    expect(r.status).toBe("ambiguous");
+    if (r.status !== "ambiguous") return;
+    expect([...r.candidates]).toEqual(["2345-7", "14749-6"]);
+    expect(r.candidateDetails).toEqual([
+      {
+        loinc: "2345-7",
+        loincLongName: "Glucose [Mass/volume] in Serum or Plasma",
+        vendorSpecimenDescription: "Serum or Plasma",
+        vendorResultDescription: "Numeric mass concentration, mg/dL",
+        representativeUnit: "mg/dL",
+        unitQualified: true,
+      },
+      {
+        loinc: "14749-6",
+        loincLongName: "Glucose [Moles/volume] in Serum or Plasma",
+        vendorSpecimenDescription: "Serum or Plasma",
+        vendorResultDescription: "Numeric substance concentration, mmol/L",
+        representativeUnit: "mmol/L",
+        unitQualified: true,
+      },
+    ]);
+  });
+});
+
+describe("the guide's own worked cases resolve on the reported units", () => {
+  it("serum glucose: mass concentration and substance concentration, told apart by unit", () => {
+    const massConcentration = annotate(unitStream("^^^GLU", "mg/dL"), glucoseCatalog).a;
+    expect(massConcentration.mapping).toMatchObject({
+      status: "mapped",
+      loinc: "2345-7",
+      representativeUnit: "mg/dL",
+      derived: true,
+      source: "livd",
+    });
+
+    const substanceConcentration = annotate(unitStream("^^^GLU", "mmol/L"), glucoseCatalog).a;
+    expect(substanceConcentration.mapping).toMatchObject({
+      status: "mapped",
+      loinc: "14749-6",
+      representativeUnit: "mmol/L",
+    });
+
+    // Two different LOINCs for the same vendor analyte code, and the ONLY thing that
+    // differed between the two records is the units field.
+    expect(massConcentration.reportedCode).toBe(substanceConcentration.reportedCode);
+  });
+
+  it("a urine analyte: a spot concentration and a 24 hour excretion rate", () => {
+    expect(annotate(unitStream("^^^UNA", "mmol/L"), urineCatalog).a.mapping).toMatchObject({
+      status: "mapped",
+      loinc: "2955-3",
+      vendorSpecimenDescription: "Urine, random",
+    });
+    expect(annotate(unitStream("^^^UNA", "mmol/(24.h)"), urineCatalog).a.mapping).toMatchObject({
+      status: "mapped",
+      loinc: "2956-1",
+      vendorSpecimenDescription: "Urine, 24 hour collection",
+    });
+  });
+
+  it("emits no ambiguity warning when the units settled it", () => {
+    expect(annotate(unitStream("^^^GLU", "mg/dL"), glucoseCatalog).warnings).toEqual([]);
+  });
+
+  it("consults the catalog with the record's units, verbatim, and with nothing else", () => {
+    const seen: (string | undefined)[] = [];
+    const spy: LivdCatalog = {
+      size: glucoseCatalog.size,
+      lookup(vendorCode: string, reportedUnits?: string): LivdLookup {
+        seen.push(reportedUnits);
+        return glucoseCatalog.lookup(vendorCode, reportedUnits);
+      },
+    };
+    annotate(unitStream("^^^GLU", " mg/dL "), spy);
+    expect(seen).toEqual([" mg/dL "]);
+  });
+});
+
+describe("a unit-selected answer states what the comparison was", () => {
+  it("reports verbatim, case sensitive, and NOT a UCUM semantic comparison", () => {
+    const { a } = annotate(unitStream("^^^GLU", "mg/dL"), glucoseCatalog);
+    expect(a.mapping.status).toBe("mapped");
+    if (a.mapping.status !== "mapped") return;
+    const c = a.mapping.unitComparison;
+    expect(c).toBeDefined();
+    expect(c?.comparison).toBe("verbatim-case-sensitive");
+    expect(c?.ucumSemantic).toBe(false);
+    expect(c?.reportedUnits).toBe("mg/dL");
+    expect(c?.representativeUnit).toBe("mg/dL");
+    // Byte-equal by construction: that IS the comparison, and nothing else is claimed.
+    expect(c?.representativeUnit).toBe(c?.reportedUnits);
+    // The prose says the same three things a consumer would otherwise have to infer.
+    expect(c?.note).toMatch(/verbatim/i);
+    expect(c?.note).toMatch(/case sensitiv/i);
+    expect(c?.note).toMatch(/NOT a UCUM semantic comparison/i);
+    expect(Object.keys(c ?? {}).sort()).toEqual([
+      "comparison",
+      "note",
+      "reportedUnits",
+      "representativeUnit",
+      "ucumSemantic",
+    ]);
+  });
+
+  it("carries no unit comparison where no unit chose anything", () => {
+    // One candidate LOINC: it is the answer because it is the only one, not because a
+    // unit matched. Saying a unit selected it would be a claim the run did not make.
+    const single = defineLivdCatalog([
+      { vendorCode: "687", loinc: "1920-8", representativeUnit: "U/L" },
+    ]);
+    const { a } = annotate(unitStream("^^^687", "U/L"), single);
+    expect(a.mapping.status).toBe("mapped");
+    if (a.mapping.status !== "mapped") return;
+    expect(a.mapping.unitComparison).toBeUndefined();
+  });
+});
+
+describe("the refusal paths: every candidate surfaced, no LOINC chosen", () => {
+  /** The candidate LOINCs of an ambiguous answer, or a marker naming what came back instead. */
+  function refusal(raw: string, cat: LivdCatalog): { status: string; candidates: string[] } {
+    const { a } = annotate(raw, cat);
+    if (a.mapping.status !== "ambiguous") return { status: a.mapping.status, candidates: [] };
+    return { status: "ambiguous", candidates: [...a.mapping.candidates] };
+  }
+
+  it("no candidate matches the reported units", () => {
+    expect(refusal(unitStream("^^^GLU", "g/L"), glucoseCatalog)).toEqual({
+      status: "ambiguous",
+      candidates: ["2345-7", "14749-6"],
+    });
+    const r = glucoseCatalog.lookup("GLU", "g/L");
+    expect(r.status === "ambiguous" && r.reason).toBe("no-candidate-matched-units");
+    // Not one field of the refusal names a chosen LOINC.
+    expect(Object.keys(r).sort()).toEqual(["candidateDetails", "candidates", "reason", "status"]);
+  });
+
+  it("more than one candidate matches the reported units", () => {
+    // Rows that disagree on the LOINC while agreeing on the unit: picking one would be
+    // a guess, so the answer is the refusal with both surfaced.
+    const collision = defineLivdCatalog([
+      { vendorCode: "DUP", loinc: "2345-7", representativeUnit: "mg/dL" },
+      { vendorCode: "DUP", loinc: "14749-6", representativeUnit: "mg/dL" },
+    ]);
+    const r = collision.lookup("DUP", "mg/dL");
+    expect(r.status).toBe("ambiguous");
+    if (r.status !== "ambiguous") return;
+    expect(r.reason).toBe("multiple-candidates-matched-units");
+    expect([...r.candidates]).toEqual(["2345-7", "14749-6"]);
+    expect(refusal(unitStream("^^^DUP", "mg/dL"), collision).candidates).toEqual([
+      "2345-7",
+      "14749-6",
+    ]);
+  });
+
+  it("the record reported no units and the candidates differ only by unit", () => {
+    for (const raw of [
+      "H|\\^&\rR|1|^^^GLU|5.5|||N||F\rL|1\r", // an empty units field
+      "H|\\^&\rR|1|^^^GLU|5.5\rL|1\r", // truncated before the units field
+      "H|\\^&\rR|1|^^^GLU\rL|1\r", // truncated before the value too
+      unitStream("^^^GLU", "   "), // whitespace only: not a unit
+    ]) {
+      expect(refusal(raw, glucoseCatalog)).toEqual({
+        status: "ambiguous",
+        candidates: ["2345-7", "14749-6"],
+      });
+      const { a } = annotate(raw, glucoseCatalog);
+      expect(a.mapping.status === "ambiguous" && a.mapping.reason).toBe("no-reported-units");
+    }
+    // And the same when the catalog is asked directly with no units at all.
+    const r = glucoseCatalog.lookup("GLU");
+    expect(r.status === "ambiguous" && r.reason).toBe("no-reported-units");
+  });
+
+  it("an O record has no units field at all, so it reports no units reported", () => {
+    const msg = parseAstmRecords("H|\\^&\rO|1|ACC-42||^^^GLU|R\rL|1\r");
+    const [a] = applyLivd(msg, glucoseCatalog).annotations;
+    expect(a?.recordType).toBe("O");
+    expect(a?.mapping.status).toBe("ambiguous");
+    if (a?.mapping.status !== "ambiguous") return;
+    expect(a.mapping.reason).toBe("no-reported-units");
+    expect([...a.mapping.candidates]).toEqual(["2345-7", "14749-6"]);
+  });
+
+  it("warns once per refusal, value-free, and never names a LOINC or a unit", () => {
+    for (const raw of [
+      unitStream("^^^GLU", "g/L"),
+      unitStream("^^^GLU", ""),
+      unitStream("^^^GLU", "MG/DL"),
+    ]) {
+      const { annotations, warnings } = applyLivd(parseAstmRecords(raw), glucoseCatalog);
+      expect(annotations[0]?.mapping.status).toBe("ambiguous");
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]?.code).toBe(LIVD_WARNING_CODES.ASTM_LIVD_AMBIGUOUS_MAPPING);
+      const serialized = JSON.stringify(warnings[0]);
+      for (const forbidden of ["2345-7", "14749-6", "GLU", "mg/dL", "g/L", "5.5"]) {
+        expect(serialized).not.toContain(forbidden);
+      }
+    }
+  });
+});
+
+describe("a candidate with no usable representative unit is never selected on one", () => {
+  /** Three rows that cannot be unit qualified, plus one that can. */
+  const blanks = defineLivdCatalog([
+    { vendorCode: "BLK", loinc: "1000-9", representativeUnit: "" },
+    { vendorCode: "BLK", loinc: "1001-7", representativeUnit: "   " },
+    { vendorCode: "BLK", loinc: "1002-5", vendorSpecimenDescription: "Serum or Plasma" },
+    { vendorCode: "BLK", loinc: "1003-3", representativeUnit: "mg/dL" },
+  ]);
+
+  it("marks absent, empty and whitespace-only units as NOT unit qualified", () => {
+    const r = blanks.lookup("BLK");
+    expect(r.status).toBe("ambiguous");
+    if (r.status !== "ambiguous") return;
+    expect(r.candidateDetails?.map((c) => [c.loinc, c.unitQualified])).toEqual([
+      ["1000-9", false],
+      ["1001-7", false],
+      ["1002-5", false],
+      ["1003-3", true],
+    ]);
+    // The blank unit is still carried verbatim, exactly as the catalog spelled it.
+    expect(r.candidateDetails?.[0]?.representativeUnit).toBe("");
+    expect(r.candidateDetails?.[1]?.representativeUnit).toBe("   ");
+    expect(r.candidateDetails?.[2]?.representativeUnit).toBeUndefined();
+  });
+
+  it("still surfaces every one of them among the candidates", () => {
+    for (const reported of [undefined, "", "   ", "mg/dL", "g/L"]) {
+      const r = blanks.lookup("BLK", reported);
+      const candidates =
+        r.status === "ambiguous" ? [...r.candidates] : r.status === "mapped" ? [r.loinc] : [];
+      // The one exactly-matching row is answered; every other case surfaces all four.
+      if (reported === "mg/dL") expect(candidates).toEqual(["1003-3"]);
+      else expect(candidates).toEqual(["1000-9", "1001-7", "1002-5", "1003-3"]);
+    }
+  });
+
+  it("is never chosen by a comparison against blank or whitespace-only reported units", () => {
+    for (const reported of ["", "   ", "\t"]) {
+      const r = blanks.lookup("BLK", reported);
+      expect(r.status).toBe("ambiguous");
+      if (r.status !== "ambiguous") return;
+      // A blank on the wire reads as NO UNITS REPORTED, never as a unit that could
+      // match a blank in the catalog.
+      expect(r.reason).toBe("no-reported-units");
+    }
+  });
+
+  it("does not compete with a qualified candidate that does match", () => {
+    expect(blanks.lookup("BLK", "mg/dL")).toMatchObject({ status: "mapped", loinc: "1003-3" });
+  });
+});
+
+describe("the comparison is verbatim: case and whitespace are differences", () => {
+  it("refuses a candidate that differs only in letter case", () => {
+    for (const reported of ["MG/DL", "Mg/dL", "mg/dl"]) {
+      const r = glucoseCatalog.lookup("GLU", reported);
+      expect(r.status).toBe("ambiguous");
+      if (r.status === "ambiguous") expect(r.reason).toBe("no-candidate-matched-units");
+    }
+  });
+
+  it("refuses a candidate that differs only in surrounding or internal whitespace", () => {
+    for (const reported of [" mg/dL", "mg/dL ", " mg/dL ", "mg / dL", "mg/ dL"]) {
+      const r = glucoseCatalog.lookup("GLU", reported);
+      expect(r.status).toBe("ambiguous");
+      if (r.status === "ambiguous") expect(r.reason).toBe("no-candidate-matched-units");
+    }
+  });
+
+  it("matches a unit whose own spelling carries whitespace, byte for byte", () => {
+    // Verbatim cuts both ways: a catalog unit that HAS a space matches a reported unit
+    // spelling it identically, and refuses one that does not.
+    const spaced = defineLivdCatalog([
+      { vendorCode: "SPC", loinc: "1000-9", representativeUnit: "10*3/uL" },
+      { vendorCode: "SPC", loinc: "1001-7", representativeUnit: "10 3/uL" },
+    ]);
+    expect(spaced.lookup("SPC", "10 3/uL")).toMatchObject({ status: "mapped", loinc: "1001-7" });
+    expect(spaced.lookup("SPC", "103/uL").status).toBe("ambiguous");
+  });
+
+  it("never converts, scales, or normalizes either side", () => {
+    // mg/L and ug/dL are a multiplicative scale factor apart; mol/L and mg/L are not.
+    // Neither pair is equal here, because nothing is converted at all.
+    const scaled = defineLivdCatalog([
+      { vendorCode: "SCL", loinc: "1000-9", representativeUnit: "mg/L" },
+      { vendorCode: "SCL", loinc: "1001-7", representativeUnit: "mol/L" },
+    ]);
+    for (const reported of ["ug/dL", "mmol/L", "MG/L", "mg/l"]) {
+      expect(scaled.lookup("SCL", reported).status).toBe("ambiguous");
+    }
+  });
+
+  it("never chooses on the specimen or result description, however exactly they match", () => {
+    // Both are free text the mapping guide says is not to be parsed by automated
+    // mapping software. A record cannot carry them at all, and nothing here reads them.
+    const described = defineLivdCatalog([
+      {
+        vendorCode: "DSC",
+        loinc: "1000-9",
+        vendorSpecimenDescription: "Serum or Plasma",
+        vendorResultDescription: "mg/dL",
+      },
+      {
+        vendorCode: "DSC",
+        loinc: "1001-7",
+        vendorSpecimenDescription: "Urine",
+        vendorResultDescription: "mmol/L",
+      },
+    ]);
+    // The reported units are byte-identical to one row's RESULT DESCRIPTION, and to one
+    // row's SPECIMEN description in the second case. Neither selects: no row is unit
+    // qualified, so there is nothing to select on.
+    for (const reported of ["mg/dL", "mmol/L", "Serum or Plasma", "Urine"]) {
+      const r = described.lookup("DSC", reported);
+      expect(r.status).toBe("ambiguous");
+      if (r.status === "ambiguous") expect(r.reason).toBe("no-candidate-matched-units");
+    }
+  });
+});
+
+describe("a single candidate LOINC is answered whether or not the units agree", () => {
+  const single = defineLivdCatalog([
+    {
+      vendorCode: "687",
+      loinc: "1920-8",
+      loincLongName: "Aspartate aminotransferase",
+      representativeUnit: "U/L",
+    },
+  ]);
+
+  it("answers mapped for agreeing, disagreeing, blank and absent units alike", () => {
+    for (const units of ["U/L", "u/l", "IU/L", "", "   "]) {
+      const { a, warnings } = annotate(unitStream("^^^687", units), single);
+      expect(a.mapping).toMatchObject({ status: "mapped", loinc: "1920-8" });
+      expect(warnings).toEqual([]);
+    }
+    // And on a record with no units field at all.
+    expect(annotate("H|\\^&\rR|1|^^^687|5.5\rL|1\r", single).a.mapping).toMatchObject({
+      status: "mapped",
+      loinc: "1920-8",
+    });
+  });
+
+  it("treats several rows agreeing on one LOINC as that one answer, units or not", () => {
+    // Two rows, one LOINC, different representative units: still one candidate, so
+    // still `mapped`. The first row's optional fields are the ones carried, exactly as
+    // `loincLongName` has always been carried.
+    const duplicated = defineLivdCatalog([
+      { vendorCode: "700", loinc: "2345-7", representativeUnit: "mg/dL" },
+      { vendorCode: "700", loinc: "2345-7", representativeUnit: "mmol/L" },
+    ]);
+    for (const units of ["mg/dL", "mmol/L", "g/L", ""]) {
+      expect(duplicated.lookup("700", units)).toEqual({
+        status: "mapped",
+        loinc: "2345-7",
+        representativeUnit: "mg/dL",
+      });
+    }
+  });
+
+  it("never turns an answer that was mapped into ambiguous", () => {
+    // The pre-change catalog from the top of this file, walked with every unit shape a
+    // record can carry. Its mapped codes stay mapped and its ambiguous code stays
+    // ambiguous: adding units cannot move an answer across that line.
+    for (const units of ["U/L", "mg/dL", "", "   "]) {
+      expect(annotate(unitStream("^^^687", units), catalog).a.mapping.status).toBe("mapped");
+      expect(annotate(unitStream("^^^700", units), catalog).a.mapping.status).toBe("mapped");
+      expect(annotate(unitStream("^^^800", units), catalog).a.mapping.status).toBe("ambiguous");
+      expect(annotate(unitStream("^^^999", units), catalog).a.mapping.status).toBe("unmapped");
+    }
+  });
+});
+
+describe("a catalog carrying none of the three attributes answers exactly as before", () => {
+  /** The catalog shape every consumer has today: no specimen, no result text, no unit. */
+  const plain = defineLivdCatalog([
+    { vendorCode: "687", loinc: "1920-8", loincLongName: "Aspartate aminotransferase" },
+    { vendorCode: "700", loinc: "2345-7" },
+    { vendorCode: "700", loinc: "2345-7", model: "cobas c311" },
+    { vendorCode: "800", loinc: "2160-0" },
+    { vendorCode: "800", loinc: "38483-4" },
+  ]);
+
+  it("returns the pre-change object, key for key, for mapped, unmapped and ambiguous", () => {
+    // Whatever units are supplied, including none at all.
+    for (const units of [undefined, "", "   ", "mg/dL", "U/L"]) {
+      expect(plain.lookup("687", units)).toEqual({
+        status: "mapped",
+        loinc: "1920-8",
+        loincLongName: "Aspartate aminotransferase",
+      });
+      expect(Object.keys(plain.lookup("687", units)).sort()).toEqual([
+        "loinc",
+        "loincLongName",
+        "status",
+      ]);
+      expect(plain.lookup("700", units)).toEqual({ status: "mapped", loinc: "2345-7" });
+      expect(Object.keys(plain.lookup("700", units)).sort()).toEqual(["loinc", "status"]);
+      expect(plain.lookup("999", units)).toEqual({ status: "unmapped" });
+      expect(plain.lookup("800", units)).toEqual({
+        status: "ambiguous",
+        candidates: ["2160-0", "38483-4"],
+      });
+      // No candidateDetails and no reason: there is nothing new to say, so nothing new
+      // is said, and an existing consumer's deep equality still holds.
+      expect(Object.keys(plain.lookup("800", units)).sort()).toEqual(["candidates", "status"]);
+    }
+  });
+
+  it("returns the pre-change annotation, key for key, through applyLivd", () => {
+    const rows: { utid: string; expected: Record<string, unknown> }[] = [
+      {
+        utid: "^^^687",
+        expected: {
+          status: "mapped",
+          loinc: "1920-8",
+          loincLongName: "Aspartate aminotransferase",
+          source: "livd",
+          derived: true,
+        },
+      },
+      { utid: "^^^999", expected: { status: "unmapped" } },
+      { utid: "^^^800", expected: { status: "ambiguous", candidates: ["2160-0", "38483-4"] } },
+      { utid: "Glucose", expected: { status: "no-vendor-code" } },
+      { utid: "^Glucose", expected: { status: "no-code" } },
+    ];
+    for (const row of rows) {
+      const { a } = annotate(unitStream(row.utid, "U/L"), plain);
+      expect(a.mapping).toEqual(row.expected);
+      expect(Object.keys(a.mapping).sort()).toEqual(Object.keys(row.expected).sort());
+    }
+  });
+
+  it("keeps a mapped annotation's key set at the four it always had", () => {
+    const { a } = annotate(unitStream("^^^700", "mg/dL"), plain);
+    expect(Object.keys(a.mapping).sort()).toEqual(["derived", "loinc", "source", "status"]);
+  });
+});
+
+describe("units that cannot be read leave the record annotated, never dropped", () => {
+  it("annotates every R and O record of a malformed message without raising", () => {
+    // A truncated result, a result with no units, one with an empty units field, a
+    // result whose fields never separated, and an order. None of them can state units
+    // this layer can compare, and every one still comes back as a typed annotation.
+    const raw =
+      "H|\\^&\r" +
+      "R|1|^^^GLU\r" +
+      "R|2|^^^GLU|5.5\r" +
+      "R|3|^^^GLU|5.5|\r" +
+      "R4^^^GLU5.5mg/dL\r" +
+      "O|1|ACC-42||^^^GLU|R\r" +
+      "L|1\r";
+    const msg = parseAstmRecords(raw);
+    let out: ReturnType<typeof applyLivd> | undefined;
+    expect(() => {
+      out = applyLivd(msg, glucoseCatalog);
+    }).not.toThrow();
+    // One annotation per R/O record, in wire order, none omitted.
+    expect(out?.annotations.map((x) => x.recordType)).toEqual(["R", "R", "R", "R", "O"]);
+    // Every one is a typed member of the closed discriminant, and none chose a LOINC.
+    for (const x of out?.annotations ?? []) {
+      expect(["mapped", "unmapped", "ambiguous", "no-vendor-code", "no-code"]).toContain(
+        x.mapping.status,
+      );
+      expect(x.mapping.status).not.toBe("mapped");
+    }
+  });
+
+  it("reads an unreadable units field as no units reported, not as a unit", () => {
+    for (const raw of [
+      "H|\\^&\rR|1|^^^GLU\rL|1\r",
+      "H|\\^&\rR|1|^^^GLU|5.5\rL|1\r",
+      "H|\\^&\rR|1|^^^GLU|5.5|\rL|1\r",
+    ]) {
+      const { a } = annotate(raw, glucoseCatalog);
+      expect(a.mapping.status).toBe("ambiguous");
+      if (a.mapping.status !== "ambiguous") return;
+      expect(a.mapping.reason).toBe("no-reported-units");
+    }
+  });
+
+  it("compares a garbled units field verbatim rather than trying to repair it", () => {
+    // Text in the units slot that is not a unit is compared exactly as it stands,
+    // matches nothing, and the answer is the refusal: nothing here attempts a repair.
+    const { a } = annotate(unitStream("^^^GLU", "mg/dL and up"), glucoseCatalog);
+    expect(a.mapping.status).toBe("ambiguous");
+    if (a.mapping.status !== "ambiguous") return;
+    expect(a.mapping.reason).toBe("no-candidate-matched-units");
+  });
+});
+
+describe("the annotation adds the LIVD attributes and rewrites nothing on the wire", () => {
+  it("leaves the reported code, value and units exactly as parsed", () => {
+    const msg = parseAstmRecords(unitStream("Glucose^^^GLU", "mg/dL"));
+    const before = structuredClone(msg);
+    const { annotations } = applyLivd(msg, glucoseCatalog);
+    expect(msg).toEqual(before);
+
+    const r = results(msg)[0];
+    expect(r?.universalTestId?.localCode).toBe("GLU");
+    expect(r?.value).toBe("5.5");
+    expect(r?.units).toBe("mg/dL");
+
+    // The three attributes exist ONLY on the annotation, never on the record.
+    expect(annotations[0]?.mapping).toMatchObject({
+      vendorSpecimenDescription: "Serum or Plasma",
+      vendorResultDescription: "Numeric mass concentration, mg/dL",
+      representativeUnit: "mg/dL",
+    });
+    expect(JSON.stringify(msg)).not.toContain("Serum or Plasma");
+    expect(JSON.stringify(msg)).not.toContain("Numeric mass concentration");
+  });
+
+  it("keeps a hand-written one-argument catalog working unchanged", () => {
+    // The units are an OPTIONAL second parameter, so a consumer's own implementation
+    // that never declared them still satisfies the interface and still answers.
+    const oneArg: LivdCatalog = {
+      size: 1,
+      lookup(vendorCode: string): LivdLookup {
+        return vendorCode === "GLU"
+          ? { status: "mapped", loinc: "2345-7" }
+          : { status: "unmapped" };
+      },
+    };
+    const { a } = annotate(unitStream("^^^GLU", "mg/dL"), oneArg);
+    expect(a.mapping).toEqual({
+      status: "mapped",
+      loinc: "2345-7",
+      source: "livd",
+      derived: true,
+    });
+  });
+});

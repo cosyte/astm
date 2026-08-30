@@ -1,0 +1,20 @@
+---
+"@cosyte/astm": patch
+---
+
+**A LIVD catalog can now say what tells two candidate LOINCs apart, and the reported units choose between them.** One vendor analyte code mapping to several LOINCs is the ordinary case rather than an edge: the governing mapping guide gives the commonest chemistry analytes as its own worked examples, a serum glucose reported as a mass concentration versus a substance concentration and a urine analyte reported as a spot concentration versus a 24 hour excretion rate, and its remedy is to define a mapping per unit. `LivdEntry` had nowhere to record any of that, so a catalog covering more than one reporting unit answered `ambiguous` for a large share of ordinary analytes. The `R` record already states its units on the wire, so those units, and only those units, now settle it.
+
+Added:
+
+- `LivdEntry.vendorSpecimenDescription`, `LivdEntry.vendorResultDescription` and `LivdEntry.representativeUnit`: three **optional** attributes carried **verbatim**, with no trimming, case folding or normalization of any kind.
+- `LivdCatalog.lookup` takes an **optional** second parameter, the units the record reported. `applyLivd` and `lookupLivdForRecord` supply field 5 of an `R` record verbatim; an `O` record has no units field, so nothing is supplied for one. **This is source compatible**: a hand-written catalog whose `lookup` declares only the vendor code still satisfies the interface and answers exactly as it did.
+- `LivdUnitComparison`, on a `mapped` answer as `unitComparison`, and present **if and only if** a unit comparison chose that LOINC from more than one candidate.
+- `LivdCandidate`, on an `ambiguous` answer as `candidateDetails`, plus `LivdAmbiguityReason` as `reason`.
+
+**The comparison is verbatim and case sensitive, and it is not UCUM.** Nothing is normalized, case folded, scaled or converted on either side, so a catalog saying `mg/dL` does not match a feed saying `MG/DL`, never matches `ug/dL` however convertible the two are, and a unit differing only in surrounding or internal whitespace is a different unit. UCUM defines a case-insensitive variant of every terminal symbol and requires a program declaring full conformance to compare unit expressions by their semantics, so this is a deliberately limited choice: the only comparison that cannot invent an equivalence. Because a consumer could otherwise read a matched unit as a conformance claim this package does not make, every unit-selected answer states what was compared (`comparison: "verbatim-case-sensitive"`, `ucumSemantic: false`, both units verbatim, and a note).
+
+**Nothing about `ambiguous` was narrowed, and refusing still beats guessing.** The units matching no candidate, matching more than one, or not being readable at all (absent, empty, whitespace only, or lost to a truncated or malformed record) are all `ambiguous` with every candidate surfaced and no LOINC chosen. An unreadable units field reads as no units reported: a typed annotation is still produced, nothing raises, and no record is omitted. A candidate whose representative unit is absent, empty or whitespace only is **not unit qualified**, so it is never selected by a unit comparison, and it is still surfaced among the candidates.
+
+**This is additive, and an answer that was `mapped` can never become `ambiguous`.** A vendor code carrying exactly one candidate LOINC is answered whether or not the units agree, and with no `unitComparison`, because no unit chose anything there. All three attributes are optional and every new answer field is conditional, so a catalog carrying none of them answers byte-identically to how it answered before, for `mapped`, `unmapped` and `ambiguous` alike.
+
+**Two things are deliberately not done.** The vendor specimen description and the vendor result description are **never matched on**: both are free text, and the guide states directly that this information is not intended to be parsed by software that automates the mapping, so they are stored and surfaced for a human and nothing else. And no LOINC is validated or shape-tested anywhere here, which is unchanged: this package still performs no LOINC validation of any kind.

@@ -82,6 +82,50 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ### Added
 
+- **A LIVD catalog can now say what tells two candidate LOINCs apart, and the reported units choose
+  between them.** One vendor analyte code mapping to several LOINCs is the ordinary case, not an
+  edge: the governing mapping guide gives the commonest chemistry analytes as its own worked
+  examples (a serum glucose reported as a mass concentration versus a substance concentration; a
+  urine analyte reported as a spot concentration versus a 24 hour excretion rate) and its remedy is
+  a mapping per unit. Until now `LivdEntry` had nowhere to record any of that, so a catalog covering
+  more than one reporting unit returned `ambiguous` for a large share of ordinary analytes.
+  - `LivdEntry` gains three **optional** attributes, each carried **verbatim** with no trimming,
+    case folding or normalization: `vendorSpecimenDescription`, `vendorResultDescription` and
+    `representativeUnit`.
+  - `LivdCatalog.lookup` gains an **optional** second parameter, the units the record reported.
+    `applyLivd` and `lookupLivdForRecord` pass field 5 of an `R` record, verbatim; an `O` record has
+    no units field, so nothing is passed for one. A hand-written catalog whose `lookup` declares
+    only the vendor code still satisfies the interface and answers exactly as before.
+  - Where a vendor code carries several distinct candidate LOINCs, the candidate whose
+    `representativeUnit` is **exactly equal** to the reported units is answered `mapped`. **The
+    comparison is verbatim and case sensitive and it is not UCUM**: nothing is normalized, case
+    folded, scaled or converted on either side, so `MG/DL` does not match `mg/dL` and `mg/L` never
+    matches `ug/dL`. UCUM requires a program declaring full conformance to compare unit expressions
+    by their semantics, so every unit-selected answer carries the new `unitComparison`
+    (`comparison: "verbatim-case-sensitive"`, `ucumSemantic: false`, both units verbatim, and a
+    note) rather than letting a matched unit read as a conformance claim this package does not make.
+  - Refusing still beats guessing, and nothing about `ambiguous` was narrowed. The units matching no
+    candidate, matching more than one, or not being readable at all (absent, empty, whitespace only,
+    or lost to a truncated or malformed record) are all `ambiguous` with every candidate surfaced
+    and no LOINC chosen. An unreadable units field reads as **no units reported**: a typed
+    annotation is still produced, nothing raises and no record is omitted. An ambiguous answer now
+    also carries `candidateDetails` (each candidate row's LOINC and LIVD attributes, one per catalog
+    row, including rows that are not unit qualified) and a `reason` naming which refusal it was.
+  - A candidate whose `representativeUnit` is absent, empty or whitespace only is **not unit
+    qualified**: never selected by a unit comparison, and still surfaced among the candidates. A
+    vendor code carrying exactly **one** candidate LOINC is answered whether or not the units agree,
+    with no `unitComparison`, because no unit chose anything there. An answer that read `mapped`
+    before this change can never become `ambiguous`.
+  - `vendorSpecimenDescription` and `vendorResultDescription` are **never matched on**. Both are
+    free text, and the guide states directly that this information is not intended to be parsed by
+    software that automates the mapping, so they are stored and surfaced for a human and nothing
+    else. Only the representative unit ever selects.
+  - **Additive throughout.** All three attributes are optional and every new answer field is
+    conditional, so a catalog carrying none of them answers byte-identically to how it answered
+    before, for `mapped`, `unmapped` and `ambiguous` alike. No LOINC is validated or shape-tested,
+    no unit is converted, no data is migrated and no consumer catalog is rewritten. New exported
+    types: `LivdCandidate`, `LivdUnitComparison`, `LivdAmbiguityReason`.
+
 - **The PHI sweep now reads the bytes git carries, as a union with the working-tree walk.** All mode
   reconciled the paths it walked against the paths git tracks, and a comparison of path _sets_ is
   satisfied by a working tree that carries different content at those paths. Four states were
