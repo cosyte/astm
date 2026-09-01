@@ -518,7 +518,7 @@ section 5's precondition is met.
 Entries 1 to 4 are the public values the LIVD changeset removes or redefines, and `primaryCode()`
 is the one that produces **no compile error at all**.
 
-The eight candidates at a glance, so the decision has an index and not eight pages of prose. Each
+The nine candidates at a glance, so the decision has an index and not nine pages of prose. Each
 one is argued in full under its own heading below, and the class after the dash is what a
 consumer's BUILD does, not how severe the change is:
 
@@ -535,6 +535,9 @@ consumer's BUILD does, not how severe the change is:
    switch, plus a silent behaviour change for a feed sending either letter.
 8. `LivdAnnotation.wireValueDisagreesWithCatalog` - required property added: a compile error only
    where a consumer constructs a `LivdAnnotation`.
+9. `AbnormalFlagMeaning` widened by `"significantly-high"` and `"significantly-low"` - union
+   widened: a compile error in an exhaustive switch over `AbnormalFlag.meaning`, plus the same
+   silent behaviour change entry 7 reports, read off the meaning rather than off the letter.
 
 ### 1. `UniversalTestId.loincCandidate` (removed)
 
@@ -622,6 +625,36 @@ consumer's BUILD does, not how severe the change is:
   literal is unavoidable, `wireValueDisagreesWithCatalog: false` is the value every other
   disposition carries, and it must not be written `true` to mean "unknown": the field reports a
   measured disagreement and nothing else.
+- **Status:** awaits the operator's decision before any release.
+
+### 9. `AbnormalFlagMeaning` widened by `"significantly-high"` and `"significantly-low"`
+
+The same changeset as entry 7, on the second exported type it widens. It is its own entry because
+it is its own public value: `AbnormalFlagMeaning` is enumerated in section 3 in its own right, and
+entry 7's compile error is over `AbnormalFlag.code` and does not reach a consumer who reads
+`AbnormalFlag.meaning` instead.
+
+- **Effect a consumer sees:** two effects, and the second is silent. `AbnormalFlagMeaning` is the
+  declared type of `AbnormalFlag.meaning`, which is a **required** member, so every interpreted flag
+  hands a consumer a value of this union whether or not they ever write the type's name. A consumer
+  with an exhaustive `switch` over `AbnormalFlag.meaning` and a `never` sink gets a compile error
+  for the two new members, the same shape entry 7 reports one type over. The silent effect is entry
+  7's, read off the meaning rather than off the letter: an `HU` or `LU` feed that used to arrive as
+  `"undefined"` now arrives as `"significantly-high"` or `"significantly-low"`, so a branch keyed on
+  `meaning === "undefined"` stops firing for those records, and a non-exhaustive reader that handled
+  the previous member list explicitly now routes them to whatever its fallback arm does.
+- **Migration:** handle `"significantly-high"` and `"significantly-low"` wherever a meaning is read,
+  and give each its own reading rather than folding it into a neighbour. They are a magnitude
+  relative to an interval, so they are distinct from `"below-normal"` / `"above-normal"` (merely
+  outside it), from `"critically-below-normal"` / `"critically-above-normal"` (critical), and from
+  `"significant-change-down"` / `"significant-change-up"` (a change since the last result); all six
+  of those keep the readings they had, and the sentinel `"undefined"` keeps its fail-safe meaning of
+  a flag that was present and is not in the graded vocabulary. The type checker finds the whole
+  population of the compile half. The silent half is not type-visible and is found by auditing what
+  a consumer does with `meaning === "undefined"` (or with `recognized === false`) on a feed that
+  sends either letter. There is no exported runtime list of meanings to iterate against, since
+  `ABNORMAL_FLAG_CODES` lists the letters and not their readings, so the union itself is the
+  enumeration a consumer tracks.
 - **Status:** awaits the operator's decision before any release.
 
 The other two members the LIVD changeset adds to `LivdAnnotation` are **optional**
