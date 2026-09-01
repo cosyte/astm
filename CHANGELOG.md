@@ -9,6 +9,26 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ## [Unreleased]
 
+**The pending changeset set is classified `minor`, not `patch`, so the next release is a minor
+release.** Both pending changesets arrived carrying `patch` and both were reclassified against their
+own text: one removes public values and changes what an exported function returns, and the other
+adds public values. Neither is a fix that adds nothing and removes nothing, which is the only thing
+a `patch` may claim. Nothing is added on top of the set and no prose was rewritten; only the two
+bump lines moved.
+
+The breaking change below therefore ships in the minor channel of the pre-1.0 ladder, which is where
+a break belongs before `1.0.0`, rather than as a patch. Every break a consumer of the last published
+version would see is enumerated with its migration in `documentation/release-readiness.md`, together
+with the public export surface this release would certify as settled. **Each break awaits a decision
+before any release, and nothing publishes yet**: the release environment gate stays as it is, and no
+version number is written here, because Changesets owns the bump and `scripts/sync-version.mjs`
+mirrors it.
+
+The two entries the pending set carries are the vocabulary-attribution entry under Added and the
+LIVD catalog entry under Changed. This section also holds entries written before them, which is
+where they have always been kept: no released entry was moved, reworded or deleted by the
+reclassification, because rewriting a shipped changelog destroys the traceability it exists for.
+
 ### Changed
 
 - **The unrecognized-flag and unrecognized-status warning messages name the same attribution the
