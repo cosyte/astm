@@ -366,6 +366,75 @@ its license obligations).
 > for the analyzers you actually receive from. (Conflicting entries _within_ one catalog are caught and
 > surfaced as `ambiguous`, never resolved to a guess.)
 
+### Read a date without inventing a timezone
+
+**An ASTM timestamp carries no timezone, so it is not an instant.** The value is local to the
+instrument that wrote it, and nothing on the wire says which zone that was. `toDate` therefore
+returns `undefined` until **you** say what the offset was: it never reads the host machine's zone
+and never assumes UTC. Both guesses are silent, and both shift a collection date by a day in every
+negative-offset zone.
+
+`parseAstmDate` reads the digit run into an `AstmDate` that keeps whatever precision the instrument
+sent (`"20240315"` is a **day**, not a fabricated midnight). Three conversions read that value, and
+they carry the same names, the same shapes and the same timezone rule in every `@cosyte` parser:
+
+| function                  | returns                  | on a value it cannot convert                  |
+| ------------------------- | ------------------------ | --------------------------------------------- |
+| `toObject(value)`         | `DateParts \| undefined` | `undefined`                                   |
+| `toISO(value)`            | `string \| undefined`    | `undefined`                                   |
+| `toDate(value, options?)` | `Date \| undefined`      | `undefined`, including when no zone was given |
+
+```ts
+import { parseAstmDate, toObject, toISO, toDate } from "@cosyte/astm";
+
+const collected = parseAstmDate("20240315"); // day precision, no time, no zone
+
+toObject(collected); // { year: 2024, month: 3, day: 15 }   only what was stated
+toISO(collected); // "2024-03-15"                        no trailing Z, ever
+toDate(collected); // undefined                          the zone is unstated
+
+// You know the analyzer runs on US Eastern standard time, so you say so:
+toDate(collected, { assumeOffsetMinutes: -300 }); // 2024-03-15T05:00:00.000Z
+toDate(collected, { assumeOffsetMinutes: 0 }); // 2024-03-15T00:00:00.000Z, "read it as UTC"
+```
+
+`assumeOffsetMinutes` is signed minutes east of UTC, and an explicit `0` is a real answer ("treat
+this value as UTC"), not a default. Components below the stated precision fill to their lowest legal
+value for the instant only (month and day to 1, the time to 0); the value itself is untouched, so
+`toObject` and `toISO` keep reporting the precision that arrived. A four-digit year below 100 stays
+that year: `"00500101"` is the year 50, never 1950.
+
+`toObject` returns a **frozen** object carrying only the components the value stated, so
+`Object.keys()` is the precision. There is no `precision`, `raw` or `truncated` key on it (that is
+the parse record, and it stays on `AstmDate`), no zero-filling, and no key holding `undefined`. The
+month is spec-native **1 to 12**, and the keys are singular, so deleting `offsetMinutes` (which an
+ASTM value never has) leaves an object `Temporal.PlainDateTime.from` and luxon's
+`DateTime.fromObject` accept with no key rename and no value adjustment. Neither library is a
+dependency here: the shape is the interoperability, not an import.
+
+`astmDateToLocalISO` is unchanged and still exported; `toISO` returns the same string for every
+value this parser produces, under the name every `@cosyte` parser answers to.
+
+#### Using two `@cosyte` parsers in one file
+
+The three names are deliberately identical across the packages, so importing two of them collides.
+Alias them, or namespace-import:
+
+```ts
+import { parseAstmDate, toISO as astmToISO, toDate as astmToDate } from "@cosyte/astm";
+import { toISO as hl7ToISO } from "@cosyte/hl7";
+
+// Or namespace the whole package:
+import * as astm from "@cosyte/astm";
+
+astmToISO(parseAstmDate("202403150930")); // "2024-03-15T09:30"
+astm.toDate(parseAstmDate("20240315"), { assumeOffsetMinutes: -300 });
+```
+
+An HL7 v2 `DTM` can state its own offset and an ASTM timestamp never can, so the two answer
+differently on purpose: `hl7ToISO` may end in `Z` or `+HH:MM`, `astmToISO` never does. That
+difference is the standards', not the API's.
+
 ### The cosyte parser archetype
 
 - **Postel's Law**: liberal parser (lenient default + warnings), conservative serializer (always

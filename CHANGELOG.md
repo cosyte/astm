@@ -109,6 +109,41 @@ reclassification, because rewriting a shipped changelog destroys the traceabilit
 
 ### Added
 
+- **`toObject`, `toISO` and `toDate`: the shared `@cosyte` date conversion surface, with the
+  timezone honesty ASTM forces.** A parsed `AstmDate` could be rendered (`astmDateToLocalISO`) but
+  not read as components and not converted to an instant, and the name it was rendered under was
+  this package's alone, so a consumer holding dates from two `@cosyte` parsers wrote two different
+  conversions. The three names, their return shapes and their timezone rule are now identical across
+  the sibling parsers.
+  - `toObject(value)` returns a **frozen** object carrying only the components the value stated
+    (`{ year, month, day }` for `"20240315"`), with a spec-native 1-to-12 month and singular
+    `hour`/`minute`/`second` keys. Nothing is zero-filled, no key holds `undefined`, and the parse
+    bookkeeping (`raw`, `precision`, `truncated`) stays on `AstmDate` rather than crossing over: a
+    digit run that cut a component in half reports only its complete components, and the dangling
+    digit reaches no field. `Object.keys()` is therefore the value's precision. Deleting
+    `offsetMinutes`, which an ASTM value never carries, leaves an object
+    `Temporal.PlainDateTime.from` and luxon's `DateTime.fromObject` accept unchanged; neither
+    library is a dependency, the shape is the interoperability.
+  - `toISO(value)` renders ISO-8601 truncated to the stated precision and appends no `Z` and no
+    offset, because ASTM states none. It returns the same string `astmDateToLocalISO` returns for
+    every value `parseAstmDate` produces; that function is unchanged, still exported, and still the
+    repo-native name.
+  - `toDate(value, options?)` returns a `Date` **only** when the caller supplies
+    `options.assumeOffsetMinutes`, signed minutes east of UTC, with an explicit `0` meaning "read
+    this value as UTC". An ASTM timestamp is local to the instrument that wrote it, so without that
+    assumption there is no instant to give and the answer is `undefined`: the host machine's zone is
+    never read and UTC is never assumed, both of which would silently shift a date by a day in every
+    negative-offset zone. Components below the stated precision fill to their lowest legal value for
+    the instant only, leaving the value's own precision untouched, and a four-digit year below 100
+    stays that year (`"00500101"` is the year 50, never 1950).
+  - The `DateParts` and `ToDateOptions` types, and a README section covering all three together with
+    the aliasing pattern the shared names force on a consumer importing two `@cosyte` parsers in one
+    file.
+  - None of the three ever throws: `undefined`, `null`, a value this parser refused, and a value
+    stating no component all answer `undefined`. Nothing else moved. No existing export was removed,
+    renamed or changed in behaviour, no dependency of any kind was added, and the engine floor is
+    unchanged.
+
 - **Every interpreted abnormal flag and result status reports the vocabulary it was graded against,
   and `HU`/`LU` are recognized.** The `R` record's flag (field 7) and status (field 9) letters come
   from vocabularies maintained on other bodies' schedules, while the record grammar around them is
