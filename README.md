@@ -412,8 +412,29 @@ ASTM value never has) leaves an object `Temporal.PlainDateTime.from` and luxon's
 `DateTime.fromObject` accept with no key rename and no value adjustment. Neither library is a
 dependency here: the shape is the interoperability, not an import.
 
-`astmDateToLocalISO` is unchanged and still exported; `toISO` returns the same string for every
-value this parser produces, under the name every `@cosyte` parser answers to.
+**A component that is not on the calendar is refused, not normalised.** The parser is lenient by
+design and will read `"19881301"` into month 13 rather than drop the field, so the conversions are
+where that has to be answered, and all three of them answer `undefined`:
+
+```ts
+parseAstmDate("19881301")?.month; // 13: the parser reports what arrived
+toObject(parseAstmDate("19881301")); // undefined
+toISO(parseAstmDate("19881301")); // undefined
+toDate(parseAstmDate("19881301"), { assumeOffsetMinutes: 0 }); // undefined
+```
+
+A JS `Date` would have rolled that month 13 into January **1989** and handed back a date of birth a
+year out, with nothing to say so. A month outside 1 to 12, a day past the end of its own month (29
+February in a common year included), an hour past 23 and a minute or second past 59 are all refused
+the same way. The refusal is of the whole value, never of the offending component alone: `undefined`
+rather than a year-precision `{ year: 1988 }` the instrument never sent.
+
+`astmDateToLocalISO` is unchanged and still exported. `toISO` returns the same string for every value
+this parser produces **whose components are a real calendar date**, under the name every `@cosyte`
+parser answers to. On a value whose components are not, the two differ on purpose and in one
+direction: `astmDateToLocalISO` still renders the digits it was handed (`"1988-13-01"`), which is its
+long-standing behaviour, and `toISO` gives you `undefined` instead of a string no ISO-8601 reader
+accepts.
 
 #### Using two `@cosyte` parsers in one file
 
