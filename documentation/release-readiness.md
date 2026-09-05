@@ -135,8 +135,17 @@ are re-exported from the package entry point and appear in the surface enumerate
 
 It removes nothing. `parseAstmDate`, `astmDateToLocalISO`, `AstmDate` and `AstmDatePrecision` keep
 their names, their signatures and their behaviour, `src/common/dates.ts` is byte-identical to the
-tree this branch started from, and no pre-existing test was edited to accommodate the addition. That
-is what keeps it out of the break list in section 4.
+tree this branch started from, and no pre-existing test was edited to accommodate the addition. The
+one pre-existing file the addition does touch is `scripts/phi-allow-list.txt`, which gains a single
+`DOB` declaration for the synthetic out-of-range birthdate the new conformance test is built on: that
+is the documented way to add a synthetic fixture, not a loosening of the scanner. All of that is what
+keeps this changeset out of the break list in section 4.
+
+The addition does state a rule that `astmDateToLocalISO` does not follow, and it is a rule about the
+NEW functions only: a value whose components are not a real calendar date (`"19881301"`, month 13)
+converts to `undefined` through `toObject`, `toISO` and `toDate`, while `astmDateToLocalISO` renders
+it exactly as it always has. That is a difference between two functions, not a change to one, so it
+is not a break either.
 
 A feature that adds public values is `minor` by the same rule that keeps a real fix at `patch`, so
 this one carries `minor` as written and needs no reclassification.

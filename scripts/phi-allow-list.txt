@@ -104,6 +104,12 @@ DOB 2020010
 DOB 19700101
 DOB 19800101
 DOB 20191231
+# The out-of-range birthdate the conversion-surface regression is built on. It
+# states month 13, so it is not a date anyone was born on and cannot be anyone's:
+# it is in the tree to prove the conversion surface refuses such a value instead
+# of rolling it into January of the following year. Declared as the scanner reads
+# it, in the P-8 position of a hand-authored stream.
+DOB 19881301
 
 # --- Synthetic ids: SSN / MRN / member-id shapes (reserved for a later phase's detector) ---
 # ID MRN12345

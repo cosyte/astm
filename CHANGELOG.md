@@ -150,8 +150,10 @@ exists for.
     library is a dependency, the shape is the interoperability.
   - `toISO(value)` renders ISO-8601 truncated to the stated precision and appends no `Z` and no
     offset, because ASTM states none. It returns the same string `astmDateToLocalISO` returns for
-    every value `parseAstmDate` produces; that function is unchanged, still exported, and still the
-    repo-native name.
+    every value `parseAstmDate` produces whose components are a real calendar date; that function is
+    unchanged, still exported, and still the repo-native name. On a value whose components are not,
+    it still renders the digits it was handed (`"1988-13-01"`) and `toISO` answers `undefined`
+    instead, which is the only place the two differ.
   - `toDate(value, options?)` returns a `Date` **only** when the caller supplies
     `options.assumeOffsetMinutes`, signed minutes east of UTC, with an explicit `0` meaning "read
     this value as UTC". An ASTM timestamp is local to the instrument that wrote it, so without that
@@ -163,10 +165,17 @@ exists for.
   - The `DateParts` and `ToDateOptions` types, and a README section covering all three together with
     the aliasing pattern the shared names force on a consumer importing two `@cosyte` parsers in one
     file.
-  - None of the three ever throws: `undefined`, `null`, a value this parser refused, and a value
-    stating no component all answer `undefined`. Nothing else moved. No existing export was removed,
-    renamed or changed in behaviour, no dependency of any kind was added, and the engine floor is
-    unchanged.
+  - A component that is not on the calendar is refused by all three rather than normalised.
+    `parseAstmDate` is lenient by design and reads `"19881301"` into month 13 rather than dropping
+    the field, and that is unchanged, so the conversions are where it is answered: a month outside 1
+    to 12, a day past the end of its own month (29 February in a common year included), an hour past
+    23 and a minute or second past 59 each yield `undefined`. A JS `Date` would instead roll month 13
+    into January of the following year and return a date of birth a year out with nothing to say so.
+    The refusal is of the whole value, never of the offending component alone.
+  - None of the three ever throws: `undefined`, `null`, a value this parser refused, a value stating
+    no component, and a value whose components are not a real calendar date all answer `undefined`.
+    Nothing else moved. No existing export was removed, renamed or changed in behaviour, no
+    dependency of any kind was added, and the engine floor is unchanged.
 
 - **A LIVD catalog can now say what tells two candidate LOINCs apart, and the reported units choose
   between them.** One vendor analyte code mapping to several LOINCs is the ordinary case, not an
