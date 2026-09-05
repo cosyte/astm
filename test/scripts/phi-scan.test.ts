@@ -1676,6 +1676,138 @@ describe("phi-scan index corpus: the positive control on the corpus it claims to
   });
 });
 
+// ---------------------------------------------------------------------------
+// ENUMERATED against READ: a withdrawn target has no clean verdict either
+// ---------------------------------------------------------------------------
+//
+// The scanner already refused an all-mode sweep that did not OBSERVE its corpus,
+// and that clause runs inside `buildTargetsForAll`, before the whole-file bypass
+// is subtracted. The bypass is applied to EVERY route's finished target list, so
+// a run naming two paths and withdrawing one enumerated both, opened one, and
+// answered for both at the HITS code, which is the same code the same argv
+// produces over a corpus whose ONLY violator is the withdrawn one. These cases
+// pin the refusal, the two controls that make the withdrawal the only variable,
+// and the mutation control that keeps the whole block from being vacuous.
+
+/** The reconciliation in `main`, and the same `main` with it computed away. */
+const SHIPPED_UNREAD_RECONCILIATION = `  const unread = unreadEnumerated(enumerated, read);`;
+const NO_UNREAD_RECONCILIATION = `  const unread: string[] = [];`;
+
+/** The override log the bypass gate reads, written in this repo's `### <path>` shape. */
+function overrideLogIn(root: string, paths: string[]): void {
+  const entries = paths
+    .map((p) => `\n### ${p}\n\n- **Date:** suite\n- **Reason:** suite\n`)
+    .join("");
+  writeFileSync(
+    join(root, "phi-scan-overrides.md"),
+    `# PHI scan overrides\n\n## Entries\n${entries}`,
+  );
+}
+
+/**
+ * A tree carrying a violator and a CLEAN decoy under `test/fixtures/`, with the
+ * decoy logged as an acknowledged bypass.
+ *
+ * THE DECOY IS CLEAN ON PURPOSE, which is what makes withdrawing it the ONLY
+ * difference between the graded run and an ordinary two-path run: a decoy that
+ * carried its own finding would let a refusal be about the finding instead.
+ */
+function bypassRepo(): { root: string; violator: string; decoy: string } {
+  const root = makeRepo();
+  fixturesIn(root);
+  const violator = "test/fixtures/violator.astm";
+  const decoy = "test/fixtures/decoy.astm";
+  writeFileSync(join(root, violator), SYNTHETIC_PHI);
+  writeFileSync(join(root, decoy), "H|\\^&\rL|1\r");
+  overrideLogIn(root, [decoy]);
+  git(root, ["add", "."]);
+  return { root, violator, decoy };
+}
+
+describe("phi-scan: a target enumerated and never read refuses (exit 2)", () => {
+  it("premise: the decoy scans CLEAN on its own, so withdrawing it is the only variable", () => {
+    const { root, decoy } = bypassRepo();
+    const r = runIn(root, [decoy]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout).toMatch(/OK: no hits/);
+  });
+
+  it("premise: the same two paths with NO bypass report the hit at the HITS code (exit 1)", () => {
+    const { root, violator, decoy } = bypassRepo();
+    const r = runIn(root, [violator, decoy]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toContain(SSN);
+  });
+
+  it("refuses the graded run, AND still prints the hit it already found", () => {
+    const { root, violator, decoy } = bypassRepo();
+    const r = runIn(root, [violator, decoy, "--allow-fixture", decoy]);
+
+    // Neither 0 nor the hits code: this scanner's invocation-error code.
+    expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+    // A REFUSAL MUST NOT SWALLOW A REAL HIT.
+    expect(r.stderr).toContain("[phi-scan] HIT:");
+    expect(r.stderr).toContain(violator);
+    expect(r.stderr).toContain(SSN);
+    // ...and it names the path nobody opened, rather than counting them.
+    expect(r.stderr).toContain(decoy);
+    expect(r.stderr).toMatch(/enumerated for this run and never read/);
+    expect(r.stdout).not.toMatch(/OK: no hits/);
+  });
+
+  it("reaches the `--staged` route too, which the bypass also applies to", () => {
+    const { root, decoy } = bypassRepo();
+    // `makeRepo` stages what it writes and nothing is committed, so both fixtures
+    // are staged adds and both are in the `--staged` route's own scope.
+    const r = runIn(root, ["--staged", "--allow-fixture", decoy]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+    expect(r.stderr).toContain(decoy);
+    expect(r.stderr).toMatch(/enumerated for this run and never read/);
+    expect(r.stderr).toContain(SSN);
+  });
+
+  it("MUTATION CONTROL: strike the reconciliation and the graded run reports only the hits code", () => {
+    // This is the base commit's behaviour, and it is the whole point of the case
+    // above: without this the exit 2 could be coming from anywhere.
+    const { root, violator, decoy } = bypassRepo();
+    const base = variantIn(
+      root,
+      "phi-scan-base.ts",
+      SHIPPED_UNREAD_RECONCILIATION,
+      NO_UNREAD_RECONCILIATION,
+    );
+    const before = runVariant(root, base, [violator, decoy, "--allow-fixture", decoy]);
+    expect(before.code, `stderr: ${before.stderr}`).toBe(1);
+    expect(before.stderr).not.toMatch(/never read/);
+  });
+
+  it("changes NOTHING on any of the three routes when no bypass is passed", () => {
+    // The clause can only fire on a target the subtraction removed, and with no
+    // `--allow-fixture` the finished list and the read set are equal by
+    // construction. This asserts the stronger thing the criterion asks for: the
+    // exit code AND every line printed are identical to the scanner without it.
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(join(root, "test", "fixtures", "patient.astm"), SYNTHETIC_PHI);
+    git(root, ["add", "."]);
+    const base = variantIn(
+      root,
+      "phi-scan-base.ts",
+      SHIPPED_UNREAD_RECONCILIATION,
+      NO_UNREAD_RECONCILIATION,
+    );
+
+    for (const args of [[], ["--staged"], ["test/fixtures/patient.astm"]]) {
+      const label = `route: ${args.length === 0 ? "all" : args.join(" ")}`;
+      const before = runVariant(root, base, args);
+      const after = runIn(root, args);
+      expect(after.code, label).toBe(before.code);
+      expect(after.stdout, label).toBe(before.stdout);
+      expect(after.stderr, label).toBe(before.stderr);
+    }
+  });
+});
+
 describe("phi-scan: the scan is about THIS package, whatever directory it is run from", () => {
   it("scans its own repo and not the caller's cwd (the wrong-package negative control)", () => {
     // A worker in this fleet wrote fixtures into a PARENT checkout by building a
