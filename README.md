@@ -463,6 +463,20 @@ value for the instant only (month and day to 1, the time to 0); the value itself
 `toObject` and `toISO` keep reporting the precision that arrived. A four-digit year below 100 stays
 that year: `"00500101"` is the year 50, never 1950.
 
+An offset that names no usable zone is refused rather than applied, and **the answer is never an
+`Invalid Date`**: not a `NaN` or infinite `assumeOffsetMinutes`, and not one so large that applying
+it lands outside the range a JS `Date` represents. Both give you `undefined`, like every other case
+this surface cannot answer.
+
+```ts
+toDate(collected, { assumeOffsetMinutes: Number.NaN }); // undefined
+toDate(collected, { assumeOffsetMinutes: 1e15 }); // undefined, past the representable range
+```
+
+An `Invalid Date` would satisfy the `Date | undefined` return type and defeat its point: you cannot
+tell one from a real instant without testing `getTime()` for `NaN`, and calling `toISOString()` on it
+throws. Checking for `undefined` is the only test you need.
+
 `toObject` returns a **frozen** object carrying only the components the value stated, so
 `Object.keys()` is the precision. There is no `precision`, `raw` or `truncated` key on it (that is
 the parse record, and it stays on `AstmDate`), no zero-filling, and no key holding `undefined`. The

@@ -250,6 +250,14 @@ export function toISO(value: AstmDate | null | undefined): string | undefined {
  * that silent roll-over is the reason the range is checked before the instant is
  * built rather than after.
  *
+ * An `assumeOffsetMinutes` that names no usable zone is refused the same way,
+ * with `undefined`: one that is not a finite number (`NaN`, either infinity),
+ * and one so large that applying it puts the result outside the range a JS
+ * `Date` represents. **The answer is never an `Invalid Date`.** Such a `Date`
+ * satisfies this signature and defeats it, because a caller cannot tell it from
+ * a real instant without testing `getTime()` for `NaN`, and `toISOString()` on
+ * it throws.
+ *
  * Components below the stated precision fill to their lowest legal value (month
  * and day to 1, time to 0) **for instant construction only**: the value itself is
  * unchanged, and {@link toObject} and {@link toISO} report exactly what they
@@ -276,6 +284,8 @@ export function toDate(
 
   // The value's own offset would win over the caller's assumption, but an ASTM
   // value never states one, so the assumption is the only route to an instant.
+  // A non-finite assumption (NaN, either infinity) names no zone at all, so it
+  // is refused here, before it is applied to anything.
   const offsetMinutes = options?.assumeOffsetMinutes;
   if (!isStated(offsetMinutes)) return undefined;
 
@@ -289,9 +299,15 @@ export function toDate(
   // retains no fractional second, so there is never a stated one to carry.
   instant.setUTCHours(parts.hour ?? 0, parts.minute ?? 0, parts.second ?? 0, 0);
 
-  const utcMillis = instant.getTime();
-  // A year past the representable range yields an Invalid Date; report the
-  // absence rather than handing back a `Date` that fails every comparison.
-  if (Number.isNaN(utcMillis)) return undefined;
-  return new Date(utcMillis - offsetMinutes * 60_000);
+  // The net sits AFTER the offset is applied, on the instant actually returned.
+  // A finite offset is not automatically a usable one: 1e15 minutes is finite,
+  // survives the guard above, and pushes a perfectly representable wall time
+  // past the range a `Date` holds. Checking before the subtraction would miss
+  // exactly that, and `NaN` propagates through the subtraction, so this one
+  // check answers for both ends. Report the absence rather than hand back a
+  // `Date` that fails every comparison a caller will make on it: an Invalid
+  // Date wears the shape of an instant while carrying none, and `toISOString`
+  // on it throws.
+  const shifted = new Date(instant.getTime() - offsetMinutes * 60_000);
+  return Number.isNaN(shifted.getTime()) ? undefined : shifted;
 }

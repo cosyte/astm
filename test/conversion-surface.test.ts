@@ -582,16 +582,56 @@ describe("toDate", () => {
   });
 
   it("refuses an offset that is not a real number", () => {
-    expect(toDate(parsed("20240315"), { assumeOffsetMinutes: Number.NaN })).toBeUndefined();
+    const day = parsed("20240315");
+    for (const offset of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(
+        toDate(day, { assumeOffsetMinutes: offset }),
+        `assumeOffsetMinutes ${String(offset)} was read as a zone`,
+      ).toBeUndefined();
+    }
   });
 
-  it("never returns an Invalid Date", () => {
-    // Past the representable range: report the absence rather than hand back a
-    // `Date` that fails every comparison. Unreachable from `parseAstmDate`, which
-    // reads a four-digit year, and reachable from JavaScript. The calendar-range
-    // check answers first now; the guard on the constructed instant stays behind
-    // it, so this holds whichever one catches the value.
+  it("refuses a FINITE offset that pushes the instant out of the representable range", () => {
+    // The guard on the option cannot see this one: 1e15 is a finite number, so
+    // it is only the check on the instant AFTER the subtraction that answers.
+    // A JS `Date` reaches 8.64e15 ms either side of the epoch and 1e15 minutes
+    // is 6e19 ms, so the result is outside it in both directions.
+    const day = parsed("20240315");
+    for (const offset of [1e15, -1e15, Number.MAX_VALUE, -Number.MAX_VALUE]) {
+      expect(
+        toDate(day, { assumeOffsetMinutes: offset }),
+        `assumeOffsetMinutes ${String(offset)} produced an answer`,
+      ).toBeUndefined();
+    }
+  });
+
+  it("does not over-refuse: a large offset that still lands in range converts", () => {
+    // 1e6 minutes is about 1.9 years, well inside the range, so the check above
+    // is bounded by the representable range rather than by the size of the
+    // number: the offset shifts the instant and an instant comes back.
+    const shifted = toDate(parsed("20240315"), { assumeOffsetMinutes: 1e6 });
+    expect(shifted).toBeInstanceOf(Date);
+    expect(shifted?.toISOString()).toBe("2022-04-20T13:20:00.000Z");
+  });
+
+  it("never returns an Invalid Date, whatever it is handed", () => {
+    // The whole point of the two refusals above, asserted as the property a
+    // caller relies on: an Invalid Date satisfies the `Date | undefined` return
+    // type and defeats it, because it is indistinguishable from a real instant
+    // without testing `getTime()` for `NaN`, and `toISOString()` on it throws.
+    // The far-future value is unreachable from `parseAstmDate`, which reads a
+    // four-digit year, and reachable from JavaScript; the calendar-range check
+    // answers that one before an instant is ever built.
     const farFuture = handBuilt({ raw: "400000", year: 400_000, precision: "year" });
-    expect(toDate(farFuture, { assumeOffsetMinutes: 0 })).toBeUndefined();
+    const candidates: (Date | undefined)[] = [
+      toDate(farFuture, { assumeOffsetMinutes: 0 }),
+      ...[Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 1e15, -1e15].map(
+        (offset) => toDate(parsed("20240315"), { assumeOffsetMinutes: offset }),
+      ),
+    ];
+    for (const candidate of candidates) {
+      expect(candidate).toBeUndefined();
+      expect(candidate === undefined || !Number.isNaN(candidate.getTime())).toBe(true);
+    }
   });
 });

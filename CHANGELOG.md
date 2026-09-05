@@ -161,7 +161,11 @@ exists for.
     never read and UTC is never assumed, both of which would silently shift a date by a day in every
     negative-offset zone. Components below the stated precision fill to their lowest legal value for
     the instant only, leaving the value's own precision untouched, and a four-digit year below 100
-    stays that year (`"00500101"` is the year 50, never 1950).
+    stays that year (`"00500101"` is the year 50, never 1950). An offset that names no usable zone
+    is refused rather than applied, with `undefined` and never an `Invalid Date`: one that is not a
+    finite number, and one large enough that applying it lands outside the range a JS `Date`
+    represents. An `Invalid Date` satisfies the declared return type and defeats it, since it is
+    indistinguishable from a real instant without testing `getTime()` for `NaN`.
   - The `DateParts` and `ToDateOptions` types, and a README section covering all three together with
     the aliasing pattern the shared names force on a consumer importing two `@cosyte` parsers in one
     file.
