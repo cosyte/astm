@@ -26,21 +26,27 @@ The published version is the `version` field of `package.json`, `0.0.22`, on the
 ladder. The pending set below is every file matching `.changeset/*.md` other than `README.md`
 (`config.json` is the tool's configuration and carries no bump).
 
-Both pending changesets arrived classified `patch`. Both are reclassified to `minor` here, each for
-a reason taken from its own text. The bump lines are the only lines rewritten: no changeset's prose
-was edited, no changeset was added on top of the set, and nothing was blanket-rewritten.
+Two of the three pending changesets arrived classified `patch` and are reclassified to `minor` here,
+each for a reason taken from its own text; their bump lines are the only lines that were rewritten,
+and no changeset's prose was edited. The third arrived `patch` and stays `patch`, because its own
+text removes no public value, adds none, and changes no exported behaviour: reclassification runs
+in both directions or it is not a reading, and a tooling change written up as a feature would
+overstate the release exactly as a removal written up as a fix understates one.
 
 <!-- audit:begin -->
 
 | pending changeset                                     | bump as written | applied bump |
 | ----------------------------------------------------- | --------------- | ------------ |
+| `a-withdrawn-scan-target-is-refused-not-cleared.md`    | `patch`         | `patch`      |
 | `livd-catalog-answers-the-analyte.md`                  | `patch`         | `minor`      |
 | `say-which-vocabulary-a-letter-was-graded-against.md`  | `patch`         | `minor`      |
 
 <!-- audit:end -->
 
 Highest bump in the set: `minor`. Applied to the published `0.0.22`, Changesets resolves
-`@cosyte/astm` to **`0.1.0`**.
+`@cosyte/astm` to **`0.1.0`**. The `patch` above does not move that: a `patch` beside a `minor`
+changes nothing about the resolved version, and it is recorded rather than dropped because a
+pending changeset absent from this table is what section 1 exists to make impossible.
 
 ### `livd-catalog-answers-the-analyte.md`: `minor`
 
@@ -82,9 +88,23 @@ value-free.
 A feature that adds public values is `minor` by the same rule that keeps a real fix at `patch`. It
 removes nothing, but it does not have to: the added public values are enough on their own.
 
+### `a-withdrawn-scan-target-is-refused-not-cleared.md`: `patch`
+
+Its own text changes `scripts/phi-scan.ts`, adds `pnpm-workspace.yaml`, moves the pinned package
+manager and supersedes one dependency resolution override. None of that is on the published
+surface: the entry point re-exports nothing from `scripts/`, the settings file and the pin are
+install-time configuration, and the override moves a development dependency's resolved version
+rather than any value this package exports. Measured against section 3's enumeration, it adds no
+value, removes none, renames none, and changes no exported function's behaviour. It also emits no
+byte differently: a parsed and re-serialized record is unchanged, and no warning code moves.
+
+That is what a `patch` claims, so `patch` is what it keeps. The reclassification rule in this
+section is a reading of each changeset's own text, and a reading that only ever moved a bump upward
+would not be one.
+
 ## 2. Why no changeset in this set is classified `major`
 
-Neither changeset is `major`, and this is a decision rather than an omission.
+No changeset in the set is `major`, and this is a decision rather than an omission.
 
 `major` applied to a `0.0.x` version resolves to `1.0.0`. That is a different claim from the one
 being made here and a different release from the one being prepared: it would take this package out
