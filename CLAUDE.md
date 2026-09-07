@@ -60,6 +60,15 @@ shipped (`ls src/` for the module layout).
 - **Never bundle LOINC / SNOMED / LIVD data, and never emit a guessed LOINC**: **the catalog answers
   for the analyte identity and the wire never does**, and this package performs **no LOINC
   validation of any kind**. `#status-history`, `#defect-9`.
+- **The LIVD unit comparison is VERBATIM and CASE SENSITIVE and it is NOT UCUM, and `unitComparison`
+  says so ON THE OUTPUT: do not "tidy" that field away as redundant with the docs.** Nothing is
+  normalized, case folded, scaled or converted on either side, **blank is not a unit on either
+  side**, and the specimen and result descriptions are stored and surfaced but **NEVER matched on**.
+  A SINGLE candidate LOINC is answered whether or not the units agree and carries NO
+  `unitComparison`, and the added answer fields are **conditional**: do not make them unconditional.
+  **A `mapped` answer's `representativeUnit` is the catalog ROW's, not the record's.** **The
+  refusal's never-chose rule is a CLOSED KEY SET, never a search of its JSON for a `loinc` token**,
+  which reds about one unseeded run in six. `#livd-units`.
 - **Never fabricate structure or a positive acknowledgement**: checksums and frame numbers are
   computed, an unvouched frame is `NAK`ed, a builder emits only supplied values, and an
   unrecognizable transport lead **defaults to framed and warns**. `#status-history`.

@@ -52,6 +52,26 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   **unvalidated wire value**: this package never checks it, never reports it as a LOINC, and never
   keys a result on it, so a first component that really is a LOINC is still only a value the library
   does not vouch for. It ships no LOINC table and could not check one if it wanted to.
+- **No UCUM conformance: the unit comparison is verbatim and case sensitive.** Where a vendor code
+  carries several candidate LOINCs, the candidate whose catalog `representativeUnit` is exactly equal
+  to the units the record reported is selected, and that equality is a plain string comparison.
+  Nothing is normalized, case folded, scaled or converted on either side, so `MG/DL` does not match
+  `mg/dL`, `mg/L` never matches `ug/dL`, and a unit differing only in whitespace is a different unit.
+  UCUM defines a case-insensitive variant of every terminal symbol and requires a program declaring
+  full conformance to compare unit expressions by their **semantics**; this package declares no such
+  conformance, and every unit-selected answer carries a `unitComparison` saying so rather than
+  letting a matched unit read as a claim that was never made. A unit that matches no candidate,
+  matches more than one, or is missing or unreadable leaves the answer `ambiguous` with every
+  candidate surfaced and no LOINC chosen.
+- **A `mapped` answer's `representativeUnit` is the catalog row's, not the record's.** It is
+  provenance about the row the answer came from, and where a code carries a single candidate LOINC
+  across several rows spelling the unit differently the answer takes the first row's attributes, so
+  that field can name a unit the record did not report. Only `unitComparison` asserts the two were
+  equal, and it is present only where a unit actually chose between candidates.
+- **No matching on the vendor specimen or result description.** Both are carried verbatim beside the
+  representative unit and surfaced for a human to read, and neither is ever compared against
+  anything: the guide states directly that this information is not intended to be parsed by software
+  that automates the mapping, so choosing on it would be a string guess.
 - **No interpretation of `M` / `S` records.** Vendor-defined manufacturer / scientific records
   (QC, calibration, maintenance) are surfaced **verbatim** on `record.rawLine` and never parsed into
   clinical fields: a QC value must not read as a patient result.

@@ -7,7 +7,14 @@
  */
 
 export { defineLivdCatalog } from "./catalog.js";
-export type { LivdCatalog, LivdEntry, LivdLookup } from "./catalog.js";
+export type {
+  LivdAmbiguityReason,
+  LivdCandidate,
+  LivdCatalog,
+  LivdEntry,
+  LivdLookup,
+  LivdUnitComparison,
+} from "./catalog.js";
 export { applyLivd, lookupLivdForRecord } from "./apply.js";
 export type { LivdAnnotation, LivdMapping, LivdResult } from "./apply.js";
 export { LIVD_WARNING_CODES, livdUnmappedCode, livdAmbiguousMapping } from "./warnings.js";

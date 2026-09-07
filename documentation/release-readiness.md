@@ -26,9 +26,9 @@ The published version is the `version` field of `package.json`, `0.0.22`, on the
 ladder. The pending set below is every file matching `.changeset/*.md` other than `README.md`
 (`config.json` is the tool's configuration and carries no bump).
 
-Two of the three pending changesets arrived classified `patch` and are reclassified to `minor` here,
+Three of the four pending changesets arrived classified `patch` and are reclassified to `minor` here,
 each for a reason taken from its own text; their bump lines are the only lines that were rewritten,
-and no changeset's prose was edited. The third arrived `patch` and stays `patch`, because its own
+and no changeset's prose was edited. The fourth arrived `patch` and stays `patch`, because its own
 text removes no public value, adds none, and changes no exported behaviour: reclassification runs
 in both directions or it is not a reading, and a tooling change written up as a feature would
 overstate the release exactly as a removal written up as a fix understates one.
@@ -39,6 +39,7 @@ overstate the release exactly as a removal written up as a fix understates one.
 | ----------------------------------------------------- | --------------- | ------------ |
 | `a-withdrawn-scan-target-is-refused-not-cleared.md`    | `patch`         | `patch`      |
 | `livd-catalog-answers-the-analyte.md`                  | `patch`         | `minor`      |
+| `livd-units-choose-between-candidates.md`              | `patch`         | `minor`      |
 | `say-which-vocabulary-a-letter-was-graded-against.md`  | `patch`         | `minor`      |
 
 <!-- audit:end -->
@@ -88,6 +89,27 @@ value-free.
 A feature that adds public values is `minor` by the same rule that keeps a real fix at `patch`. It
 removes nothing, but it does not have to: the added public values are enough on their own.
 
+### `livd-units-choose-between-candidates.md`: `minor`
+
+Its own text is headed "Added", and the values it adds are public. Three optional attributes join the
+exported `LivdEntry` interface (`vendorSpecimenDescription`, `vendorResultDescription` and
+`representativeUnit`); `LivdCatalog.lookup` gains an optional second parameter; a `mapped` answer
+gains `unitComparison` and an `ambiguous` answer gains `candidateDetails` and `reason`; and three
+types are added to the entry point, `LivdCandidate`, `LivdUnitComparison` and `LivdAmbiguityReason`,
+each of which appears in the surface enumerated in section 3.
+
+It removes nothing and renames nothing, and it is source compatible in both directions: every added
+attribute is optional, the added `lookup` parameter is optional so a hand-written catalog declaring
+only the vendor code still satisfies the interface, and every added answer field is conditional, so a
+catalog carrying none of the three attributes answers key for key as it did before. No exported
+function changes what it returns for an input it already accepted, and an answer that read `mapped`
+cannot become `ambiguous`.
+
+That is what makes it a feature rather than a fix. By the same rule applied to
+`say-which-vocabulary-a-letter-was-graded-against.md`, a change that adds public values is `minor`
+whether or not it removes any: the added public values are enough on their own, and calling three new
+exported types a patch would understate the release in the direction this section exists to catch.
+
 ### `a-withdrawn-scan-target-is-refused-not-cleared.md`: `patch`
 
 Its own text changes `scripts/phi-scan.ts`, adds `pnpm-workspace.yaml`, moves the pinned package
@@ -125,7 +147,7 @@ the surface is everything it re-exports: values and types both. `package.json` p
 entry (`.` plus `./package.json`), so this list is the whole declaration surface a consumer can
 reach.
 
-Counts: **113 values, 94 types, 207 identifiers**. The enumeration below is compared against the
+Counts: **113 values, 97 types, 210 identifiers**. The enumeration below is compared against the
 entry point by `test/scripts/release-readiness.test.ts`, which names every added and every removed
 identifier when the two differ, so this list cannot go stale in silence.
 
@@ -451,6 +473,9 @@ From `./terminology/index.js`:
 - `LivdCatalog`
 - `LivdEntry`
 - `LivdLookup`
+- `LivdCandidate`
+- `LivdUnitComparison`
+- `LivdAmbiguityReason`
 - `LivdAnnotation`
 - `LivdMapping`
 - `LivdResult`
@@ -684,6 +709,17 @@ added to an exported interface breaks no construction, so none of them is an ent
 that decides it is the declaration, not the changeset heading: a member a consumer must supply to
 construct the value is a break, and a member they may omit is additive.
 
+`livd-units-choose-between-candidates.md` contributes **no entry to this section at all**, and that
+is a finding rather than an omission. Every member it adds to an exported interface is optional
+(`LivdEntry`'s three LIVD attributes) or conditional on the answer (`unitComparison`,
+`candidateDetails`, `reason`), so none of them breaks a construction; the second parameter it adds to
+`LivdCatalog.lookup` is optional, so a hand-written catalog declaring only the vendor code still
+satisfies the interface; and its three added types are new names that displace nothing. It widens no
+existing union: `LivdAmbiguityReason` is a new type rather than a member added to a union a consumer
+already switches over, and the `LivdMapping` discriminant keeps exactly the members it had. Nothing
+it changes is visible to a consumer who does not populate a representative unit, which is what
+sections 1 and 3 record as its being additive in both the source and the run-time direction.
+
 ## 5. Unresolved
 
 An unresolved entry is a pending changeset that cannot be classified from its own text plus the
@@ -700,8 +736,8 @@ rule is that saying nothing never reads as saying none.
 
 <!-- unresolved:begin -->
 
-None. Both pending changesets classify from their own text: each states, in its own words, which
-public values it adds and which it removes, and both were checked against `src/index.ts` and the
+None. Every pending changeset classifies from its own text: each states, in its own words, which
+public values it adds and which it removes, and each was checked against `src/index.ts` and the
 modules behind it.
 
 <!-- unresolved:end -->
