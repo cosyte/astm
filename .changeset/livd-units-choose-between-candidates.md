@@ -1,5 +1,5 @@
 ---
-"@cosyte/astm": patch
+"@cosyte/astm": minor
 ---
 
 **A LIVD catalog can now say what tells two candidate LOINCs apart, and the reported units choose between them.** One vendor analyte code mapping to several LOINCs is the ordinary case rather than an edge: the governing mapping guide gives the commonest chemistry analytes as its own worked examples, a serum glucose reported as a mass concentration versus a substance concentration and a urine analyte reported as a spot concentration versus a 24 hour excretion rate, and its remedy is to define a mapping per unit. `LivdEntry` had nowhere to record any of that, so a catalog covering more than one reporting unit answered `ambiguous` for a large share of ordinary analytes. The `R` record already states its units on the wire, so those units, and only those units, now settle it.

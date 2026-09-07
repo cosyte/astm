@@ -9,8 +9,50 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ## [Unreleased]
 
+**The pending changeset set is classified `minor`, not `patch`, so the next release is a minor
+release.** Three changesets are pending and all three arrived carrying `patch`. Two were
+reclassified against their own text: one removes public values and changes what an exported
+function returns, and the other adds public values. Neither is a fix that adds nothing and removes
+nothing, which is the only thing a `patch` may claim, and only those two bump lines moved. The
+third keeps `patch`: it changes repository tooling and install configuration, touches no published
+value and emits no byte differently, so `patch` is what its own text supports. A set carrying a
+`patch` beside a `minor` still resolves to the minor channel.
+
+The breaking change below therefore ships in the minor channel of the pre-1.0 ladder, which is where
+a break belongs before `1.0.0`, rather than as a patch. Every break a consumer of the last published
+version would see is enumerated with its migration in `documentation/release-readiness.md`, together
+with the public export surface this release would certify as settled. **Each break awaits a decision
+before any release, and nothing publishes yet**: the release environment gate stays as it is, and no
+version number is written here, because Changesets owns the bump and `scripts/sync-version.mjs`
+mirrors it.
+
+The entries the pending set carries are the vocabulary-attribution entry under Added, and the LIVD
+catalog entry and the PHI scanner entry under Changed. This section also holds entries written
+before them, which is where they have always been kept: no released entry was moved, reworded or
+deleted by the reclassification, because rewriting a shipped changelog destroys the traceability it
+exists for.
+
 ### Changed
 
+- **The PHI scanner refuses a run that enumerated a target and never read it, and the install
+  settings that hold a resolution back are now in force rather than merely written down.** No
+  published value, type, warning code or emitted byte moves: this entry is repository tooling and
+  supply chain configuration only. `scripts/phi-scan.ts` reconciles the targets a run ENUMERATED
+  against the ones it actually READ, on every route rather than on the whole-tree sweep alone. The
+  whole-file bypass is subtracted from each route's finished target list, so before this a run
+  naming two paths and withdrawing one opened one file and answered for both, at the same exit code
+  the same arguments produce over a corpus whose only violator is the withdrawn one, and a caller
+  could not tell those two runs apart. The run now exits with the scanner's invocation-error code,
+  names every path nobody opened, and still prints any hit it had already found, because a refusal
+  must not swallow a real finding. Detection is untouched: the loci it reads, the format-agnostic
+  floor and the allow list are exactly as they were, and a run passing no bypass is byte-identical
+  on all three routes, asserted against a copy of the scanner without the reconciliation rather
+  than assumed. Alongside it, `pnpm-workspace.yaml` declares a 1440 minute minimum release age and
+  a no-downgrade trust policy and the pinned package manager moves to a release that enforces both
+  (an older one ignores the keys entirely, which is a settings file that decorates rather than
+  defends), and the `js-yaml` resolution override is superseded rather than joined, because the
+  stale selector pinned a lower version over an overlapping range. The 3.x resolution reached
+  through the release tooling is a known residual and is deliberately left where it is.
 - **The unrecognized-flag and unrecognized-status warning messages name the same attribution the
   interpreted value reports.** `ASTM_RECORD_UNDEFINED_ABNORMAL_FLAG` now names the code system
   identifier and version the flag was graded against, and `ASTM_RECORD_UNDEFINED_RESULT_STATUS` now

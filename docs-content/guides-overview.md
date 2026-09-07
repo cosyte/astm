@@ -112,6 +112,9 @@ serializeAstmRecords(parseAstmRecords(raw)) === raw; // => true
 
 ## More
 
+- [Vendor profiles](./guides-vendor-profiles): tolerating a documented quirk, and the safety gate
+  that bounds what a profile may tolerate.
 - [Quickstart](./quickstart): the one-line parse and every emit path.
 - [The two-layer architecture](./architecture): records vs frames, and when you need each.
+- [What it does with patient data](./patient-data): logging, retention and what stays yours.
 - **API Reference**: every shipped export, generated from source.

@@ -122,6 +122,16 @@
  * That clause is decided in `refuseUnobserved`, which is the one place its
  * reasons are written out.
  *
+ * AND A RUN THAT ENUMERATED A TARGET AND NEVER READ IT REFUSES AS WELL, at this
+ * scanner's own invocation code, on EVERY route rather than on the walk alone.
+ * `refuseUnobserved` is wired into `buildTargetsForAll` and so reaches the walk
+ * only; the `--allow-fixture` subtraction in `main` is applied to every route's
+ * FINISHED target list, so before this clause a run naming two paths and
+ * withdrawing one enumerated both, opened one, and answered for both. The
+ * reasons are written out ONCE, at `unreadEnumerated`, and the refusal reports
+ * any hit it already found before refusing, because a refusal must not swallow
+ * a real hit.
+ *
  * AND ALL MODE NOW READS THE BYTES GIT CARRIES, as a UNION with the walk rather
  * than in place of it: reconciling PATH SETS is not reading content, so a path
  * whose committed bytes and working-tree bytes differ was reported clean over
@@ -178,13 +188,49 @@ const OVERRIDE_LOG_PATH = join(REPO_ROOT, "phi-scan-overrides.md");
  * text in the same tree. `src` because a JSDoc `@example` is a fixture a
  * consumer reads.
  *
- * `docs-content/` is deliberately NOT a root: it is markdown prose, which the
- * walk exempts anyway (see `walk`), and its samples are documentation that may
- * legitimately quote a violator value. To see what that costs at any moment:
- * `git ls-files docs-content | xargs /usr/bin/grep -n 'P|1'` (its records sit
- * inside fenced blocks and inline spans, so they do not begin a line).
+ * `docs-content` because the bundle is PUBLISHED AND IMMUTABLE. Its pages are
+ * tarred into a release asset the docs site re-fetches forever, so an identifier
+ * written into an example there cannot be corrected in place by any later diff
+ * to any repo: it is superseded by a later release and renders until then. This
+ * root was deliberately absent before, on the reasoning that markdown is prose
+ * and a documentation sample may legitimately quote a violator value. That
+ * reasoning is why a README, a changelog and the bypass log stay exempt, and it
+ * is kept for them; what it does not survive is the immutability of THIS bundle,
+ * where the reviewer's judgement has no second chance behind it.
  */
-const WALK_ROOT_NAMES = ["src", "test", "scripts"] as const;
+const WALK_ROOT_NAMES = ["src", "test", "scripts", "docs-content"] as const;
+
+/**
+ * The shipped docs bundle, named once so the three places that apply the
+ * markdown exemption cannot disagree about where it stops.
+ */
+const DOCS_BUNDLE_ROOT = "docs-content";
+
+/**
+ * Markdown is exempt from the sweep EXCEPT inside the shipped docs bundle.
+ *
+ * ONE PLACE, THREE CALLERS, and that is the reason this is a function rather
+ * than a repeated `endsWith`: `walk` decides what is opened, `inWalkScope`
+ * decides what the reconciliation expects the walk to have opened, and
+ * `buildTargetsForIndex` decides which of the bytes git carries are read. Two of
+ * the three disagreeing is either a root that refuses because it "missed" a file
+ * it was never meant to open, or a corpus reported clean over bytes nobody read.
+ *
+ * THIS IS AN ENUMERATION RULE AND NOTHING ELSE. No detector moved with it: a
+ * page opened here gets exactly the floor and the record-aware pass every other
+ * target gets, and what a green means is unchanged and still stated once, in
+ * `scanTarget`.
+ *
+ * THE CARVE-OUT IS BY PATH, NOT BY NAME, deliberately. A file's name says
+ * nothing about which corpus it belongs to, and this rule is about the corpus:
+ * `README.md` is a page a reader browses at a URL that can be corrected, and
+ * `docs-content/intro.md` is bytes inside a tarball that cannot.
+ */
+function isMarkdownExempt(repoRelPath: string): boolean {
+  const p = repoRelPath.toLowerCase();
+  if (!p.endsWith(".md")) return false;
+  return !p.startsWith(`${DOCS_BUNDLE_ROOT}/`);
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -429,9 +475,12 @@ function walk(dir: string, out: string[], unscannable: Unscannable[]): void {
     if (e.isDirectory()) {
       walk(full, out, unscannable);
     } else if (e.isFile()) {
-      // README/markdown docs may legitimately describe violator values; they
-      // are documentation, not fixtures.
-      if (e.name.toLowerCase().endsWith(".md")) continue;
+      // Markdown outside the shipped docs bundle may legitimately describe
+      // violator values; it is documentation, not fixtures. Inside the bundle it
+      // is read, because those bytes are published immutably. The rule is
+      // `isMarkdownExempt`, and it is keyed on the repo-relative PATH rather
+      // than on `e.name`, which cannot say which corpus the entry is in.
+      if (isMarkdownExempt(normalizePath(full))) continue;
       out.push(full);
     } else {
       // Deliberately NOT subject to the `.md` exemption above. That exemption is
@@ -500,11 +549,12 @@ function trackedUnder(rootRel: string, trackedPaths: ReadonlySet<string>): strin
 
 /**
  * The walk's own in-scope rule, in one place, so the enumeration and the
- * reconciliation cannot drift apart. `.md` is the walk's pre-existing exemption
- * (see `walk`); an ignored entry is out of scope for both.
+ * reconciliation cannot drift apart. `isMarkdownExempt` is the walk's markdown
+ * exemption, shared rather than restated (see `walk`); an ignored entry is out
+ * of scope for both.
  */
 function inWalkScope(repoRelPath: string, ignored: Set<string>): boolean {
-  if (repoRelPath.toLowerCase().endsWith(".md")) return false;
+  if (isMarkdownExempt(repoRelPath)) return false;
   return !ignored.has(repoRelPath);
 }
 
@@ -570,6 +620,76 @@ function refuseUnobserved(
       "A clean report over an unopened corpus is worse than no gate: it is the same output as a " +
       "corpus that was read and found clean. Restore the tree, or change the declared roots " +
       "deliberately.",
+  );
+}
+
+/**
+ * THE ONE PLACE THE ENUMERATED-AGAINST-READ RULE IS WRITTEN DOWN. The header
+ * banner states the consumer-facing property and points here.
+ *
+ * WHAT IT IS. Every route builds a target list, and `main` then SUBTRACTS the
+ * acknowledged paths from the finished list. So a target can be enumerated, and
+ * counted as part of what this invocation is about, and never opened. This
+ * compares the two sets and refuses when the difference is non-empty.
+ *
+ * WHY IT IS NOT `refuseUnobserved`, WHICH ALREADY EXISTS HERE. That clause runs
+ * inside `buildTargetsForAll` and reconciles THE WALK against the paths git
+ * carries, per root and for the invocation as a whole. It is a statement about
+ * one route, made BEFORE the subtraction, and both halves are why it cannot see
+ * this: `buildTargetsForPaths` performs no reconciliation at all, and the
+ * subtraction happens afterwards on every route alike. Measured before this
+ * clause: two positional paths, one of them withdrawn by a LOGGED
+ * `--allow-fixture`, enumerated both, read the violator, printed its hit and
+ * exited with the HITS code, which is the same code the same argv produces over
+ * a corpus whose ONLY violator is the withdrawn one. A caller cannot tell those
+ * two runs apart, so the withdrawn path was answered for and never read.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DO:
+ *
+ *   - IT DOES NOT CREDIT OR REPLACE `refuseUnobserved`. That rule still runs
+ *     first, inside `buildTargetsForAll`, and still refuses a root that observed
+ *     nothing. This one is about the subtraction, and the two answer different
+ *     questions.
+ *   - IT DOES NOT WIDEN DETECTION. Nothing about what is found once a file is
+ *     open moved with it: the loci, the floor and the allow-list are untouched.
+ *     This is the ENUMERATION half again, and the two are separate holes.
+ *   - IT CHANGES NO RUN THAT PASSES NO `--allow-fixture`. With nothing
+ *     withdrawn, the finished list and the read set are equal by construction on
+ *     all three routes, so all mode, `--staged` and positional paths print what
+ *     they printed and exit as they exited.
+ *   - IT DOES NOT SUPPRESS A HIT. The caller reports whatever was already found
+ *     before writing the refusal. A refusal that printed nothing would land a
+ *     reader (and a capability probe) on "this scanner could not start" rather
+ *     than on "this scanner refused", which are not the same claim.
+ *
+ * THE CONSEQUENCE FOR `--allow-fixture`, STATED RATHER THAN LEFT TO BE FOUND: a
+ * whole-file bypass no longer buys a clean verdict over the file it withdraws.
+ * It buys a refusal that NAMES the path nobody opened. That is the point. The
+ * flag remains the way a scan is told a path is acknowledged; what it stops
+ * being is a way to make the scan answer for bytes it never read.
+ */
+function unreadEnumerated(enumerated: ReadonlySet<string>, read: ReadonlySet<string>): string[] {
+  return [...enumerated].filter((p) => !read.has(p)).sort();
+}
+
+/**
+ * The refusal text, with EVERY unread path named. Same rule as
+ * `refuseUnscannable`: a developer who has to re-run the gate once per path
+ * learns to distrust it.
+ */
+function refusalForUnread(unread: readonly string[]): string {
+  const lines = unread.map((p) => `  - ${p}`).join("\n");
+  const noun =
+    unread.length === 1
+      ? "target was enumerated for this run and never read"
+      : "targets were enumerated for this run and never read";
+  return (
+    `[phi-scan] refusing the scan: ${String(unread.length)} ${noun}:\n${lines}\n` +
+    "A scan that did not open a file has no clean verdict about it, and the whole-file bypass is " +
+    "applied to the finished target list, so the same argv over a corpus whose only violator is " +
+    "withdrawn would otherwise report clean. Any hit found before this point is printed above. " +
+    "Re-run without the `--allow-fixture` bypass, or leave the path out of the run so nothing " +
+    "claims it.\n"
   );
 }
 
@@ -942,9 +1062,11 @@ function buildTargetsForStaged(): Target[] {
  *   - IT DOES NOT REACH `--staged` OR `paths`. `--staged` is the pre-commit
  *     hook, so its scope decides what a COMMIT is BLOCKED on; widening it is a
  *     hook decision and is not this. `paths` is bounded by the caller's argv.
- *   - MARKDOWN IS EXCLUDED, copied from `walk()` rather than invented: a README
- *     or an override log legitimately describes a violator value. That is the
- *     ONE exclusion, and it is why an index entry can be skipped here.
+ *   - MARKDOWN IS EXCLUDED OUTSIDE THE SHIPPED DOCS BUNDLE, through `walk()`'s
+ *     own predicate rather than a second copy of it: a README or an override log
+ *     legitimately describes a violator value, while a page inside the bundle is
+ *     published immutably and is read. That is the ONE exclusion, and it is why
+ *     an index entry can be skipped here.
  *   - GITIGNORE IS NOT CONSULTED, deliberately unlike the walk. A tracked file
  *     that also matches an ignore rule is still content git carries, and the
  *     walk's ignore rule is about entries it found on disk.
@@ -1216,10 +1338,12 @@ function buildTargetsForIndex(
     "Remove it from the index, or replace it with a regular file.",
   );
 
-  // NOW the `.md` name rule, over entries whose bytes this route can actually
-  // read. It is `walk()`'s own rule, copied rather than invented.
+  // NOW the markdown rule, over entries whose bytes this route can actually
+  // read. It is `walk()`'s own rule, SHARED rather than copied: `isMarkdownExempt`
+  // is the single predicate, so this route cannot start disagreeing with the walk
+  // about which markdown belongs to the sweep.
   const readable = entries.filter(
-    (e) => REGULAR_BLOB_MODES.has(e.mode) && !e.path.toLowerCase().endsWith(".md"),
+    (e) => REGULAR_BLOB_MODES.has(e.mode) && !isMarkdownExempt(e.path),
   );
   const blobs = readBlobs([...new Set(readable.map((e) => e.oid))]);
 
@@ -1567,12 +1691,14 @@ function scanTarget(target: Target, allow: AllowList, hits: Hit[]): Buffer {
   //     - THE STRUCTURAL GUARD. A patient record whose second field is
   //       not a short digit run is not read. Argued below.
   //     - FILES NOT READ. In all mode the corpus is `WALK_ROOT_NAMES`
-  //       on disk UNION every path the index carries, and `.md` is
-  //       exempt from both. So the bytes git carries are read wherever
-  //       they sit, and what is left out is working-tree bytes at a path
-  //       outside every walk root: the residual is stated once, at
-  //       `buildTargetsForIndex`. `--staged` is narrower again, at its
-  //       own predicate, and `paths` is the caller's argv.
+  //       on disk UNION every path the index carries, and markdown is
+  //       exempt from both EXCEPT inside the shipped docs bundle, which
+  //       is read because its bytes are published immutably
+  //       (`isMarkdownExempt`). So the bytes git carries are read
+  //       wherever they sit, and what is left out is working-tree bytes
+  //       at a path outside every walk root: the residual is stated
+  //       once, at `buildTargetsForIndex`. `--staged` is narrower again,
+  //       at its own predicate, and `paths` is the caller's argv.
   //
   //   Keep fixtures synthetic and declare their identifiers in
   //   scripts/phi-allow-list.txt.
@@ -1695,6 +1821,13 @@ function main(): number {
     throw err;
   }
 
+  // ENUMERATED, taken off the FINISHED list before the subtraction, because that
+  // is what this invocation declared it was about. READ is filled in by `scan`
+  // below, one path per target whose bytes were actually opened. The two are
+  // reconciled at the end of the run; the reasons are at `unreadEnumerated`.
+  const enumerated = new Set<string>(targets.map((t) => t.path));
+  const read = new Set<string>();
+
   targets = targets.filter((t) => !allowed.has(t.path));
 
   const hits: Hit[] = [];
@@ -1705,6 +1838,10 @@ function main(): number {
   const scan = (t: Target): void => {
     const before = hits.length;
     const bytes = scanTarget(t, allow, hits);
+    // Recorded AFTER the scan returned, so a target whose read threw is not
+    // counted as read: that route already refuses, and the two must not
+    // disagree about what was opened.
+    read.add(t.path);
     if (t.origin === undefined) {
       observed.set(t.path, bytes);
       return;
@@ -1782,7 +1919,9 @@ function main(): number {
     // (`parseArgs` seeds the positional path set from `--allow-fixture`, so the
     // flag always resolves to `paths` mode and never to all), and it is applied
     // anyway so the two routes cannot disagree about an acknowledged path if that
-    // ever changes.
+    // ever changes. This route's targets join `enumerated` for the same reason:
+    // if the subtraction ever reaches here, the reconciliation has to see it too.
+    for (const t of indexTargets) enumerated.add(t.path);
     for (const t of indexTargets.filter((t) => !allowed.has(t.path))) {
       try {
         // The bytes are already in memory, so this cannot fail the way a
@@ -1797,6 +1936,23 @@ function main(): number {
         throw err;
       }
     }
+  }
+
+  // THE ENUMERATED-AGAINST-READ RECONCILIATION, on every route. The rule, what it
+  // is for and what it deliberately does not do are written down once, at
+  // `unreadEnumerated`. It sits here, after every route has run, because that is
+  // the only point at which the finished target list and the set actually opened
+  // are both known.
+  //
+  // A REFUSAL MUST NOT SWALLOW A REAL HIT, the same rule the index route and the
+  // empty-index clause above already carry: whatever was found on the way is
+  // reported first, and the exit code is still 2, because an incomplete sweep is
+  // not a verdict whatever it found.
+  const unread = unreadEnumerated(enumerated, read);
+  if (unread.length > 0) {
+    if (hits.length > 0) report(hits);
+    process.stderr.write(refusalForUnread(unread));
+    return 2;
   }
 
   report(hits);

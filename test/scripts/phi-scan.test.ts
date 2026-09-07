@@ -269,7 +269,12 @@ const repos: string[] = [];
  *
  * EVERY ROOT IS POPULATED ON PURPOSE. The scanner refuses a root it observed
  * nothing in, so an empty one here would refuse before any case's own condition
- * was reached and every such case would pass for the wrong reason.
+ * was reached and every such case would pass for the wrong reason. THAT IS WHY
+ * `docs-content` IS HERE: it became a walk root when the sweep started reading
+ * the shipped docs bundle, and without a file in it every all-mode case in this
+ * file would exit 2 on an unobserved root instead of reaching its own subject.
+ * The page written into it is deliberately an ordinary one, so the root is
+ * observed and contributes no finding.
  *
  * AND THE INDEX IS POPULATED FOR THE SAME KIND OF REASON. All mode reads the
  * bytes git carries as well as the working tree, and refuses an EMPTY index
@@ -287,6 +292,7 @@ function makeRepo(): string {
   mkdirSync(join(root, "scripts"));
   mkdirSync(join(root, "src"));
   mkdirSync(join(root, "test"));
+  mkdirSync(join(root, "docs-content"));
   copyFileSync(
     join(REPO_ROOT, "scripts", "phi-allow-list.txt"),
     join(root, "scripts", "phi-allow-list.txt"),
@@ -294,6 +300,7 @@ function makeRepo(): string {
   copyFileSync(SCANNER_PATH, join(root, "scripts", "phi-scan.ts"));
   writeFileSync(join(root, "src", "ordinary.ts"), "export const answer = 42;\n");
   writeFileSync(join(root, "test", "ordinary.test.ts"), "export const cases = 1;\n");
+  writeFileSync(join(root, "docs-content", "intro.md"), "# Intro\n\nOrdinary prose.\n");
   git(root, ["init", "-q", "."]);
   git(root, ["add", "."]);
   return root;
@@ -984,7 +991,7 @@ describe("phi-scan: the --staged route refuses an UNMERGED in-scope path", () =>
 // case cannot quietly stop measuring anything when the source moves under it.
 
 /** The shipped walk-root declaration, and the scope it superseded. */
-const SHIPPED_WALK_ROOTS = `const WALK_ROOT_NAMES = ["src", "test", "scripts"] as const;`;
+const SHIPPED_WALK_ROOTS = `const WALK_ROOT_NAMES = ["src", "test", "scripts", "docs-content"] as const;`;
 const SUPERSEDED_WALK_ROOTS = `const WALK_ROOT_NAMES = ["src", "test/fixtures"] as const;`;
 
 /** The shipped source-embedding extension set, and an empty one (no decoded view at all). */
@@ -1426,6 +1433,7 @@ describe("phi-scan index corpus: reconciling path SETS is not reading BYTES", ()
     mkdirSync(join(root, "scripts"));
     mkdirSync(join(root, "src"));
     mkdirSync(join(root, "test"));
+    mkdirSync(join(root, "docs-content"));
     copyFileSync(
       join(REPO_ROOT, "scripts", "phi-allow-list.txt"),
       join(root, "scripts", "phi-allow-list.txt"),
@@ -1433,6 +1441,7 @@ describe("phi-scan index corpus: reconciling path SETS is not reading BYTES", ()
     copyFileSync(SCANNER_PATH, join(root, "scripts", "phi-scan.ts"));
     writeFileSync(join(root, "src", "ordinary.ts"), "export const answer = 42;\n");
     writeFileSync(join(root, "test", "ordinary.test.ts"), "export const cases = 1;\n");
+    writeFileSync(join(root, "docs-content", "intro.md"), "# Intro\n\nOrdinary prose.\n");
     git(root, ["init", "-q", "."]);
 
     expect(gitOut(root, ["ls-files"]).trim(), "the premise: nothing is in the index").toBe("");
@@ -1453,6 +1462,7 @@ describe("phi-scan index corpus: reconciling path SETS is not reading BYTES", ()
     mkdirSync(join(root, "scripts"));
     mkdirSync(join(root, "src"));
     mkdirSync(join(root, "test", "fixtures"), { recursive: true });
+    mkdirSync(join(root, "docs-content"));
     copyFileSync(
       join(REPO_ROOT, "scripts", "phi-allow-list.txt"),
       join(root, "scripts", "phi-allow-list.txt"),
@@ -1460,6 +1470,7 @@ describe("phi-scan index corpus: reconciling path SETS is not reading BYTES", ()
     copyFileSync(SCANNER_PATH, join(root, "scripts", "phi-scan.ts"));
     writeFileSync(join(root, "src", "ordinary.ts"), "export const answer = 42;\n");
     writeFileSync(join(root, "test", "fixtures", "patient.astm"), SYNTHETIC_PHI);
+    writeFileSync(join(root, "docs-content", "intro.md"), "# Intro\n\nOrdinary prose.\n");
     git(root, ["init", "-q", "."]);
 
     expect(gitOut(root, ["ls-files"]).trim(), "the premise: nothing is in the index").toBe("");
@@ -1594,8 +1605,12 @@ describe("phi-scan index corpus: the positive control on the corpus it claims to
   // so a case that only shows the scanner passing proves nothing. This one takes
   // THIS PACKAGE'S OWN `package.json`, byte for byte, and puts it at the same
   // out-of-every-walk-root path in a throwaway tree. It is the file that made the
-  // gap concrete: 18 tracked non-markdown files sit outside all three walk roots
-  // in this repo, and this is the one carrying a token the floor fires on.
+  // gap concrete: measured on the tree that declared three walk roots, 18 tracked
+  // non-markdown files sat outside every one of them, and this is the one
+  // carrying a token the floor fires on. `docs-content` is a walk root now and
+  // that figure is 17 on this tree, because `docs-content/sidebars.json` moved
+  // inside one; `package.json` did not move and the case is unchanged. THE COUNT
+  // IS QUOTED WITH THE ROOT SET IT WAS TAKEN ON, because it is a function of it.
   //
   // The green is then shown to be EARNED BY THE DECLARATION rather than by the
   // file never being opened, which is the only difference that matters and the
@@ -1611,7 +1626,7 @@ describe("phi-scan index corpus: the positive control on the corpus it claims to
     expect(OWN_MANIFEST).toMatch(/[A-Za-z0-9._%+-]+@cosyte\.com/);
     // ...and it really does sit outside every declared walk root.
     const scanner = readFileSync(SCANNER_PATH, "utf8");
-    expect(scanner).toContain(`const WALK_ROOT_NAMES = ["src", "test", "scripts"] as const;`);
+    expect(scanner).toContain(SHIPPED_WALK_ROOTS);
   });
 
   it("the sweep OPENS it: strike the declaration and the same corpus reds (exit 1)", () => {
@@ -1658,6 +1673,138 @@ describe("phi-scan index corpus: the positive control on the corpus it claims to
     const before = runVariant(root, base);
     expect(before.code, `stderr: ${before.stderr}`).toBe(0);
     expect(before.stdout).toMatch(/OK: no hits/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ENUMERATED against READ: a withdrawn target has no clean verdict either
+// ---------------------------------------------------------------------------
+//
+// The scanner already refused an all-mode sweep that did not OBSERVE its corpus,
+// and that clause runs inside `buildTargetsForAll`, before the whole-file bypass
+// is subtracted. The bypass is applied to EVERY route's finished target list, so
+// a run naming two paths and withdrawing one enumerated both, opened one, and
+// answered for both at the HITS code, which is the same code the same argv
+// produces over a corpus whose ONLY violator is the withdrawn one. These cases
+// pin the refusal, the two controls that make the withdrawal the only variable,
+// and the mutation control that keeps the whole block from being vacuous.
+
+/** The reconciliation in `main`, and the same `main` with it computed away. */
+const SHIPPED_UNREAD_RECONCILIATION = `  const unread = unreadEnumerated(enumerated, read);`;
+const NO_UNREAD_RECONCILIATION = `  const unread: string[] = [];`;
+
+/** The override log the bypass gate reads, written in this repo's `### <path>` shape. */
+function overrideLogIn(root: string, paths: string[]): void {
+  const entries = paths
+    .map((p) => `\n### ${p}\n\n- **Date:** suite\n- **Reason:** suite\n`)
+    .join("");
+  writeFileSync(
+    join(root, "phi-scan-overrides.md"),
+    `# PHI scan overrides\n\n## Entries\n${entries}`,
+  );
+}
+
+/**
+ * A tree carrying a violator and a CLEAN decoy under `test/fixtures/`, with the
+ * decoy logged as an acknowledged bypass.
+ *
+ * THE DECOY IS CLEAN ON PURPOSE, which is what makes withdrawing it the ONLY
+ * difference between the graded run and an ordinary two-path run: a decoy that
+ * carried its own finding would let a refusal be about the finding instead.
+ */
+function bypassRepo(): { root: string; violator: string; decoy: string } {
+  const root = makeRepo();
+  fixturesIn(root);
+  const violator = "test/fixtures/violator.astm";
+  const decoy = "test/fixtures/decoy.astm";
+  writeFileSync(join(root, violator), SYNTHETIC_PHI);
+  writeFileSync(join(root, decoy), "H|\\^&\rL|1\r");
+  overrideLogIn(root, [decoy]);
+  git(root, ["add", "."]);
+  return { root, violator, decoy };
+}
+
+describe("phi-scan: a target enumerated and never read refuses (exit 2)", () => {
+  it("premise: the decoy scans CLEAN on its own, so withdrawing it is the only variable", () => {
+    const { root, decoy } = bypassRepo();
+    const r = runIn(root, [decoy]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout).toMatch(/OK: no hits/);
+  });
+
+  it("premise: the same two paths with NO bypass report the hit at the HITS code (exit 1)", () => {
+    const { root, violator, decoy } = bypassRepo();
+    const r = runIn(root, [violator, decoy]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(1);
+    expect(r.stderr).toContain(SSN);
+  });
+
+  it("refuses the graded run, AND still prints the hit it already found", () => {
+    const { root, violator, decoy } = bypassRepo();
+    const r = runIn(root, [violator, decoy, "--allow-fixture", decoy]);
+
+    // Neither 0 nor the hits code: this scanner's invocation-error code.
+    expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+    // A REFUSAL MUST NOT SWALLOW A REAL HIT.
+    expect(r.stderr).toContain("[phi-scan] HIT:");
+    expect(r.stderr).toContain(violator);
+    expect(r.stderr).toContain(SSN);
+    // ...and it names the path nobody opened, rather than counting them.
+    expect(r.stderr).toContain(decoy);
+    expect(r.stderr).toMatch(/enumerated for this run and never read/);
+    expect(r.stdout).not.toMatch(/OK: no hits/);
+  });
+
+  it("reaches the `--staged` route too, which the bypass also applies to", () => {
+    const { root, decoy } = bypassRepo();
+    // `makeRepo` stages what it writes and nothing is committed, so both fixtures
+    // are staged adds and both are in the `--staged` route's own scope.
+    const r = runIn(root, ["--staged", "--allow-fixture", decoy]);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(2);
+    expect(r.stderr).toContain(decoy);
+    expect(r.stderr).toMatch(/enumerated for this run and never read/);
+    expect(r.stderr).toContain(SSN);
+  });
+
+  it("MUTATION CONTROL: strike the reconciliation and the graded run reports only the hits code", () => {
+    // This is the base commit's behaviour, and it is the whole point of the case
+    // above: without this the exit 2 could be coming from anywhere.
+    const { root, violator, decoy } = bypassRepo();
+    const base = variantIn(
+      root,
+      "phi-scan-base.ts",
+      SHIPPED_UNREAD_RECONCILIATION,
+      NO_UNREAD_RECONCILIATION,
+    );
+    const before = runVariant(root, base, [violator, decoy, "--allow-fixture", decoy]);
+    expect(before.code, `stderr: ${before.stderr}`).toBe(1);
+    expect(before.stderr).not.toMatch(/never read/);
+  });
+
+  it("changes NOTHING on any of the three routes when no bypass is passed", () => {
+    // The clause can only fire on a target the subtraction removed, and with no
+    // `--allow-fixture` the finished list and the read set are equal by
+    // construction. This asserts the stronger thing the criterion asks for: the
+    // exit code AND every line printed are identical to the scanner without it.
+    const root = makeRepo();
+    fixturesIn(root);
+    writeFileSync(join(root, "test", "fixtures", "patient.astm"), SYNTHETIC_PHI);
+    git(root, ["add", "."]);
+    const base = variantIn(
+      root,
+      "phi-scan-base.ts",
+      SHIPPED_UNREAD_RECONCILIATION,
+      NO_UNREAD_RECONCILIATION,
+    );
+
+    for (const args of [[], ["--staged"], ["test/fixtures/patient.astm"]]) {
+      const label = `route: ${args.length === 0 ? "all" : args.join(" ")}`;
+      const before = runVariant(root, base, args);
+      const after = runIn(root, args);
+      expect(after.code, label).toBe(before.code);
+      expect(after.stdout, label).toBe(before.stdout);
+      expect(after.stderr, label).toBe(before.stderr);
+    }
   });
 });
 

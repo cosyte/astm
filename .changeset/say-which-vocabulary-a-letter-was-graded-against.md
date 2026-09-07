@@ -1,5 +1,5 @@
 ---
-"@cosyte/astm": patch
+"@cosyte/astm": minor
 ---
 
 **Every interpreted abnormal flag and result status now says which vocabulary it was graded against, and `HU`/`LU` are recognized.** The `R` record's flag and status letters come from vocabularies that move on other bodies' schedules, while the record grammar around them is archived and frozen. Reporting a letter as `"undefined"` without saying what it was compared against hid that: a consumer holding `{ recognized: false, meaning: "undefined" }` could not tell a code **no published vocabulary defines** from a code **this library had not caught up to**. That distinction is now on the value itself.

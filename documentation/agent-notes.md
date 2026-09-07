@@ -105,6 +105,12 @@ of the roadmap.
   inline wire LOINC is never overwritten, and a miss/conflict is `unmapped`/`ambiguous` with a
   value-free warning. **No LOINC/SNOMED/LIVD data is bundled.** Fourth warning registry `ASTM_LIVD_*`
   (`ASTM_LIVD_UNMAPPED_CODE`, `ASTM_LIVD_AMBIGUOUS_MAPPING`), outside the profile safety gate.
+  **Relocated from `CLAUDE.md` 2026-09-05, so the locus and the disposition are not lost with the
+  line that carried them:** the fourth registry sits **outside** the gate's universe by design
+  (`src/terminology/warnings.ts`), so one of its codes is refused as _unknown_ rather than as
+  _safety-critical_. The gate itself is default-deny and total over the other **three** registries:
+  every record, frame (`ASTM_FRAME_*`) and LTP (`ASTM_LTP_*`) code is safety-critical unless it is on
+  `TOLERABLE_CODES`, and any new one is safety-critical **by default** until argued in.
 - **Phase 8 shipped (ASTM-8): the vendor profile system, engine + registry + quirk-tolerance
   transform + a definition-time safety gate.** `src/profiles/` mirrors the sibling `@cosyte/hl7`
   `defineProfile` / `@cosyte/ccda` `defineCcdaProfile` shape. `defineAstmProfile(opts)` builds a frozen,
@@ -954,6 +960,15 @@ spec-clean result record, whose field layout is identical in all twelve cases so
 is the reporting): **3 of the 12 raise the new code, enumerated as `|`, `\` and `^`**, the field,
 repeat and component roles of the canonical set. Under `referenceCorpus` plus `{ strict: true }`,
 **12 of 12 were accepted on `3107273` and 9 are now**.
+
+**▶ PART 2 OF THE ADMISSION TEST HAS TWO NAMED READERS NOW, relocated from `CLAUDE.md` 2026-09-05
+so the pair survives the line that carried them.** The remedy this defect, defect 4 and defect 15
+all took was a **SECOND, NARROWER CODE, never striking the first off**, and each of the three new
+codes is safety-critical by default and **must not be added to `TOLERABLE_CODES`**, while the
+tolerable ones each stay on it, still true of the cases that cost nothing. What that bought is a
+reader: **part 2 has two named readers now (`isSplittingDelimiter`, `isMnemonicBody`), the first of
+which the first refuter pass caught the file still denying.** Both are argued at their own site in
+`src/profiles/safety.ts`, which is the list to read rather than any copy of it.
 
 <a id="defect-12"></a>
 
