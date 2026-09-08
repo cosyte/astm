@@ -194,6 +194,11 @@ export type {
 } from "./common/escapes.js";
 export { parseAstmDate, astmDateToLocalISO } from "./common/dates.js";
 export type { AstmDate, AstmDatePrecision } from "./common/dates.js";
+// The shared @cosyte conversion surface, beside the repo-native renderer above.
+// Same names, same shapes and the same timezone rule in every @cosyte parser, so
+// a consumer importing two of them aliases rather than relearns.
+export { toObject, toISO, toDate } from "./common/date-conversion.js";
+export type { DateParts, ToDateOptions } from "./common/date-conversion.js";
 export { recognizeUniversalTestId, primaryCode } from "./common/coding-system.js";
 export type { UniversalTestId, UniversalTestIdProvenance } from "./common/coding-system.js";
 export { deepFreeze } from "./common/freeze.js";
