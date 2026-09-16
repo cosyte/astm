@@ -29,55 +29,7 @@ shipped (`ls src/` for the module layout).
 
 ### Traps carried out of the status history
 
-- **Never name a version in prose** here, in `README.md`, or in `docs-content/`: all four went stale
-  once, and `docs-content/` ships inside an **immutable** tarball. Derive it with
-  `npm view @cosyte/astm version`. `#status-history`.
-- **`src/index.ts`'s exported `VERSION` is a different thing and IS bound** (`scripts/sync-version.mjs`
-  plus an equality assertion in `test/sanity.test.ts`); never "restore consistency" by re-pinning a
-  number into prose. `#status-history`.
-- **Never claim a clause id for ASTM/CLSI behaviour this repo cannot read**: the paywalled editions
-  were not read and the OSS corpus cannot ground them, so those rules are **reasoned from this
-  package's own reader**, never cited. `#status-history`, `#defect-6`, `#defect-7`.
-- **The profile safety gate is default-deny, and total over THREE registries**, with `ASTM_LIVD_*`
-  **outside** its universe by design; a new code is safety-critical **by default** until argued in.
-  **Never quote the tolerable list or its count here: read `src/profiles/safety.ts`.**
-  `#status-history`, `#defect-8`.
-- **The remedy when a tolerable code is the only report of a real loss is a SECOND, NARROWER code,
-  not striking the first off.** `#defect-4`, `#defect-11`, `#defect-15`.
-- **The admission test has TWO clauses, and the second is a claim about the whole library** with no
-  automatic check: re-derive the list whenever something new starts reading record structure.
-  `#status-history`.
-- **Do not re-derive that list by comparing a parse with a profile against one without**: measure it
-  on pairs that must fail, as `test/profiles/unknown-record-type-safety.test.ts` does.
-  `#status-history`.
-- **The gate is enforced at two points and the second one is load-bearing**: do not "simplify"
-  `applyAstmProfile`'s re-check away as redundant. `#defect-2`.
-- **A profile never touches an extracted value**: it only re-badges a warning it expects to
-  `PROFILE_QUIRK_APPLIED`, and a spec-clean message parses byte-identically with or without one.
-  `#status-history`.
-- **Never author a named per-vendor profile without a public vendor-attributed quirk document.**
-  `#status-history`.
-- **Never bundle LOINC / SNOMED / LIVD data, and never emit a guessed LOINC**: **the catalog answers
-  for the analyte identity and the wire never does**, and this package performs **no LOINC
-  validation of any kind**. `#status-history`, `#defect-9`.
-- **The LIVD unit comparison is VERBATIM and CASE SENSITIVE and it is NOT UCUM, and `unitComparison`
-  says so ON THE OUTPUT: do not "tidy" that field away as redundant with the docs.** Nothing is
-  normalized, case folded, scaled or converted on either side, **blank is not a unit on either
-  side**, and the specimen and result descriptions are stored and surfaced but **NEVER matched on**.
-  A SINGLE candidate LOINC is answered whether or not the units agree and carries NO
-  `unitComparison`, and the added answer fields are **conditional**: do not make them unconditional.
-  **A `mapped` answer's `representativeUnit` is the catalog ROW's, not the record's.** **The
-  refusal's never-chose rule is a CLOSED KEY SET, never a search of its JSON for a `loinc` token**,
-  which reds about one unseeded run in six. `#livd-units`.
-- **Never fabricate structure or a positive acknowledgement**: checksums and frame numbers are
-  computed, an unvouched frame is `NAK`ed, a builder emits only supplied values, and an
-  unrecognizable transport lead **defaults to framed and warns**. `#status-history`.
-- **`Q` dominates: a `Q`-bearing message is never read as a result set**, and `M`/`S` are surfaced
-  **verbatim**, never interpreted into clinical fields. `#status-history`, `#defect-2`.
-- **The differential vectors are captured, not vendored**, and the **deliberate divergences are
-  asserted on purpose**: do not "fix" one to match. `#status-history`.
-- **Delimiters are re-read at every `H` and scoped forward**, and records already read keep the set
-  they were read with. `#status-history`.
+Full section: [documentation/status-traps.md](documentation/status-traps.md#traps-carried-out-of-the-status-history).
 
 ## The shipped docs sidebar is a published contract
 
@@ -93,78 +45,7 @@ Full text, with the spine, the file names and the measurements: `#docs-sidebar`.
 
 ## Known defects live on `main`
 
-Recorded so they survive independently of any backlog. **Numbers are stable**, and a closed entry is
-kept, because the correction it records is usually the lesson. Full entries, with every measurement
-and refuted formulation: `#defects`.
-
-1. **CLOSED 2026-07-29.** Stream-scoped `patient()` / `results()` attributed one patient's results to
-   another, silently; **the break is the fix, and "single-message streams are unaffected" is false**.
-   **Within-message patient scoping is still open and must not be closed by guessing a hierarchy.**
-   `#defect-1`
-2. **Silencing CLOSED 2026-08-01; the MERGE is still open on purpose.** **Do not close it by
-   inferring a header**: recognizing a mangled header means guessing a byte the sender did not send.
-   `#defect-2`
-3. **Open.** `msg.classification` is folded over the whole STREAM but documented per-message; derive
-   the per-message answer with `classifyMessage(m.records)`. **`AstmStreamMessage` deliberately
-   carries NO `classification` field**, so do not "complete the type" by adding one. `#defect-3`
-4. **CLOSED 2026-08-05.** `ASTM_RECORD_DELIMITER_ROLE_COLLISION` is **a report, not a repair**: the
-   declared set is still honored and **the default-path re-emit still launders it**, measured.
-   `#defect-4`
-5. **CLOSED 2026-08-03.** `serializeRecordChecked` asserts the first character written is the letter
-   the record models. **Do not "simplify" that byte-level check into a rule over the four delimiter
-   roles**, and **say it is a narrowing on a published package wherever the refusal is described.**
-   `#defect-5`
-6. **CLOSED 2026-08-03. It WAS a stop-the-line because its worst branch was SILENT.**
-   `composeAstmFrames` throws `ASTM_FRAME_RESERVED_BYTE` with **no bytes-instead escape hatch**; the
-   record layer is **deliberately untouched**, `CR`/`LF` and `ENQ`/`ACK`/`NAK`/`EOT` are deliberately
-   **NOT** in the set, and **neither this refusal nor defect 7's is total**. `#defect-6`
-7. **CLOSED 2026-08-02. Recorded as LOUD; the larger half was SILENT.** `ASTM_FRAME_UNENCODABLE_CHARACTER`
-   now throws; **UTF-8 was considered and rejected**, the read side is **deliberately** Latin-1, and
-   **a claim of "loud in every case" is a claim about the input space, not about the cases you ran.**
-   `#defect-7`
-8. **CLOSED 2026-08-02. It WAS a stop-the-line, and the UNITS decided it.** An escape sequence is now
-   exactly three characters, split and decoder sharing one definition. **Scope the sentence to the
-   character the code reports, never to "the record".** `#defect-8`
-9. **CLOSED 2026-08-21; the CATALOG BYPASS was the safety-critical half**, not the label. **NO LOINC
-   SHAPE TEST WAS ADDED AND NONE MAY BE**: every route is POSITIONAL, and a disagreement is
-   REPORTED, never resolved. `#defect-9`
-10. **Open, and deliberately PARTIAL, so the warning's ABSENCE certifies nothing.** A run of
-    `ASTM_RECORD_FIELDS_UNSEPARATED` is not a sweep. **Not fixed on purpose**, and **if you ever make
-    one of those "limits" tests go green by widening the guard, the prose in three published places
-    has to move with it.** `#defect-10`
-11. **CLOSED 2026-08-05, as a REPORT.** `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` fires
-    **alongside**, not instead, and **the atom was NOT narrowed and the value is byte-identical**.
-    **The laundering hop is NOT closed and must not be written as closed**: catch it on the **first**
-    read. `#defect-11`
-12. **CLOSED 2026-08-04.** `encodeLeaf` is now one left-to-right pass, the exact inverse of
-    `decodeEscapes`. **Never quote any of the recorded figures without the space and the corpus
-    constant they were measured against**, and **never replace the narrow "what is not guaranteed"
-    prose with a positive guarantee that emit preserves every field tree.** `#defect-12`
-13. **CLOSED 2026-08-03.** `ASTM_FRAME_INVALID_START_FRAME_NUMBER`; **clamping and modulo were both
-    rejected**, do not "simplify" it to "refuse anything but 1", and **do not reintroduce a rule for
-    what a standalone continuation does**. The record layer never reports the loss, so **read
-    `frameWarnings`**. `#defect-13`
-14. **Open, measured, pinned and disclosed 2026-08-04.** The header delimiter-declaration surplus
-    drop stays, **it is all-or-nothing** and **fires with no `d` argument at all**, and **one
-    recorded reason for it measured FALSE and must not be restated**. `#defect-14`
-15. **CLOSED IN PART 2026-08-05, as a REPORT, and the MIRROR of defect 11. Read defect 17 for what is
-    left.** `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT`; **the split is UNCHANGED and every byte is
-    identical**, **a RECOGNIZED mnemonic body is excluded**, and **never write it as "the reading
-    taken is conformant"**. `#defect-15`
-16. **CLOSED 2026-08-05, as a MESSAGE ONLY.** **The fatal CODE is unchanged and no stream's
-    disposition moved**, and **do not delete the unreachable branch.** `#defect-16`
-17. **(a), (b), (c) AND THE TAIL RESIDUE ALL CLOSED as REPORTS by weighing the TAIL; the pair count
-    stays REJECTED.** ONE predicate, wired per role, never widened into each other; **all 3 roles
-    wired, NO fourth**, and 15's exclusion untouched. **NEVER write "a repeat or component boundary
-    cannot move a modeled slot", nor "EVERY gained boundary moves a slot", nor "reads ONE more
-    segment", nor any of the THREE ROLE COST CLAIMS unqualified.** **RECORDING a refuted universal is
-    NOT correcting it: GREP EVERY RESTATEMENT, including WHAT-TO-DO prose.** **DO NOT RE-PROPOSE THE
-    PAIR COUNT**, and remember a corpus that FIXES the tail reports a comforting zero. `#defect-17`
-
-Two further defects were closed and folded away: `#defects-closed-elsewhere`.
-
-**Before you touch `parse.ts`, `serialize.ts`, `escapes.ts`, `encode.ts`, `extractors.ts` or
-`host-query.ts`, read the defect entries above and `CHANGELOG.md` `[Unreleased]`.**
+Full section: [documentation/known-defects.md](documentation/known-defects.md#known-defects-live-on-main).
 
 ## Tech Stack (the shared `@cosyte/*` standard)
 
