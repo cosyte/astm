@@ -86,16 +86,50 @@ and never guesses a LOINC:
 ```ts runnable
 import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
 
-const catalog = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8", loincLongName: "AST" }]);
+const catalog = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8", loincLongName: "AST" }], {
+  publisher: "Example Diagnostics",
+  publicationVersion: "LIVD-2026-01-A",
+  loincVersion: "2.78",
+  loincCopyright:
+    "This content LOINC® is copyright © 1995 Regenstrief Institute, Inc. and the LOINC Committee, and available at no cost under the license at http://loinc.org/terms-of-use",
+});
 const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
+const annotation = applyLivd(msg, catalog).annotations[0];
 
-applyLivd(msg, catalog).annotations[0]?.mapping.status; // => "mapped"
+annotation?.mapping.status; // => "mapped"
+annotation?.catalogLoincVersion; // => "2.78"
+catalog.publication?.publisher; // => "Example Diagnostics"
+catalog.warnings?.length; // => 0
 ```
 
 The catalog is consulted whenever a vendor local code is present, and is keyed on that code alone. A
 value in the Universal Test ID's first component is carried verbatim as `unvalidatedWireValue`, is
 never used as a lookup key, and is never reported as a LOINC: this package performs **no LOINC
 validation of any kind**, so it never decides what such a value "looks like".
+
+### Say which publication the mapping came from
+
+The four optional elements beside the rows describe the **publication**, not any one row: who
+published it, which publication version it is, which version of LOINC the mapping was made against,
+and the LOINC copyright statement. The LOINC version rides onto **every** annotation the catalog
+produces as `catalogLoincVersion`, whatever the lookup answered, so a mapping records what it was
+made against and can be reproduced later.
+
+**The LOINC license requires a statement of attribution and notice that LOINC content is
+copyrighted**, and `loincCopyright` is where your statement rides, so it travels beside the mappings
+it applies to rather than living in a document somewhere else.
+
+Declaring no LOINC version is allowed and **nothing refuses**: the catalog is built and every lookup
+answers exactly as it would have. `catalog.warnings` then carries one value-free
+`ASTM_LIVD_CATALOG_NO_LOINC_VERSION` warning, whose message is a constant and whose `catalog` field
+names your publication from what you declared, or says positively that you declared no identity.
+
+**And the limits, beside the capability.** This package validates **none** of this metadata: not the
+LOINC version, not the publisher, not the publication version, not the copyright text. It performs
+no LOINC validation of any kind, so each value is stored and surfaced exactly as you supplied it,
+and `catalogLoincVersion` never means a LOINC was checked against that version. **Carrying an
+attribution statement is not discharging the obligation to make one**: the terminology data and its
+license obligations stay yours, and this package makes no statement on your behalf.
 
 ## Round-trip a payload
 
