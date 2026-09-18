@@ -1489,7 +1489,9 @@ describe("the catalog's LOINC version rides on every annotation it produces", ()
     const byHand: LivdCatalog = {
       size: 1,
       lookup(vendorCode: string): LivdLookup {
-        return vendorCode === "687" ? { status: "mapped", loinc: "1920-8" } : { status: "unmapped" };
+        return vendorCode === "687"
+          ? { status: "mapped", loinc: "1920-8" }
+          : { status: "unmapped" };
       },
     };
     const msg = parseAstmRecords(stream("^^^687"));
@@ -1561,7 +1563,9 @@ describe("a catalog with no LOINC version is warned about, never refused", () =>
     // One constant, whatever the consumer stored, and the same one the builder returns
     // for a catalog that declared nothing at all.
     expect(w1?.message).toBe(w2?.message);
-    expect(w1?.message).toBe(livdCatalogMissingLoincVersion(LIVD_CATALOG_IDENTITY_UNDECLARED).message);
+    expect(w1?.message).toBe(
+      livdCatalogMissingLoincVersion(LIVD_CATALOG_IDENTITY_UNDECLARED).message,
+    );
     for (const stored of [
       "Example Diagnostics",
       "LIVD-2026-01-A",
