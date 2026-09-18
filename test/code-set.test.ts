@@ -71,6 +71,7 @@ describe("stable code surface", () => {
     expect(sortedCodeSet(LIVD_WARNING_CODES)).toMatchInlineSnapshot(`
       [
         "ASTM_LIVD_AMBIGUOUS_MAPPING",
+        "ASTM_LIVD_CATALOG_NO_LOINC_VERSION",
         "ASTM_LIVD_UNMAPPED_CODE",
       ]
     `);

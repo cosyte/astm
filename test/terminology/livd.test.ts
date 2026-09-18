@@ -8,6 +8,8 @@ import {
   results,
   orders,
   LIVD_WARNING_CODES,
+  LIVD_CATALOG_IDENTITY_UNDECLARED,
+  livdCatalogMissingLoincVersion,
 } from "../../src/index.js";
 import type {
   LivdAnnotation,
@@ -15,6 +17,7 @@ import type {
   LivdEntry,
   LivdLookup,
   LivdMapping,
+  LivdPublication,
 } from "../../src/index.js";
 
 /**
@@ -1307,5 +1310,346 @@ describe("the annotation adds the LIVD attributes and rewrites nothing on the wi
       source: "livd",
       derived: true,
     });
+  });
+});
+
+// ── What the catalog says about the PUBLICATION it was built from ─────────────────────
+//
+// A mapping is only reproducible if it records which version of LOINC it was made
+// against, and the LOINC license requires an attribution statement to travel with
+// content carrying LOINC codes. Neither had anywhere to live: the catalog carried rows
+// and nothing about the publication behind them. Four optional, consumer-supplied
+// elements now ride on the catalog, the LOINC version rides onto every annotation, and
+// a catalog declaring no LOINC version is WARNED about and still built.
+//
+// None of it is validated. This package is not the LOINC licensee, performs no LOINC
+// validation of any kind, and could not tell a real version from a typed one; carrying
+// an attribution statement is not discharging the obligation to make one either.
+//
+// Every value below is SYNTHETIC: invented publisher names, invented publication
+// versions, and attribution text written for this file. No real publication, no real
+// patient data, and nothing read off any wire.
+
+/** The four elements, all declared, as a consumer would supply them. */
+const publication: LivdPublication = {
+  publisher: "Example Diagnostics",
+  publicationVersion: "LIVD-2026-01-A",
+  loincVersion: "2.78",
+  loincCopyright: "Attribution text the consumer stored",
+};
+
+/** The same rows as the catalogs above, with the publication metadata declared. */
+const versioned = defineLivdCatalog(
+  [
+    { vendorCode: "687", loinc: "1920-8" },
+    { vendorCode: "800", loinc: "2160-0" },
+    { vendorCode: "800", loinc: "38483-4" },
+  ],
+  publication,
+);
+
+/** One `R` record per lookup outcome, in wire order: the five the discriminant has. */
+const everyOutcomeStream =
+  "H|\\^&\r" +
+  "R|1|^^^687|28.6|U/L||N||F\r" +
+  "R|2|^^^999|28.6|U/L||N||F\r" +
+  "R|3|^^^800|28.6|U/L||N||F\r" +
+  "R|4|Glucose|28.6|U/L||N||F\r" +
+  "R|5||28.6|U/L||N||F\r" +
+  "L|1\r";
+
+/** The catalog-level warning code, spelled once. */
+const NO_LOINC_VERSION = LIVD_WARNING_CODES.ASTM_LIVD_CATALOG_NO_LOINC_VERSION;
+
+describe("a catalog carries publication-level metadata, verbatim and unvalidated", () => {
+  it("AC-1: accepts all four elements beside the rows and reads each back verbatim", () => {
+    expect(versioned.publication).toEqual(publication);
+    expect(Object.keys(versioned.publication ?? {}).sort()).toEqual([
+      "loincCopyright",
+      "loincVersion",
+      "publicationVersion",
+      "publisher",
+    ]);
+    // The metadata is about the publication, not about any row: the index is unmoved.
+    expect(versioned.size).toBe(2);
+    expect(versioned.lookup("687")).toEqual({ status: "mapped", loinc: "1920-8" });
+  });
+
+  it("AC-4: preserves values no validator would accept, byte for byte", () => {
+    // Deliberately unacceptable to any validator: doubled internal spaces and mixed
+    // case in the publisher, a version that is not a version, a trailing space on the
+    // LOINC version, and a one-character attribution. Nothing may trim, fold,
+    // reformat, reorder, default, reject or warn about any of it. A LOINC validator
+    // added later turns this test red, which is the point of grading it here.
+    const unacceptable: LivdPublication = {
+      publisher: "  example  DIAGNOSTICS  ",
+      publicationVersion: "no idea, whatever shipped",
+      loincVersion: "banana-9.9.9.9-DRAFT ",
+      loincCopyright: "x",
+    };
+    const cat = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8" }], unacceptable);
+
+    expect(cat.publication).toEqual(unacceptable);
+    expect(cat.publication?.publisher).toBe("  example  DIAGNOSTICS  ");
+    expect(cat.publication?.loincVersion).toBe("banana-9.9.9.9-DRAFT ");
+    // A LOINC version WAS declared, so the one catalog warning there is stays silent:
+    // nothing rejected, corrected or warned about the content or the shape of a value.
+    expect(cat.warnings).toEqual([]);
+    // And it rides onto the annotation exactly as supplied, still unexamined.
+    expect(annotate(stream("^^^687"), cat).a.catalogLoincVersion).toBe("banana-9.9.9.9-DRAFT ");
+  });
+
+  it("AC-5: treats an empty or whitespace-only value as no value supplied", () => {
+    const blank = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8" }], {
+      publisher: "",
+      publicationVersion: "   ",
+      loincVersion: "\t ",
+      loincCopyright: "",
+    });
+    // Nothing declared at all, so nothing is stored: not a blank, not a default.
+    expect(blank.publication).toBeUndefined();
+    // A blank LOINC version raises the AC-3 warning, exactly as declaring none does.
+    expect(blank.warnings?.map((w) => w.code)).toEqual([NO_LOINC_VERSION]);
+    // And it is never carried onto an annotation as a blank: the key is absent.
+    const { a } = annotate(stream("^^^687"), blank);
+    expect(a.catalogLoincVersion).toBeUndefined();
+    expect(Object.keys(a)).not.toContain("catalogLoincVersion");
+  });
+
+  it("AC-5: keeps the elements that WERE declared when another is blank", () => {
+    const partial = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8" }], {
+      publisher: "Example Diagnostics",
+      loincVersion: "  ",
+    });
+    expect(partial.publication).toEqual({ publisher: "Example Diagnostics" });
+    expect(partial.warnings?.map((w) => w.code)).toEqual([NO_LOINC_VERSION]);
+    expect(partial.warnings?.[0]?.catalog).toEqual({
+      declared: true,
+      publisher: "Example Diagnostics",
+    });
+  });
+});
+
+describe("the catalog's LOINC version rides on every annotation it produces", () => {
+  it("AC-2: carries the declared LOINC version onto an annotation", () => {
+    const { a } = annotate(stream("^^^687"), versioned);
+    expect(a.catalogLoincVersion).toBe("2.78");
+  });
+
+  it("AC-6: carries it on EVERY outcome, and adds no field claiming a LOINC was checked", () => {
+    const { annotations } = applyLivd(parseAstmRecords(everyOutcomeStream), versioned);
+    expect(annotations.map((x) => x.mapping.status)).toEqual([
+      "mapped",
+      "unmapped",
+      "ambiguous",
+      "no-vendor-code",
+      "no-code",
+    ]);
+
+    // The KEY SET of each annotation, closed: exactly one key was added, and no field
+    // asserts that any LOINC was checked, validated or conformed to that version.
+    const expectedKeys: string[][] = [
+      // mapped, unmapped, ambiguous: a vendor code was consulted, component 1 is empty.
+      ["catalogLoincVersion", "mapping", "provenance", "recordIndex", "recordType", "reportedCode"],
+      ["catalogLoincVersion", "mapping", "provenance", "recordIndex", "recordType", "reportedCode"],
+      ["catalogLoincVersion", "mapping", "provenance", "recordIndex", "recordType", "reportedCode"],
+      // no-vendor-code: component 1 populated, nothing looked up.
+      [
+        "catalogLoincVersion",
+        "mapping",
+        "provenance",
+        "recordIndex",
+        "recordType",
+        "unvalidatedWireValue",
+      ],
+      // no-code: nothing usable at all.
+      ["catalogLoincVersion", "mapping", "provenance", "recordIndex", "recordType"],
+    ];
+    annotations.forEach((x, i) => {
+      expect(x.catalogLoincVersion).toBe("2.78");
+      expect(Object.keys(x).sort()).toEqual(
+        [...(expectedKeys[i] ?? []), "wireValueDisagreesWithCatalog"].sort(),
+      );
+    });
+
+    // The mapping keeps the key set it had: the version is catalog provenance and is
+    // not restated inside the answer, where it could read as a check of that LOINC.
+    expect(Object.keys(annotations[0]?.mapping ?? {}).sort()).toEqual([
+      "derived",
+      "loinc",
+      "source",
+      "status",
+    ]);
+    expect(Object.keys(annotations[2]?.mapping ?? {}).sort()).toEqual(["candidates", "status"]);
+  });
+
+  it("AC-9: omits the version for a hand-implemented catalog, substituting nothing", () => {
+    // A catalog a consumer implemented by hand, offering no metadata at all: the
+    // interface's added members are optional, so this still satisfies it.
+    const byHand: LivdCatalog = {
+      size: 1,
+      lookup(vendorCode: string): LivdLookup {
+        return vendorCode === "687" ? { status: "mapped", loinc: "1920-8" } : { status: "unmapped" };
+      },
+    };
+    const msg = parseAstmRecords(stream("^^^687"));
+    expect(() => applyLivd(msg, byHand)).not.toThrow();
+
+    const { a } = annotate(stream("^^^687"), byHand);
+    expect(a.catalogLoincVersion).toBeUndefined();
+    // No default, no placeholder, no empty value: the key is simply not there, and the
+    // annotation's key set is the one it had before this feature existed.
+    expect(Object.keys(a).sort()).toEqual([
+      "mapping",
+      "provenance",
+      "recordIndex",
+      "recordType",
+      "reportedCode",
+      "wireValueDisagreesWithCatalog",
+    ]);
+  });
+
+  it("AC-5: never carries a hand-implemented catalog's blank version as a blank", () => {
+    // This catalog never passed through defineLivdCatalog, so the blank arrives here
+    // undecided. It is still no value supplied, and still never a blank on an answer.
+    const blankByHand: LivdCatalog = {
+      size: 1,
+      publication: { loincVersion: "   " },
+      lookup(): LivdLookup {
+        return { status: "mapped", loinc: "1920-8" };
+      },
+    };
+    const { a } = annotate(stream("^^^687"), blankByHand);
+    expect(a.catalogLoincVersion).toBeUndefined();
+    expect(Object.keys(a)).not.toContain("catalogLoincVersion");
+  });
+});
+
+describe("a catalog with no LOINC version is warned about, never refused", () => {
+  it("AC-3: surfaces a value-free warning naming the catalog, and still builds it", () => {
+    const cat = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8" }], {
+      publisher: "Example Diagnostics",
+      publicationVersion: "LIVD-2026-01-A",
+    });
+    expect(cat.warnings).toHaveLength(1);
+    expect(cat.warnings?.[0]?.code).toBe(NO_LOINC_VERSION);
+    expect(cat.warnings?.[0]?.catalog).toEqual({
+      declared: true,
+      publisher: "Example Diagnostics",
+      publicationVersion: "LIVD-2026-01-A",
+    });
+    // Built, indexed and usable: the warning changed no answer and refused nothing.
+    expect(cat.size).toBe(1);
+    expect(cat.lookup("687")).toEqual({ status: "mapped", loinc: "1920-8" });
+    expect(annotate(stream("^^^687"), cat).a.mapping.status).toBe("mapped");
+    // And a catalog that DID declare one is not warned about at all.
+    expect(versioned.warnings).toEqual([]);
+  });
+
+  it("AC-7: keeps the message a constant and names the catalog in a structured field", () => {
+    const one = defineLivdCatalog([], {
+      publisher: "Example Diagnostics",
+      publicationVersion: "LIVD-2026-01-A",
+    });
+    const two = defineLivdCatalog([], {
+      publicationVersion: "2026.02",
+      loincCopyright: "Attribution text the consumer stored",
+    });
+    const w1 = one.warnings?.[0];
+    const w2 = two.warnings?.[0];
+
+    // One constant, whatever the consumer stored, and the same one the builder returns
+    // for a catalog that declared nothing at all.
+    expect(w1?.message).toBe(w2?.message);
+    expect(w1?.message).toBe(livdCatalogMissingLoincVersion(LIVD_CATALOG_IDENTITY_UNDECLARED).message);
+    for (const stored of [
+      "Example Diagnostics",
+      "LIVD-2026-01-A",
+      "2026.02",
+      "Attribution text the consumer stored",
+    ]) {
+      expect(w1?.message).not.toContain(stored);
+      expect(w2?.message).not.toContain(stored);
+    }
+    // The catalog is identifiable from the structured field instead.
+    expect(w1?.catalog).toEqual({
+      declared: true,
+      publisher: "Example Diagnostics",
+      publicationVersion: "LIVD-2026-01-A",
+    });
+    expect(w2?.catalog).toEqual({ declared: true, publicationVersion: "2026.02" });
+    // Text the consumer stored elsewhere in the metadata never reaches the warning.
+    expect(JSON.stringify(w2)).not.toContain("Attribution text the consumer stored");
+  });
+
+  it("AC-12: states positively that a catalog declared no identity, inventing none", () => {
+    const anonymous = defineLivdCatalog([{ vendorCode: "687", loinc: "1920-8" }], {
+      loincCopyright: "Attribution text the consumer stored",
+    });
+    const w = anonymous.warnings?.[0];
+    expect(w?.code).toBe(NO_LOINC_VERSION);
+    expect(w?.catalog.declared).toBe(false);
+    expect(w?.catalog).toEqual(LIVD_CATALOG_IDENTITY_UNDECLARED);
+    expect(Object.keys(w?.catalog ?? {}).sort()).toEqual(["declared", "reason"]);
+    if (w?.catalog.declared === false) expect(w.catalog.reason.length).toBeGreaterThan(0);
+
+    // Nothing is invented, indexed or borrowed to stand in for the identity: no
+    // number at all (so no ordinal and no position), and no value off a row.
+    const identity = JSON.stringify(w?.catalog);
+    expect(identity).not.toMatch(/\d/);
+    for (const borrowed of ["687", "1920-8", "Attribution text the consumer stored"]) {
+      expect(identity).not.toContain(borrowed);
+    }
+  });
+});
+
+describe("a catalog defined with no metadata at all answers exactly as it did", () => {
+  /** The catalog shape every consumer has today: rows, and no second argument. */
+  const bare = defineLivdCatalog([
+    { vendorCode: "687", loinc: "1920-8" },
+    { vendorCode: "800", loinc: "2160-0" },
+    { vendorCode: "800", loinc: "38483-4" },
+  ]);
+
+  it("AC-8: answers every lookup key for key", () => {
+    expect(bare.publication).toBeUndefined();
+    expect(bare.lookup("687")).toEqual({ status: "mapped", loinc: "1920-8" });
+    expect(Object.keys(bare.lookup("687")).sort()).toEqual(["loinc", "status"]);
+    expect(bare.lookup("999")).toEqual({ status: "unmapped" });
+    expect(bare.lookup("800")).toEqual({ status: "ambiguous", candidates: ["2160-0", "38483-4"] });
+    expect(Object.keys(bare.lookup("800")).sort()).toEqual(["candidates", "status"]);
+  });
+
+  it("AC-8: produces every annotation key for key, with no version key added", () => {
+    const { annotations } = applyLivd(parseAstmRecords(everyOutcomeStream), bare);
+    const expected: string[][] = [
+      ["mapping", "provenance", "recordIndex", "recordType", "reportedCode"],
+      ["mapping", "provenance", "recordIndex", "recordType", "reportedCode"],
+      ["mapping", "provenance", "recordIndex", "recordType", "reportedCode"],
+      ["mapping", "provenance", "recordIndex", "recordType", "unvalidatedWireValue"],
+      ["mapping", "provenance", "recordIndex", "recordType"],
+    ];
+    annotations.forEach((x, i) => {
+      expect(Object.keys(x).sort()).toEqual(
+        [...(expected[i] ?? []), "wireValueDisagreesWithCatalog"].sort(),
+      );
+      expect(x.catalogLoincVersion).toBeUndefined();
+    });
+  });
+
+  it("AC-8: leaves the per-record warning stream the same codes, order and number", () => {
+    const { warnings } = applyLivd(parseAstmRecords(everyOutcomeStream), bare);
+    expect(warnings.map((w) => w.code)).toEqual([
+      LIVD_WARNING_CODES.ASTM_LIVD_UNMAPPED_CODE,
+      LIVD_WARNING_CODES.ASTM_LIVD_AMBIGUOUS_MAPPING,
+    ]);
+    expect(warnings.map((w) => w.position)).toEqual([
+      { recordIndex: 2, recordType: "R" },
+      { recordIndex: 3, recordType: "R" },
+    ]);
+    // The catalog's own warning IS raised, and it is on the CATALOG: raised once where
+    // the catalog was defined, never per record, so this stream is untouched by it.
+    expect(bare.warnings?.map((w) => w.code)).toEqual([NO_LOINC_VERSION]);
+    expect(warnings.map((w) => w.code)).not.toContain(NO_LOINC_VERSION);
   });
 });

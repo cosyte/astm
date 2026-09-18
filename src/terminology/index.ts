@@ -13,9 +13,21 @@ export type {
   LivdCatalog,
   LivdEntry,
   LivdLookup,
+  LivdPublication,
   LivdUnitComparison,
 } from "./catalog.js";
 export { applyLivd, lookupLivdForRecord } from "./apply.js";
 export type { LivdAnnotation, LivdMapping, LivdResult } from "./apply.js";
-export { LIVD_WARNING_CODES, livdUnmappedCode, livdAmbiguousMapping } from "./warnings.js";
-export type { AstmLivdWarning, LivdWarningCode } from "./warnings.js";
+export {
+  LIVD_WARNING_CODES,
+  LIVD_CATALOG_IDENTITY_UNDECLARED,
+  livdUnmappedCode,
+  livdAmbiguousMapping,
+  livdCatalogMissingLoincVersion,
+} from "./warnings.js";
+export type {
+  AstmLivdWarning,
+  AstmLivdCatalogWarning,
+  LivdCatalogIdentity,
+  LivdWarningCode,
+} from "./warnings.js";

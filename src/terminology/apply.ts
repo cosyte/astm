@@ -28,6 +28,13 @@
  * so on its output. It only ever narrows the candidate list the consumer's own
  * catalog produced: it can never introduce a LOINC, never overrides the catalog, and
  * a record with no readable units simply leaves the ambiguity standing.
+ *
+ * **The catalog's declared LOINC version rides on every annotation.** Where the
+ * consumer declared one, {@link LivdAnnotation.catalogLoincVersion} carries it
+ * verbatim on every annotation that catalog produced, whatever the outcome of the
+ * lookup, so a mapping says which version of LOINC it was made against and can be
+ * reproduced. It is provenance the CONSUMER declared and nothing else: no LOINC is
+ * validated against it, or against anything, here or anywhere in this package.
  */
 
 import { deepFreeze } from "../common/freeze.js";
@@ -146,6 +153,19 @@ export interface LivdAnnotation {
   readonly provenance: UniversalTestIdProvenance;
   /** The lookup outcome: never a guessed LOINC. */
   readonly mapping: LivdMapping;
+  /**
+   * The **LOINC version the catalog declared**, verbatim, carried on **every** annotation that
+   * catalog produced, whatever the outcome of the lookup. It is what makes a mapping reproducible:
+   * the reader can see which version of LOINC the consumer's catalog says it was built against.
+   *
+   * **It asserts nothing about this LOINC.** It is provenance about the CATALOG, not a claim that
+   * any LOINC was checked, found, or validated against that version: this package performs no
+   * LOINC validation of any kind, and nothing here reads the string beyond carrying it.
+   *
+   * Absent when the catalog declared no LOINC version (including a catalog a consumer implemented
+   * by hand, which declares none), never a default, a placeholder or an empty string.
+   */
+  readonly catalogLoincVersion?: string;
 }
 
 /**
@@ -159,6 +179,11 @@ export interface LivdResult {
   /**
    * A value-free warning per `unmapped`/`ambiguous` code: never per `mapped`, and
    * never per `no-vendor-code`/`no-code`, where no lookup happened at all.
+   *
+   * Per-record only. A warning about the CATALOG, such as one declaring no LOINC
+   * version, is raised where the catalog is defined and stays on
+   * {@link LivdCatalog.warnings}: it implicates no record, so it never joins this
+   * stream and never changes its codes, its order or its length.
    */
   readonly warnings: readonly AstmLivdWarning[];
 }
@@ -247,6 +272,20 @@ function disagrees(uid: UniversalTestId, mapping: LivdMapping): boolean {
   return wire !== undefined && wire !== mapping.loinc;
 }
 
+/**
+ * The LOINC version the catalog declared, or `undefined` where it declared none.
+ *
+ * The blank test is applied HERE as well as where a catalog is built, because a
+ * catalog is an interface a consumer may implement by hand: such a catalog never
+ * passed through {@link defineLivdCatalog}, so nothing has decided for it yet, and a
+ * blank must not ride onto an annotation as a blank. It decides presence only: a
+ * declared version is carried byte for byte, never trimmed.
+ */
+function declaredLoincVersion(catalog: LivdCatalog): string | undefined {
+  const version = catalog.publication?.loincVersion;
+  return version === undefined || version.trim() === "" ? undefined : version;
+}
+
 /** Recognize a record's Universal Test ID whether it arrived pre-recognized or as raw components. */
 function testIdOf(record: ResultRecord | OrderRecord): UniversalTestId | undefined {
   return record.universalTestId;
@@ -278,6 +317,9 @@ export function lookupLivdForRecord(
   // The code REPORTED as consulted is the code the catalog was consulted WITH.
   const reportedCode = recognized.localCode;
   const wireValue = recognized.unvalidatedWireValue;
+  // Conditional, like every other added field: an annotation from a catalog that
+  // declared no LOINC version keeps the exact key set it has always had.
+  const catalogLoincVersion = declaredLoincVersion(catalog);
   return {
     recordIndex: record.recordIndex,
     recordType: record.type,
@@ -286,6 +328,7 @@ export function lookupLivdForRecord(
     wireValueDisagreesWithCatalog: disagrees(recognized, mapping),
     provenance: recognized.provenance,
     mapping,
+    ...(catalogLoincVersion !== undefined ? { catalogLoincVersion } : {}),
   };
 }
 
