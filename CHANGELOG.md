@@ -10,14 +10,15 @@ this file is maintained by hand (Changesets handles the version bump and publish
 ## [Unreleased]
 
 **The pending changeset set is classified `minor`, not `patch`, so the next release is a minor
-release.** Five changesets are pending and four of them arrived carrying `patch`. Three of those
+release.** Six changesets are pending and four of them arrived carrying `patch`. Three of those
 four were reclassified against their own text: one removes public values and changes what an
 exported function returns, and two add public values. None of the three is a fix that adds nothing
 and removes nothing, which is the only thing a `patch` may claim, and only those three bump lines
 moved. The fourth keeps `patch`: it changes repository tooling and install configuration, touches no
-published value and emits no byte differently, so `patch` is what its own text supports. The fifth
-arrived carrying `minor` already, written against this same rule, so it is applied as written rather
-than reclassified. A set carrying a `patch` beside a `minor` still resolves to the minor channel.
+published value and emits no byte differently, so `patch` is what its own text supports. The other
+two arrived carrying `minor` already, each written against this same rule, so both are applied as
+written rather than reclassified. A set carrying a `patch` beside a `minor` still resolves to the
+minor channel.
 
 The breaking change below therefore ships in the minor channel of the pre-1.0 ladder, which is where
 a break belongs before `1.0.0`, rather than as a patch. Every break a consumer of the last published
@@ -27,9 +28,9 @@ before any release, and nothing publishes yet**: the release environment gate st
 version number is written here, because Changesets owns the bump and `scripts/sync-version.mjs`
 mirrors it.
 
-The entries the pending set carries are the date conversion surface entry, the LIVD units entry and
-the vocabulary-attribution entry under Added, and the LIVD catalog entry and the PHI scanner entry
-under Changed. This section also holds entries written
+The entries the pending set carries are the date conversion surface entry, the LIVD units entry, the
+LIVD publication metadata entry and the vocabulary-attribution entry under Added, and the LIVD
+catalog entry and the PHI scanner entry under Changed. This section also holds entries written
 before them, which is where they have always been kept: no released entry was moved, reworded or
 deleted by the reclassification, because rewriting a shipped changelog destroys the traceability it
 exists for.
@@ -133,6 +134,45 @@ exists for.
 
 ### Added
 
+- **A LIVD catalog says which publication it came from and which LOINC version the mapping was made
+  against, and that version rides on every annotation.** A consumer could record the vendor rows and
+  nothing about the publication behind them, so a mapping this library annotated was not
+  reproducible and the attribution statement the LOINC license requires had nowhere to live beside
+  the mappings it applies to.
+  - `LivdPublication`, an **optional second argument** to `defineLivdCatalog` and readable back as
+    `LivdCatalog.publication`: `publisher`, `publicationVersion`, `loincVersion` and
+    `loincCopyright`, all optional. Each declared value is preserved **verbatim**: nothing trimmed,
+    case folded, reordered, reformatted or defaulted. Absent, empty and whitespace only are one
+    case, no value declared, stored as absent rather than as a blank.
+  - `LivdAnnotation.catalogLoincVersion` carries that LOINC version on **every** annotation the
+    catalog produced, whatever the lookup answered (`mapped`, `unmapped`, `ambiguous`,
+    `no-vendor-code`, `no-code`), so a mapping records what it was made against and can be
+    reproduced. It is provenance about the CATALOG: no field says a LOINC was checked against it,
+    because none was.
+  - `ASTM_LIVD_CATALOG_NO_LOINC_VERSION` joins `LIVD_WARNING_CODES`, with `AstmLivdCatalogWarning`,
+    `LivdCatalogIdentity`, `LIVD_CATALOG_IDENTITY_UNDECLARED` and the builder
+    `livdCatalogMissingLoincVersion`. A catalog defined with no LOINC version surfaces one on
+    `LivdCatalog.warnings` and is **still built**: it is indexed and answers every lookup exactly as
+    it would have. The warning is raised once, where the catalog is defined, never per record, so
+    the per-record stream `applyLivd` returns keeps the same codes, in the same order, in the same
+    number.
+  - The warning's message is a **constant** and carries no consumer-supplied text: the metadata is
+    text this library cannot vouch for, and interpolating it would put whatever a consumer stored
+    into every log that prints the message. `AstmLivdCatalogWarning.catalog` carries the publisher
+    and publication version the catalog declared instead, and a catalog that declared neither is
+    reported as having declared no identity, positively, with no name, ordinal or borrowed row value
+    invented to stand in for one.
+  - **None of it is validated and none of it is a claim by this package.** No version format check,
+    no copyright-text check, no publisher check: this package performs **no LOINC validation of any
+    kind**, so each value is surfaced exactly as supplied and `catalogLoincVersion` never means a
+    LOINC was checked, found or conformed against that version. **Carrying an attribution statement
+    is not discharging it**: the license obligation stays the consumer's.
+  - Additive and source compatible. The second argument is optional, so the existing
+    single-argument call is unchanged; `publication` and `warnings` are optional members, so a
+    catalog a consumer implemented by hand still satisfies the interface and still annotates without
+    raising; and `catalogLoincVersion` is conditional, so an annotation from a catalog declaring no
+    LOINC version keeps the exact key set it had. The one visible widening is `LivdWarningCode`,
+    which gains the new registry member, so an exhaustive `switch` over it needs one more arm.
 - **`toObject`, `toISO` and `toDate`: the shared `@cosyte` date conversion surface, with the
   timezone honesty ASTM forces.** A parsed `AstmDate` could be rendered (`astmDateToLocalISO`) but
   not read as components and not converted to an instant, and the name it was rendered under was

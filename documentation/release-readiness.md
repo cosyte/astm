@@ -26,24 +26,25 @@ The published version is the `version` field of `package.json`, `0.0.22`, on the
 ladder. The pending set below is every file matching `.changeset/*.md` other than `README.md`
 (`config.json` is the tool's configuration and carries no bump).
 
-Four of the five pending changesets arrived classified `patch`. Three of those four are reclassified
+Four of the six pending changesets arrived classified `patch`. Three of those four are reclassified
 to `minor` here, each for a reason taken from its own text; their bump lines are the only lines that
 were rewritten, and no changeset's prose was edited. The fourth arrived `patch` and stays `patch`,
 because its own text removes no public value, adds none, and changes no exported behaviour:
 reclassification runs in both directions or it is not a reading, and a tooling change written up as
 a feature would overstate the release exactly as a removal written up as a fix understates one. The
-fifth arrived carrying `minor` already, written against this same rule, so it is applied as written
-rather than reclassified.
+other two arrived carrying `minor` already, each written against this same rule, so both are applied
+as written rather than reclassified.
 
 <!-- audit:begin -->
 
-| pending changeset                                     | bump as written | applied bump |
-| ----------------------------------------------------- | --------------- | ------------ |
-| `a-withdrawn-scan-target-is-refused-not-cleared.md`    | `patch`         | `patch`      |
-| `livd-catalog-answers-the-analyte.md`                  | `patch`         | `minor`      |
-| `livd-units-choose-between-candidates.md`              | `patch`         | `minor`      |
-| `say-which-vocabulary-a-letter-was-graded-against.md`  | `patch`         | `minor`      |
-| `shared-date-conversion-surface.md`                    | `minor`         | `minor`      |
+| pending changeset                                      | bump as written | applied bump |
+| ------------------------------------------------------ | --------------- | ------------ |
+| `a-withdrawn-scan-target-is-refused-not-cleared.md`     | `patch`         | `patch`      |
+| `livd-catalog-answers-the-analyte.md`                   | `patch`         | `minor`      |
+| `livd-catalog-says-which-loinc-version.md`              | `minor`         | `minor`      |
+| `livd-units-choose-between-candidates.md`               | `patch`         | `minor`      |
+| `say-which-vocabulary-a-letter-was-graded-against.md`   | `patch`         | `minor`      |
+| `shared-date-conversion-surface.md`                     | `minor`         | `minor`      |
 
 <!-- audit:end -->
 
@@ -113,6 +114,31 @@ That is what makes it a feature rather than a fix. By the same rule applied to
 whether or not it removes any: the added public values are enough on their own, and calling three new
 exported types a patch would understate the release in the direction this section exists to catch.
 
+### `livd-catalog-says-which-loinc-version.md`: `minor`
+
+Its own text is headed "Added", and the values it adds are public. `defineLivdCatalog` gains an
+optional second argument carrying four publication-level elements, readable back as
+`LivdCatalog.publication`; `LivdCatalog` gains `warnings`; `LivdAnnotation` gains
+`catalogLoincVersion`; `LIVD_WARNING_CODES` gains `ASTM_LIVD_CATALOG_NO_LOINC_VERSION`, which widens
+the exported `LivdWarningCode` union; and five identifiers are added to the entry point, the values
+`livdCatalogMissingLoincVersion` and `LIVD_CATALOG_IDENTITY_UNDECLARED` and the types
+`LivdPublication`, `AstmLivdCatalogWarning` and `LivdCatalogIdentity`, each of which appears in the
+surface enumerated in section 3.
+
+It removes nothing and renames nothing, and it is source compatible in both directions: the second
+argument is optional so the existing single-argument call is unchanged, the two members added to
+`LivdCatalog` are optional so a hand-written catalog still satisfies the interface, and
+`catalogLoincVersion` is conditional so an annotation from a catalog declaring no LOINC version keeps
+the key set it had. No exported function changes what it returns for an input it already accepted:
+every lookup answers as before, and the new warning is raised where a catalog is defined rather than
+into the per-record stream, which keeps the same codes, in the same order, in the same number.
+
+It carries one entry into section 4, the `LivdWarningCode` widening, which is the same class as the
+`AbnormalFlagCode` widening already recorded there.
+
+A feature that adds public values is `minor` by the same rule applied to the changesets above, so
+this one carries `minor` as written and needs no reclassification.
+
 ### `a-withdrawn-scan-target-is-refused-not-cleared.md`: `patch`
 
 Its own text changes `scripts/phi-scan.ts`, adds `pnpm-workspace.yaml`, moves the pinned package
@@ -173,7 +199,7 @@ the surface is everything it re-exports: values and types both. `package.json` p
 entry (`.` plus `./package.json`), so this list is the whole declaration surface a consumer can
 reach.
 
-Counts: **116 values, 99 types, 215 identifiers**. The enumeration below is compared against the
+Counts: **118 values, 102 types, 220 identifiers**. The enumeration below is compared against the
 entry point by `test/scripts/release-readiness.test.ts`, which names every added and every removed
 identifier when the two differ, so this list cannot go stale in silence.
 
@@ -329,8 +355,10 @@ From `./terminology/index.js`:
 - `applyLivd`
 - `lookupLivdForRecord`
 - `LIVD_WARNING_CODES`
+- `LIVD_CATALOG_IDENTITY_UNDECLARED`
 - `livdUnmappedCode`
 - `livdAmbiguousMapping`
+- `livdCatalogMissingLoincVersion`
 
 From `./ltp/transport.js`:
 
@@ -511,12 +539,15 @@ From `./terminology/index.js`:
 - `LivdEntry`
 - `LivdLookup`
 - `LivdCandidate`
+- `LivdPublication`
 - `LivdUnitComparison`
 - `LivdAmbiguityReason`
 - `LivdAnnotation`
 - `LivdMapping`
 - `LivdResult`
 - `AstmLivdWarning`
+- `AstmLivdCatalogWarning`
+- `LivdCatalogIdentity`
 - `LivdWarningCode`
 
 From `./ltp/transport.js`:
@@ -600,7 +631,7 @@ section 5's precondition is met.
 Entries 1 to 4 are the public values the LIVD changeset removes or redefines, and `primaryCode()`
 is the one that produces **no compile error at all**.
 
-The nine candidates at a glance, so the decision has an index and not nine pages of prose. Each
+The ten candidates at a glance, so the decision has an index and not ten pages of prose. Each
 one is argued in full under its own heading below, and the class after the dash is what a
 consumer's BUILD does, not how severe the change is:
 
@@ -620,6 +651,8 @@ consumer's BUILD does, not how severe the change is:
 9. `AbnormalFlagMeaning` widened by `"significantly-high"` and `"significantly-low"` - union
    widened: a compile error in an exhaustive switch over `AbnormalFlag.meaning`, plus the same
    silent behaviour change entry 7 reports, read off the meaning rather than off the letter.
+10. `LivdWarningCode` widened by `"ASTM_LIVD_CATALOG_NO_LOINC_VERSION"` - union widened: a compile
+    error in an exhaustive switch over the union, and nothing else.
 
 ### 1. `UniversalTestId.loincCandidate` (removed)
 
@@ -739,6 +772,24 @@ entry 7's compile error is over `AbnormalFlag.code` and does not reach a consume
   enumeration a consumer tracks.
 - **Status:** awaits the operator's decision before any release.
 
+### 10. `LivdWarningCode` widened by `"ASTM_LIVD_CATALOG_NO_LOINC_VERSION"`
+
+- **Effect a consumer sees:** a compile error in an exhaustive `switch` over the union with a
+  `never` sink, and nothing else. There is no silent half: the new member is raised where a catalog
+  is **defined**, never into the per-record stream `applyLivd` returns, so no existing branch over a
+  warning that stream carries ever stops firing, no code, order or count in it moves, and a consumer
+  who never reads `LivdCatalog.warnings` never meets the new member at all.
+- **Migration:** handle `ASTM_LIVD_CATALOG_NO_LOINC_VERSION`, or narrow to the two per-record codes
+  where that is what the branch is about. The warning it labels is a different shape from the
+  per-record one, an `AstmLivdCatalogWarning`: it carries the catalog's declared identity and **no
+  position**, because no record is implicated.
+- **Why the union was widened rather than the type split:** `LIVD_WARNING_CODES` is documented as
+  the registry of every terminology warning code, and `Object.values()` over it is documented as a
+  stable snapshot of `LivdWarningCode`. Keeping the type in step with the registry is what makes
+  that true; excluding the new member would leave a value in the registry that the type says cannot
+  be there, which is a quieter break than this one.
+- **Status:** awaits the operator's decision before any release.
+
 The other two members the LIVD changeset adds to `LivdAnnotation` are **optional**
 (`unvalidatedWireValue`, and `reportedCode`, which is entry 5 for its changed meaning rather than
 for its declaration), as is the added `UniversalTestId.unvalidatedWireValue`. An optional member
@@ -756,6 +807,14 @@ existing union: `LivdAmbiguityReason` is a new type rather than a member added t
 already switches over, and the `LivdMapping` discriminant keeps exactly the members it had. Nothing
 it changes is visible to a consumer who does not populate a representative unit, which is what
 sections 1 and 3 record as its being additive in both the source and the run-time direction.
+
+`livd-catalog-says-which-loinc-version.md` contributes **entry 10 and nothing else**, and the rest of
+what it adds is here for the same reason the paragraph above gives. `LivdCatalog.publication`,
+`LivdCatalog.warnings` and `LivdAnnotation.catalogLoincVersion` are all optional or conditional, so
+none of them breaks a construction and a catalog a consumer implemented by hand still satisfies the
+interface; the second parameter it adds to `defineLivdCatalog` is optional, so the existing
+single-argument call is unchanged; and its five added identifiers are new names that displace
+nothing. The one union it widens is `LivdWarningCode`, which is entry 10.
 
 ## 5. Unresolved
 

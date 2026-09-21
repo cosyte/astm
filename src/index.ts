@@ -248,20 +248,25 @@ export {
   applyLivd,
   lookupLivdForRecord,
   LIVD_WARNING_CODES,
+  LIVD_CATALOG_IDENTITY_UNDECLARED,
   livdUnmappedCode,
   livdAmbiguousMapping,
+  livdCatalogMissingLoincVersion,
 } from "./terminology/index.js";
 export type {
   LivdCatalog,
   LivdEntry,
   LivdLookup,
   LivdCandidate,
+  LivdPublication,
   LivdUnitComparison,
   LivdAmbiguityReason,
   LivdAnnotation,
   LivdMapping,
   LivdResult,
   AstmLivdWarning,
+  AstmLivdCatalogWarning,
+  LivdCatalogIdentity,
   LivdWarningCode,
 } from "./terminology/index.js";
 

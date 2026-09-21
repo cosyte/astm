@@ -51,6 +51,24 @@
  * every unit-selected answer states what the comparison was
  * ({@link LivdUnitComparison}).
  *
+ * **A catalog can also say where the mapping came from, and none of it is checked.**
+ * The mapping guide defines four elements about the PUBLICATION rather than about any
+ * row: who published it, which publication version it is, which LOINC version the
+ * mapping was made against, and the attribution statement the LOINC license requires.
+ * {@link LivdPublication} carries all four, every one optional, every one preserved
+ * verbatim, and **not one of them validated**: this package performs no LOINC
+ * validation of any kind, so a LOINC version is stored and surfaced exactly as
+ * supplied and is never parsed, ranged, formatted or compared. Carrying an
+ * attribution statement is not discharging the obligation to make it: the terminology
+ * data, and its license, stay the consumer's.
+ *
+ * **A catalog with no LOINC version is built, and says so.** A mapping whose LOINC
+ * version is unrecorded cannot be reproduced later, so defining a catalog without one
+ * surfaces a value-free `ASTM_LIVD_CATALOG_NO_LOINC_VERSION` warning on
+ * {@link LivdCatalog.warnings}. It is a nudge and never a refusal: the catalog is
+ * built, every lookup answers exactly as it would have, and no per-record warning
+ * moves.
+ *
  * **The three LIVD attributes are carried verbatim and only one of them is matched
  * on.** {@link LivdEntry.vendorSpecimenDescription} and
  * {@link LivdEntry.vendorResultDescription} are free text the guide says is there to
@@ -60,6 +78,9 @@
  */
 
 import { deepFreeze } from "../common/freeze.js";
+
+import { LIVD_CATALOG_IDENTITY_UNDECLARED, livdCatalogMissingLoincVersion } from "./warnings.js";
+import type { AstmLivdCatalogWarning, LivdCatalogIdentity } from "./warnings.js";
 
 /**
  * One LIVD mapping row a consumer supplies: a vendor test code and the LOINC it
@@ -278,6 +299,55 @@ export type LivdLookup =
     };
 
 /**
+ * The publication-level metadata a consumer declares about the LIVD publication
+ * their catalog was built from: what the mapping guide defines about the publication
+ * rather than about any one row.
+ *
+ * Every field is **optional** and every declared value is preserved **verbatim**:
+ * nothing is trimmed, case folded, reordered, reformatted, defaulted or validated,
+ * and no value is ever rejected, corrected or warned about on account of its content
+ * or its shape. A value that is absent, empty or whitespace only is one case, **no
+ * value declared**, which is the only inspection any of these strings gets.
+ *
+ * **None of it is checked, and none of it is a claim by this package.** This library
+ * is not the LOINC licensee and performs no LOINC validation of any kind, so it
+ * cannot tell a real LOINC version from a typed one and does not try.
+ *
+ * @example
+ * ```ts
+ * import type { LivdPublication } from "@cosyte/astm";
+ * const p: LivdPublication = { publisher: "Example Diagnostics", loincVersion: "2.78" };
+ * ```
+ */
+export interface LivdPublication {
+  /** The **Publisher**: the entity publishing the mapping information. Verbatim, never checked. */
+  readonly publisher?: string;
+  /**
+   * The **Publication Version ID**: human-readable information the vendor provides that tells one
+   * LIVD publication version from another. Verbatim, never parsed and never ordered against another.
+   */
+  readonly publicationVersion?: string;
+  /**
+   * The **LOINC Version ID**: the version of LOINC the mapping was made against. Carried verbatim
+   * onto every annotation this catalog produces ({@link LivdAnnotation.catalogLoincVersion}), so a
+   * mapping can be reproduced later. It is **provenance the consumer declared**, never a statement
+   * that any LOINC was checked against it: nothing here validates a LOINC or a LOINC version.
+   *
+   * Declaring none is allowed and surfaces a value-free warning on {@link LivdCatalog.warnings};
+   * the catalog is still built and every answer is unchanged.
+   */
+  readonly loincVersion?: string;
+  /**
+   * The **LOINCCopyright**: the attribution statement the LOINC license requires beside content
+   * that carries LOINC codes. Stored verbatim so it travels with the mapping it applies to.
+   *
+   * **Carrying it is not discharging it.** The obligation is the consumer's, this package supplies
+   * no statement on anyone's behalf, and it checks neither the presence nor the wording of one.
+   */
+  readonly loincCopyright?: string;
+}
+
+/**
  * An immutable, consumer-supplied LIVD catalog. Look a vendor code up with
  * {@link LivdCatalog.lookup}; the catalog **never** picks between conflicting
  * LOINCs and **never** mutates. Build one with {@link defineLivdCatalog}.
@@ -285,6 +355,24 @@ export type LivdLookup =
 export interface LivdCatalog {
   /** The number of distinct vendor codes indexed (not the number of input rows). */
   readonly size: number;
+  /**
+   * The publication-level metadata the consumer declared, each value **verbatim**. Absent where
+   * the catalog declared none, and each field inside it absent where that value was not declared:
+   * a blank is never stored as a blank, and nothing is ever defaulted.
+   *
+   * Optional on the interface, so a catalog a consumer implements by hand needs no metadata and
+   * stays source compatible.
+   */
+  readonly publication?: LivdPublication;
+  /**
+   * The value-free warnings raised where this catalog was **defined**, in the order they were
+   * raised. {@link defineLivdCatalog} always sets it, empty where it had nothing to say.
+   *
+   * These are facts about the CATALOG, so they never join the per-record warning stream
+   * {@link applyLivd} returns and they implicate no record. Optional on the interface, so a
+   * hand-implemented catalog that offers none stays source compatible.
+   */
+  readonly warnings?: readonly AstmLivdCatalogWarning[];
   /**
    * Look a vendor code up, verbatim (exact, case-sensitive). Returns `mapped` on a
    * single-LOINC hit, `unmapped` on a miss, and `ambiguous` when the code carries
@@ -317,6 +405,71 @@ const VERBATIM_UNIT_NOTE =
   "unit verbatim and case sensitively (exact string equality). This is NOT a UCUM semantic " +
   "comparison: neither side was normalized, case folded, scaled or converted, and this package " +
   "does not claim full UCUM conformance.";
+
+/**
+ * One metadata value as the consumer DECLARED it, or `undefined` where they declared
+ * none. Absent, empty and whitespace only are one case: no value supplied.
+ *
+ * A declared value comes back BYTE FOR BYTE, untouched. The blank test decides
+ * presence and nothing else: it never trims, folds or rewrites the value it passes
+ * through, because preserving what the consumer wrote is the whole contract here.
+ */
+function declaredValue(value: string | undefined): string | undefined {
+  return value === undefined || value.trim() === "" ? undefined : value;
+}
+
+/**
+ * The publication metadata a catalog actually declared, or `undefined` where it
+ * declared nothing at all. Each field is spread conditionally, so a blank never
+ * becomes a stored blank and an undeclared element is absent rather than empty.
+ */
+function declaredPublication(
+  publication: LivdPublication | undefined,
+): LivdPublication | undefined {
+  const publisher = declaredValue(publication?.publisher);
+  const publicationVersion = declaredValue(publication?.publicationVersion);
+  const loincVersion = declaredValue(publication?.loincVersion);
+  const loincCopyright = declaredValue(publication?.loincCopyright);
+  const declared: LivdPublication = {
+    ...(publisher !== undefined ? { publisher } : {}),
+    ...(publicationVersion !== undefined ? { publicationVersion } : {}),
+    ...(loincVersion !== undefined ? { loincVersion } : {}),
+    ...(loincCopyright !== undefined ? { loincCopyright } : {}),
+  };
+  return Object.keys(declared).length === 0 ? undefined : declared;
+}
+
+/**
+ * The identity a catalog declared, read off its already-declared publication: its
+ * publisher and its publication version, whichever it declared.
+ *
+ * A catalog that declared neither is reported as having declared none, positively.
+ * Nothing is invented to fill the gap: not a name, not an ordinal, not a value
+ * borrowed off a row.
+ */
+function identityOf(publication: LivdPublication | undefined): LivdCatalogIdentity {
+  const publisher = publication?.publisher;
+  const publicationVersion = publication?.publicationVersion;
+  if (publisher === undefined && publicationVersion === undefined) {
+    return LIVD_CATALOG_IDENTITY_UNDECLARED;
+  }
+  return {
+    declared: true,
+    ...(publisher !== undefined ? { publisher } : {}),
+    ...(publicationVersion !== undefined ? { publicationVersion } : {}),
+  };
+}
+
+/**
+ * The warnings raised where a catalog is defined: one where no LOINC version was
+ * declared, none otherwise. A warning, never a refusal, and never a per-record event.
+ */
+function definitionWarnings(
+  publication: LivdPublication | undefined,
+): readonly AstmLivdCatalogWarning[] {
+  if (publication?.loincVersion !== undefined) return [];
+  return [livdCatalogMissingLoincVersion(identityOf(publication))];
+}
 
 /** Whether a row carries any of the three LIVD attributes, i.e. has something new to say. */
 function carriesLivdAttributes(entry: LivdEntry): boolean {
@@ -429,9 +582,17 @@ function ambiguous(
  *   more than one matching, or no units reported is an `ambiguous` result carrying
  *   every distinct candidate and **no** choice between them.
  *
+ * Publication-level metadata is supplied beside the rows, and every element of it is
+ * optional, so the single-argument call keeps working exactly as it did. Each declared
+ * value is preserved verbatim and readable back off {@link LivdCatalog.publication};
+ * none of it is validated. Declaring no LOINC version is allowed and puts a value-free
+ * {@link AstmLivdCatalogWarning} on {@link LivdCatalog.warnings}: a nudge, never a
+ * refusal, and no lookup answers differently because of it.
+ *
  * The returned catalog is deeply frozen; nothing is mutated after construction.
  *
  * @param entries - The consumer's LIVD mapping rows.
+ * @param publication - The consumer's publication-level metadata, when they declare any.
  * @returns An immutable catalog.
  * @example
  * ```ts
@@ -456,7 +617,10 @@ function ambiguous(
  * glucose.lookup("GLU").status; // "ambiguous": no units reported, so nothing to compare
  * ```
  */
-export function defineLivdCatalog(entries: readonly LivdEntry[]): LivdCatalog {
+export function defineLivdCatalog(
+  entries: readonly LivdEntry[],
+  publication?: LivdPublication,
+): LivdCatalog {
   const index = new Map<string, LivdEntry[]>();
   for (const entry of entries) {
     const bucket = index.get(entry.vendorCode);
@@ -464,8 +628,12 @@ export function defineLivdCatalog(entries: readonly LivdEntry[]): LivdCatalog {
     else index.set(entry.vendorCode, [entry]);
   }
 
+  const declared = declaredPublication(publication);
+
   const catalog: LivdCatalog = {
     size: index.size,
+    ...(declared !== undefined ? { publication: deepFreeze(declared) } : {}),
+    warnings: deepFreeze(definitionWarnings(declared)),
     lookup(vendorCode: string, reportedUnits?: string): LivdLookup {
       const bucket = index.get(vendorCode);
       if (!bucket || bucket.length === 0) return { status: "unmapped" };
