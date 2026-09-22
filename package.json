@@ -64,8 +64,9 @@
     "changeset": "changeset",
     "typecheck": "tsc --noEmit",
     "phi-scan": "tsx scripts/phi-scan.ts",
-    "check": "pnpm run check:gate-coverage && pnpm run check:agent-notes",
+    "check": "pnpm run check:gate-coverage && pnpm run check:agent-notes && pnpm run check:dependency-inventory",
     "check:agent-notes": "tsx scripts/check-agent-notes.ts",
+    "check:dependency-inventory": "tsx scripts/check-dependency-inventory.ts",
     "check:gate-coverage": "tsx scripts/check-gate-coverage.ts",
     "check:no-emdash": "bash scripts/check-no-emdash.sh",
     "check:no-internal-refs": "bash scripts/check-no-internal-refs.sh",
@@ -83,7 +84,7 @@
     "smoke": "node scripts/smoke.mjs",
     "version": "changeset version && node scripts/sync-version.mjs && prettier --write package.json CHANGELOG.md src/index.ts",
     "release": "changeset publish",
-    "prepublishOnly": "pnpm clean && pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm attw",
+    "prepublishOnly": "pnpm clean && pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm attw && pnpm check:dependency-inventory",
     "prepare": "command -v simple-git-hooks >/dev/null 2>&1 && simple-git-hooks || true"
   },
   "simple-git-hooks": {

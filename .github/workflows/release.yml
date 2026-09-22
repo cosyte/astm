@@ -3,6 +3,11 @@ name: Release
 # Thin caller of the shared release pipeline: Changesets -> npm publish (provenance auto-enables when
 # this repo is public) -> docs artifacts -> GitHub release -> repository_dispatch to cosyte/docs.
 # Requires the NPM_TOKEN and DOCS_REPO_DISPATCH_TOKEN secrets (passed via `secrets: inherit`).
+#
+# The second job attaches this package's dependency inventory to that release. It is a job HERE
+# rather than a step there because the shared pipeline attaches a fixed two-name asset list
+# (docs-content.tar.gz, source.tar.gz) and a third file in dist-artifacts/ is not picked up, so an
+# asset this repo wants on its own release page has to be uploaded by this repo.
 
 on:
   push:
@@ -23,3 +28,74 @@ jobs:
     with:
       package-name: "@cosyte/astm"
     secrets: inherit
+
+  # Put the dependency inventory on the release page as its own downloadable asset.
+  #
+  # WHY IT RUNS AFTER THE PUBLISH, which is the half that decides what a bad inventory costs. The
+  # GitHub release this uploads to does not exist until the pipeline above has published and cut
+  # it, so nothing here can run earlier. That is exactly why this job is NOT where the inventory is
+  # guarded: `prepublishOnly` in package.json runs `pnpm check:dependency-inventory` BEFORE the
+  # registry upload, so an inventory that cannot be produced or is not true of the build aborts the
+  # publish and the version never becomes public. This job can only fail a run, and a failed run is
+  # recoverable; a published version nothing describes is not.
+  #
+  # The pipeline above declares no `workflow_call` outputs, so the release is found from the repo
+  # rather than read from it: the tag Changesets wrote for this version, at this commit.
+  attach-dependency-inventory:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload an asset to the release the shared pipeline cut
+    steps:
+      # Actions are pinned to a commit rather than to a tag that can move.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0 # tags are how this job finds the release; a shallow clone carries none
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Produced fresh from this commit, and refused unless it is true of this build. Generation is
+      # deterministic (no timestamp, no serial number), so this is the artifact prepublishOnly
+      # already checked on the other side of the publish, rebuilt rather than carried across jobs.
+      - run: pnpm check:dependency-inventory
+      - name: Attach the inventory to the release this push published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET: dist-artifacts/dependency-inventory.cdx.json
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          head_sha="$(git rev-parse HEAD)"
+          # Shape-agnostic: whatever tag carrying this version points at the published commit.
+          mapfile -t candidates < <(git tag --points-at HEAD | grep -F "$version" || true)
+          if [ "${#candidates[@]}" -eq 0 ]; then
+            echo "No tag carrying version $version points at $head_sha."
+            echo "This push opened or updated a version PR rather than publishing, so there is"
+            echo "no release to attach an inventory to."
+            exit 0
+          fi
+          tag=""
+          for candidate in "${candidates[@]}"; do
+            if gh release view "$candidate" >/dev/null 2>&1; then
+              tag="$candidate"
+              break
+            fi
+          done
+          if [ -z "$tag" ]; then
+            echo "::error::version $version is tagged at $head_sha (${candidates[*]}) but no GitHub release exists for any of those tags, so the inventory cannot be attached."
+            exit 1
+          fi
+          # --clobber is what makes a re-run attach to the SAME release without republishing:
+          # re-running this job alone uploads over the asset and never touches the registry.
+          gh release upload "$tag" "$ASSET" --clobber
+          # A silent skip is the failure mode this guards. The asset is read back from the release
+          # and its absence fails the run that attempted the attach.
+          asset_name="$(basename "$ASSET")"
+          if ! gh release view "$tag" --json assets --jq '.assets[].name' | grep -Fqx "$asset_name"; then
+            echo "::error::$asset_name is not listed on release $tag after the upload reported success."
+            exit 1
+          fi
+          echo "Attached $asset_name to release $tag."
