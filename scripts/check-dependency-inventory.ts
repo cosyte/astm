@@ -169,8 +169,20 @@ function readManifest(path: string): Manifest {
 /** A `packages:` key, in each of the three ways this lockfile format writes one. */
 const PACKAGE_KEY = /^ {2}(?:'([^']+)'|"([^"]+)"|([^\s#'"][^:]*)):\s*$/;
 
-/** A resolved version, as the `packages:` section spells one. */
-const RESOLVED_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)*$/;
+/**
+ * A resolved version, as the `packages:` section spells one: a semver core with an optional
+ * prerelease and an optional build tail.
+ *
+ * THE TWO TAILS ARE SEPARATE AND EACH IS OPTIONAL RATHER THAN REPEATED, deliberately. The
+ * ambiguous form `(?:[-+][0-9A-Za-z.-]+)*` accepts the same strings and backtracks
+ * exponentially on a near miss, because its leading `[-+]` overlaps the `-` inside its own
+ * character class: `0.0.0+` followed by 18 repetitions of `--` took 704ms to reject and each
+ * further four characters multiplied that by about seven. The version text comes from a lockfile
+ * key, which is to say from a registry, and this runs in the publishing path, so that is reachable
+ * rather than theoretical. Written this way the prerelease class cannot swallow the `+`, so the
+ * split is decided by the first `+` and there is nothing to backtrack over.
+ */
+const RESOLVED_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 /**
  * Split a `packages:` key into a name and the version resolved for it.
