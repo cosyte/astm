@@ -10,14 +10,15 @@ this file is maintained by hand (Changesets handles the version bump and publish
 ## [Unreleased]
 
 **The pending changeset set is classified `minor`, not `patch`, so the next release is a minor
-release.** Six changesets are pending and four of them arrived carrying `patch`. Three of those
-four were reclassified against their own text: one removes public values and changes what an
+release.** Seven changesets are pending and five of them arrived carrying `patch`. Three of those
+five were reclassified against their own text: one removes public values and changes what an
 exported function returns, and two add public values. None of the three is a fix that adds nothing
 and removes nothing, which is the only thing a `patch` may claim, and only those three bump lines
-moved. The fourth keeps `patch`: it changes repository tooling and install configuration, touches no
-published value and emits no byte differently, so `patch` is what its own text supports. The other
-two arrived carrying `minor` already, each written against this same rule, so both are applied as
-written rather than reclassified. A set carrying a `patch` beside a `minor` still resolves to the
+moved. The other two keep `patch`: one changes repository tooling and install configuration, the
+other changes what a release carries beside the package, and neither touches a published value or
+emits a byte differently, so `patch` is what each one's own text supports. The last two arrived
+carrying `minor` already, each written against this same rule, so both are applied as written rather
+than reclassified. A set carrying a `patch` beside a `minor` still resolves to the
 minor channel.
 
 The breaking change below therefore ships in the minor channel of the pre-1.0 ladder, which is where
@@ -30,13 +31,38 @@ mirrors it.
 
 The entries the pending set carries are the date conversion surface entry, the LIVD units entry, the
 LIVD publication metadata entry and the vocabulary-attribution entry under Added, and the LIVD
-catalog entry and the PHI scanner entry under Changed. This section also holds entries written
+catalog entry, the PHI scanner entry and the dependency inventory entry under Changed. This section
+also holds entries written
 before them, which is where they have always been kept: no released entry was moved, reworded or
 deleted by the reclassification, because rewriting a shipped changelog destroys the traceability it
 exists for.
 
 ### Changed
 
+- **Every published release now carries a machine-readable dependency inventory as a downloadable
+  asset.** No published value, type, warning code or emitted byte moves: this entry is release
+  infrastructure only, and nothing under `src/` is touched. The inventory is a CycloneDX document
+  naming this package and the version being built alongside every dependency that build resolved,
+  runtime and build-time alike, transitively, each with the exact version it resolved to. It is read
+  from the lockfile rather than from the manifest's two lists, because the manifest states ranges
+  while a build resolves versions, so the artifact answers the question a reader of a dependency
+  claim actually has. A team evaluating this package for a regulated laboratory can download it from
+  the release page and feed it to their own tooling without cloning anything or reproducing an
+  install. `scripts/check-dependency-inventory.ts` both produces and grades it, from the checkout,
+  with no registry credential and no network call, and it is generated into the gitignored
+  `dist-artifacts/` rather than committed, so it can never describe a version other than the one it
+  ships beside. The grading runs in `prepublishOnly`, which is BEFORE the registry upload: an
+  inventory that cannot be produced at all, or that is empty, unparseable, missing this package's
+  identity or version, or short of a dependency the build resolved, is refused by name and aborts
+  the publish, so a bad inventory costs a failed run rather than a published version nothing
+  describes. A refusal also removes any older artifact at that path rather than leaving one to be
+  read as this build's. Attaching it to the release is a second job in the release workflow, because
+  the shared pipeline attaches a fixed two-name asset list; that job runs after the publish, since
+  the release does not exist before one, and it fails its run rather than skipping quietly if the
+  asset does not arrive. What the inventory does not claim: it states what was resolved and nothing
+  about whether that is safe. It is not a vulnerability scan, a licence assessment, an attestation
+  or a signature, it carries component names and versions only, and npm provenance remains the
+  separate thing it already was.
 - **The PHI scanner refuses a run that enumerated a target and never read it, and the install
   settings that hold a resolution back are now in force rather than merely written down.** No
   published value, type, warning code or emitted byte moves: this entry is repository tooling and

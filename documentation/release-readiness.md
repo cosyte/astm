@@ -26,14 +26,14 @@ The published version is the `version` field of `package.json`, `0.0.22`, on the
 ladder. The pending set below is every file matching `.changeset/*.md` other than `README.md`
 (`config.json` is the tool's configuration and carries no bump).
 
-Four of the six pending changesets arrived classified `patch`. Three of those four are reclassified
-to `minor` here, each for a reason taken from its own text; their bump lines are the only lines that
-were rewritten, and no changeset's prose was edited. The fourth arrived `patch` and stays `patch`,
-because its own text removes no public value, adds none, and changes no exported behaviour:
-reclassification runs in both directions or it is not a reading, and a tooling change written up as
-a feature would overstate the release exactly as a removal written up as a fix understates one. The
-other two arrived carrying `minor` already, each written against this same rule, so both are applied
-as written rather than reclassified.
+Five of the seven pending changesets arrived classified `patch`, and two arrived carrying `minor`.
+Three of the five are reclassified to `minor` here, each for a reason taken from its own text; their
+bump lines are the only lines that were rewritten, and no changeset's prose was edited. The other
+two stay `patch`, because neither one's text removes a public value, adds one, or changes any
+exported behaviour: reclassification runs in both directions or it is not a reading, and a tooling
+change written up as a feature would overstate the release exactly as a removal written up as a fix
+understates one. The two that arrived carrying `minor` were each written against this same rule, so
+both are applied as written rather than reclassified.
 
 <!-- audit:begin -->
 
@@ -43,15 +43,16 @@ as written rather than reclassified.
 | `livd-catalog-answers-the-analyte.md`                   | `patch`         | `minor`      |
 | `livd-catalog-says-which-loinc-version.md`              | `minor`         | `minor`      |
 | `livd-units-choose-between-candidates.md`               | `patch`         | `minor`      |
+| `publish-a-dependency-inventory-with-each-release.md`   | `patch`         | `patch`      |
 | `say-which-vocabulary-a-letter-was-graded-against.md`   | `patch`         | `minor`      |
 | `shared-date-conversion-surface.md`                     | `minor`         | `minor`      |
 
 <!-- audit:end -->
 
 Highest bump in the set: `minor`. Applied to the published `0.0.22`, Changesets resolves
-`@cosyte/astm` to **`0.1.0`**. The `patch` above does not move that: a `patch` beside a `minor`
-changes nothing about the resolved version, and it is recorded rather than dropped because a
-pending changeset absent from this table is what section 1 exists to make impossible.
+`@cosyte/astm` to **`0.1.0`**. Neither `patch` above moves that: a `patch` beside a `minor` changes
+nothing about the resolved version, and both are recorded rather than dropped because a pending
+changeset absent from this table is what section 1 exists to make impossible.
 
 ### `livd-catalog-answers-the-analyte.md`: `minor`
 
@@ -152,6 +153,22 @@ byte differently: a parsed and re-serialized record is unchanged, and no warning
 That is what a `patch` claims, so `patch` is what it keeps. The reclassification rule in this
 section is a reading of each changeset's own text, and a reading that only ever moved a bump upward
 would not be one.
+
+### `publish-a-dependency-inventory-with-each-release.md`: `patch`
+
+Its own text adds `scripts/check-dependency-inventory.ts`, a package script that runs it, a second
+job in `.github/workflows/release.yml`, and one clause on the end of `prepublishOnly`. What a
+consumer gains is an asset on the release page, which is release infrastructure rather than package
+surface: the entry point re-exports nothing from `scripts/`, no `src/` file is touched, and the
+inventory is generated into the gitignored `dist-artifacts/` rather than committed or shipped in the
+tarball. Measured against section 3's enumeration, it adds no value, removes none, renames none, and
+changes no exported function's behaviour. It emits no byte differently: a parsed and re-serialized
+record is unchanged, and no warning code moves.
+
+The one thing it does change for a consumer is what a published release carries beside the package,
+and that is the whole reason it takes a changeset at all rather than riding a release silently. A
+change to what ships with a release is still a `patch` when the published values are untouched, so
+`patch` is what it keeps.
 
 ### `shared-date-conversion-surface.md`: `minor`
 
