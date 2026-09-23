@@ -44,6 +44,13 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import {
+  fences as helperFences,
+  fixturesByContent,
+  recordStreamLiteral,
+  section as helperSection,
+} from "./_helpers/first-use.js";
+
 const REPO_ROOT = process.cwd();
 const README_PATH = join(REPO_ROOT, "README.md");
 const ENTRY_POINT = join(REPO_ROOT, "src", "index.ts");
@@ -189,4 +196,19 @@ describe("the README Usage example", () => {
     },
     CASE_TIMEOUT,
   );
+
+  it("AC-AS2: the block executed above is the first fenced block under ## Usage", () => {
+    const first = helperFences(helperSection(readFileSync(README_PATH, "utf8"), "## Usage"))[0];
+    expect(first?.lang).toBe("ts");
+    expect(usageFences[0]?.body).toBe(first?.body);
+  });
+
+  it("AC-AS4: its record stream is a byte-for-byte copy of a fixture under test/fixtures", () => {
+    const stream = recordStreamLiteral(usageFences[0]?.body ?? "");
+    expect(stream).toBeDefined();
+    const fixtures = fixturesByContent(REPO_ROOT, join(REPO_ROOT, "test", "fixtures"));
+    expect(fixtures.get(stream ?? "")).toBeDefined();
+    const mutated = (usageFences[0]?.body ?? "").replace("|28.6|", "|31.4|");
+    expect(fixtures.get(recordStreamLiteral(mutated) ?? "")).toBeUndefined();
+  });
 });
