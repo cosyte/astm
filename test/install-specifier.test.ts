@@ -29,4 +29,20 @@ describe("the documented install specifier", () => {
       ["@cosyte/astn", "@cosyte/astm"],
     );
   });
+
+  it("AC-AS6: every install command form a reader may copy is read, inline code included", () => {
+    const forms = [
+      "pnpm i @cosyte/astn",
+      "pnpm install @cosyte/astn",
+      "npm add @cosyte/astn",
+      "deno add npm:@cosyte/astn",
+      "run `npm install @cosyte/astn` first",
+      "then run npm install @cosyte/astn.",
+    ];
+    for (const form of forms) expect(installSpecifiers(form), form).toEqual(["@cosyte/astn"]);
+    expect(installSpecifiers("pnpm install\npnpm install --frozen-lockfile")).toEqual([]);
+    expect(
+      installSpecifiers("pnpm add file:../astm\nnpm install git+https://x.test/astm.git"),
+    ).toEqual([]);
+  });
 });
