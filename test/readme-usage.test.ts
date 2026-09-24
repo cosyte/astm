@@ -44,6 +44,14 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import {
+  compileErrors,
+  fences as helperFences,
+  fixturesByContent,
+  recordStreamLiteral,
+  section as helperSection,
+} from "./_helpers/first-use.js";
+
 const REPO_ROOT = process.cwd();
 const README_PATH = join(REPO_ROOT, "README.md");
 const ENTRY_POINT = join(REPO_ROOT, "src", "index.ts");
@@ -189,4 +197,41 @@ describe("the README Usage example", () => {
     },
     CASE_TIMEOUT,
   );
+
+  it("AC-AS2: the block executed above is the first fenced block under ## Usage", () => {
+    const first = helperFences(helperSection(readFileSync(README_PATH, "utf8"), "## Usage"))[0];
+    expect(first?.lang).toBe("ts");
+    expect(usageFences[0]?.body).toBe(first?.body);
+  });
+
+  it(
+    "AC-AS2: compiles in a new TypeScript project against the package's types",
+    () => {
+      const paths = { "@cosyte/astm": ENTRY_POINT };
+      expect(compileErrors(REPO_ROOT, paths, usageFences[0]?.body ?? "")).toEqual([]);
+    },
+    CASE_TIMEOUT,
+  );
+
+  it(
+    "AC-AS2: a block that does not compile is reported, so it turns this suite red",
+    () => {
+      const code = usageFences[0]?.body ?? "";
+      expect(code.split("first?.value, ").length - 1).toBe(1);
+      const mutated = code.replace("first?.value, ", "first.value, ");
+      expect(compileErrors(REPO_ROOT, { "@cosyte/astm": ENTRY_POINT }, mutated)).toEqual([
+        expect.stringContaining("TS18048"),
+      ]);
+    },
+    CASE_TIMEOUT,
+  );
+
+  it("AC-AS4: its record stream is a byte-for-byte copy of a fixture under test/fixtures", () => {
+    const stream = recordStreamLiteral(usageFences[0]?.body ?? "");
+    expect(stream).toBeDefined();
+    const fixtures = fixturesByContent(REPO_ROOT, join(REPO_ROOT, "test", "fixtures"));
+    expect(fixtures.get(stream ?? "")).toBeDefined();
+    const mutated = (usageFences[0]?.body ?? "").replace("|28.6|", "|31.4|");
+    expect(fixtures.get(recordStreamLiteral(mutated) ?? "")).toBeUndefined();
+  });
 });
