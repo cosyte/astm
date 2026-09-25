@@ -9,25 +9,39 @@ this file is maintained by hand (Changesets handles the version bump and publish
 
 ## [Unreleased]
 
+**What 0.1 means for you.** This release is the first whose public API we treat as settled: the
+exported names, options, return shapes and warning codes are the surface we keep stable. What it
+covers is reading ASTM E1394 (CLSI LIS02-A2) records with the delimiters each header declares,
+checksum-verified E1381 (CLSI LIS01-A2) framing with a pure receiver state machine for the
+`ENQ`/`ACK`/`NAK`/`EOT` exchange, spec-clean emit of records and frames that writes only the values
+you supply, LOINC mapping through a LIVD catalog you supply, and date conversions that never assume
+a timezone. While the package is below 1.0, a breaking change bumps the minor version and is called
+out here with its migration; a fix that changes no public value ships as a patch. Upgrading from
+0.0.x is itself breaking in the LIVD mapping and in what `primaryCode()` returns, as the entries
+below set out. Not covered yet: no named per-vendor profile ships (the built-in set is `default` and
+`referenceCorpus`), no LOINC, SNOMED or LIVD data is bundled and no LOINC is validated, the transfer
+protocol's timers are yours to drive, and three behaviors (forward scoping of redeclared delimiters,
+the Latin-1 wire encoding and the reserved-byte set) are reasoned from this package's reader rather
+than cited to the standard's purchase-gated text.
+
 **The pending changeset set is classified `minor`, not `patch`, so the next release is a minor
-release.** Seven changesets are pending and five of them arrived carrying `patch`. Three of those
+release.** Eight changesets are pending and five of them arrived carrying `patch`. Three of those
 five were reclassified against their own text: one removes public values and changes what an
 exported function returns, and two add public values. None of the three is a fix that adds nothing
 and removes nothing, which is the only thing a `patch` may claim, and only those three bump lines
 moved. The other two keep `patch`: one changes repository tooling and install configuration, the
 other changes what a release carries beside the package, and neither touches a published value or
-emits a byte differently, so `patch` is what each one's own text supports. The last two arrived
+emits a byte differently, so `patch` is what each one's own text supports. Two more arrived
 carrying `minor` already, each written against this same rule, so both are applied as written rather
-than reclassified. A set carrying a `patch` beside a `minor` still resolves to the
-minor channel.
+than reclassified. The eighth is the release statement summarized above, which carries `minor` as the
+class of the release it describes and changes no public value. A set carrying a `patch` beside a
+`minor` still resolves to the minor channel.
 
 The breaking change below therefore ships in the minor channel of the pre-1.0 ladder, which is where
 a break belongs before `1.0.0`, rather than as a patch. Every break a consumer of the last published
 version would see is enumerated with its migration in `documentation/release-readiness.md`, together
-with the public export surface this release would certify as settled. **Each break awaits a decision
-before any release, and nothing publishes yet**: the release environment gate stays as it is, and no
-version number is written here, because Changesets owns the bump and `scripts/sync-version.mjs`
-mirrors it.
+with the public export surface this release certifies as settled. No version number is written in
+this section's entries, because Changesets owns the bump and `scripts/sync-version.mjs` mirrors it.
 
 The entries the pending set carries are the date conversion surface entry, the LIVD units entry, the
 LIVD publication metadata entry and the vocabulary-attribution entry under Added, and the LIVD
