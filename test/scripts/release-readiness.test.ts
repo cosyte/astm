@@ -22,11 +22,19 @@
  *   - an unresolved entry in the record withholds the stability certification, whether it is
  *     written as a bullet or as a sentence, and a region that says nothing does not say "none".
  *
- * WHEN IT GOES RED AFTER THE RELEASE, THAT IS THE DESIGN. Once Changesets consumes this set
- * the pending set is empty and the published base has moved, and this gate fails with a
- * message saying so. An empty pending set is a release that would publish nothing, which is
- * a stop rather than a green audit. Re-audit the next set and move the base, or retire this
- * gate deliberately.
+ * THE RELEASE COMMIT ITSELF PASSES, AND THAT IS A STATE, NOT AN EXEMPTION. Changesets' version
+ * commit moves `package.json` to the prepared version and consumes the whole set in the same
+ * commit, and the release pipeline runs `pnpm test` on exactly that commit before it publishes.
+ * There the set this file audits no longer exists, so the checks that read it are skipped, and
+ * only there: `isReleaseCommit` holds when the manifest is at the prepared version AND nothing is
+ * pending. A premature bump (the prepared version with the set still pending) and a set deleted
+ * by hand (nothing pending on the published base) both still fail, and the surface and
+ * certification checks run in every state, so the release publishes exactly what the record
+ * certifies.
+ *
+ * WHEN IT GOES RED AFTER THE RELEASE, THAT IS THE DESIGN. The first changeset written after the
+ * release is pending against a base that has moved, and this gate fails with a message saying
+ * so. Re-audit the next set and move the base, or retire this gate deliberately.
  *
  * Every negative case below is driven on a synthetic input, never by mutating this repo's
  * own files, so each guard is shown firing rather than assumed to.
@@ -370,11 +378,41 @@ function manifestVersion(): string {
   return version;
 }
 
+/**
+ * Whether the tree is Changesets' version commit for the prepared release: the manifest already
+ * reads the prepared version and the whole set is consumed. Both halves are required, so neither
+ * a hand bump with the set still pending nor a set deleted without a bump reads as a release.
+ */
+function isReleaseCommit(manifest: string, pending: readonly PendingChangeset[]): boolean {
+  return manifest === PREPARED_VERSION && pending.length === 0;
+}
+
 const RECORD = readFileSync(RECORD_PATH, "utf8");
 const PENDING = readPending(CHANGESET_DIR);
 const BUMPS = PENDING.map((entry) => entry.bump).filter((bump): bump is Bump => bump !== undefined);
+const RELEASE_COMMIT = isReleaseCommit(manifestVersion(), PENDING);
 
-describe("the pending changeset set", () => {
+describe("recognizing the release commit", () => {
+  const PENDING_MINOR: readonly PendingChangeset[] = [{ file: "a-change.md", bump: "minor" }];
+
+  it("is the prepared version with nothing left pending", () => {
+    expect(isReleaseCommit(PREPARED_VERSION, [])).toBe(true);
+  });
+
+  it("is not a bump made while the set is still pending", () => {
+    expect(isReleaseCommit(PREPARED_VERSION, PENDING_MINOR)).toBe(false);
+  });
+
+  it("is not a set removed without the bump", () => {
+    expect(isReleaseCommit(PUBLISHED_BASE, [])).toBe(false);
+  });
+
+  it("is not the published base with the set pending, which is the audited state", () => {
+    expect(isReleaseCommit(PUBLISHED_BASE, PENDING_MINOR)).toBe(false);
+  });
+});
+
+describe.skipIf(RELEASE_COMMIT)("the pending changeset set", () => {
   it("is not empty, so there is a release to certify", () => {
     // An empty pending set publishes nothing. Certifying one would be a green audit over a
     // release that does not exist.
@@ -439,7 +477,7 @@ describe("resolving a pending set", () => {
   });
 });
 
-describe("the audit in the release-readiness record", () => {
+describe.skipIf(RELEASE_COMMIT)("the audit in the release-readiness record", () => {
   const rows = auditRows(readRegion(RECORD, "audit"));
 
   it("accounts for every pending changeset", () => {
