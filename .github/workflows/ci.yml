@@ -25,3 +25,25 @@ jobs:
     uses: cosyte/.github/.github/workflows/ci.yml@main
     with:
       run-phi-scan: true
+
+  # The runnable examples under examples/, checked the way a consumer meets them: each imports
+  # `@cosyte/astm` by name, which resolves through package.json `exports` to the BUILT dist/, so
+  # the build runs first. Each example asserts its own output, so `pnpm examples` goes red when one
+  # drifts from the package. The PHI scan's default walk (src/, test/, scripts/, docs-content/)
+  # does not reach examples/, so the example files are named to it here.
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      # Actions are pinned to a commit rather than to a tag that can move.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm typecheck:examples
+      - run: pnpm lint:examples
+      - run: pnpm examples
+      - run: pnpm phi-scan:examples

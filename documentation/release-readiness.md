@@ -26,14 +26,15 @@ The published version is the `version` field of `package.json`, `0.0.22`, on the
 ladder. The pending set below is every file matching `.changeset/*.md` other than `README.md`
 (`config.json` is the tool's configuration and carries no bump).
 
-Five of the seven pending changesets arrived classified `patch`, and two arrived carrying `minor`.
+Five of the eight pending changesets arrived classified `patch`, and three arrived carrying `minor`.
 Three of the five are reclassified to `minor` here, each for a reason taken from its own text; their
 bump lines are the only lines that were rewritten, and no changeset's prose was edited. The other
 two stay `patch`, because neither one's text removes a public value, adds one, or changes any
 exported behaviour: reclassification runs in both directions or it is not a reading, and a tooling
 change written up as a feature would overstate the release exactly as a removal written up as a fix
-understates one. The two that arrived carrying `minor` were each written against this same rule, so
-both are applied as written rather than reclassified.
+understates one. Two that arrived carrying `minor` were each written against this same rule, so
+both are applied as written rather than reclassified. The third, the release statement, is read last
+below.
 
 <!-- audit:begin -->
 
@@ -46,6 +47,7 @@ both are applied as written rather than reclassified.
 | `publish-a-dependency-inventory-with-each-release.md`   | `patch`         | `patch`      |
 | `say-which-vocabulary-a-letter-was-graded-against.md`   | `patch`         | `minor`      |
 | `shared-date-conversion-surface.md`                     | `minor`         | `minor`      |
+| `first-minor-release.md`                                | `minor`         | `minor`      |
 
 <!-- audit:end -->
 
@@ -192,6 +194,16 @@ is not a break either.
 
 A feature that adds public values is `minor` by the same rule that keeps a real fix at `patch`, so
 this one carries `minor` as written and needs no reclassification.
+
+### `first-minor-release.md`: `minor`
+
+This is the release statement rather than a change to the surface: its own text adds no public
+value, removes none, and changes no exported behaviour. It tells a consumer what the resolved version
+means: the surface section 3 certifies, the promise that below 1.0 a break bumps the minor and is
+called out with its migration, the breaks an upgrade from `0.0.x` carries (section 4), and what is
+not covered yet. It carries `minor` as the class of the release it describes. Applying it moves
+nothing, because the four changesets above that add or remove public values already resolve the set
+to `0.1.0`.
 
 ## 2. Why no changeset in this set is classified `major`
 
@@ -641,9 +653,9 @@ The certification is scoped, deliberately, and the scope is the whole of its hon
 ## 4. Break candidates, awaiting the operator
 
 Every entry below is a change a consumer of `0.0.22` will see. **None of them is decided here.**
-The operator decides, per repo, before any release; this file surfaces them so that decision has
-something to read. Nothing in this list may be read as approval, and nothing publishes until
-section 5's precondition is met.
+They were held for the operator, and this file surfaces them so that decision had something to
+read. Nothing in this list is itself an approval: the operator's direction to publish `0.1.x`, which
+ships them, is recorded in section 6.
 
 Entries 1 to 4 are the public values the LIVD changeset removes or redefines, and `primaryCode()`
 is the one that produces **no compile error at all**.
@@ -855,22 +867,25 @@ modules behind it.
 
 <!-- unresolved:end -->
 
-## 6. Publication is blocked, and the bump is prepared rather than published
+## 6. Publication
 
-**Nothing here publishes anything, and the bump prepared on this branch is not a release.**
+**Nothing in this file publishes anything, and the bump prepared here is not a release until the
+release pipeline cuts it.**
 
-- **The precondition that is not met.** Publication is blocked until the release-frequency policy
-  work lands (`S0161-release-frequency-policy` in the meta-repo). Until it does, nothing publishes,
-  by the operator's own decision of 2026-08-28, which also declined the offered route of
-  hand-approving the release environment to relieve deadline pressure.
-- **What merging this branch does do.** `.github/workflows/release.yml` fires on a push to `main`
-  and calls the shared release pipeline, which parks on the `release` environment gate. That is the
-  current state of every merge into this repo and this work does not change it. This work must not
-  approve, drain, retrigger or otherwise relieve that gate, and does not.
-- **So the honest reading of this branch** is: the pending set now resolves to `0.1.0` instead of
-  `0.0.23`, the surface that number would certify is on record, and the breaks a consumer would see
-  are enumerated and waiting on a decision. The version in `package.json` is still `0.0.22` and will
-  stay `0.0.22` until Changesets writes the next one.
+- **The earlier block, and the direction that replaced it.** Publication was blocked by the
+  operator's decision of 2026-08-28 until the release-frequency policy work landed
+  (`S0161-release-frequency-policy` in the meta-repo). On 2026-09-25 the operator directed that
+  every package be put on `0.1.x` and published, in these words: "I need every single package on
+  v0.1.x and published." For this package the only `0.1.x` is the pending set above, so the breaks
+  in section 4 ship in `0.1.0` as enumerated there, each with its migration in `CHANGELOG.md`.
+- **What merging a change here does.** `.github/workflows/release.yml` fires on a push to `main`
+  and calls the shared release pipeline, which opens or updates the "Version Packages" pull request
+  and parks the publish on the `release` environment gate. Merging that pull request and approving
+  that gate belong to whoever runs the release, never to a change that edits this file.
+- **So the honest reading** is: the pending set resolves to `0.1.0` instead of `0.0.23`, the
+  surface that number certifies is on record, and the breaks a consumer will see are enumerated. The
+  version in `package.json` is still `0.0.22` and stays `0.0.22` until Changesets writes the next
+  one.
 
 ### The follow-on this bump creates, recorded so it is not lost
 
