@@ -5,6 +5,7 @@
 # delayed resolution most likely never sees the bad version at all. If a range
 # has no version old enough, pnpm refuses the install; that refusal IS the
 # control working and is never to be answered by lowering the number.
+# @cosyte is exempt by operator decision; every third-party package keeps the floor.
 #
 # trustPolicy no-downgrade refuses a resolution that would move a package
 # backwards, which is how a downgrade attack reintroduces a fixed advisory.
@@ -14,4 +15,7 @@
 # separate housekeeping choice: an older pnpm ignores the keys entirely and
 # leaves a settings file that decorates rather than defends.
 minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  # reason: first-party @cosyte package, exempt from the floor by operator decision
+  - "@cosyte/*"
 trustPolicy: no-downgrade
