@@ -105,7 +105,7 @@ ASTM instrument traffic carries PHI. This section says what the library does wit
 
 ## API
 
-`@cosyte/astm` is a zero-dependency TypeScript toolkit that follows the cosyte parser archetype: a lenient
+`@cosyte/astm` is a zero-dependency TypeScript toolkit that follows the Cosyte parser archetype: a lenient
 parser that turns real-world, vendor-quirky input into **warnings** rather than failures, paired with
 a serializer that always emits spec-clean output (Postel's Law). It mirrors the API shape of the
 reference parser, [`@cosyte/hl7`](https://github.com/cosyte/hl7).
@@ -529,7 +529,7 @@ An HL7 v2 `DTM` can state its own offset and an ASTM timestamp never can, so the
 differently on purpose: `hl7ToISO` may end in `Z` or `+HH:MM`, `astmToISO` never does. That
 difference is the standards', not the API's.
 
-### The cosyte parser archetype
+### The Cosyte parser archetype
 
 - **Postel's Law**: liberal parser (lenient default + warnings), conservative serializer (always
   spec-clean), so quirks don't propagate downstream on round-trip.
