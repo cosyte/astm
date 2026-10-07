@@ -2532,7 +2532,7 @@ Disciplines 1 to 3 are one line each and stay in `CLAUDE.md`. These two carry th
 ### 5. No em dash, anywhere
 
 5. **No em dash, anywhere** (founder directive, 2026-07-24; `knowledgebase/06-brand/voice-and-tone.md`).
-   U+2014 is banned outright across every cosyte surface, **including commit messages**. Gated by
+   U+2014 is banned outright across every Cosyte surface, **including commit messages**. Gated by
    `pnpm check:no-emdash` (`.github/workflows/no-emdash.yml`), which scans every tracked file, every
    tracked **filename**, and the gate script itself, plus, on a pull request, the PR title, the PR
    body, and the branch's commit messages, because this repo squash-merges and those three compose
@@ -2622,7 +2622,7 @@ required `ci / verify` matrix rather than adding a fourth workflow that would ha
 required context separately. Reporting is not gating. **Which contexts are actually required is not
 written down**: read it with `gh api repos/cosyte/astm/rulesets`.
 
-**IT ASSERTS NO UNIVERSAL, DELIBERATELY.** The two-file split landed across the cosyte tree, but
+**IT ASSERTS NO UNIVERSAL, DELIBERATELY.** The two-file split landed across the Cosyte tree, but
 several repos carry no `documentation/agent-notes.md` at all, so a gate phrased as "every repo has
 these two files" would be an overclaim its own siblings disprove. **No list and no count of those
 repos is written here**, because the set moves as repos gain the record. Derive it from the meta-repo
