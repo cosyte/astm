@@ -387,7 +387,7 @@ exists for.
   adding a workflow that would have to be made a required context separately. It asserts that every
   pointer resolves, that no section a pointer reaches is empty, that the record stays reachable from
   the always-read file, and that the always-read file still links the record by path. It asserts
-  **no** ecosystem-wide contract: several cosyte repos carry no such record at all, and a gate
+  **no** ecosystem-wide contract: several Cosyte repos carry no such record at all, and a gate
   phrased as though every repo did would be an overclaim.
   - **The matcher was re-derived against this tree rather than ported, and that was the whole job.**
     Both sibling spellings score **zero** here: the path-qualified form used by `ccda` and `mllp`,
@@ -1907,7 +1907,7 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
   acceptance under a tolerating profile) is _measured_, on the tree before and after the change.
 
 - **The em dash (U+2014) is gone from every tracked file, and a CI gate keeps it out**
-  (`EMDASH-CONFORMANCE`). The brand rule bans the character outright across every cosyte surface
+  (`EMDASH-CONFORMANCE`). The brand rule bans the character outright across every Cosyte surface
   and names commit messages explicitly; this package was the last one it had not reached, and the
   only one where it did not arrive on a clean tree. **1,129 occurrences across 108 of the 142
   tracked files** were rewritten with a comma, a colon, or a period. The sweep and the gate are one
@@ -2371,7 +2371,7 @@ phase 8` passes while `Phase 8` reds). An arm keyed on a following digit was wri
 
 ## [0.0.1] - 2026-07-22
 
-The first pre-alpha release. The package begins its public history at `0.0.x`, per the cosyte version
+The first pre-alpha release. The package begins its public history at `0.0.x`, per the Cosyte version
 ladder (`0.0.x` until first alpha).
 
 ### Added
