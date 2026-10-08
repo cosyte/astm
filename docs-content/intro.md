@@ -7,7 +7,7 @@ sidebar_position: 1
 # @cosyte/astm
 
 Parse real-world, vendor-quirky ASTM and pull fields out in one line, without reading the spec.
-`@cosyte/astm` is a zero-dependency TypeScript toolkit following the cosyte parser archetype: a lenient
+`@cosyte/astm` is a zero-dependency TypeScript toolkit following the Cosyte parser archetype: a lenient
 parser, an immutable model, a spec-clean serializer, and a profile system for vendor quirks. It
 mirrors the API shape of the reference parser, `@cosyte/hl7`.
 
