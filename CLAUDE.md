@@ -51,9 +51,9 @@ records the failure behind a rule. Read the `#defects` entry before changing the
   silent branch (`#defect-7`). When a claim measures false, grep and fix every restatement, warning
   messages included, then grep your replacement: fifteen were once missed. `#defect-17c`
 - `pnpm attw` is `scripts/attw.mjs`: the bare `attw` CLI exits 0 when the types are missing. `#attw`
-- `docs-content/` ships in an immutable release asset, so a mistake there outlives its fix. No
-  version number there or in `README.md`: four went stale within hours (`#status-history`).
-  `sidebars.json` shipped off the docs spine twice (`test/docs-sidebar-ia.test.ts`). `#docs-sidebar`
+- `docs-content/` ships in an immutable release asset, so a mistake there outlives its fix, and
+  `docs-content/sidebars.json` left the spine twice (`test/docs-sidebar-ia.test.ts`). No version
+  number there or in `README.md`: four went stale within hours. `#docs-sidebar` `#status-history`
 - No task ids, phase language or private paths in `README.md`, `docs-content/`, `/** */` comments
   or strings; reword, never delete the comment. The gate misses stale prose. `#no-internal-refs`
 - Never put a backticked bare anchor in a changeset or a shipped file. The agent-notes check in
