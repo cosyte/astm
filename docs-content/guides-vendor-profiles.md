@@ -1,6 +1,7 @@
 ---
 id: guides-vendor-profiles
 title: Vendor profiles
+description: "How a profile records one documented analyzer deviation without quieting any other tolerance, and why no named vendor profile ships."
 sidebar_position: 2
 ---
 
@@ -18,7 +19,7 @@ firsthand in the redistributable public reference corpus. A named per-vendor bui
 when a public, vendor-attributed quirk document grounds it, and inspection of the public corpus
 found the record layer spec-clean, so none is asserted. The engine fully supports them; you write
 the one your instrument's interface document describes, which is the only person who has that
-document. Naming an analyzer as an example of a behaviour is not the same thing as shipping a
+document. Naming an analyzer as an example of a behavior is not the same thing as shipping a
 profile for it, and this page does the first and not the second.
 
 ## Apply a vendor profile
@@ -60,7 +61,7 @@ A few things worth knowing while you write one:
 - **`match` narrows a toleration structurally**, to a record type and a 1-based field index, so you
   can expect a deviation in result units without blanket-tolerating it across the message. Matching
   is on structural identifiers only; there is no matching on any field value.
-- **`extends` composes profiles.** Lineage, tolerations, transport and provenance merge, and the
+- **`extends` composes profiles.** Lineage, tolerations, transport, and provenance merge, and the
   merged result is re-validated, so nothing gets in through a hand-built parent.
 - **`transport` forces raw or framed** for a vendor whose TCP link drops framing, instead of leaving
   it to leading-byte detection.

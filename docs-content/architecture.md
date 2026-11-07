@@ -1,6 +1,7 @@
 ---
 id: architecture
 title: The two-layer architecture
+description: "How the record layer (E1394) and the framing layer (E1381) stay independent, and the one point where they meet."
 sidebar_position: 2
 ---
 
@@ -70,6 +71,6 @@ the wire or the clock: it models the state transitions, and you drive them with 
 
 ## Where to go next
 
-- [Quickstart](./quickstart): parse a result, decode a framed stream, serialize and build.
-- [Core Concepts](./concepts-archetype): the shared parser archetype and the tolerance tiers.
+- [Quickstart](./quickstart): parse a result, decode a framed stream, serialize, and build.
+- [Core concepts](./concepts-archetype): the shared parser archetype and the tolerance tiers.
 - [What it does, and does not do](./limitations): the honest boundary before you rely on it.

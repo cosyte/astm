@@ -1,6 +1,7 @@
 ---
 id: troubleshooting
 title: Troubleshooting
+description: "Common symptoms when integrating @cosyte/astm, and how to read what the parser is telling you."
 sidebar_position: 1
 ---
 
@@ -111,7 +112,7 @@ second-generation read is silent. Catch it on the first read of the wire bytes.
 ## Two escape sequences could have been aligned differently
 
 `ASTM_RECORD_AMBIGUOUS_ESCAPE_ALIGNMENT` says the same bytes carry two readings that disagree about
-one field, repeat or component boundary. Sequences are matched greedily and leftmost, so the escape
+one field, repeat, or component boundary. Sequences are matched greedily and leftmost, so the escape
 character closing one cannot also open the next. Where it could have, and where the body it would
 have held is the delimiter that split, one alignment ends a field there and the other holds that
 delimiter inside an opaque atom and ends nothing. `R|1|^^^687|28.6&Z&|&U/L||||F` reads a value of
@@ -337,7 +338,7 @@ delimiters yourself.
 ## A header declared one character in two delimiter roles
 
 `ASTM_RECORD_DELIMITER_ROLE_COLLISION` says the `H` record named the same character in two of the
-repeat, component and escape roles, so the boundary between those two roles is not in the bytes. The
+repeat, component, and escape roles, so the boundary between those two roles is not in the bytes. The
 declaration is still honored and no record is dropped: under `H|^^&` a field a canonical sender would
 have written as two repeats of two components reads back as four repeats of one component each.
 
@@ -373,7 +374,7 @@ lenient mode, a thrown `AstmFrameStrictError` in strict); a sequence gap is warn
 silently bridged**. Read `frameWarnings` from `parseFramedAstm`: each carries a frame number and byte
 offset, never the record bytes.
 
-## `ASTM_FRAME_RESERVED_BYTE`: emit refused a record carrying `STX`, `ETB` or `ETX`
+## `ASTM_FRAME_RESERVED_BYTE`: emit refused a record carrying `STX`, `ETB`, or `ETX`
 
 `composeAstmFrames` (and `serializeFramedAstm` through it) throws an `AstmFrameEncodeError` with this
 code when a record holds one of the three bytes the framing reads as structure. There is no option to
@@ -399,7 +400,7 @@ first, so a record that cannot be serialized at all is refused before this check
 
 It used to be written through unchecked, which is why the check exists. `-1` put a `/` in the
 frame-number position; `NaN` and either infinity put a `NUL` there in **every** frame, after which the
-decoder recognised no frame number at all and emitted none of the records. Values that truncated back
+decoder recognized no frame number at all and emitted none of the records. Values that truncated back
 onto a digit were quieter and no better: `1.5` and `257` each produced the exact stream a
 `startFrameNumber` of `1` produces, so the option silently accepted what it documented as invalid.
 

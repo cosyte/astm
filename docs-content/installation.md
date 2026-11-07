@@ -1,6 +1,7 @@
 ---
 id: installation
 title: Installation
+description: "Install @cosyte/astm, meet the Node.js prerequisite, and confirm the package resolves from ESM or CommonJS."
 sidebar_position: 1
 ---
 
@@ -9,13 +10,14 @@ sidebar_position: 1
 `@cosyte/astm` is a zero-dependency TypeScript package for Node.js. It ships dual **ESM + CJS** builds with
 per-condition type declarations, so it works from either module system without configuration.
 
-> **Status:** published on npm, on a pre-release ladder: the public API is **not yet stable**. The
-> exported names, options and warning codes can still change from one release to the next, so pin
-> the version you install rather than tracking the latest.
+> **Status:** published on npm, and the public API is settled and stable: the exported names,
+> options, return shapes, and warning codes are the surface a release keeps, and a breaking change
+> bumps the minor version with its migration in the changelog. Two surfaces are still moving, both
+> additively: the built-in profile registry and the warning and error code sets.
 
 ## Prerequisites
 
-- **Node.js >= 22** (the whole `@cosyte/*` suite targets ES2023 / Node 22+).
+- **Node.js 22 or later, tested on 22 and 24** (the whole `@cosyte/*` suite targets ES2023).
 - A package manager: `pnpm`, `npm`, or `yarn`.
 
 ## Install

@@ -1,6 +1,7 @@
 ---
 id: guides-overview
 title: Guides
+description: "Task-oriented recipes for common ASTM integration questions, each a short answer against the real API."
 sidebar_position: 1
 ---
 
@@ -10,7 +11,7 @@ Task-oriented recipes ("how do I X?") for `@cosyte/astm`. Each is a short, copy-
 one real integration question. For a guided first read, start with the [Quickstart](./quickstart); for
 the boundaries of what the library promises, read [What it does, and does not do](./limitations).
 
-## Tell a corrected or cancelled result apart from a final one
+## Tell a corrected or canceled result apart from a final one
 
 A result's `status` is **always present** and fail-safe: a correction (`C`) or cancel (`X`) never
 reads as active-final, and an absent status is `unspecified`, never assumed `final`. Gate on it before
@@ -150,5 +151,5 @@ serializeAstmRecords(parseAstmRecords(raw)) === raw; // => true
   that bounds what a profile may tolerate.
 - [Quickstart](./quickstart): the one-line parse and every emit path.
 - [The two-layer architecture](./architecture): records vs frames, and when you need each.
-- [What it does with patient data](./patient-data): logging, retention and what stays yours.
+- [What it does with patient data](./patient-data): logging, retention, and what stays yours.
 - **API Reference**: every shipped export, generated from source.

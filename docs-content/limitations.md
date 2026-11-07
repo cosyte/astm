@@ -1,6 +1,7 @@
 ---
 id: limitations
 title: What it does, and does not do
+description: "What the library promises about lab results, and the edges of that promise, stated plainly."
 sidebar_position: 2
 ---
 
@@ -29,7 +30,7 @@ value.**
   three conditions readback requires, and a record whose own type letter that set would escape away.
   Those refusals cover a record's **type**; they do not promise every field lands where it did: see
   the non-goals below.
-- **Fail-safe on ambiguity.** A missing unit, an unrecognized abnormal flag, a corrected/cancelled
+- **Fail-safe on ambiguity.** A missing unit, an unrecognized abnormal flag, a corrected/canceled
   result, a bad checksum, an unparseable range: each surfaces as a typed warning or error. The
   library refuses to guess a value into existence.
 
@@ -55,7 +56,7 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
 - **No UCUM conformance: the unit comparison is verbatim and case sensitive.** Where a vendor code
   carries several candidate LOINCs, the candidate whose catalog `representativeUnit` is exactly equal
   to the units the record reported is selected, and that equality is a plain string comparison.
-  Nothing is normalized, case folded, scaled or converted on either side, so `MG/DL` does not match
+  Nothing is normalized, case folded, scaled, or converted on either side, so `MG/DL` does not match
   `mg/dL`, `mg/L` never matches `ug/dL`, and a unit differing only in whitespace is a different unit.
   UCUM defines a case-insensitive variant of every terminal symbol and requires a program declaring
   full conformance to compare unit expressions by their **semantics**; this package declares no such
@@ -90,7 +91,7 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   on the wire, encode it yourself with the code page your instrument uses and pass the resulting
   `Uint8Array`, which `composeAstmFrames` writes through untouched. The record layer is unaffected:
   `serializeAstmRecords` returns a `string` and what you encode it with is yours to decide.
-- **No way to put a frame-structure byte inside a frame.** `STX`, `ETB` and `ETX` are what the
+- **No way to put a frame-structure byte inside a frame.** `STX`, `ETB`, and `ETX` are what the
   decoder reads as the shape of a frame, and framing has no escape sequence for them, so a record
   carrying one is refused (`ASTM_FRAME_RESERVED_BYTE`) rather than written as a frame that truncates
   at that byte. Passing the record as a `Uint8Array` does not route around it: the byte is
@@ -103,7 +104,7 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   it is being read, so no surplus ever holds them. The **whole** surplus is dropped rather than the
   offending character alone, because a subsequence of an opaque run is a different run, and none of it
   is reported, because emit returns a plain string.
-- **No clinical judgement.** The library reports the abnormal flag and result status faithfully; it
+- **No clinical judgment.** The library reports the abnormal flag and result status faithfully; it
   does **not** decide whether a value is "critical" or act on a correction/cancel.
 - **No claim that a letter set is current.** The record grammar is frozen; the vocabularies whose
   letters travel in it are not. So every interpreted flag and status says what it was graded
@@ -113,7 +114,7 @@ These are **non-goals**, not missing features: naming them so nothing over-trust
   three conditions readback requires, and refuses any record whose own type letter the set being
   written with would escape away (`ASTM_EMIT_TYPE_LETTER_COLLISION`), so an emitted stream re-reads
   as the same record **types**. The second refusal is a transcoding condition rather than a
-  judgement on the set you passed, so it also fires with **no** delimiter argument: a record read
+  judgment on the set you passed, so it also fires with **no** delimiter argument: a record read
   under a vendor's own set can carry a type letter the canonical set escapes away, and
   `serializeFramedAstm` refuses it too. That is not a guarantee that every field lands where it did: an escape sequence whose
   body is an unrecognized character that is itself a delimiter in force is read as one opaque atom,
@@ -196,13 +197,13 @@ letter was recognized, and the two answers are deliberately different.
 - **Result statuses are attributed to nothing, and say so.** `status.vocabulary.attributed` is
   always `false` and `status.vocabulary.reason` carries the fixed prose explaining why: the
   normative text that would bind that letter set is purchase-gated and has not been read here. A
-  neighbouring HL7 table exists whose letters partly agree, and adopting it would be an assertion
+  neighboring HL7 table exists whose letters partly agree, and adopting it would be an assertion
   nothing in the public record supports, so this library declines to cite a source it cannot stand
   behind. **An unattributed set is not an absent attribution**: `attributed: false` is a positive
   statement, distinguishable from a field that is simply missing, and it never carries an identifier.
 
 The eighteen abnormal-flag letters recognized are `L`, `H`, `LL`, `HH`, `<`, `>`, `N`, `A`, `AA`,
-`U`, `D`, `B`, `W`, `S`, `R`, `I`, `HU` and `LU`; `ABNORMAL_FLAG_CODES` is the list itself. Other
+`U`, `D`, `B`, `W`, `S`, `R`, `I`, `HU`, and `LU`; `ABNORMAL_FLAG_CODES` is the list itself. Other
 concepts in that code system are deliberately **not** adopted, including the deprecated `H>` and
 `L<` whose replacements `HU` and `LU` are. Recognition is **exact match** after the surrounding
 whitespace is trimmed: `hu` is not `HU`, and the case variant is reported unrecognized rather than
@@ -236,10 +237,9 @@ Mindray, Snibe) still implement. `@cosyte/astm` targets the second editions.
   cross-implementation frame decode, capturing its outputs once and vendoring none of its code. Where we are deliberately
   stricter (escape decoding, checksum validation, `Q` support), the difference is asserted on purpose.
 
-## HIPAA posture
+## Patient data and compliance
 
-`@cosyte/astm` is **HIPAA-capable, not HIPAA-compliant**: compliance is a property of a system, not a
-library. The `P` record concentrates PHI (name, mother's maiden name, birthdate, sex, IDs) and `C`
+`@cosyte/astm` makes no compliance claim: compliance is a property of a system, not a library. The `P` record concentrates PHI (name, mother's maiden name, birthdate, sex, IDs) and `C`
 free text can carry it. Fixtures are **synthetic-only**; warnings and errors carry **positional
 context only, never a value**; and a format-specific PHI scanner gates every change. Never log a raw
 payload.
