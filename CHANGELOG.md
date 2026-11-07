@@ -53,6 +53,9 @@ exists for.
 
 ### Changed
 
+- **Published through npm trusted publishing, with provenance.** The code, API and behavior are
+  unchanged from 0.1.0. Only the README and some doc comments differ: a few doc comments now write
+  number ranges with "to".
 - **Every published release now carries a machine-readable dependency inventory as a downloadable
   asset.** No published value, type, warning code or emitted byte moves: this entry is release
   infrastructure only, and nothing under `src/` is touched. The inventory is a CycloneDX document

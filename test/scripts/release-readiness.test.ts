@@ -9,10 +9,11 @@
  * graded here against the tree rather than against prose.
  *
  * WHAT IT ASSERTS
- *   - the pending set is non-empty and resolves the package to `0.1.0` off the published
- *     base, which needs at least one `minor` and no `major`;
- *   - the changeset documenting the LIVD catalog change carries `minor`, because its own
- *     text removes public values and a removal is not a fix;
+ *   - the pending set is non-empty and resolves the package to the prepared version off the
+ *     published base, `0.1.1` off `0.1.0`, which needs `patch` bumps only: no `minor` and no
+ *     `major`;
+ *   - the trusted publishing changeset, the one the record audits, carries `patch`, because
+ *     neither its own text nor the tree since the published base moves a public value;
  *   - the record's audit table accounts for every pending changeset and states the bump each
  *     one actually carries;
  *   - the surface the record enumerates is exactly what the entry point re-exports, values
@@ -61,13 +62,13 @@ const PACKAGE_NAME = "@cosyte/astm";
  * computed from. It is compared against `package.json` rather than trusted: if the two ever
  * disagree, the audit is describing a release that already happened.
  */
-const PUBLISHED_BASE = "0.0.22";
+const PUBLISHED_BASE = "0.1.0";
 
 /** The version the pending set is prepared to resolve to. */
-const PREPARED_VERSION = "0.1.0";
+const PREPARED_VERSION = "0.1.1";
 
-/** The changeset whose own text removes public values, so it cannot be a patch. */
-const LIVD_CHANGESET = "livd-catalog-answers-the-analyte.md";
+/** The changeset the record audits, whose own text and change move no public value. */
+const TRUSTED_PUBLISHING_CHANGESET = "trusted-publishing.md";
 
 type Bump = "patch" | "minor" | "major";
 
@@ -423,8 +424,10 @@ describe.skipIf(RELEASE_COMMIT)("the pending changeset set", () => {
     expect(manifestVersion()).toBe(PUBLISHED_BASE);
   });
 
-  it("carries at least one minor and no major", () => {
-    expect(BUMPS).toContain("minor");
+  it("carries patch bumps only, with no minor and no major", () => {
+    // A minor here would mean a public value moved that the record's audit does not account
+    // for, and a major would take the package out of the coordinated batch.
+    expect(BUMPS).not.toContain("minor");
     expect(BUMPS).not.toContain("major");
   });
 
@@ -432,13 +435,13 @@ describe.skipIf(RELEASE_COMMIT)("the pending changeset set", () => {
     expect(resolveNextVersion(PUBLISHED_BASE, BUMPS)).toBe(PREPARED_VERSION);
   });
 
-  it("classifies the LIVD catalog changeset as minor, because it removes public values", () => {
-    // Its own text removes `UniversalTestId.loincCandidate`, the `inline-loinc-candidate`
-    // provenance token and the `inline-loinc` mapping variant, and changes what the exported
-    // `primaryCode()` returns. A removal or a rename of a public value is not a fix.
-    const livd = PENDING.find((entry) => entry.file === LIVD_CHANGESET);
-    expect(livd, `${LIVD_CHANGESET} is not in the pending set`).toBeDefined();
-    expect(livd?.bump).toBe("minor");
+  it("classifies the trusted publishing changeset as patch, because it moves no public value", () => {
+    // Its own text says the code, API and behavior are unchanged, and the tree agrees: since the
+    // published base, `src/index.ts` is unchanged and every other change under `src/` is a
+    // comment. Section 1 of the record sets out what was compared.
+    const entry = PENDING.find((pending) => pending.file === TRUSTED_PUBLISHING_CHANGESET);
+    expect(entry, `${TRUSTED_PUBLISHING_CHANGESET} is not in the pending set`).toBeDefined();
+    expect(entry?.bump).toBe("patch");
   });
 });
 
