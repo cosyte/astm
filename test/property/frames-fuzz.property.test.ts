@@ -37,7 +37,7 @@ const KNOWN_FRAME_CODES = new Set<string>(Object.values(FRAME_WARNING_CODES));
 /** Frame-structure control bytes, so control-char-laden noise partially forms frames. */
 const CONTROL_BYTES = [0x02, 0x03, 0x17, 0x0d, 0x0a, 0x05, 0x06, 0x04, 0x15]; // STX ETX ETB CR LF ENQ ACK EOT NAK
 
-/** Arbitrary raw bytes (the full 0–255 range). */
+/** Arbitrary raw bytes (the full 0 to 255 range). */
 function randomBytes(): fc.Arbitrary<Uint8Array> {
   return fc.uint8Array({ minLength: 1, maxLength: 512 });
 }
