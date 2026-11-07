@@ -45,10 +45,13 @@
  *     there aborts the publish and the version never becomes public;
  *   - `pnpm check`, so the same production and the same refusal are reachable
  *     from a checkout with no credential and nothing published;
- *   - the release workflow's attach job, which runs AFTER the publish because
- *     the GitHub release it uploads to does not exist before one. That job can
- *     only fail a run, never unpublish, which is exactly why the guard above
- *     is not left to it.
+ *   - `pnpm pack:docs` (`scripts/build-docs-artifacts.sh`), which the release
+ *     pipeline runs after the publish and just before it creates the GitHub
+ *     release. The inventory travels inside `source.tar.gz`, which is attached
+ *     in the same call that creates the release, because a published release
+ *     is immutable and refuses a later upload. A refusal there can only fail a
+ *     run, never unpublish, which is exactly why the guard above is not left
+ *     to it.
  *
  * NETWORK AND CREDENTIALS: none. Two files are read, one is written, no
  * subprocess is spawned and no registry is contacted, so the same run works in

@@ -58,3 +58,5 @@ records the failure behind a rule. Read the `#defects` entry before changing the
   or strings; reword, never delete the comment. The gate misses stale prose. `#no-internal-refs`
 - Never put a backticked bare anchor in a changeset or a shipped file. The agent-notes check in
   `pnpm test` reads `git ls-files`, so rerun the gate after `git add`. `#agent-notes-contract`
+- Never hand-edit `CHANGELOG.md`: a release writes it from the changeset summaries, above the frozen
+  hand-written archive. Kept by hand, it stopped at 0.0.2 while npm reached 0.1.1.

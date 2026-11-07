@@ -91,7 +91,7 @@ of the roadmap.
   gates the whole `src/` (`frames`/`ltp`/`terminology` added to `common`/`records`/`profiles`). A
   **record-tokenizer fuzz** joins the frame-codec fuzz; both scale via `ASTM_FUZZ_RUNS`, run nightly by
   a scheduled **Fuzz** workflow (`.github/workflows/fuzz.yml`) and on demand via `pnpm test:fuzz`.
-  **Publish dry-run proven:** `attw` green, a new `smoke` gate (`scripts/smoke.mjs`, in `verify.sh`)
+  **Publish dry-run proven:** `attw` green, a new `smoke` gate (`scripts/smoke.mjs`, `pnpm smoke`)
   exercising the built ESM + CJS entries, and an `npm publish --dry-run` clean 10-file tarball. **Full
   Diátaxis docs spine + honesty docs**: `docs-content/limitations.md` (what it does / does not do +
   license posture) and `architecture.md` (the two-layer model), real how-to guides, refreshed status
@@ -197,7 +197,7 @@ of the roadmap.
   inside the `\^&` definition defeats the generic escape-aware tokenizer, so the raw header is the
   reliable source); `M`/`S` are re-emitted **byte-identically** from `rawLine`.
   **▶ BOTH OF THOSE LAST TWO CLAUSES WERE FIXED 2026-07-29 (`ASTM-MIXED-DELIMITER-EMIT`): read
-  `CHANGELOG.md` `[Unreleased]` before touching `serialize.ts`.** Emitting `M`/`S` verbatim while
+  `CHANGELOG.md` (its hand-written archive) before touching `serialize.ts`.** Emitting `M`/`S` verbatim while
   normalizing the header produced a **mixed-delimiter, non-conformant stream**, and re-parsing it
   **silently collapsed every field of those rows into one, with zero warnings**: shipped since
   `0.0.1`. `M`/`S` now go out verbatim **only when a reader using the emit delimiters would recover
@@ -272,7 +272,7 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0` to `7` sequence. **A
   now feature-complete.** `parseAstmRecords` reads
   `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and the escape codec (P1).
   **▶ DELIMITER SCOPING CHANGED 2026-07-29 (`ASTM-SECOND-HEADER-COLLAPSE`): read `CHANGELOG.md`
-  `[Unreleased]` before touching `parse.ts`.** Delimiters were read **only from the first header** and
+  (its hand-written archive) before touching `parse.ts`.** Delimiters were read **only from the first header** and
   applied to the whole stream, so a second `H` that redeclared them made **every following record
   collapse into one field, with zero warnings**, accepted by `strict`: shipped `0.0.1` to `0.0.3`. This
   is `ASTM-MIXED-DELIMITER-EMIT` one layer over, on the **parse** side, which is why #21 did not
@@ -299,8 +299,8 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0` to `7` sequence. **A
   result set, the `Q` dominates, `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` flags a `Q`+`R` contradiction),
   and `M`/`S` records surfaced **verbatim** (`record.rawLine`, byte-identical), never interpreted into
   clinical fields. `src/common/` holds the value layer, `src/records/` the record layer. Deferred to
-  later phases: the E1381 **framing** layer (P5+) and serialize/build (P7). The full sequence is in the
-  meta-repo roadmap `operations/roadmaps/astm.md`.
+  later phases: the E1381 **framing** layer (P5+) and serialize/build (P7). What comes next is in the
+  umbrella's `plans/`.
 
 <a id="livd-units"></a>
 
@@ -423,7 +423,7 @@ does) attributed one patient's results to another, reproducing on an **ordinary 
 two-message stream** with **zero** warnings and no `strict` objection. Found by the
 `conformance-refuter` grading `ASTM-SECOND-HEADER-COLLAPSE` and correctly not folded into it: the
 fix is a public-surface **addition**, not a bug fix.
-**▶ THE FIX IS DELIBERATELY BREAKING: read `CHANGELOG.md` `[Unreleased]` before touching
+**▶ THE FIX IS DELIBERATELY BREAKING: read `CHANGELOG.md` (its hand-written archive) before touching
 `extractors.ts`.** `messages(msg)` splits a parsed stream into its `H` … `L` messages, each
 carrying only its own records; `patient`, `results`, `orders`, `comments` and `query` now throw
 `AstmAmbiguousStreamError` (`ASTM_AMBIGUOUS_MULTI_MESSAGE`) on a multi-message stream rather than
@@ -470,7 +470,7 @@ throws**, so a hand-authored profile still parses and the original warning simpl
 "simplify" that check away as redundant with `defineAstmProfile`: it is the only one of the two
 that a hand-authored profile passes through.
 **▶ BOTH DOWNSTREAM COSTS WERE CLOSED 2026-08-02 by `ASTM-TYPE-LETTER-SECOND-READER`, NEITHER BY
-INFERRING THE LETTER. Read `CHANGELOG.md` `[Unreleased]` before touching `parse.ts` or
+INFERRING THE LETTER. Read `CHANGELOG.md` (its hand-written archive) before touching `parse.ts` or
 `host-query.ts`.**
 **(a) The value loss.** Delimiters are re-read at each `H`, keyed on the same letter, so an
 unrecognized header does not re-scope them either. Where it declared a different set, the merged
@@ -621,7 +621,7 @@ character of its line" is read before tokenization: true of the parse, no protec
 **emit** chose the character. The entry is annotated, not removed, and its severity is defect 11's
 question, not this slice's.
 **▶ THE FIX IS DERIVED FROM THE READER AND CHECKED ON THE BYTES. Read `CHANGELOG.md`
-`[Unreleased]` before touching `serialize.ts`.** `parseAstmRecords` takes a record's type from
+(its hand-written archive) before touching `serialize.ts`.** `parseAstmRecords` takes a record's type from
 `line.charAt(0)`, so `serializeRecordChecked` now asserts the first character it wrote is the
 letter the record models, and raises `ASTM_EMIT_TYPE_LETTER_COLLISION` (third member of
 `AstmSerializeErrorCode`) otherwise, carrying `recordIndex` and quoting nothing from the record. **Testing the output rather than listing dangerous roles is
@@ -676,7 +676,7 @@ layers. **An embedded `ETB` reaches the same silence by the OTHER DOOR, which th
 have:** it leaves the record open, so the _next_ record's text is appended to the truncated one
 and two records read back as one, every field of the result hanging off the comment.
 **▶ THE FIX REFUSES AT THE FRAME LAYER, AND THE RECORD LAYER IS DELIBERATELY UNTOUCHED. Read
-`CHANGELOG.md` `[Unreleased]` before touching `encode.ts`.** `composeAstmFrames` throws
+`CHANGELOG.md` (its hand-written archive) before touching `encode.ts`.** `composeAstmFrames` throws
 `ASTM_FRAME_RESERVED_BYTE` (third member of `AstmFrameEncodeErrorCode`, with `recordIndex` +
 `characterIndex`, value-free) for a record carrying `STX`/`ETB`/`ETX`, in **either** accepted
 form: unlike the `U+00FF` refusal beside it there is **no bytes-instead escape hatch**, because
@@ -729,7 +729,7 @@ re-read divergence with a different field tree**, the dangerous direction the ho
 names. The lesson generalizes past this defect: **a claim of "loud in every case" is a claim
 about the input space, not about the cases you ran.**
 **▶ THE FIX REFUSES, AND THE GROUNDING IS FIRSTHAND WITH NO CLAUSE CLAIMED. Read `CHANGELOG.md`
-`[Unreleased]` before touching `encode.ts`.** `composeAstmFrames` throws
+(its hand-written archive) before touching `encode.ts`.** `composeAstmFrames` throws
 `ASTM_FRAME_UNENCODABLE_CHARACTER` (new code on `AstmFrameEncodeError`, whose `code` is now a
 union exported as `AstmFrameEncodeErrorCode`, plus a `characterIndex`) rather than substituting a
 character. Two grounds, both readable: this package's **own** byte-to-string boundary is already
@@ -786,7 +786,7 @@ out of `parseFloat(value)` and **no units at all** on a wholly canonical stream 
 warnings array: a lab number with its units silently removed is a wrong result, not a formatting
 nit. Status `final` reading `unspecified` and the flag going missing are fail-safe on their own;
 they are not what carried the verdict. Do not restate the verdict more broadly than that.
-**▶ THE FIX IS A BOUND, AND IT INFERS NOTHING. Read `CHANGELOG.md` `[Unreleased]` before touching
+**▶ THE FIX IS A BOUND, AND IT INFERS NOTHING. Read `CHANGELOG.md` (its hand-written archive) before touching
 `escapes.ts`.** An escape sequence is now exactly three characters (escape, **one** body
 character, escape), all the four mnemonics ever need, and the split and the decoder share one
 definition of it, because a split that disagrees with its decoder is the mis-read class that file
@@ -838,7 +838,7 @@ catalog hit and a populated first component differ, `wireValueDisagreesWithCatal
 difference and **nothing else**: neither value is suppressed, rewritten or marked correct, and no
 field says the difference was settled. Removed: `loincCandidate`, the `inline-loinc-candidate`
 provenance token, and the `inline-loinc` mapping variant, each with a named replacement in
-`CHANGELOG.md` `[Unreleased]`. `primaryCode()` keeps its name and returns the vendor local code
+`CHANGELOG.md` (its hand-written archive). `primaryCode()` keeps its name and returns the vendor local code
 alone, so it is now `undefined` where it used to answer with a first-component value: a break with
 no compile error behind it, recorded in the changeset for that reason.
 **▶ NO LOINC SHAPE TEST WAS ADDED, AND THE OPEN QUESTION IT WOULD HAVE NEEDED IS STILL OPEN.** What
@@ -1007,7 +1007,7 @@ discriminating power. **The tier that discriminates is strict-accepted-under-a-g
 and on that tier this was 9,287 of 50,400. Do not re-run "is it silent" on a non-canonical set
 and read the answer as reassurance.
 **▶ THE FIX IS ONE LEFT-TO-RIGHT PASS, AND THE PROPERTY IS EXACTNESS, NOT SPEED. Read
-`CHANGELOG.md` `[Unreleased]` before touching `serialize.ts`.** Each character is read once and
+`CHANGELOG.md` (its hand-written archive) before touching `serialize.ts`.** Each character is read once and
 written either as itself or as a whole `escape` + mnemonic + `escape` triple, and nothing the
 encoder writes is examined again, which makes it the **exact** inverse of `decodeEscapes` rather
 than approximately so. Measured both directions: bytes change for **exactly** the 10,450 sets that
@@ -1050,7 +1050,7 @@ silently and behaves as some other start. `1.5` and `257` each emit the byte-for
 message shape over integers.
 **▶ THE FIX IS A DOMAIN CHECK DERIVED FROM WHAT A FRAME CAN CARRY, RUN BEFORE `composeAstmFrames`
 READS A RECORD.
-Read `CHANGELOG.md` `[Unreleased]` before touching `encode.ts`.** New
+Read `CHANGELOG.md` (its hand-written archive) before touching `encode.ts`.** New
 `ASTM_FRAME_INVALID_START_FRAME_NUMBER` (fourth member of `AstmFrameEncodeErrorCode`): the option
 must be a whole number `0` to `7`, the modulo-8 sequence the decoder reads and rolls over.
 **Clamping and modulo were both rejected on one argument:** either picks a frame number the
@@ -1453,7 +1453,7 @@ statements are now pinned in `test/records/alignment-criterion-population.test.t
 
 Relocated verbatim from `CLAUDE.md` 2026-08-05 to make room for a trap. This repo inherits the
 canonical toolchain by depending on the published `@cosyte/*` config packages, not by copying files.
-The source of truth is the meta-repo's `documentation/conventions.md`; this is a summary.
+The org-wide standards are in the umbrella's `plans/standards.md`; this is a summary.
 
 - **Language:** TypeScript (strict, full rigor set incl. `noUncheckedIndexedAccess`) via
   `@cosyte/tsconfig`. **Target ES2023**, `NodeNext`. TypeScript 5.9.x, exact-pinned.
@@ -2410,7 +2410,7 @@ its input bytes, and the wrong-delimiter-role measurement.
 Two further defects once on this list (the `>3`-char declaration losing its surplus on emit, and
 `serializeAstmRecords(msg, d)` not validating a caller-supplied `d`) were recorded with
 `ASTM-MIXED-DELIMITER-EMIT` (#21), left again by `ASTM-SECOND-HEADER-COLLAPSE` (#22), and **both
-closed by `ASTM-EMIT-RESIDUALS`**: read `CHANGELOG.md` `[Unreleased]` for the dispositions chosen
+closed by `ASTM-EMIT-RESIDUALS`**: read `CHANGELOG.md` (its hand-written archive) for the dispositions chosen
 (preserve the surplus; refuse an unusable set with a typed error) and why.
 
 <a id="guardrails"></a>
