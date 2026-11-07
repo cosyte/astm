@@ -31,7 +31,7 @@ const CANONICAL_SPINE = [
   "Overview",
   "Installation",
   "Quickstart",
-  "Core Concepts",
+  "Core concepts",
   "Guides",
   "API Reference",
   "Troubleshooting",

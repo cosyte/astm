@@ -1,6 +1,7 @@
 ---
 id: patient-data
 title: What it does with patient data
+description: "What @cosyte/astm does with patient data: what it logs, what it keeps, and what stays the job of the system around it."
 sidebar_position: 3
 ---
 
@@ -12,8 +13,9 @@ a result value with its flags is clinical data about a person. Before you put la
 this library, this page states exactly what it does with those bytes, so the decision is made on
 what the code does rather than on a promise.
 
-`@cosyte/astm` is **HIPAA-capable, not HIPAA-compliant**. Compliance is a property of a system, not
-of a library, and the last section is the part of that system this package cannot do for you.
+`@cosyte/astm` makes no compliance claim, because compliance is a property of a system, not of a
+library. This page says what the code does with patient data, and the last section is the part of
+that system this package cannot do for you.
 
 Every identifier on this page is invented.
 
@@ -57,19 +59,19 @@ What the message itself holds is the other half of that sentence, and it is the 
 **a parsed message is a verbatim copy of what you gave it.** Every field keeps its exact wire text on
 `field.raw`, and the header and the free-text records keep their whole line on `record.rawLine`. The
 object graph is deeply frozen, so nothing can be redacted out of it in place. Treat a parsed message
-as the payload it came from: do not put one in an error report, a crash dump, a snapshot test or a
+as the payload it came from: do not put one in an error report, a crash dump, a snapshot test, or a
 support ticket.
 
 ## What it writes to disk
 
 **Nothing.** The package imports no Node built-in at all: no file system, no sockets, no HTTP. It
-cannot open a file, a port or a connection, and it reads no environment variable. Zero runtime
+cannot open a file, a port, or a connection, and it reads no environment variable. Zero runtime
 dependencies means there is no transitive package that could do any of it on the library's behalf
 either.
 
 It also does not own the serial line or the socket your analyzer is on. The library decodes and
 encodes byte streams and gives you a pure transport reducer; the input and output adapter is yours,
-which means every byte that reaches a disk, a wire or a screen got there through code you wrote. No
+which means every byte that reaches a disk, a wire, or a screen got there through code you wrote. No
 telemetry is collected and nothing is phoned home.
 
 ## What you still own

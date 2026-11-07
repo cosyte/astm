@@ -1,6 +1,7 @@
 ---
 id: intro
 title: Getting started
+description: "Parse real-world ASTM laboratory traffic in one line: what the package reads, how it is built, and where to go next."
 sidebar_position: 1
 ---
 
@@ -11,10 +12,11 @@ Parse real-world, vendor-quirky ASTM and pull fields out in one line, without re
 parser, an immutable model, a spec-clean serializer, and a profile system for vendor quirks. It
 mirrors the API shape of the reference parser, `@cosyte/hl7`.
 
-> **Status:** published on npm and public, on a pre-release ladder: the public API is **not yet
-> stable**. Both layers are **feature-complete**, but exported names, options and warning codes can
-> still change from one release to the next, so pin the version you install rather than tracking the
-> latest. Read the version you have with `npm view @cosyte/astm version`.
+> **Status:** published on npm, and the public API is settled and stable: the exported names,
+> options, return shapes, and warning codes are the surface a release keeps, and a breaking change
+> bumps the minor version with its migration in the changelog. Two surfaces are still moving, both
+> additively: the built-in profile registry and the warning and error code sets.
+> Read the version you have with `npm view @cosyte/astm version`.
 > The **record** layer reads `H`/`P`/`O`/`R`/`C`/`Q`/`M`/`S`/`L` with delimiter self-declaration and
 > escape decode, safety-critical result semantics, patient/order identity depth, the `C` comment
 > record, and host-query classification. The E1381/CLSI-LIS01 **framing** layer decodes framed byte
@@ -67,8 +69,8 @@ are surfaced **verbatim** and never interpreted into clinical fields; their exac
 
 ## Next
 
-- [What it does with patient data](./patient-data): what this library logs, retains and writes, and
+- [What it does with patient data](./patient-data): what this library logs, retains, and writes, and
   what stays your responsibility. Read it before you point lab traffic at it.
 - [Vendor profiles](./guides-vendor-profiles): tolerating a documented quirk without turning the
-  parser's judgement off.
+  parser's judgment off.
 - Read the **API reference** for every export, generated from source.

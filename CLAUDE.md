@@ -3,6 +3,8 @@
 A TypeScript library that parses, serializes and builds ASTM laboratory-instrument traffic (E1381
 framing, E1394 records, LIVD-based LOINC lookup). Public on npm, it copies the API of `@cosyte/hl7`.
 
+@AGENTS.md
+
 ## Gate
 
 From the repo root, in one shell, in this order. Line 1 puts the pinned pnpm first on PATH: a newer

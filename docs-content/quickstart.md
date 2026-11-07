@@ -1,6 +1,7 @@
 ---
 id: quickstart
 title: Quickstart
+description: "Parse an ASTM result stream, read a result and its warnings, and see what a lenient parse refuses to guess."
 sidebar_position: 1
 ---
 
@@ -124,13 +125,13 @@ for (const w of warnings) {
 > only in its total form, where no unescaped separator occurs in the line. Two classes of the same
 > loss sit outside it. A foreign set whose **field** separator happens to appear somewhere in the
 > line still splits, on the wrong boundaries and silently: one stray `|` inside an otherwise
-> `*`-separated result loses the value, the units and the status with **no** warning, and this can
+> `*`-separated result loses the value, the units, and the status with **no** warning, and this can
 > happen to one record **inside** a run of these warnings, so a run does not mean every record in it
-> was checked. And a set differing in the **repeat, component or escape** role usually splits into
+> was checked. And a set differing in the **repeat, component, or escape** role usually splits into
 > fields normally, with the damage varying: a mis-split component can cost a test identity while the
 > value survives, and an `&X&` sequence whose body is an unrecognized character that is itself a
 > delimiter in force is an opaque atom, so that
-> delimiter does not split and the value, units and status can go together. A bare escape character
+> delimiter does not split and the value, units, and status can go together. A bare escape character
 > is no longer in that group (it reads as a literal and raises `ASTM_UNPAIRED_ESCAPE_CHARACTER`);
 > the atom case remains, and now raises `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE`, which is not
 > tolerable, alongside the tolerable `ASTM_UNKNOWN_ESCAPE_SEQUENCE`. Its mirror, where the leftmost
@@ -170,7 +171,7 @@ for (const w of warnings) {
 ## Read a result safely: status, flag, range
 
 A result carries the raw fields **and** a modeled, fail-safe view alongside them. The rule is _never
-a confident wrong value_: a corrected or cancelled result never reads as active-final, an unrecognized
+a confident wrong value_: a corrected or canceled result never reads as active-final, an unrecognized
 abnormal flag is never coerced to "normal", and an unparseable reference range never fabricates a
 bound.
 
@@ -352,7 +353,7 @@ so a `P` record came back as an `R` whose `value` was the patient's laboratory I
 final, on a stream whose only warning was the `ASTM_NONSTANDARD_DELIMITERS` a clean non-canonical
 stream carries too.
 
-This one is a **transcoding** check, not a judgement on the set you asked for, so it fires with no
+This one is a **transcoding** check, not a judgment on the set you asked for, so it fires with no
 delimiter argument at all. A stream whose header declares a vendor set and which carries one garbled
 line beginning `|` parses to an unsupported record whose type letter is `|`; emitting it on the
 default canonical path would escape that `|` away, so `serializeAstmRecords(msg)` refuses it, and so
@@ -425,7 +426,7 @@ a different character. To frame content outside Latin-1, encode it with the code
 instrument uses and pass the `Uint8Array`: `composeAstmFrames` takes bytes directly
 and writes them through untouched.
 
-A record carrying a raw `STX`, `ETB` or `ETX` byte is refused too, with
+A record carrying a raw `STX`, `ETB`, or `ETX` byte is refused too, with
 `ASTM_FRAME_RESERVED_BYTE`, and that one has **no** bytes-instead escape hatch: those three
 are what the decoder reads as the shape of a frame, and framing has no escape sequence to
 hide one behind. Writing it through truncated the frame at that byte, and it was not
@@ -549,7 +550,7 @@ m?.status === "mapped" ? m.loinc : undefined; // => "14749-6"
 ```
 
 **That comparison is verbatim and case sensitive, and it is not UCUM.** Nothing is
-normalized, case folded, scaled or converted on either side, so `MG/DL` does not match
+normalized, case folded, scaled, or converted on either side, so `MG/DL` does not match
 `mg/dL` and `g/L` never matches `mg/dL` however convertible they are. UCUM requires a
 program claiming full conformance to compare unit expressions by their **semantics**,
 so this is a deliberately limited choice: the only comparison that cannot invent an
@@ -574,7 +575,7 @@ Refusing still beats guessing. The units matching no candidate, matching more th
 or not being readable at all (absent, empty, whitespace only, or lost to a truncated or
 malformed record) are all `ambiguous`, with every candidate surfaced and no LOINC
 chosen. An unreadable units field reads as "no units reported": you get a typed
-annotation, never an exception and never a dropped record.
+annotation, never an exception, and never a dropped record.
 
 ```ts runnable
 import { parseAstmRecords, defineLivdCatalog, applyLivd } from "@cosyte/astm";
@@ -599,5 +600,5 @@ carrying none of them answers exactly as it did before they existed.
 
 ## Next
 
-- [Core Concepts](./concepts-archetype): the parser archetype and the tolerance model.
+- [Core concepts](./concepts-archetype): the parser archetype and the tolerance model.
 - **API Reference**: every export, generated from source.

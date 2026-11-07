@@ -1,10 +1,11 @@
 ---
 id: concepts-archetype
 title: The parser archetype
+description: "The model every Cosyte parser shares: a lenient parse, a strict emit, an immutable model, warnings with stable codes, and profiles."
 sidebar_position: 1
 ---
 
-# Core Concepts
+# Core concepts
 
 `@cosyte/astm` follows the shared **Cosyte parser archetype**: the same mental model every `@cosyte/*`
 parser implements, so what you learn here transfers across the suite. `@cosyte/hl7` is the reference
@@ -26,7 +27,7 @@ Every deviation the parser encounters falls into one of three tiers:
   stable code and positional context, and keeps going. Never thrown (unless `strict`).
 - **Tier 3: fatal.** Unrecoverable structural corruption. **Always thrown**, even in lenient mode.
 
-## Stable warning + fatal codes
+## Stable warning and fatal codes
 
 Warnings and fatal errors carry **stable codes**: `WARNING_CODES` (Tier 2) and `FATAL_CODES`
 (Tier 3). Consumers branch on these, so a code's name is part of the public contract: renaming or
