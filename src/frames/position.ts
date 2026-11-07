@@ -20,7 +20,7 @@
  */
 export interface AstmFramePosition {
   /**
-   * The frame's sequence number (`0`–`7`) when it could be read, or `undefined`
+   * The frame's sequence number (`0` to `7`) when it could be read, or `undefined`
    * when the frame was so truncated the number was not present.
    */
   readonly frameNumber?: number;

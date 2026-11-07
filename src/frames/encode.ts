@@ -11,7 +11,7 @@
  * - the **modulo-256 checksum** over `FN … terminator` (inclusive), emitted as two
  *   **uppercase** hex chars (the conservative-emit form the decoder accepts either
  *   case of);
- * - the **frame number** `0`–`7`, starting at `1` and rolling over `7 → 0 → 1`,
+ * - the **frame number** `0` to `7`, starting at `1` and rolling over `7 → 0 → 1`,
  *   continuous across every frame in the stream (as the decoder's sequence check
  *   expects); a caller may start the sequence elsewhere to compose one transfer
  *   across several calls, but only at a number a frame can actually carry;

@@ -36,7 +36,7 @@ export function hex2(n: number, mode: "upper" | "lower" = "upper"): string {
 
 /** Options for {@link frame}. */
 export interface FrameOpts {
-  /** Frame number digit (`0`–`7`); defaults to `1`. */
+  /** Frame number digit (`0` to `7`); defaults to `1`. */
   readonly fn?: number;
   /** `"ETB"` intermediate or `"ETX"` final; defaults to `"ETX"`. */
   readonly kind?: "ETB" | "ETX";

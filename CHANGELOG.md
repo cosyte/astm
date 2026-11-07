@@ -1430,7 +1430,7 @@ exists for.
   **The refusal removes no capability.** `composeAstmFrames` already accepted `Uint8Array`, so a
   consumer who knows their instrument's code page encodes with their own encoder and passes bytes,
   which are written through untouched. A stream whose every character is Latin-1 is byte-identical
-  to before, the full `0x00`–`0xFF` range included. The **record** layer is deliberately unchanged:
+  to before, the full `0x00` to `0xFF` range included. The **record** layer is deliberately unchanged:
   `serializeAstmRecords` returns a `string`, which is not yet bytes, so the caller keeps the choice.
 
   **Stated no wider than it was measured.** This closes the string-to-bytes step only. It is not a
@@ -2499,7 +2499,7 @@ warnings: readonly AstmFrameWarning[] }`. A frame is `<STX> FN text <ETB|ETX> CS
   - **Modulo-256 checksum** over the bytes after `STX` up to and **including** the `ETB`/`ETX`
     terminator, two hex chars: **verified on decode, emitted uppercase, accepted lowercase** (a real
     vendor quirk). `computeChecksum` / `toChecksumHex` / `parseChecksumHex` exported.
-  - **Frame-number `0`–`7` sequencing** (rolls over `7 → 0 → 1`, starts at `1`) and **multi-frame record
+  - **Frame-number `0` to `7` sequencing** (rolls over `7 → 0 → 1`, starts at `1`) and **multi-frame record
     reassembly**: text is capped at **240 bytes** (the seven control bytes are **not** counted), `ETB`
     is intermediate / `ETX` final. `parseFramedAstm(bytes, opts?)` composes the framing and record layers
     at the edge (decode → reassemble trusted records → `parseAstmRecords`).
@@ -2535,7 +2535,7 @@ defaulted: boolean; warnings }`. A leading `STX`/`ENQ` ⇒ **framed** (serial, a
     by `ltpInitialState()`. Events are the four LTP control signals (`enq`/`ack`/`nak`/`eot`) plus a
     codec-decoded `frame`; actions are `sendAck` / `sendNak` / `sendEot` / `deliverRecord`. It models
     the LIS01-A2 establishment → transfer → termination phases as `neutral ⇄ transfer`, reassembling
-    `ETB…ETX` runs into delivered records and tracking the `0`–`7` frame sequence.
+    `ETB…ETX` runs into delivered records and tracking the `0` to `7` frame sequence.
   - **ACK-failsafe (safety-critical, borrowed from `mllp`).** A frame the codec did not vouch for (a
     **bad checksum**, an **unterminated** frame, or one **out of sequence**) is answered with `NAK`,
     **never** a fabricated positive `ACK`, and its bytes are **never** appended to a record or
@@ -2572,7 +2572,7 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
     counters, the `L` terminator) is **computed, not guessed** (a sequence number may be overridden).
   - **Frame encoder.** `composeAstmFrames(records, opts?)` is the exact inverse of `decodeAstmFrames`:
     it wraps reassembled record bytes into `<STX> FN text <ETB|ETX> CS <CR><LF>` frames with the
-    modulo-256 **checksum** and the `0`–`7` **frame number** **computed** (never accepted-as-given or
+    modulo-256 **checksum** and the `0` to `7` **frame number** **computed** (never accepted-as-given or
     faked; emitted uppercase), numbered continuously across the stream (start `1`, roll over `7 → 0`),
     and every record over **240** text bytes **split** `ETB…ETX` (the seven control bytes never counted).
     `serializeFramedAstm(msg | records)` composes both emit layers at the edge: the mirror of

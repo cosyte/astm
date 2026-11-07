@@ -2,7 +2,7 @@
  * Byte constants and limits for the ASTM/CLSI-LIS01 (was E1381) frame codec.
  *
  * A frame on the wire is `<STX> FN text <ETB|ETX> C1 C2 <CR> <LF>`: an `STX`
- * start byte, a single ASCII frame-number digit `FN` (`0`–`7`), up to 240 bytes
+ * start byte, a single ASCII frame-number digit `FN` (`0` to `7`), up to 240 bytes
  * of record text, an `ETB` (intermediate) or `ETX` (final) terminator, a
  * two-hex-char modulo-256 checksum, and a `CR`+`LF` tail. These are the raw byte
  * values; the decoder in `./decode.ts` is the only consumer.
@@ -32,7 +32,7 @@ export const FN_SEVEN = 0x37;
  */
 export const MAX_FRAME_TEXT = 240;
 
-/** The frame-number sequence is modulo 8 (`0`–`7`), and by convention starts at `1`. */
+/** The frame-number sequence is modulo 8 (`0` to `7`), and by convention starts at `1`. */
 export const FRAME_NUMBER_MODULUS = 8;
 /** The frame number of the first frame of a transfer (`1`); the sequence rolls over `7 → 0 → 1`. */
 export const FIRST_FRAME_NUMBER = 1;

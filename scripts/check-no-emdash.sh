@@ -13,6 +13,13 @@
 # docs.cosyte.com. So this gate is not purely a regression stop here; it is the half
 # that keeps the sweep from growing back.
 #
+# WIDENED 2026-11-07 TO THE EN DASH (U+2013). The brand rule bans em and en dashes
+# alike, and the operator chose to sweep both out of every repo and widen every
+# gate. Every arm below that matches U+2014 now has a U+2013 twin, the self-test
+# proves both characters match, the self-scan holds this script to both literal
+# characters, and the messages name both. A range is written with "to" ("2 to 3"),
+# never with either dash.
+#
 # The fix is never to re-encode the character: rewrite the sentence with a
 # period, a colon, a comma, or parentheses.
 #
@@ -70,6 +77,8 @@ export LC_ALL=C.UTF-8
 
 # Matches U+2014 as the literal character and as its encodings: %E2%80%94 (URL),
 # the JS backslash-u escape, and the &mdash; / &#8212; / &#x2014; HTML entities.
+# Matches U+2013 the same way: %E2%80%93, its backslash-u escape, and the
+# &ndash; / &#8211; / &#x2013; HTML entities, with the same case and zero rules.
 #
 # THE ENTITY ARMS ARE NOT DECORATION. The reference sweep of this rule in
 # `claude-containers` found the gate caught what the hand sweep missed precisely
@@ -81,27 +90,33 @@ export LC_ALL=C.UTF-8
 # and `&#X2014;` / `&#08212;` / `&#x02014;` are all valid HTML character references, so
 # a case-sensitive zero-intolerant pattern claims coverage it does not have.
 #
-# TWO ARMS ARE DELIBERATELY OUTSIDE THE CASE-INSENSITIVE GROUP, and the reason is not the
-# same for both. The literal `\x{2014}` is a codepoint, which has no case. The SOURCE
-# ESCAPE `\u2014` does have one and it is significant: no language spells this character
+# TWO ARMS PER DASH ARE DELIBERATELY OUTSIDE THE CASE-INSENSITIVE GROUP, and the reason is
+# not the same for both. The literals `\x{2014}` and `\x{2013}` are codepoints, which have
+# no case. The SOURCE ESCAPES `\u2014` and `\u2013` do have one and it is significant: no language spells this character
 # `\U2014` (JavaScript is `\u2014` or `\u{2014}`, and Python's `\U` requires eight hex
 # digits), so a case-insensitive arm there buys zero true positives and reds an ordinary
 # Windows path such as `C:\Users\U2014\x`. Measured as a live false positive before this
 # was split out. Do not "tidy" it back inside the group.
-PATTERN='\x{2014}|\\u2014|(?i:%E2%80%94|&mdash;|&#0*8212;|&#x0*2014;)'
+PATTERN='\x{2014}|\x{2013}|\\u2014|\\u2013|(?i:%E2%80%94|%E2%80%93|&mdash;|&ndash;|&#0*8212;|&#0*8211;|&#x0*2014;|&#x0*2013;)'
 
 # The literal-only arm, used to scan THIS script (see the self-exclusion note at the
 # bottom). This file must be able to name the encoded forms, but it has no reason to
-# contain the character itself, so the one arm it can be held to is the codepoint.
-LITERAL_PATTERN='\x{2014}'
+# contain either character itself, so the arms it can be held to are the codepoints.
+LITERAL_PATTERN='\x{2014}|\x{2013}'
 
 # SELF-TEST: prove the scanner can still MATCH what it is meant to catch before any
-# clean result is believed. `printf` emits U+2014 as its UTF-8 bytes, so this file
-# still never contains the literal character.
+# clean result is believed. `printf` emits U+2014 and U+2013 as their UTF-8 bytes,
+# so this file still never contains either literal character.
 if ! printf 'a\xe2\x80\x94b\n' | grep -qP "$PATTERN"; then
   echo "ERROR: check-no-emdash - the scanner cannot match a known em dash." >&2
   echo "       grep -P is unavailable or not in UTF-8 mode (LC_ALL=${LC_ALL})." >&2
   echo "       Refusing to report a clean tree on a scanner that cannot see." >&2
+  exit 1
+fi
+if ! printf 'a\xe2\x80\x93b\n' | grep -qP "$PATTERN"; then
+  echo "ERROR: check-no-emdash - the scanner cannot match a known en dash." >&2
+  echo "       The pattern has lost its U+2013 arm, or grep -P is not in UTF-8 mode" >&2
+  echo "       (LC_ALL=${LC_ALL}). Refusing to report a clean tree on a scanner that cannot see." >&2
   exit 1
 fi
 
@@ -109,9 +124,9 @@ fail_with_hits() {
   local what="$1" hits="$2"
   echo "$hits" >&2
   echo "" >&2
-  echo "ERROR: check-no-emdash - em dash (U+2014, or an encoded form) found in ${what}." >&2
-  echo "       cosyte never uses em dashes (founder directive; 06-brand/voice-and-tone.md)." >&2
-  echo "       Rewrite with a period, colon, comma, or parentheses." >&2
+  echo "ERROR: check-no-emdash - em or en dash (U+2014 or U+2013, or an encoded form) found in ${what}." >&2
+  echo "       Cosyte never uses em or en dashes (founder directive; 06-brand/voice-and-tone.md)." >&2
+  echo "       Rewrite with a period, colon, comma, or parentheses, and write a range with \"to\"." >&2
   exit 1
 }
 
@@ -135,7 +150,7 @@ refuse_if_incomplete() {
   # happened and sends a reader hunting it. On THIS repo that branch is reachable in
   # normal use (see divergence 2). Both paths exit 1; this only chooses the wording.
   if grep -qi 'binary file' "$ERRLOG"; then
-    echo "ERROR: check-no-emdash - the input named above MATCHED the em-dash pattern," >&2
+    echo "ERROR: check-no-emdash - the input named above MATCHED the dash pattern," >&2
     echo "       but grep classifies it as binary, so the hit has no line number. Treat" >&2
     echo "       it as a real violation and rewrite the text; do not silence it here." >&2
   fi
@@ -195,7 +210,7 @@ if [ "${1:-}" = "--stdin" ]; then
   HITS=$(grep -nP -e "$PATTERN" - 2>>"$ERRLOG" || true)
   refuse_if_incomplete
   [ -n "$HITS" ] && fail_with_hits "$LABEL" "$HITS"
-  echo "check-no-emdash: OK (no em dashes in ${LABEL})"
+  echo "check-no-emdash: OK (no em or en dashes in ${LABEL})"
   exit 0
 fi
 
@@ -231,9 +246,9 @@ cd "$(git rev-parse --show-toplevel)"
 #   red with the wording above. Fail closed, not open. Do not re-add -I.
 #
 #   KNOWN LIMIT, unchanged from the hl7 copy and restated because this is a parser
-#   repo. The pattern matches U+2014 as UTF-8 and as the five textual encodings listed
-#   with it. It does NOT match an em dash encoded in some other charset (a CP1252 0x97
-#   fixture, a UTF-16 document). Measured, not assumed: such a file scans clean and
+#   repo. The pattern matches U+2014 and U+2013 as UTF-8 and as the five textual encodings
+#   listed with each. It does NOT match either dash encoded in some other charset (a CP1252
+#   0x97 or 0x96 fixture, a UTF-16 document). Measured, not assumed: such a file scans clean and
 #   this gate stays GREEN. There is none today (all 142 tracked files decode as UTF-8,
 #   checked 2026-07-30). This is accepted rather than fixed: the ban is a rule about
 #   prose that people write, and fixture bytes are grounded data, not brand copy. If a
@@ -274,11 +289,11 @@ refuse_if_incomplete
 
 # THE SELF-EXCLUSION IS NOT A FREE PASS. This file is excluded from the scan above
 # because it must spell the encoded forms, but that exclusion was a demonstrated false
-# green: an em dash appended to this script scanned OK. It has no reason to contain the
-# LITERAL character, so it is held to that one arm here. The exclusion now costs the
+# green: an em dash appended to this script scanned OK. It has no reason to contain
+# either LITERAL character, so it is held to those two arms here. The exclusion now costs the
 # script only its ability to name encodings, which is the whole reason it exists.
 SELF_HITS=$(grep -H -nP -e "$LITERAL_PATTERN" -- 'scripts/check-no-emdash.sh' 2>>"$ERRLOG" || true)
 refuse_if_incomplete
 [ -n "$SELF_HITS" ] && fail_with_hits "this script itself" "$SELF_HITS"
 
-echo "check-no-emdash: OK (no em dashes in the tracked files, their names, or this script)"
+echo "check-no-emdash: OK (no em or en dashes in the tracked files, their names, or this script)"

@@ -39,8 +39,8 @@ export interface FrameChecksum {
  */
 export interface AstmFrame {
   /**
-   * The frame's sequence number as read from the `FN` byte. Normally `0`–`7`; a
-   * value outside that range means the `FN` byte was not a `0`–`7` digit (a
+   * The frame's sequence number as read from the `FN` byte. Normally `0` to `7`; a
+   * value outside that range means the `FN` byte was not a `0` to `7` digit (a
    * corruption that also trips a sequence-gap warning). `undefined` when the frame
    * was too truncated to carry a frame number at all.
    */

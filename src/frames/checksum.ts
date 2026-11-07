@@ -17,7 +17,7 @@
  * @param bytes - The full decoded byte stream.
  * @param start - First index to include (the frame-number byte, one past `STX`).
  * @param endInclusive - Last index to include (the `ETB`/`ETX` terminator byte).
- * @returns The checksum in `0`–`255`.
+ * @returns The checksum in `0` to `255`.
  * @example
  * ```ts
  * import { computeChecksum } from "@cosyte/astm";
@@ -37,7 +37,7 @@ export function computeChecksum(bytes: Uint8Array, start: number, endInclusive: 
  * Format a checksum byte as the two **uppercase** hex characters ASTM puts on the
  * wire (the conservative-emit form). Decode accepts lowercase; emit is uppercase.
  *
- * @param checksum - A value in `0`–`255`.
+ * @param checksum - A value in `0` to `255`.
  * @returns Two uppercase hex characters, zero-padded (e.g. `"0A"`, `"75"`).
  * @example
  * ```ts
@@ -49,7 +49,7 @@ export function toChecksumHex(checksum: number): string {
   return (checksum & 0xff).toString(16).toUpperCase().padStart(2, "0");
 }
 
-/** ASCII code for a single hex digit (`0`–`9`/`A`–`F`/`a`–`f`), or `undefined`. */
+/** ASCII code for a single hex digit (`0` to `9` / `A` to `F` / `a` to `f`), or `undefined`. */
 function hexNibble(code: number | undefined): number | undefined {
   if (code === undefined) return undefined;
   if (code >= 0x30 && code <= 0x39) return code - 0x30; // 0-9
@@ -67,7 +67,7 @@ function hexNibble(code: number | undefined): number | undefined {
  * @param bytes - The full decoded byte stream.
  * @param i0 - Index of the high hex nibble (immediately after the terminator).
  * @param i1 - Index of the low hex nibble.
- * @returns The declared checksum in `0`–`255`, or `undefined` if unreadable.
+ * @returns The declared checksum in `0` to `255`, or `undefined` if unreadable.
  * @example
  * ```ts
  * import { parseChecksumHex } from "@cosyte/astm";

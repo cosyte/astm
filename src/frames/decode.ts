@@ -156,7 +156,7 @@ export function decodeAstmFrames(
     };
     frames.push(frame);
 
-    // Sequence check: never bridge a gap silently. An out-of-range FN (not 0–7) is a gap by
+    // Sequence check: never bridge a gap silently. An out-of-range FN (not 0 to 7) is a gap by
     // definition. On a valid, in-sequence number, advance the expected counter (mod 8).
     if (frameNumber !== undefined && isFrameDigit(frameNumber) && frameNumber === expected) {
       expected = (frameNumber + 1) % FRAME_NUMBER_MODULUS;
@@ -233,11 +233,11 @@ function freezeResult(result: DecodeAstmFramesResult): DecodeAstmFramesResult {
 /** Read a frame-number byte into its numeric value; `undefined` only when the byte is absent. */
 function readFrameNumber(fnByte: number | undefined): number | undefined {
   if (fnByte === undefined) return undefined;
-  // Surface the digit value even when out of 0–7 range (a corruption flagged as a sequence gap).
+  // Surface the digit value even when out of 0 to 7 range (a corruption flagged as a sequence gap).
   return fnByte - FN_ZERO;
 }
 
-/** Whether a decoded frame number is a valid ASTM `0`–`7` sequence digit. */
+/** Whether a decoded frame number is a valid ASTM `0` to `7` sequence digit. */
 function isFrameDigit(frameNumber: number): boolean {
   return frameNumber >= 0 && frameNumber <= FN_SEVEN - FN_ZERO;
 }

@@ -217,7 +217,7 @@ of the roadmap.
   available. This is stricter than the reader: see known defect 2 below.
   **Frame emit:**
   `composeAstmFrames(records, opts?)` frames reassembled record bytes into `<STX> FN text <ETB|ETX> CS
-<CR><LF>`: the modulo-256 checksum and the `0`–`7` frame number are **computed, never faked**;
+<CR><LF>`: the modulo-256 checksum and the `0` to `7` frame number are **computed, never faked**;
   frame numbers run continuously (start `1`, roll over `7 → 0`); a record over **240** bytes is split
   `ETB…ETB…ETX`. **Never-fabricate discipline:** a builder emits only supplied values (an omitted result
   status reads back `unspecified`, never `final`; units/flags/IDs are never defaulted), structure
@@ -242,7 +242,7 @@ of the roadmap.
   (`ltpInitialState()` seeds it) over `enq`/`ack`/`nak`/`eot` + a codec-decoded `frame`, returning
   `{ state, actions, warnings }`: actions `sendAck`/`sendNak`/`sendEot`/`deliverRecord`; the consumer
   owns the wire and clock. It models LIS01-A2 establishment → transfer → termination as `neutral ⇄
-transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **ACK-failsafe (borrowed from
+transfer`, reassembles `ETB…ETX` runs, and tracks the `0` to `7` sequence. **ACK-failsafe (borrowed from
   `mllp`):** a frame the codec did not vouch for (bad checksum, unterminated, or out of sequence) is
   `NAK`ed, **never** a fabricated positive `ACK`, and **never** appended/delivered; a `NAK` drives
   retransmit, not acceptance (`ASTM_LTP_FRAME_REJECTED`). Duplicate frames are idempotently re-`ACK`ed;
@@ -255,7 +255,7 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
   `src/frames/` decodes a framed byte stream (`<STX> FN text <ETB|ETX> CS <CR><LF>`) via
   `decodeAstmFrames(bytes, opts?)` → `{ records, frames, warnings }`: it verifies the **modulo-256
   checksum** (span = the byte after `STX` through the `ETB`/`ETX` terminator inclusive; emitted
-  uppercase, **accepted lowercase**), tracks **frame-number `0`–`7` sequencing** (rolls over, starts at
+  uppercase, **accepted lowercase**), tracks **frame-number `0` to `7` sequencing** (rolls over, starts at
   `1`), and **reassembles** the **240**-byte-limited multi-frame records (the 7 control bytes are not
   counted; `ETB` intermediate / `ETX` final). `parseFramedAstm` composes the two layers at the edge.
   **Fail-safe (byte-level):** a bad checksum → frame flagged `trusted: false`, **never merged** into a
@@ -274,7 +274,7 @@ transfer`, reassembles `ETB…ETX` runs, and tracks the `0`–`7` sequence. **AC
   **▶ DELIMITER SCOPING CHANGED 2026-07-29 (`ASTM-SECOND-HEADER-COLLAPSE`): read `CHANGELOG.md`
   `[Unreleased]` before touching `parse.ts`.** Delimiters were read **only from the first header** and
   applied to the whole stream, so a second `H` that redeclared them made **every following record
-  collapse into one field, with zero warnings**, accepted by `strict`: shipped `0.0.1`–`0.0.3`. This
+  collapse into one field, with zero warnings**, accepted by `strict`: shipped `0.0.1` to `0.0.3`. This
   is `ASTM-MIXED-DELIMITER-EMIT` one layer over, on the **parse** side, which is why #21 did not
   narrow it. A message runs `H` … `L`, so the active set is now re-read at **every** `H` and scoped
   **forward** (records already read keep the set they were read with, the only reading that never
@@ -1035,7 +1035,7 @@ that shape repeatedly, including three times on the single paragraph defect 13 r
 
 **CLOSED 2026-08-03 by `ASTM-FRAME-RESIDUALS`. The loudness claim held, but the recorded byte was
 wrong and there WAS a silent branch the 31-case sweep could not see.** Was:
-`composeAstmFrames`'s `startFrameNumber` was documented `0`–`7` and **unvalidated**, so whatever
+`composeAstmFrames`'s `startFrameNumber` was documented `0` to `7` and **unvalidated**, so whatever
 `FN_ZERO + value` truncated to went into the frame-number position. `PRE-EXISTING`,
 byte-identical on `64c2fd5`.
 **▶ TWO CORRECTIONS TO THE OLD ENTRY, BOTH MEASURED.** (1) It said `NaN` emits **a space**. It
@@ -1052,7 +1052,7 @@ message shape over integers.
 READS A RECORD.
 Read `CHANGELOG.md` `[Unreleased]` before touching `encode.ts`.** New
 `ASTM_FRAME_INVALID_START_FRAME_NUMBER` (fourth member of `AstmFrameEncodeErrorCode`): the option
-must be a whole number `0`–`7`, the modulo-8 sequence the decoder reads and rolls over.
+must be a whole number `0` to `7`, the modulo-8 sequence the decoder reads and rolls over.
 **Clamping and modulo were both rejected on one argument:** either picks a frame number the
 caller did not ask for, and the frame number is the decoder's only evidence that no frame was
 dropped, so a stream numbered from a value nobody chose is one whose sequence check certifies the
@@ -1062,7 +1062,7 @@ record first, so an unserializable record is refused ahead of it there, and the 
 that said "before any record is read" without naming a function are now scoped). **Its message
 names the value received**, which is deliberate and is the one message in this class that quotes
 anything: a `startFrameNumber` is the caller's own option, never stream content.
-**▶ THE `0`–`7` DOMAIN WAS KEPT BECAUSE THE NON-DEFAULT START HAS A REAL USE, MEASURED RATHER
+**▶ THE `0` TO `7` DOMAIN WAS KEPT BECAUSE THE NON-DEFAULT START HAS A REAL USE, MEASURED RATHER
 THAN ASSUMED. Do NOT "simplify" this to `refuse anything but 1` on the reasoning that nothing
 else decodes standalone.** It composes a **continuation**: `composeAstmFrames(head)` joined with
 `composeAstmFrames(tail, { startFrameNumber: n })`, `n` the number after the last frame `head`
@@ -1104,7 +1104,7 @@ sentence is now scoped to the default start but stays unqualified on the **recor
 (defects 11/12 residuals), where `composeAstmFrames`'s own JSDoc does carry the "what is still
 not guaranteed" caveat. It belongs to the record-layer residual slice with defect 12.
 Old bytes and new refusal both pinned, rebuilt with the test-only `frame()` builder so nothing is
-transcribed twice, with a biconditional property (refused **iff** not a whole number in `0`–`7`);
+transcribed twice, with a biconditional property (refused **iff** not a whole number in `0` to `7`);
 14 of 32 new tests red against `64c2fd5`.
 **Its sibling minor was NOT closed with it and is now defect 14 below**, measured, pinned and
 disclosed by `ASTM-RECORD-EMIT-RESIDUALS` 2026-08-04 without a behaviour change.
