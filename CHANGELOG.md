@@ -1,13 +1,174 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## 0.1.1
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-Versions and publishing are managed with [Changesets](https://github.com/changesets/changesets);
-this file is maintained by hand (Changesets handles the version bump and publish only).
+### Patch Changes
 
-## [Unreleased]
+- Published through npm trusted publishing, with provenance.
+
+## 0.1.0
+
+### Minor Changes
+
+- **One date conversion surface across the @cosyte parsers.** `toObject`, `toISO` and `toDate` read a
+  parsed ASTM date the same way the sibling parsers do. `toObject` returns only the components the
+  value stated, and `toISO` appends no offset, because ASTM states none. `toDate` returns a `Date` only
+  when you pass `assumeOffsetMinutes`: an analyzer's timestamp is local to the analyzer.
+- **A LIVD catalog records where it came from.** `defineLivdCatalog` takes an optional second argument
+  (publisher, publication version, LOINC version, LOINC copyright), and every annotation carries the
+  catalog's LOINC version, so a mapping can be reproduced. A catalog with no LOINC version still
+  builds and raises one `ASTM_LIVD_CATALOG_NO_LOINC_VERSION` warning.
+- **Reported units can choose between candidate LOINCs.** A LIVD entry can carry
+  `representativeUnit`, `vendorSpecimenDescription` and `vendorResultDescription`. When one vendor
+  code maps to several LOINCs, the candidate whose unit exactly equals the reported unit is answered
+  `mapped`. The comparison is verbatim and case sensitive, not UCUM, and every unit-selected answer
+  says so. No match, or more than one, is still `ambiguous`.
+- **Flags and statuses name the vocabulary they were graded against.** An abnormal flag carries the
+  code system and version it was compared with, and `HU` and `LU` are now recognized. A result status
+  says that no citable published source binds its letters, rather than implying one.
+- **One deliberate break from 0.0.x**, in the LIVD mapping and in what `primaryCode()` returns:
+  a populated first component of the Universal Test ID is no longer reported as a LOINC, and
+  `primaryCode()` returns the vendor local code and nothing else. The hand-written entries below and
+  the [0.1.0 release notes](https://github.com/cosyte/astm/releases/tag/v0.1.0) give the migration.
+
+## 0.0.22
+
+### Patch Changes
+
+- Gate the two-file contract between `CLAUDE.md` and the agent notes.
+- Read the bytes git carries in the PHI sweep, as a union with the working-tree walk.
+
+## 0.0.21
+
+### Patch Changes
+
+- Correct two false claims the contested-alignment codes rested on, both on consumer surfaces.
+- Close the three measurement holes the contested-alignment claim corrections left behind.
+
+## 0.0.20
+
+### Patch Changes
+
+- Read a stream embedded as a source string literal in the PHI commit-gate, and refuse a sweep that did not observe its corpus.
+
+## 0.0.19
+
+### Patch Changes
+
+- Report a contested escape alignment whose tail this reader cannot read, not only one it cannot consume.
+- The README lockup now links to cosyte.com.
+- Report components a competing escape alignment moved one slot along.
+- Development tooling only: the repository's own pre-commit PHI scanner no longer lets a caller's git configuration decide which staged entries it looks at.
+
+## 0.0.18
+
+### Patch Changes
+
+- Report a field a competing escape alignment read short.
+
+## 0.0.17
+
+### Patch Changes
+
+- Report a competing escape alignment that shifted a result's units and status into slots the sender did not write them in.
+
+## 0.0.15
+
+### Patch Changes
+
+- Stop a delimiter set that names one of the escape mnemonics from altering the values it emits, and state what a header's delimiter-declaration surplus costs on emit.
+
+## 0.0.14
+
+### Patch Changes
+
+- Refuse a `startFrameNumber` that cannot be written as a frame number, which used to go out as whatever byte the arithmetic truncated to and could cost a framed stream every one of its records.
+
+## 0.0.13
+
+### Patch Changes
+
+- Refuse to emit a record whose own type letter the delimiter set would escape away, which used to produce a stream that read back as different records and, in its silent branch, fabricated a final lab result out of patient identifiers.
+
+## 0.0.11
+
+### Patch Changes
+
+- A symbolic link under a scan root read clean on both of the PHI scanner's enumerating routes, so a link pointing at a file full of real identifiers passed the gate twice over.
+- Make the package's own publish gate fail when a build would ship without its type declarations.
+
+## 0.0.10
+
+### Patch Changes
+
+- Stop the frame encoder from silently writing a different character than the one it was given.
+
+## 0.0.9
+
+### Patch Changes
+
+- Report a record whose fields did not separate, instead of reading it back with no value, no units and no status, and stop calling a message a result set when a record's type letter is unreadable.
+- Stop one unescaped `&` in a value from swallowing every following field.
+
+## 0.0.8
+
+### Patch Changes
+
+- Remove `ASTM_RECORD_UNKNOWN_TYPE` from the profile safety gate's tolerable allow-list.
+
+## 0.0.7
+
+### Patch Changes
+
+- The alt text on the README's Cosyte mark now says how its two overlapping rounded squares differ, one solid and one outlined.
+
+## 0.0.6
+
+### Patch Changes
+
+- The Cosyte mark now opens the README, and follows the reader's color scheme.
+
+## 0.0.5
+
+### Patch Changes
+
+Internal tooling and CI only. No change to the published package surface.
+
+## 0.0.4
+
+### Patch Changes
+
+- Correct the API documentation shipped in the type declarations, and stop it going stale.
+- Stop pairing one patient's results with another's, and add `messages()` to read a stream as the sequence of messages it actually is.
+- Read the delimiters from every header, not just the first, so a stream carrying more than one message no longer silently loses fields.
+- Emit one delimiter set for the whole stream, so a round-trip no longer silently loses fields.
+- Close the two emit-side gaps where a stream went out that could not be read back.
+
+## 0.0.3
+
+### Patch Changes
+
+- Documentation: the page describing what the library does and does not do moves from an "About" category into **Troubleshooting**, matching the section order every other `@cosyte/*` package uses.
+- The status note on the README, the overview page and the install page no longer names a version number, because a release made that number wrong every time.
+
+## Released before this file was generated
+
+Every release section above this heading is written by
+[Changesets](https://github.com/changesets/changesets) from the changesets in `.changeset/`, newest
+release first. The release writes its own version heading, so nothing above this line is maintained
+by hand, and a change is recorded by adding a changeset rather than by editing this file. The
+sections for 0.0.3 to 0.1.1 were filled in from the GitHub release notes when generation was turned
+on, because those releases shipped while this file was kept by hand and its last version heading was
+0.0.2. Each repeats the "What changed" list from that release's notes, and 0.1.0 adds one line on
+its deliberate break.
+
+Everything below this heading was maintained by hand, in the
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format, and is left as it was written. The
+entries from the start down to `[0.0.2]` sat under an `[Unreleased]` heading that no release rolled
+over, so they record what 0.0.3 to 0.1.1 changed, written as the work landed rather than sorted by
+release. Three things were dropped: the preamble above them (it said the file was kept by hand), the
+`[Unreleased]` heading itself, and its link definition at the foot of the file. No entry was
+reworded.
 
 **What 0.1 means for you.** This release is the first whose public API we treat as settled: the
 exported names, options, return shapes and warning codes are the surface we keep stable. What it
@@ -2712,6 +2873,5 @@ EOT` session **reassembles exactly the source records**; a **raw-TCP stream equa
   interactive contention/timeout/retransmit **timing**) is a thin consumer adapter, and the standard's
   exact numeric timeouts / retry counts are deferred (we model transitions, not timers).
 
-[Unreleased]: https://github.com/cosyte/astm/commits/main
 [0.0.2]: https://github.com/cosyte/astm/releases/tag/v0.0.2
 [0.0.1]: https://github.com/cosyte/astm/releases/tag/v0.0.1

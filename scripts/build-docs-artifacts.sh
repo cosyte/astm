@@ -4,6 +4,14 @@
 #   docs-content.tar.gz  ->  content/<slug>/      (narrative MDX + sidebars.json [+ versions.json])
 #   source.tar.gz        ->  .api-sources/<slug>/  (src/ + package.json + tsconfig.json, for TypeDoc)
 #
+# source.tar.gz also carries dependency-inventory.cdx.json, the CycloneDX inventory of what this
+# version was built from, produced and graded here by scripts/check-dependency-inventory.ts. The
+# shared release pipeline runs this script and attaches the two archives in the same call that
+# creates the GitHub release, which is published only after its assets are uploaded. A release is
+# immutable once published, so an asset added afterwards is refused: anything the release page
+# carries has to travel in these two files. TypeDoc reads src/ through tsconfig.json and ignores
+# the extra file.
+#
 # Output goes to OUT (default: dist-artifacts/). Run from anywhere; resolves the package root itself.
 # The docs repo validates these contracts (intro.md + sidebars.json; src/ + package.json + tsconfig.json),
 # so this script fails fast if either is missing.
@@ -27,8 +35,13 @@ mkdir -p "$OUT"
 # Narrative bundle: contents of docs-content/ at the tarball root.
 tar -czf "$OUT/docs-content.tar.gz" -C docs-content .
 
-# Source bundle: src/ + package.json + tsconfig.json at the tarball root.
-tar -czf "$OUT/source.tar.gz" src package.json tsconfig.json
+# The dependency inventory, produced fresh for this checkout and refused unless it is true of it.
+# It always lands at dist-artifacts/dependency-inventory.cdx.json, whatever OUT is.
+pnpm exec tsx scripts/check-dependency-inventory.ts >&2
+
+# Source bundle: src/ + package.json + tsconfig.json + the inventory, at the tarball root.
+tar -czf "$OUT/source.tar.gz" src package.json tsconfig.json \
+  -C dist-artifacts dependency-inventory.cdx.json
 
 echo "built docs artifacts in $OUT/:"
 ls -l "$OUT"
