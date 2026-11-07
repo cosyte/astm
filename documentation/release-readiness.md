@@ -2,9 +2,14 @@
 
 This file is the audit behind the next release of `@cosyte/astm`. It records, for the pending
 changeset set on this branch: what each changeset actually does to the public surface and what bump
-that honestly is; the whole public export surface as the subject of the stability claim a `0.1.0`
-makes; every break a consumer would see, each awaiting a decision that is not made here; and the
-precondition that is not met, so nothing publishes yet.
+that honestly is; the whole public export surface as the subject of the stability claim the `0.1.x`
+line makes; every break a consumer would see; and what has to happen before anything publishes.
+
+It was first taken for `0.1.0`. It was taken again on 2026-11-07 for the first set pending after
+`0.1.0` published, because `test/scripts/release-readiness.test.ts` fails on that set until the
+next set is audited and the published base is moved. The `0.1.0` audit as it stood when that version
+shipped is this file at the `v0.1.0` tag. What it found that still matters to a consumer, the breaks
+`0.1.0` shipped, is kept in section 4.
 
 It is bookkeeping, not consumer documentation. It is deliberately not `README.md` and not
 `docs-content/`: neither ships this file, and the internal identifiers below belong on the inside.
@@ -22,211 +27,80 @@ wrong.
 
 ## 1. The pending changeset audit
 
-The published version is the `version` field of `package.json`, `0.0.22`, on the pre-alpha `0.0.x`
-ladder. The pending set below is every file matching `.changeset/*.md` other than `README.md`
-(`config.json` is the tool's configuration and carries no bump).
+The published version is the `version` field of `package.json`, `0.1.0`, the first release on the
+`0.1.x` line, published on 2026-09-25. The pending set below is every file matching
+`.changeset/*.md` other than `README.md` (`config.json` is the tool's configuration and carries no
+bump).
 
-Five of the eight pending changesets arrived classified `patch`, and three arrived carrying `minor`.
-Three of the five are reclassified to `minor` here, each for a reason taken from its own text; their
-bump lines are the only lines that were rewritten, and no changeset's prose was edited. The other
-two stay `patch`, because neither one's text removes a public value, adds one, or changes any
-exported behaviour: reclassification runs in both directions or it is not a reading, and a tooling
-change written up as a feature would overstate the release exactly as a removal written up as a fix
-understates one. Two that arrived carrying `minor` were each written against this same rule, so
-both are applied as written rather than reclassified. The third, the release statement, is read last
-below.
+One changeset is pending, and it arrived carrying `patch`. It is applied as written, because its own
+text and the change it documents both support `patch`, as read below. Reclassification runs in both
+directions or it is not a reading, so the same rule that moved three `0.1.0` changesets up to
+`minor` is what keeps this one at `patch`.
 
 <!-- audit:begin -->
 
-| pending changeset                                      | bump as written | applied bump |
-| ------------------------------------------------------ | --------------- | ------------ |
-| `a-withdrawn-scan-target-is-refused-not-cleared.md`     | `patch`         | `patch`      |
-| `livd-catalog-answers-the-analyte.md`                   | `patch`         | `minor`      |
-| `livd-catalog-says-which-loinc-version.md`              | `minor`         | `minor`      |
-| `livd-units-choose-between-candidates.md`               | `patch`         | `minor`      |
-| `publish-a-dependency-inventory-with-each-release.md`   | `patch`         | `patch`      |
-| `say-which-vocabulary-a-letter-was-graded-against.md`   | `patch`         | `minor`      |
-| `shared-date-conversion-surface.md`                     | `minor`         | `minor`      |
-| `first-minor-release.md`                                | `minor`         | `minor`      |
+| pending changeset       | bump as written | applied bump |
+| ----------------------- | --------------- | ------------ |
+| `trusted-publishing.md` | `patch`         | `patch`      |
 
 <!-- audit:end -->
 
-Highest bump in the set: `minor`. Applied to the published `0.0.22`, Changesets resolves
-`@cosyte/astm` to **`0.1.0`**. Neither `patch` above moves that: a `patch` beside a `minor` changes
-nothing about the resolved version, and both are recorded rather than dropped because a pending
-changeset absent from this table is what section 1 exists to make impossible.
+Highest bump in the set: `patch`. Applied to the published `0.1.0`, Changesets resolves
+`@cosyte/astm` to **`0.1.1`**.
 
-### `livd-catalog-answers-the-analyte.md`: `minor`
+### `trusted-publishing.md`: `patch`
 
-Its own text, under the heading "Public values REMOVED or RENAMED, with their replacements",
-removes three public values and changes the return of a fourth:
+Its own text says the release is published through npm trusted publishing, with provenance, that the
+code, API and behavior are unchanged from `0.1.0`, and that only the README and some doc comments
+differ. Each claim was checked against the tree rather than taken from the text.
 
-- `UniversalTestId.loincCandidate` is removed, replaced by `UniversalTestId.unvalidatedWireValue`.
-- The `"inline-loinc-candidate"` token is removed from `UniversalTestIdProvenance`, replaced by
-  `"local-code"` where a vendor local code is present and by the new `"unvalidated-wire-value-only"`
-  where none is.
-- The `LivdMapping` variant `{ status: "inline-loinc", loinc, source: "wire" }` is removed, replaced
-  positionally by the new variant `{ status: "no-vendor-code" }`.
-- Under "Public values whose BEHAVIOR changed while keeping their name", the exported `primaryCode()`
-  returns the vendor local code and nothing else, so it now answers `undefined` where it used to
-  answer with a first-component value.
+- **Why the release exists.** On 2026-11-07 the operator registered npm trusted publishers for every
+  `@cosyte` package and directed that every package be published once, so that npm marks each
+  trusted publisher valid (section 6). npm never republishes an existing version and nothing else
+  was pending here, so a version whose only news is the publishing route is what that direction
+  needs. The route belongs to the shared release workflow that `.github/workflows/release.yml`
+  calls, and no file in this repository changes for it.
+- **What the tarball changes.** `package.json` ships `dist`, `README.md`, `LICENSE` and
+  `CHANGELOG.md`, and everything that feeds them was compared between the `v0.1.0` tag and this
+  branch. Under `src/`, six files under `src/frames/` changed, and every changed line is a comment
+  in which a number range written with an en dash now reads with "to". `src/index.ts`,
+  `package.json`, `tsup.config.ts`, `tsconfig.json` and `pnpm-lock.yaml` are unchanged.
+- **What the build shows.** Built from this branch, `dist/index.mjs` and `dist/index.cjs` are
+  byte-identical to the files in the published `0.1.0` tarball. `dist/index.d.ts` and
+  `dist/index.d.cts` differ in seven doc-comment lines, which are that same range wording; the
+  source maps differ because they embed the source text; and `README.md` differs in two lines, which
+  now write Cosyte with a capital C.
 
-It also adds public values: `LivdAnnotation.unvalidatedWireValue` and
-`LivdAnnotation.wireValueDisagreesWithCatalog`.
-
-A `patch` claims a change that adds nothing and removes nothing. This one removes three public
-values, adds two, and changes what an exported function returns. A removal or a rename of a public
-value is not a fix, whatever the defect behind it was, so `patch` was not an understatement of
-severity but a false description of the change. `minor` is the honest class.
-
-### `say-which-vocabulary-a-letter-was-graded-against.md`: `minor`
-
-Its own text is headed "Added", and the values it adds are public: `AbnormalFlag.vocabulary` and
-`ResultStatus.vocabulary` on two exported interfaces; the recognized abnormal flags `HU` and `LU`,
-which widen the exported `AbnormalFlagCode` union to eighteen letters; and the new exports
-`ABNORMAL_FLAG_CODES`, `ABNORMAL_FLAG_VOCABULARY`, `RESULT_STATUS_VOCABULARY`,
-`describeVocabulary`, and the types `NamedVocabulary`, `UnattributedVocabulary` and
-`VocabularyAttribution`. Every one of those is re-exported from the package entry point and appears
-in the surface enumerated in section 3.
-
-Its "Changed" section is narrower: two warning message strings now read their attribution from the
-same constants the interpreted values read. Both warning codes are unchanged and both messages stay
-value-free.
-
-A feature that adds public values is `minor` by the same rule that keeps a real fix at `patch`. It
-removes nothing, but it does not have to: the added public values are enough on their own.
-
-### `livd-units-choose-between-candidates.md`: `minor`
-
-Its own text is headed "Added", and the values it adds are public. Three optional attributes join the
-exported `LivdEntry` interface (`vendorSpecimenDescription`, `vendorResultDescription` and
-`representativeUnit`); `LivdCatalog.lookup` gains an optional second parameter; a `mapped` answer
-gains `unitComparison` and an `ambiguous` answer gains `candidateDetails` and `reason`; and three
-types are added to the entry point, `LivdCandidate`, `LivdUnitComparison` and `LivdAmbiguityReason`,
-each of which appears in the surface enumerated in section 3.
-
-It removes nothing and renames nothing, and it is source compatible in both directions: every added
-attribute is optional, the added `lookup` parameter is optional so a hand-written catalog declaring
-only the vendor code still satisfies the interface, and every added answer field is conditional, so a
-catalog carrying none of the three attributes answers key for key as it did before. No exported
-function changes what it returns for an input it already accepted, and an answer that read `mapped`
-cannot become `ambiguous`.
-
-That is what makes it a feature rather than a fix. By the same rule applied to
-`say-which-vocabulary-a-letter-was-graded-against.md`, a change that adds public values is `minor`
-whether or not it removes any: the added public values are enough on their own, and calling three new
-exported types a patch would understate the release in the direction this section exists to catch.
-
-### `livd-catalog-says-which-loinc-version.md`: `minor`
-
-Its own text is headed "Added", and the values it adds are public. `defineLivdCatalog` gains an
-optional second argument carrying four publication-level elements, readable back as
-`LivdCatalog.publication`; `LivdCatalog` gains `warnings`; `LivdAnnotation` gains
-`catalogLoincVersion`; `LIVD_WARNING_CODES` gains `ASTM_LIVD_CATALOG_NO_LOINC_VERSION`, which widens
-the exported `LivdWarningCode` union; and five identifiers are added to the entry point, the values
-`livdCatalogMissingLoincVersion` and `LIVD_CATALOG_IDENTITY_UNDECLARED` and the types
-`LivdPublication`, `AstmLivdCatalogWarning` and `LivdCatalogIdentity`, each of which appears in the
-surface enumerated in section 3.
-
-It removes nothing and renames nothing, and it is source compatible in both directions: the second
-argument is optional so the existing single-argument call is unchanged, the two members added to
-`LivdCatalog` are optional so a hand-written catalog still satisfies the interface, and
-`catalogLoincVersion` is conditional so an annotation from a catalog declaring no LOINC version keeps
-the key set it had. No exported function changes what it returns for an input it already accepted:
-every lookup answers as before, and the new warning is raised where a catalog is defined rather than
-into the per-record stream, which keeps the same codes, in the same order, in the same number.
-
-It carries one entry into section 4, the `LivdWarningCode` widening, which is the same class as the
-`AbnormalFlagCode` widening already recorded there.
-
-A feature that adds public values is `minor` by the same rule applied to the changesets above, so
-this one carries `minor` as written and needs no reclassification.
-
-### `a-withdrawn-scan-target-is-refused-not-cleared.md`: `patch`
-
-Its own text changes `scripts/phi-scan.ts`, adds `pnpm-workspace.yaml`, moves the pinned package
-manager and supersedes one dependency resolution override. None of that is on the published
-surface: the entry point re-exports nothing from `scripts/`, the settings file and the pin are
-install-time configuration, and the override moves a development dependency's resolved version
-rather than any value this package exports. Measured against section 3's enumeration, it adds no
-value, removes none, renames none, and changes no exported function's behaviour. It also emits no
-byte differently: a parsed and re-serialized record is unchanged, and no warning code moves.
-
-That is what a `patch` claims, so `patch` is what it keeps. The reclassification rule in this
-section is a reading of each changeset's own text, and a reading that only ever moved a bump upward
-would not be one.
-
-### `publish-a-dependency-inventory-with-each-release.md`: `patch`
-
-Its own text adds `scripts/check-dependency-inventory.ts`, a package script that runs it, a second
-job in `.github/workflows/release.yml`, and one clause on the end of `prepublishOnly`. What a
-consumer gains is an asset on the release page, which is release infrastructure rather than package
-surface: the entry point re-exports nothing from `scripts/`, no `src/` file is touched, and the
-inventory is generated into the gitignored `dist-artifacts/` rather than committed or shipped in the
-tarball. Measured against section 3's enumeration, it adds no value, removes none, renames none, and
-changes no exported function's behaviour. It emits no byte differently: a parsed and re-serialized
-record is unchanged, and no warning code moves.
-
-The one thing it does change for a consumer is what a published release carries beside the package,
-and that is the whole reason it takes a changeset at all rather than riding a release silently. A
-change to what ships with a release is still a `patch` when the published values are untouched, so
-`patch` is what it keeps.
-
-### `shared-date-conversion-surface.md`: `minor`
-
-Its own text is headed "Added", and everything under that heading is public: the exported functions
-`toObject`, `toISO` and `toDate`, and the exported types `DateParts` and `ToDateOptions`. All five
-are re-exported from the package entry point and appear in the surface enumerated in section 3.
-
-It removes nothing. `parseAstmDate`, `astmDateToLocalISO`, `AstmDate` and `AstmDatePrecision` keep
-their names, their signatures and their behaviour, `src/common/dates.ts` is byte-identical to the
-tree this branch started from, and no pre-existing test was edited to accommodate the addition. The
-one pre-existing file the addition does touch is `scripts/phi-allow-list.txt`, which gains a single
-`DOB` declaration for the synthetic out-of-range birthdate the new conformance test is built on: that
-is the documented way to add a synthetic fixture, not a loosening of the scanner. All of that is what
-keeps this changeset out of the break list in section 4.
-
-The addition does state a rule that `astmDateToLocalISO` does not follow, and it is a rule about the
-NEW functions only: a value whose components are not a real calendar date (`"19881301"`, month 13)
-converts to `undefined` through `toObject`, `toISO` and `toDate`, while `astmDateToLocalISO` renders
-it exactly as it always has. That is a difference between two functions, not a change to one, so it
-is not a break either.
-
-A feature that adds public values is `minor` by the same rule that keeps a real fix at `patch`, so
-this one carries `minor` as written and needs no reclassification.
-
-### `first-minor-release.md`: `minor`
-
-This is the release statement rather than a change to the surface: its own text adds no public
-value, removes none, and changes no exported behaviour. It tells a consumer what the resolved version
-means: the surface section 3 certifies, the promise that below 1.0 a break bumps the minor and is
-called out with its migration, the breaks an upgrade from `0.0.x` carries (section 4), and what is
-not covered yet. It carries `minor` as the class of the release it describes. Applying it moves
-nothing, because the four changesets above that add or remove public values already resolve the set
-to `0.1.0`.
+Measured against section 3's enumeration, it adds no value, removes none, renames none, and changes
+no exported function's behaviour. It emits no byte differently: no runtime statement changed, so a
+parsed and re-serialized record is unchanged and no warning code moves. That is what a `patch`
+claims, so `patch` is what it keeps.
 
 ## 2. Why no changeset in this set is classified `major`
 
 No changeset in the set is `major`, and this is a decision rather than an omission.
 
-`major` applied to a `0.0.x` version resolves to `1.0.0`. That is a different claim from the one
-being made here and a different release from the one being prepared: it would take this package out
-of the coordinated batch and assert a `1.0.0` stability guarantee nobody has decided to make. On
-the pre-1.0 ladder the minor channel is where a break belongs, which is why the breaks in
-section 4 are shipped as `minor` and surfaced there rather than escalated as a version-class
-question.
+`major` applied to a `0.x` version resolves to `1.0.0`. That is a different claim from the one being
+made here and a different release from the one being prepared: it would take this package out of the
+coordinated batch and assert a `1.0.0` stability guarantee nobody has decided to make. On the
+pre-1.0 ladder the minor channel is where a break belongs, which is why the breaks `0.1.0` shipped
+(section 4) went out as `minor` rather than being escalated as a version-class question. This set
+carries no break at all.
 
 If a future pending changeset's honest class ever is `major`, the rule is the opposite of a
 convenience: leave its bump unapplied, record it in section 4 as a break candidate escalated to the
 operator, and do not quietly write `minor` over it. A `major` silently downgraded to `minor` reads,
 from the outside, exactly like a repo that had nothing to escalate.
 
-## 3. The public export surface certified at `0.1.0`
+## 3. The public export surface certified at `0.1.0`, unchanged in `0.1.1`
 
 The subject of the stability claim is the package's single public entry point, `src/index.ts`, and
 the surface is everything it re-exports: values and types both. `package.json` publishes exactly one
 entry (`.` plus `./package.json`), so this list is the whole declaration surface a consumer can
 reach.
+
+`src/index.ts` is unchanged since the `v0.1.0` tag, so the enumeration below is the one `0.1.0`
+certified, and the test grades it against this branch's entry point, not against that tag.
 
 Counts: **118 values, 102 types, 220 identifiers**. The enumeration below is compared against the
 entry point by `test/scripts/release-readiness.test.ts`, which names every added and every removed
@@ -630,32 +504,37 @@ From `./frames/types.js`:
 
 <!-- certification:begin -->
 
-**The surface enumerated above is certified as the public API of `@cosyte/astm` at `0.1.0`: it is
-settled, and it is stable enough for a consumer to depend on.** Every identifier in it is a
-deliberate export with a documented contract, the record layer is feature-complete, and no part of
-it is a placeholder waiting to be renamed. From `0.1.0` onward a removal or a rename of anything on
-that list is a break with a real cost, to be surfaced and decided rather than absorbed as a patch.
+**The surface enumerated above is certified as the public API of `@cosyte/astm` at `0.1.0`, and it
+is carried unchanged into `0.1.1`: it is settled, and it is stable enough for a consumer to depend
+on.** Every identifier in it is a deliberate export with a documented contract, the record layer is
+feature-complete, and no part of it is a placeholder waiting to be renamed. From `0.1.0` onward a
+removal or a rename of anything on that list is a break with a real cost, to be surfaced and decided
+rather than absorbed as a patch.
 
 The certification is scoped, deliberately, and the scope is the whole of its honesty:
 
-- It certifies the surface **as of this branch**, which includes the changes the pending set carries
-  (the removals and the behaviour change in section 4 are already applied in `src/`). It is not a
-  claim that no consumer of `0.0.22` has work to do; section 4 is that work, enumerated.
+- It certifies the surface **as of this branch**. Against `0.1.0` that surface is identical:
+  `src/index.ts` and every module behind it are unchanged apart from comments (section 1), so a
+  consumer of `0.1.0` has no work to do to take `0.1.1`. The work a consumer of `0.0.22` had to do
+  to take `0.1.0` is section 4, enumerated.
 - It is a claim about names, shapes and documented contracts, not a promise that a warning code
   never gains a member or that a lenient parse never becomes more precise. Both are additive and
   both are governed by the profile safety gate rather than by this file.
-- Known open defects are recorded in `CLAUDE.md` and in `documentation/agent-notes.md`, and they
-  stay open across this bump. A defect is a behaviour this package reports honestly and has not
-  fixed; it is not an unsettled API.
+- Known open defects are recorded in `documentation/agent-notes.md`, which `CLAUDE.md` points into,
+  and they stay open across this bump. A defect is a behaviour this package reports honestly and has
+  not fixed; it is not an unsettled API.
 
 <!-- certification:end -->
 
-## 4. Break candidates, awaiting the operator
+## 4. Break candidates
 
-Every entry below is a change a consumer of `0.0.22` will see. **None of them is decided here.**
-They were held for the operator, and this file surfaces them so that decision had something to
-read. Nothing in this list is itself an approval: the operator's direction to publish `0.1.x`, which
-ships them, is recorded in section 6.
+This set carries none. Section 1 found no public value added, removed, renamed or changed in
+behaviour, so a consumer of `0.1.0` sees no break in `0.1.1`.
+
+The ten entries below are the breaks `0.1.0` shipped, as a consumer of `0.0.22` sees them. They stay
+here because `CHANGELOG.md` sends that consumer to this file for each migration. They were held for
+the operator before `0.1.0`, the operator's direction of 2026-09-25 to publish `0.1.x` (section 6)
+is what shipped them, and each **Status** line now says so.
 
 Entries 1 to 4 are the public values the LIVD changeset removes or redefines, and `primaryCode()`
 is the one that produces **no compile error at all**.
@@ -690,7 +569,7 @@ consumer's BUILD does, not how severe the change is:
 - **Migration:** read `UniversalTestId.unvalidatedWireValue`, which carries the same verbatim first
   component. The name is the point: the value is not validated, is not a LOINC, and is never the
   code a result is keyed on.
-- **Status:** awaits the operator's decision before any release.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6).
 
 ### 2. The `"inline-loinc-candidate"` token of `UniversalTestIdProvenance` (removed)
 
@@ -700,7 +579,7 @@ consumer's BUILD does, not how severe the change is:
 - **Migration:** a populated first component **with** a vendor local code now reports `"local-code"`,
   because the local code is the identifier; **without** one it reports the new token
   `"unvalidated-wire-value-only"`, which says the value was seen without claiming it is a code.
-- **Status:** awaits the operator's decision before any release.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6).
 
 ### 3. The `LivdMapping` variant `{ status: "inline-loinc" }` (removed)
 
@@ -711,7 +590,7 @@ consumer's BUILD does, not how severe the change is:
   deliberately narrower: it carries no `loinc` and no `source`, because there is no disposition that
   reports a wire value as a LOINC. The four retained dispositions (`mapped`, `unmapped`,
   `ambiguous`, `no-code`) keep their documented meanings exactly.
-- **Status:** awaits the operator's decision before any release.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6).
 
 ### 4. `primaryCode()`: THE BREAK THAT PRODUCES NO COMPILE ERROR
 
@@ -724,7 +603,8 @@ consumer's BUILD does, not how severe the change is:
   `unvalidatedWireValue`, for a consumer who wants it knowing this library does not vouch for it.
   The fail-safe direction is deliberate: reporting no key is safer than reporting a key the library
   cannot vouch for, because a right value under the wrong analyte is a wrong clinical result.
-- **Status:** awaits the operator's decision before any release. This is the entry to read first.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6). This is
+  the entry to read first.
 
 ### 5. `LivdAnnotation.reportedCode` (meaning changed, name kept)
 
@@ -733,7 +613,7 @@ consumer's BUILD does, not how severe the change is:
   reported for this record" sees it go absent on records where no lookup happened.
 - **Migration:** read `unvalidatedWireValue` for the verbatim first component, which is present on
   every disposition; read `reportedCode` only as "what the catalog was asked about".
-- **Status:** awaits the operator's decision before any release.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6).
 
 ### 6. `AbnormalFlag.vocabulary` and `ResultStatus.vocabulary` (required properties added)
 
@@ -742,7 +622,7 @@ consumer's BUILD does, not how severe the change is:
   an exported interface. Reading either type is unaffected and additive.
 - **Migration:** build the property from the exported constants `ABNORMAL_FLAG_VOCABULARY` and
   `RESULT_STATUS_VOCABULARY` rather than writing a literal, so a stub tracks the library.
-- **Status:** awaits the operator's decision before any release.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6).
 
 ### 7. `AbnormalFlagCode` widened by `HU` and `LU`
 
@@ -754,7 +634,7 @@ consumer's BUILD does, not how severe the change is:
 - **Migration:** handle the two codes. They are distinct from `H`/`L` (outside the interval), from
   `HH`/`LL` (critical) and from the directional `U`/`D`, all six of which keep their readings. The
   deprecated `H>` and `L<` stay unrecognized deliberately.
-- **Status:** awaits the operator's decision before any release.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6).
 
 ### 8. `LivdAnnotation.wireValueDisagreesWithCatalog` (required property added)
 
@@ -769,7 +649,7 @@ consumer's BUILD does, not how severe the change is:
   literal is unavoidable, `wireValueDisagreesWithCatalog: false` is the value every other
   disposition carries, and it must not be written `true` to mean "unknown": the field reports a
   measured disagreement and nothing else.
-- **Status:** awaits the operator's decision before any release.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6).
 
 ### 9. `AbnormalFlagMeaning` widened by `"significantly-high"` and `"significantly-low"`
 
@@ -799,7 +679,7 @@ entry 7's compile error is over `AbnormalFlag.code` and does not reach a consume
   sends either letter. There is no exported runtime list of meanings to iterate against, since
   `ABNORMAL_FLAG_CODES` lists the letters and not their readings, so the union itself is the
   enumeration a consumer tracks.
-- **Status:** awaits the operator's decision before any release.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6).
 
 ### 10. `LivdWarningCode` widened by `"ASTM_LIVD_CATALOG_NO_LOINC_VERSION"`
 
@@ -817,7 +697,7 @@ entry 7's compile error is over `AbnormalFlag.code` and does not reach a consume
   stable snapshot of `LivdWarningCode`. Keeping the type in step with the registry is what makes
   that true; excluding the new member would leave a value in the registry that the type says cannot
   be there, which is a quieter break than this one.
-- **Status:** awaits the operator's decision before any release.
+- **Status:** shipped in `0.1.0`, on the operator's direction of 2026-09-25 (section 6).
 
 The other two members the LIVD changeset adds to `LivdAnnotation` are **optional**
 (`unvalidatedWireValue`, and `reportedCode`, which is entry 5 for its changed meaning rather than
@@ -861,9 +741,9 @@ rule is that saying nothing never reads as saying none.
 
 <!-- unresolved:begin -->
 
-None. Every pending changeset classifies from its own text: each states, in its own words, which
-public values it adds and which it removes, and each was checked against `src/index.ts` and the
-modules behind it.
+None. The one pending changeset classifies from its own text, and the change it documents was
+checked against the `v0.1.0` tag, against `src/index.ts` and the modules behind it, and against the
+published `0.1.0` tarball.
 
 <!-- unresolved:end -->
 
@@ -872,29 +752,30 @@ modules behind it.
 **Nothing in this file publishes anything, and the bump prepared here is not a release until the
 release pipeline cuts it.**
 
-- **The earlier block, and the direction that replaced it.** Publication was blocked by the
-  operator's decision of 2026-08-28 until the release-frequency policy work landed
-  (`S0161-release-frequency-policy` in the meta-repo). On 2026-09-25 the operator directed that
-  every package be put on `0.1.x` and published, in these words: "I need every single package on
-  v0.1.x and published." For this package the only `0.1.x` is the pending set above, so the breaks
-  in section 4 ship in `0.1.0` as enumerated there, each with its migration in `CHANGELOG.md`.
+- **How `0.1.0` came to publish.** Publication was blocked by the operator's decision of 2026-08-28
+  until the release-frequency policy work landed (`S0161-release-frequency-policy` in the
+  meta-repo). On 2026-09-25 the operator directed that every package be put on `0.1.x` and
+  published, in these words: "I need every single package on v0.1.x and published." `0.1.0`
+  published that day and shipped the breaks in section 4, each with its migration in `CHANGELOG.md`.
+- **Why `0.1.1` is prepared.** On 2026-11-07 the operator registered npm trusted publishers for
+  every `@cosyte` package and directed, in these words: "every package needs to be published so that
+  the trusted publisher is marked as valid". The pending set is that publish for this package.
 - **What merging a change here does.** `.github/workflows/release.yml` fires on a push to `main`
   and calls the shared release pipeline, which opens or updates the "Version Packages" pull request
   and parks the publish on the `release` environment gate. Merging that pull request and approving
   that gate belong to whoever runs the release, never to a change that edits this file.
-- **So the honest reading** is: the pending set resolves to `0.1.0` instead of `0.0.23`, the
-  surface that number certifies is on record, and the breaks a consumer will see are enumerated. The
-  version in `package.json` is still `0.0.22` and stays `0.0.22` until Changesets writes the next
-  one.
+- **So the honest reading** is: the pending set resolves to `0.1.1`, the surface it carries is the
+  one `0.1.0` certified, and it carries no break. The version in `package.json` is still `0.1.0` and
+  stays `0.1.0` until Changesets writes the next one.
 
-### The follow-on this bump creates, recorded so it is not lost
+### The follow-on the `0.1.0` bump created
 
-`CLAUDE.md` standing discipline 2 currently says that a change ships with a Changeset that is
-`patch` on the `0.0.x` ladder. That sentence is still correct today and is deliberately left alone
-here: the repo is on `0.0.x` until `0.1.0` publishes, and rewriting the guidance first would make it
-describe a ladder this repo is not on yet.
+The `0.1.0` audit recorded that this repository's guidance said a change ships with a changeset that
+is `patch` on the `0.0.x` ladder, that the guidance would go stale the moment `0.1.0` published, and
+that it must then be revised: a feature or an added public value is `minor`, a real fix is `patch`,
+and on the `0.x` ladder a break ships in the minor channel and is surfaced for a decision before the
+release rather than absorbed.
 
-**It goes stale the moment `0.1.0` publishes, and must be revised then**, to say that a feature or
-an added public value is `minor`, that a real fix is `patch`, and that on the `0.x` ladder a break
-ships in the minor channel and is surfaced for a decision before the release rather than absorbed.
-That revision is a separate change and is not made here.
+Checked again on 2026-11-07. `CLAUDE.md` has since been rewritten and states no bump rule, but
+`.changeset/README.md` still told a contributor to pick `patch` to stay on the `0.0.x` ladder. It is
+revised to the rule above in the same change as this audit.
