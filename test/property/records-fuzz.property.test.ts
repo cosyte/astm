@@ -11,7 +11,7 @@
  *
  * A well-formed header is prepended to the deep-path arbitraries so the fuzzer drives the tokenizer,
  * the escape codec, the R/P/O/C/Q field logic, and comment attachment: not just the "no header ⇒
- * fatal" fast path. The nightly extended run (`ASTM_FUZZ_RUNS`) scales the case count without
+ * fatal" fast path. The nightly run (`pnpm fuzz`) runs the same targets for a time budget without
  * changing the assertions.
  */
 
@@ -26,8 +26,16 @@ import {
   parseAstmRecords,
 } from "../../src/index.js";
 
-/** Nightly runs scale via ASTM_FUZZ_RUNS; the in-suite default keeps CI fast but non-trivial. */
-const NUM_RUNS = Number(process.env["ASTM_FUZZ_RUNS"] ?? 800);
+import { amplified, fuzzTimeout, withinBudget } from "./_fuzz-config.js";
+
+/**
+ * The base case count `pnpm test` runs. The nightly fuzz run scales it, or swaps it for a time
+ * budget, and names the seed, through the `ASTM_FUZZ_*` variables read by `_fuzz-config.ts`.
+ */
+const NUM_RUNS = 800;
+
+/** The Vitest timeout for one amplified target. */
+const TIMEOUT_MS = fuzzTimeout(10_000);
 
 const KNOWN_RECORD_CODES = new Set<string>(Object.values(WARNING_CODES));
 const SANCTIONED_LENIENT_FATALS = new Set<string>([
@@ -72,30 +80,43 @@ function assertSanctionedLenient(err: unknown): void {
 }
 
 describe("fuzz: arbitrary input never crashes the record parser (lenient)", () => {
-  it("whole-buffer structural noise: no unsanctioned throw, every warning is a known code", () => {
-    fc.assert(
-      fc.property(structuralNoise(), (raw) => {
-        try {
-          const { warnings } = parseAstmRecords(raw);
-          assertWarningsWellFormed(warnings);
-        } catch (err) {
-          assertSanctionedLenient(err);
-        }
-      }),
-      { numRuns: NUM_RUNS },
-    );
-  });
+  it(
+    "whole-buffer structural noise: no unsanctioned throw, every warning is a known code",
+    () => {
+      fc.assert(
+        fc.property(structuralNoise(), (raw) => {
+          withinBudget(raw, () => {
+            try {
+              const { warnings } = parseAstmRecords(raw);
+              assertWarningsWellFormed(warnings);
+            } catch (err) {
+              assertSanctionedLenient(err);
+            }
+          });
+        }),
+        amplified(NUM_RUNS),
+      );
+    },
+    TIMEOUT_MS,
+  );
 
-  it("header + arbitrary record body (deep paths) never crashes and never throws in lenient mode", () => {
-    fc.assert(
-      fc.property(structuralNoise(), (body) => {
-        // With a valid header, lenient parse must NEVER throw: every deviation is a warning.
-        const { warnings } = parseAstmRecords(HEADER + body);
-        assertWarningsWellFormed(warnings);
-      }),
-      { numRuns: NUM_RUNS },
-    );
-  });
+  it(
+    "header + arbitrary record body (deep paths) never crashes and never throws in lenient mode",
+    () => {
+      fc.assert(
+        fc.property(structuralNoise(), (body) => {
+          // With a valid header, lenient parse must NEVER throw: every deviation is a warning.
+          const raw = HEADER + body;
+          withinBudget(raw, () => {
+            const { warnings } = parseAstmRecords(raw);
+            assertWarningsWellFormed(warnings);
+          });
+        }),
+        amplified(NUM_RUNS),
+      );
+    },
+    TIMEOUT_MS,
+  );
 
   it("truncation at every prefix of a realistic message never crashes", () => {
     const full =
@@ -115,19 +136,26 @@ describe("fuzz: arbitrary input never crashes the record parser (lenient)", () =
 });
 
 describe("fuzz: strict mode only ever throws a sanctioned typed error", () => {
-  it("header + noise in strict mode throws only AstmStrictError / a sanctioned fatal", () => {
-    fc.assert(
-      fc.property(structuralNoise(), (body) => {
-        try {
-          parseAstmRecords(HEADER + body, { strict: true });
-        } catch (err) {
-          if (err instanceof AstmStrictError) return;
-          assertSanctionedLenient(err);
-        }
-      }),
-      { numRuns: NUM_RUNS },
-    );
-  });
+  it(
+    "header + noise in strict mode throws only AstmStrictError / a sanctioned fatal",
+    () => {
+      fc.assert(
+        fc.property(structuralNoise(), (body) => {
+          const raw = HEADER + body;
+          withinBudget(raw, () => {
+            try {
+              parseAstmRecords(raw, { strict: true });
+            } catch (err) {
+              if (err instanceof AstmStrictError) return;
+              assertSanctionedLenient(err);
+            }
+          });
+        }),
+        amplified(NUM_RUNS),
+      );
+    },
+    TIMEOUT_MS,
+  );
 });
 
 describe("record fuzz is non-vacuous: the tokenizer actually engages", () => {

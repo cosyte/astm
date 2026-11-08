@@ -29,8 +29,16 @@ import {
 
 import { checksumOf, def, frame, hex2 } from "../frames/_frame-builder.js";
 
-/** Nightly runs scale via ASTM_FUZZ_RUNS (the scheduled fuzz workflow sets it); CI default is 1500. */
-const NUM_RUNS = Number(process.env["ASTM_FUZZ_RUNS"] ?? 1500);
+import { amplified, fuzzTimeout, withinBudget } from "./_fuzz-config.js";
+
+/**
+ * The base case count `pnpm test` runs. The nightly fuzz run scales it, or swaps it for a time
+ * budget, and names the seed, through the `ASTM_FUZZ_*` variables read by `_fuzz-config.ts`.
+ */
+const NUM_RUNS = 1500;
+
+/** The Vitest timeout for one amplified target. */
+const TIMEOUT_MS = fuzzTimeout(10_000);
 
 const KNOWN_FRAME_CODES = new Set<string>(Object.values(FRAME_WARNING_CODES));
 
@@ -99,34 +107,44 @@ function assertWarningsWellFormed(
   }
 }
 
-describe("fuzz: arbitrary bytes never crash the frame decoder (lenient)", () => {
-  it("whole-buffer random noise: no throw, every warning is a known ASTM_FRAME_* code", () => {
-    fc.assert(
-      fc.property(randomBytes(), (bytes) => {
-        try {
-          const { warnings } = decodeAstmFrames(bytes);
-          assertWarningsWellFormed(warnings);
-        } catch (err) {
-          assertSanctionedLenient(err);
-        }
-      }),
-      { numRuns: NUM_RUNS },
-    );
+/** One lenient case: only sanctioned throws, well-formed warnings, within the per-case budget. */
+function lenientCase(bytes: Uint8Array): void {
+  withinBudget(bytes, () => {
+    try {
+      const { warnings } = decodeAstmFrames(bytes);
+      assertWarningsWellFormed(warnings);
+    } catch (err) {
+      assertSanctionedLenient(err);
+    }
   });
+}
 
-  it("control-char-laden near-miss frames never crash", () => {
-    fc.assert(
-      fc.property(controlLadenBytes(), (bytes) => {
-        try {
-          const { warnings } = decodeAstmFrames(bytes);
-          assertWarningsWellFormed(warnings);
-        } catch (err) {
-          assertSanctionedLenient(err);
-        }
-      }),
-      { numRuns: NUM_RUNS },
-    );
-  });
+describe("fuzz: arbitrary bytes never crash the frame decoder (lenient)", () => {
+  it(
+    "whole-buffer random noise: no throw, every warning is a known ASTM_FRAME_* code",
+    () => {
+      fc.assert(
+        fc.property(randomBytes(), (bytes) => {
+          lenientCase(bytes);
+        }),
+        amplified(NUM_RUNS),
+      );
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    "control-char-laden near-miss frames never crash",
+    () => {
+      fc.assert(
+        fc.property(controlLadenBytes(), (bytes) => {
+          lenientCase(bytes);
+        }),
+        amplified(NUM_RUNS),
+      );
+    },
+    TIMEOUT_MS,
+  );
 
   it("truncation at every prefix length of a real multi-frame stream never crashes", () => {
     // A valid two-frame record, then decode every truncated prefix: the classic frame/checksum
@@ -145,36 +163,41 @@ describe("fuzz: arbitrary bytes never crash the frame decoder (lenient)", () => 
     );
   });
 
-  it("frames interleaved with noise (deep paths) never crash", () => {
-    fc.assert(
-      fc.property(framesWithNoise(), (bytes) => {
-        try {
-          const { warnings } = decodeAstmFrames(bytes);
-          assertWarningsWellFormed(warnings);
-        } catch (err) {
-          assertSanctionedLenient(err);
-        }
-      }),
-      { numRuns: NUM_RUNS },
-    );
-  });
+  it(
+    "frames interleaved with noise (deep paths) never crash",
+    () => {
+      fc.assert(
+        fc.property(framesWithNoise(), (bytes) => {
+          lenientCase(bytes);
+        }),
+        amplified(NUM_RUNS),
+      );
+    },
+    TIMEOUT_MS,
+  );
 });
 
 describe("fuzz: strict mode only ever throws a sanctioned typed error", () => {
-  it("random noise in strict mode throws only AstmFrameStrictError / EMPTY_INPUT", () => {
-    fc.assert(
-      fc.property(controlLadenBytes(), (bytes) => {
-        try {
-          decodeAstmFrames(bytes, { strict: true });
-        } catch (err) {
-          if (err instanceof AstmFrameStrictError) return;
-          if (err instanceof AstmParseError && err.code === FATAL_CODES.EMPTY_INPUT) return;
-          throw err;
-        }
-      }),
-      { numRuns: NUM_RUNS },
-    );
-  });
+  it(
+    "random noise in strict mode throws only AstmFrameStrictError / EMPTY_INPUT",
+    () => {
+      fc.assert(
+        fc.property(controlLadenBytes(), (bytes) => {
+          withinBudget(bytes, () => {
+            try {
+              decodeAstmFrames(bytes, { strict: true });
+            } catch (err) {
+              if (err instanceof AstmFrameStrictError) return;
+              if (err instanceof AstmParseError && err.code === FATAL_CODES.EMPTY_INPUT) return;
+              throw err;
+            }
+          });
+        }),
+        amplified(NUM_RUNS),
+      );
+    },
+    TIMEOUT_MS,
+  );
 });
 
 describe("fuzz is non-vacuous: the decoder actually engages", () => {

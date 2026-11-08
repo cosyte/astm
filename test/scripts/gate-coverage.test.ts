@@ -42,7 +42,7 @@ interface RunResult {
  * one case that measures a dropped declaration omits one deliberately.
  */
 const BASE_PREFIXLESS_GATES: Record<string, string> = {
-  "test:fuzz": "vitest run test/property",
+  fuzz: "vitest run test/property",
   "pack:docs": "bash scripts/build-docs-artifacts.sh",
 };
 
@@ -108,12 +108,12 @@ describe("check-gate-coverage: a CI gate with no local route is a failure", () =
 
   it("resolves a `pnpm <script>` invocation to that script", () => {
     const root = makeTree(
-      { "test:fuzz": "vitest run test/property" },
-      { "fuzz.yml": workflowRunning("pnpm test:fuzz") },
+      { fuzz: "vitest run test/property" },
+      { "fuzz.yml": workflowRunning("pnpm fuzz") },
     );
     const r = run(root);
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
-    expect(r.stdout).toContain("pnpm run test:fuzz");
+    expect(r.stdout).toContain("pnpm run fuzz");
   });
 });
 
@@ -193,7 +193,7 @@ describe("check-gate-coverage: the plumbing inside a `run: |` block is not a gat
 
 describe("check-gate-coverage: a gate whose name carries no recognisable prefix", () => {
   it("reds when a declared prefix-less CI gate has been dropped from package.json", () => {
-    // `test:fuzz` and `pack:docs` are declared in the checker as CI gates a
+    // `fuzz` and `pack:docs` are declared in the checker as CI gates a
     // runner keyed on `check:`/`verify:` prefixes cannot see. Dropping one is
     // exactly the silent regression that declaration exists to catch.
     const root = makeTree({}, {}, ["pack:docs"]);
@@ -206,7 +206,7 @@ describe("check-gate-coverage: a gate whose name carries no recognisable prefix"
     const root = makeTree({}, {});
     const r = run(root);
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
-    expect(r.stdout).toContain("test:fuzz");
+    expect(r.stdout).toContain("pnpm run fuzz");
     expect(r.stdout).toContain("pack:docs");
   });
 });
@@ -221,7 +221,7 @@ describe("check-gate-coverage: this package's own tree", () => {
     expect(r.status, `stderr: ${r.stderr ?? ""}`).toBe(0);
     const stdout = r.stdout ?? "";
     expect(stdout).toContain("declared, and NOT covered by a local gate run");
-    expect(stdout).toContain("test:fuzz");
+    expect(stdout).toContain("pnpm run fuzz");
     expect(stdout).toContain("pack:docs");
   });
 });
