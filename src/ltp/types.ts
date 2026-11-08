@@ -17,9 +17,9 @@ import type { AstmLtpWarning } from "./warnings.js";
  * The protocol phase. The line is either **neutral** (idle, awaiting an `ENQ` to
  * establish, or reset there after an `EOT`) or in **transfer** (establishment
  * accepted; frames and their per-frame `ACK`/`NAK` flow until the sender's `EOT`).
- * The classic three-phase LIS01 model (establishment → transfer → termination)
- * collapses to these two, since establishment is the `neutral → transfer` edge and
- * termination is the `transfer → neutral` edge.
+ * The classic LIS01 model names three phases (establishment → transfer →
+ * termination), which collapse to these two, since establishment is the
+ * `neutral → transfer` edge and termination is the `transfer → neutral` edge.
  */
 export type LtpPhase = "neutral" | "transfer";
 

@@ -34,6 +34,7 @@ pnpm examples
 pnpm phi-scan:examples
 pnpm check:no-emdash
 pnpm check:no-internal-refs
+pnpm check:documents
 ```
 
 ## Rules

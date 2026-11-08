@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # scripts/check-no-internal-refs.sh
 #
+# THIS SCRIPT IS NOW THE STRING-LITERAL BACKSTOP, NOT THE GATE (2026-11-08). The public-surface
+# gate is the shared one in `@cosyte/script-utils`, reading this repository's axes from
+# `scripts/internal-refs.json`, and `pnpm check:no-internal-refs` runs it first and this script
+# after it. This script stays for one surface the shared gate has no axis for yet: the string
+# literals in `src/`, the messages a consumer reads in their logs. It goes when the shared gate
+# scans string literals. Until then both run, so the required `no-internal-refs / public-surface`
+# context reds when either one finds a hit.
+#
 # Founder directive, 2026-07-27: NO INTERNAL PROJECT BOOKKEEPING ON A PUBLIC SURFACE.
 # Anything a consumer reads (a GitHub release body, README.md, docs-content/, the npm
 # package description) describes what the software does and what changed. It must never

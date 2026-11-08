@@ -54,3 +54,26 @@ jobs:
       - run: pnpm lint:examples
       - run: pnpm examples
       - run: pnpm phi-scan:examples
+
+  # The repository's documents, each checked by the shared checker in @cosyte/script-utils: the
+  # README against the house skeleton and npm's size limit, the CLAUDE.md card against its spec,
+  # every pointer into documentation/agent-notes.md, and the package.json description against the
+  # catalog of our libraries.
+  documents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Actions are pinned to a commit rather than to a tag that can move.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:readme
+      - run: pnpm check:claude-card
+      - run: pnpm check:agent-notes
+      - run: pnpm check:catalog

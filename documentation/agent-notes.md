@@ -1459,7 +1459,7 @@ The org-wide standards are in the umbrella's `plans/standards.md`; this is a sum
   `@cosyte/tsconfig`. **Target ES2023**, `NodeNext`. TypeScript 5.9.x, exact-pinned.
 - **Build:** dual ESM + CJS + `.d.ts` via `tsup` (`@cosyte/tsup-config`); `attw` is a publish gate
   (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`). The `attw` script is
-  **`scripts/attw.mjs`, not the bare CLI**, because the CLI reports a missing `dist/` as "does not
+  **the shared `attw` gate (once `scripts/attw.mjs`), not the bare CLI**, because the CLI reports a missing `dist/` as "does not
   contain types" and **exits 0**.
 - **Node:** **>= 22** (CI matrix 22, 24 and 26).
 - **Package manager:** `pnpm@10`.
@@ -2429,6 +2429,11 @@ than style.
 
 ### `attw` says "does not contain types" and exits 0, so the `attw` script is a wrapper, not the bare CLI
 
+> **Correction, 2026-11-08:** `pnpm attw` no longer runs `scripts/attw.mjs`. It runs the shared
+> `attw` gate in `@cosyte/script-utils`, which carries the same nets and more (npm's pack listing,
+> and the manifest pnpm would publish), so the copy and `test/scripts/attw-gate.test.ts` are gone.
+> The measurement below still explains why the bare CLI is never the gate.
+
 - **▶ `attw` SAYS "does not contain types" AND EXITS 0, SO THE `attw` SCRIPT IS A WRAPPER, NOT THE
   BARE CLI.** `getExitCode.js` in `@arethetypeswrong/cli` (0.18.4, read in this repo's own
   `node_modules`) opens with `if (!analysis.types) return 0`. An untyped package is a legitimate npm
@@ -2496,6 +2501,14 @@ Disciplines 1 to 3 are one line each and stay in `CLAUDE.md`. These two carry th
 
 ### 4. No internal project bookkeeping on a public surface
 
+> **Correction, 2026-11-08:** `pnpm check:no-internal-refs` now runs the shared internal-reference
+> gate in `@cosyte/script-utils` first, reading this repository's prefixes, the standards
+> designations they collide with, the surface and the roadmap-citation rule from
+> `scripts/internal-refs.json`. `scripts/check-no-internal-refs.sh` runs after it as the backstop
+> for string literals in `src/`, which the shared gate does not scan yet, and goes when it does.
+> The shared phase rule has no guard for this protocol's own phases, so one doc comment was
+> reworded rather than read as phase language ("three phases", not "three-phase LIS01").
+
 4. **No internal project bookkeeping on a public surface** (founder directive, 2026-07-27). What a
    consumer reads (`README.md`, `docs-content/`, the npm `description`, a release body, a JSDoc
    block their editor renders on hover, a message string their log prints) says what the software
@@ -2535,6 +2548,11 @@ Disciplines 1 to 3 are one line each and stay in `CLAUDE.md`. These two carry th
 <a id="no-emdash"></a>
 
 ### 5. No em dash, anywhere
+
+> **Correction, 2026-11-08:** `pnpm check:no-emdash` now runs the shared dash gate in
+> `@cosyte/script-utils`, which refuses the en dash too, and `scripts/check-no-emdash.sh` is gone.
+> The workflow calls the shared gate workflow's installing form, since the gate lives in
+> node_modules. What follows describes the script this repository ran before.
 
 5. **No em dash, anywhere** (founder directive, 2026-07-24; `knowledgebase/06-brand/voice-and-tone.md`).
    U+2014 is banned outright across every Cosyte surface, **including commit messages**. Gated by
@@ -2619,6 +2637,11 @@ Part of the `attw` gate's trap list; it belongs with `#attw`.
 <a id="agent-notes-contract"></a>
 
 ## The two-file contract, and why the matcher had to be re-derived here
+
+> **Correction, 2026-11-08: the shared checker replaced this one.** `pnpm check:agent-notes` runs
+> the agent-notes checker in `@cosyte/script-utils`, in CI's `documents` job, and
+> `scripts/check-agent-notes.ts` and its tests are gone. It reads every tracked file the same way,
+> resolves headings and explicit anchors alike, and refuses a bare backticked anchor in `CLAUDE.md`.
 
 > **Correction, 2026-11-08: the pointer form changed.** `CLAUDE.md` now writes every pointer in the
 > path-qualified form, this file's full path, then `#`, then the anchor: the one form the shared

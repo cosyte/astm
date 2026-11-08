@@ -437,8 +437,8 @@ describe.skipIf(RELEASE_COMMIT)("the pending changeset set", () => {
 
   it("classifies the README changeset as patch, because it moves no public value", () => {
     // Its own text says the code, API and behavior are unchanged, and the tree agrees: since the
-    // published base nothing under `src/` changed, and the built code is byte-identical to the
-    // published tarball. Section 1 of the record sets out what was compared.
+    // published base one doc comment under `src/` changed, and the built code is byte-identical to
+    // the published tarball. Section 1 of the record sets out what was compared.
     const entry = PENDING.find((pending) => pending.file === AUDITED_CHANGESET);
     expect(entry, `${AUDITED_CHANGESET} is not in the pending set`).toBeDefined();
     expect(entry?.bump).toBe("patch");
