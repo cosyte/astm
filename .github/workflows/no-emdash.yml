@@ -10,12 +10,14 @@ name: Em-dash gate
 # `docs-content/` pages that publish to docs.cosyte.com. A sweep without the gate grows
 # back; a gate without the sweep would have red-flagged CI on arrival. Both are one commit.
 #
-# WHAT ACTUALLY SCANS, AND WHERE THE RULE LIVES. `pnpm check:no-emdash`, which is this
-# repository's own gate script. The jobs below delegate the plumbing (checkout, pnpm,
-# Node) to the shared gate workflow, and that workflow carries no pattern, no allow-list
-# and no file selection of its own: it prepares the tree, runs the command, and lets the
-# command's exit status decide the job. So the rule and every measurement above stay in
-# this repository, and only the harness is shared.
+# WHAT ACTUALLY SCANS, AND WHERE THE RULE LIVES. `pnpm check:no-emdash`, which runs the
+# shared dash gate from `@cosyte/script-utils`, the one implementation every Cosyte
+# repository runs. It lives in node_modules, so the jobs below call the shared gate
+# workflow's INSTALLING form, which installs from the committed lockfile before it scans.
+# That workflow carries no pattern, no allow-list and no file selection of its own: it
+# prepares the tree, runs the command, and lets the command's exit status decide the job.
+# What this repository leaves out of the scan, if anything, goes in
+# `scripts/check-no-emdash.exclude`; nothing is left out today.
 #
 # TWO CONTEXTS, NOT ONE, AND THE JOB ID IS LOAD-BEARING. A called job's check run is named
 # `<caller job id> / <inner job id>`, so the job id `no-emdash` below publishes
@@ -66,7 +68,7 @@ jobs:
     # tag is not an immutable reference and is not a pin. The trailing comment is the
     # published reference that commit was released as, so the release note stays
     # findable from here.
-    uses: cosyte/.github/.github/workflows/gate-no-emdash.yml@498c7c13c8869bf11b67fa8324684ec2dc691ec6 # workflows-2026-11-07-498c7c13c886
+    uses: cosyte/.github/.github/workflows/gate-no-emdash-install.yml@498c7c13c8869bf11b67fa8324684ec2dc691ec6 # workflows-2026-11-07-498c7c13c886
     # No more than the scan needs. A called workflow's GITHUB_TOKEN can only be
     # downgraded by its caller, and this gate reads the tree and nothing else.
     permissions:

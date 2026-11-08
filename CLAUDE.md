@@ -21,8 +21,8 @@ pnpm test:coverage
 pnpm build
 pnpm attw
 pnpm typecheck:examples && pnpm lint:examples && pnpm examples && pnpm phi-scan:examples
-pnpm check:no-emdash
-pnpm check:no-internal-refs
+pnpm check:no-emdash && pnpm check:no-internal-refs
+pnpm check:documents
 ```
 
 CI adds an ESM/CJS import check (`pnpm smoke` locally) and the shared pre-publish checks. On a PR
@@ -48,8 +48,8 @@ that records it. Read documentation/agent-notes.md#defects before changing the c
 - Never call a failure loud in every case from the cases you ran: defects 5, 6, 7 and 13 each had a
   silent branch. When a claim measures false, fix every restatement, then grep your replacement.
   documentation/agent-notes.md#defect-7 documentation/agent-notes.md#defect-17c
-- `pnpm attw` is `scripts/attw.mjs`: the bare `attw` CLI exits 0 when the types are missing.
-  documentation/agent-notes.md#attw
+- `pnpm attw` runs the shared attw gate, never the bare `attw` CLI, which exits 0 when the types
+  are missing. documentation/agent-notes.md#attw
 - `docs-content/` ships in an immutable release asset, and its sidebar left the spine twice; no
   version number there or in `README.md`. documentation/agent-notes.md#docs-sidebar
 - No task ids, phase language or private paths in `README.md`, `docs-content/`, `/** */` comments

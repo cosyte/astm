@@ -59,13 +59,16 @@ Each claim was checked against the tree rather than taken from the text.
   cut. The README is in the tarball, so a consumer reading it on npm sees the new one only once a
   version carries it.
 - **What the tarball changes.** `package.json` ships `dist`, `README.md`, `LICENSE` and
-  `CHANGELOG.md`. Between the `v0.1.1` tag and this branch nothing under `src/` changed, and
-  neither did `tsup.config.ts` or `tsconfig.json`. `package.json` changed in its `prepare` script
-  and dev dependencies only, and `pnpm-lock.yaml` in dev dependencies only. `README.md` is
-  rewritten, and `CHANGELOG.md` gains the entry Changesets writes from this changeset.
-- **What the build shows.** Built from this branch, `dist/index.mjs`, `dist/index.cjs`,
-  `dist/index.d.ts` and `dist/index.d.cts` are byte-identical to the files in the published `0.1.1`
-  tarball, and the file list of `dist/` is the same.
+  `CHANGELOG.md`. Between the `v0.1.1` tag and this branch one file under `src/` changed,
+  `src/ltp/types.ts`, in one doc comment only: the shared public-surface gate read "three-phase
+  LIS01" as phase language, so the sentence now says the LIS01 model names three phases.
+  `tsup.config.ts` and `tsconfig.json` are unchanged. `package.json` changed in its scripts and dev
+  dependencies only, and `pnpm-lock.yaml` in dev dependencies only. `README.md` is rewritten, and
+  `CHANGELOG.md` gains the entry Changesets writes from this changeset.
+- **What the build shows.** Built from this branch, `dist/index.mjs` and `dist/index.cjs` are
+  byte-identical to the files in the published `0.1.1` tarball, and the file list of `dist/` is the
+  same. `dist/index.d.ts` and `dist/index.d.cts` differ in three doc-comment lines, which are that
+  sentence.
 - **What else ships.** The two new pages, `docs-content/guides-api-by-layer.md` and
   `docs-content/concepts-coverage.md`, ship in the release's docs asset, not in the npm tarball.
   Their prose is the README's, moved with its headings one level up.
@@ -514,8 +517,8 @@ The certification is scoped, deliberately, and the scope is the whole of its hon
 
 - It certifies the surface **as of this branch**. Against `0.1.0` that surface is identical:
   `src/index.ts` and every module behind it are unchanged apart from comments (section 1), so a
-  consumer of `0.1.0` has no work to do to take `0.1.1`. Since `0.1.1` nothing under `src/` has
-  changed, so the same holds for `0.1.2`. The work a consumer of `0.0.22` had to do to take `0.1.0`
+  consumer of `0.1.0` has no work to do to take `0.1.1`. Since `0.1.1` one doc comment under
+  `src/` has changed and nothing else, so the same holds for `0.1.2`. The work a consumer of `0.0.22` had to do to take `0.1.0`
   is section 4, enumerated.
 - It is a claim about names, shapes and documented contracts, not a promise that a warning code
   never gains a member or that a lenient parse never becomes more precise. Both are additive and

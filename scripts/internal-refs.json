@@ -1,0 +1,96 @@
+{
+  "$comment": "This repository's axes for the shared internal-reference gate in @cosyte/script-utils (README, runInternalRefsScan). The prefixes, the standards designations that collide with them, and the surface are the ones scripts/check-no-internal-refs.sh carried; its roadmap-citation rule, which the canonical set lacks, is added below with its samples.",
+  "projectPrefixes": [
+    "PARSERS-PUBLIC",
+    "DOCS-CONTENT",
+    "KNOWLEDGEBASE",
+    "TERMINOLOGY",
+    "PATHWAYS",
+    "TRANSFORM",
+    "WEBSITE",
+    "STAGING",
+    "SUPPLY",
+    "NCPDP",
+    "ASSETS",
+    "EMDASH",
+    "README",
+    "CONFIG",
+    "DICOM",
+    "DEID",
+    "CCDA",
+    "ASTM",
+    "MLLP",
+    "FHIR",
+    "CREW",
+    "DOCS",
+    "PERF",
+    "SYNC",
+    "VERSION",
+    "PUBLIC",
+    "HL7",
+    "X12",
+    "IAC",
+    "CLI",
+    "KB",
+    "PW",
+    "PUB",
+    "CI",
+    "REAL",
+    "TERM",
+    "WF",
+    "VERIFY",
+    "SYNTH"
+  ],
+  "standardsDesignations": [
+    "NCPDP-(?:SCRIPT|TELECOM|D\\.\\d|F\\d)",
+    "HL7-(?:V2|V3|CDA|FHIR|OMG)",
+    "FHIR-R\\d[A-Z]?",
+    "DICOM-(?:SR|RT|SEG|DIR|PS\\d)",
+    "X12-\\d{3}[A-Z]?",
+    "X12-\\d{6}",
+    "CCDA-R\\d(?:\\.\\d)?",
+    "ASTM-E\\d+"
+  ],
+  "surfacePaths": [
+    "README.md",
+    "LICENSE",
+    "TRADEMARKS.md",
+    "docs-content"
+  ],
+  "accountedTarballFiles": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "TRADEMARKS.md",
+    "CHANGELOG.md"
+  ],
+  "sourceDocComments": {
+    "enabled": true,
+    "paths": [
+      "src/*.ts",
+      "src/**/*.ts"
+    ]
+  },
+  "extraRules": [
+    {
+      "id": "roadmap-citation",
+      "name": "internal roadmap citation",
+      "pattern": {
+        "source": "\\b(?:astm|cli|hl7|fhir|mllp|dicom|x12|ccda|ncpdp|transform|terminology|synth|deid|pathways|docs|website|iac|crew|knowledgebase|config|the|this|our) roadmap(?:'s)?\\b|\\broadmaps?(?:'s)?[ ]?§",
+        "flags": "i"
+      },
+      "positives": [
+        "Grounded in the astm roadmap §5",
+        "refined from the roadmap sketch",
+        "and the deid roadmap forbids it",
+        "unsupported for this record type; see the astm roadmap for when it lands"
+      ],
+      "negatives": [
+        "## Roadmap",
+        "a product roadmap and the vendor roadmap",
+        "roadmapping the migration",
+        "the roadmaps of other projects"
+      ]
+    }
+  ]
+}

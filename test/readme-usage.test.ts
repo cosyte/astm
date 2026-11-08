@@ -31,7 +31,7 @@
  * `@cosyte/astm` specifier to that path, and the rewrite is asserted to happen
  * exactly once. Importing the built `dist/` instead was rejected deliberately:
  * `pnpm test` runs on a tree that need not have been built, and reaching into
- * `dist/` would make this test race the build window that `scripts/attw.mjs`
+ * `dist/` would make this test race the build window that the `attw` gate
  * exists to report on.
  *
  * SECURITY: the subprocess is spawned with spawnSync and array args. No exec,
