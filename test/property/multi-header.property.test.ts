@@ -18,6 +18,8 @@ import fc from "fast-check";
 
 import { parseAstmRecords, type AstmMessage } from "../../src/index.js";
 
+import { amplified, fuzzTimeout } from "./_fuzz-config.js";
+
 /**
  * Candidate delimiter characters. Disjoint from {@link VALUE_CHARS}, so a generated value can never
  * accidentally contain a delimiter and force an escape: this property is about scoping, not escaping.
@@ -62,37 +64,45 @@ const rows = fc.array(fc.array(value, { minLength: 1, maxLength: 4 }), {
 });
 
 describe("messages in one stream do not interfere", () => {
-  it("parses a concatenation exactly as it parses each message alone", () => {
-    fc.assert(
-      fc.property(delimiterSet, delimiterSet, rows, rows, (d1, d2, rowsA, rowsB) => {
-        const a = buildMessage(d1, rowsA);
-        const b = buildMessage(d2, rowsB);
-        const combined = shape(parseAstmRecords(a + b));
-        const separate = [
-          ...(shape(parseAstmRecords(a)) as unknown[]),
-          ...(shape(parseAstmRecords(b)) as unknown[]),
-        ];
-        expect(combined).toEqual(separate);
-      }),
-      { numRuns: Number(process.env["ASTM_FUZZ_RUNS"] ?? 300) },
-    );
-  });
+  it(
+    "parses a concatenation exactly as it parses each message alone",
+    () => {
+      fc.assert(
+        fc.property(delimiterSet, delimiterSet, rows, rows, (d1, d2, rowsA, rowsB) => {
+          const a = buildMessage(d1, rowsA);
+          const b = buildMessage(d2, rowsB);
+          const combined = shape(parseAstmRecords(a + b));
+          const separate = [
+            ...(shape(parseAstmRecords(a)) as unknown[]),
+            ...(shape(parseAstmRecords(b)) as unknown[]),
+          ];
+          expect(combined).toEqual(separate);
+        }),
+        amplified(300),
+      );
+    },
+    fuzzTimeout(10_000),
+  );
 
-  it("never merges a following message's fields, whatever the two sets are", () => {
-    fc.assert(
-      fc.property(delimiterSet, delimiterSet, rows, (d1, d2, rowsB) => {
-        const stream = buildMessage(d1, [["A"]]) + buildMessage(d2, rowsB);
-        const msg = parseAstmRecords(stream);
-        // Every `R` in the second message models the cells it was written with, rather than
-        // collapsing into a single field.
-        const second = msg.records.slice(3);
-        const rRecords = second.filter((r) => r.type === "R");
-        expect(rRecords).toHaveLength(rowsB.length);
-        rRecords.forEach((r, i) => {
-          expect(r.fields).toHaveLength((rowsB[i]?.length ?? 0) + 2);
-        });
-      }),
-      { numRuns: Number(process.env["ASTM_FUZZ_RUNS"] ?? 300) },
-    );
-  });
+  it(
+    "never merges a following message's fields, whatever the two sets are",
+    () => {
+      fc.assert(
+        fc.property(delimiterSet, delimiterSet, rows, (d1, d2, rowsB) => {
+          const stream = buildMessage(d1, [["A"]]) + buildMessage(d2, rowsB);
+          const msg = parseAstmRecords(stream);
+          // Every `R` in the second message models the cells it was written with, rather than
+          // collapsing into a single field.
+          const second = msg.records.slice(3);
+          const rRecords = second.filter((r) => r.type === "R");
+          expect(rRecords).toHaveLength(rowsB.length);
+          rRecords.forEach((r, i) => {
+            expect(r.fields).toHaveLength((rowsB[i]?.length ?? 0) + 2);
+          });
+        }),
+        amplified(300),
+      );
+    },
+    fuzzTimeout(10_000),
+  );
 });

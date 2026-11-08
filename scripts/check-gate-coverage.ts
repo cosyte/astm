@@ -19,7 +19,7 @@
  *      a list is indistinguishable from a repo with no such gate.
  *
  * The third is the one that makes a local green mean strictly less than a CI
- * green, and this repo has two of them: a nightly `test:fuzz` job over the two
+ * green, and this repo has two of them: a nightly `fuzz` job over the two
  * byte-level surfaces, and the docs-artifact build the release pipeline runs. A
  * runner keyed on `check:`/`verify:` name prefixes cannot see either.
  *
@@ -91,7 +91,10 @@ const DECLARED_UNREACHABLE: { match: string; why: string }[] = [
  * the invisible class this file exists to name.
  */
 const CI_GATES_OUTSIDE_A_NAME_PREFIX: { script: string; runBy: string }[] = [
-  { script: "test:fuzz", runBy: ".github/workflows/fuzz.yml (scheduled)" },
+  {
+    script: "fuzz",
+    runBy: ".github/workflows/nightly-fuzz.yml (scheduled, through the shared nightly-fuzz.yml)",
+  },
   { script: "pack:docs", runBy: "the shared release pipeline's docs-artifact step" },
 ];
 
