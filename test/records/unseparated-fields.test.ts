@@ -182,7 +182,8 @@ describe("what it must never fire on", () => {
  *
  * They are asserted rather than merely written down, so that the documented boundary cannot quietly
  * drift into a guarantee the code does not provide. A test here going red means the scope moved,
- * and the prose on the warning code, in `README.md` and in the quickstart has to move with it.
+ * and the prose on the warning code, in `docs-content/guides-api-by-layer.md` and in the quickstart,
+ * has to move with it.
  */
 describe("the limits: shapes that lose data and are deliberately NOT reported", () => {
   it("a foreign set whose field separator happens to occur in the line still splits, silently", () => {

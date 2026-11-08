@@ -406,6 +406,14 @@ const VERSION_EXEMPTIONS: readonly VersionExemption[] = [
       "than copy the string.",
   },
   {
+    page: "concepts-coverage.md",
+    phrase: "sections 5.4 and 6.2",
+    why:
+      "two section numbers of the CLSI LIS02-A2 standard, the ones withheld from its free sample. " +
+      "They name clauses of an external document, not a release of this package, and the sentence " +
+      "states that the behaviors they govern are this reader's reading rather than a quotation.",
+  },
+  {
     page: "troubleshooting.md",
     phrase: "`1.5` and `257`",
     why:

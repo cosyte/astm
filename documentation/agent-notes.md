@@ -1,11 +1,11 @@
 # @cosyte/astm: agent notes
 
 The narrative half of this repo's `CLAUDE.md`, relocated here **verbatim** on 2026-08-04 so that
-`CLAUDE.md` fits the write-time bound the meta-repo puts on a submodule's always-read guide (its
-entry in `REPO_CLAUDE`, `.claude/hooks/doc-budget.mjs`, argued in ADR 0023: a per-repo ratchet whose
-entries are lowered as relocations land). **No number for it is quoted in either file on purpose**;
-read the entry: the bound that preceded it was quoted into documents and went stale inside a day,
-which is the failure this split exists to fix. Nothing was deleted. Every trap that lived in a paragraph here
+`CLAUDE.md` stays a short card. The bound the card keeps to is the card spec,
+`documentation/claude-card.md` in cosyte/config, which `@cosyte/script-utils/claude-card` checks; on
+2026-11-07 it replaced the per-repo bound the umbrella used to enforce. **No number for it is quoted
+in either file on purpose**: read the spec, since a bound quoted into documents goes stale, which is
+the failure this split exists to fix. Nothing was deleted. Every trap that lived in a paragraph here
 still lives in `CLAUDE.md` as a one-line imperative that points back at its section, and the
 reasoning, the measurements and the refuted claims are all below, word for word.
 
@@ -1461,7 +1461,7 @@ The org-wide standards are in the umbrella's `plans/standards.md`; this is a sum
   (per-condition types: `.d.ts` for `import`, `.d.cts` for `require`). The `attw` script is
   **`scripts/attw.mjs`, not the bare CLI**, because the CLI reports a missing `dist/` as "does not
   contain types" and **exits 0**.
-- **Node:** **>= 22** (CI matrix 22 + 24).
+- **Node:** **>= 22** (CI matrix 22, 24 and 26).
 - **Package manager:** `pnpm@10`.
 - **Lint/format:** **ESLint 10** + unified `typescript-eslint` (type-checked) via
   `@cosyte/eslint-config`; Prettier via `@cosyte/prettier-config`. Lint at `--max-warnings=0`.
@@ -1475,6 +1475,11 @@ The org-wide standards are in the umbrella's `plans/standards.md`; this is a sum
 <a id="claude-md-size"></a>
 
 ### How `CLAUDE.md` stays small, relocated here 2026-08-05 to make room for a trap
+
+> **Correction, 2026-11-08:** the per-repo `REPO_CLAUDE` ratchet below was the umbrella's, and it is
+> gone. The bound is now the card spec, `documentation/claude-card.md` in cosyte/config, checked by
+> `@cosyte/script-utils/claude-card`. The remedy for a breach is unchanged: move narrative here,
+> never drop a trap.
 
 Kept verbatim from that file's header, which was compressed rather than reasoned about again.
 **Nothing has ever been deleted from this notes file: the 2026-08-04 split and every relocation
@@ -1871,9 +1876,9 @@ could be widened from one value to two without re-opening that question. **The p
 re-proposed and still ships nowhere.**
 
 **▶ 🔴 THAT REMAINING SILENCE IS A TRADE, NOT A CLAIM THAT NOTHING WAS LOST, AND THE FIRST DRAFT OF
-THIS SLICE DROPPED THAT HEDGE FROM SIX SURFACES.** The base text said the excluded tail *"still shifts
-the fields and is the recorded residue"*; the draft replaced it with *"that is the escape mechanism
-working"* and stopped there, in `README.md`, `docs-content/limitations.md`,
+THIS SLICE DROPPED THAT HEDGE FROM SIX SURFACES.** The base text said the excluded tail _"still shifts
+the fields and is the recorded residue"_; the draft replaced it with _"that is the escape mechanism
+working"_ and stopped there, in `README.md`, `docs-content/limitations.md`,
 `docs-content/troubleshooting.md`, the module doc and three sink docs in `src/common/escapes.ts`, and
 the three code entries in `src/common/warnings.ts` (`dist/index.d.ts` and the immutable
 `docs-content/` tarball among them). **The refuter caught it on pass 1 and it is exactly defect 6's
@@ -1890,16 +1895,16 @@ scheme** under the other. All three are `PRE-EXISTING` and reproduce byte-identi
 **Closing them is the over-refusal that sank the pair count, so the answer is disclosure, not a
 wider guard, and the hedge must travel with the bound on every surface that states it.**
 
-**▶ 🔴 A SEVENTH SURFACE WAS FOUND ON THE SECOND REVIEW PASS, AND IT WAS THE *ADVICE*, NOT THE
+**▶ 🔴 A SEVENTH SURFACE WAS FOUND ON THE SECOND REVIEW PASS, AND IT WAS THE _ADVICE_, NOT THE
 HEDGE.** `docs-content/troubleshooting.md` carried the hedge in its three code sections but still
 told the reader to "treat a **bare** escape character next to a delimiter as worth reading the raw
 line for". **That advice does not reach the case it sits next to.** The one tail still silent is
-`&F&|&F&`, where the escape character next to the delimiter heads a *recognized* sequence and is
+`&F&|&F&`, where the escape character next to the delimiter heads a _recognized_ sequence and is
 therefore **not bare**, so a reader following that sentence literally skips exactly the stream
 nothing reports. Every sibling surface had already dropped the word (`README.md`,
 `docs-content/limitations.md`, the sink docs, `src/common/warnings.ts`, the changeset). The lesson is
 narrower than the one above and worth keeping separately: **when a bound is widened, re-read the
-*what-to-do* sentences as well as the *what-it-means* ones.** The prose that stated the rule was
+_what-to-do_ sentences as well as the _what-it-means_ ones.** The prose that stated the rule was
 correct on that page; the prose that told a reader what to do about it had gone false, which is the
 `no-internal-refs` rule 4 finding class ("the worst finds were English sentences") arriving on a
 different gate. Fixed by scoping the advice to any escape character next to a delimiter, whether or
@@ -1945,8 +1950,8 @@ in force**, `ASTM_RECORD_DELIMITER_SWALLOWED_BY_ESCAPE` had already refused the 
 and does not move.
 
 **▶ 🔴 THE UNIVERSAL THIS SWEEP REFUTED, IN ITS OWN FIRST DRAFT, AND IT IS THE SAME SHAPE THE FAMILY
-KEEPS COMMITTING.** The obvious claim is *"the reading taken reads exactly ONE more segment than the
-competing alignment"*, and the first draft of the sweep asserted it. **It is FALSE.** Where the tail
+KEEPS COMMITTING.** The obvious claim is _"the reading taken reads exactly ONE more segment than the
+competing alignment"_, and the first draft of the sweep asserted it. **It is FALSE.** Where the tail
 sequence's body is the delimiter the split is being taken on, the reading taken keeps that character
 inside an opaque atom while the competing alignment splits on it, so the two readings produce the
 **same number** of segments in **different places**: under `H~\^&`, `28.6&F&~&~&U/L` reads
@@ -1964,13 +1969,13 @@ codes make about their own role standing unqualified. Widening the predicate wid
 population past the point where those claims hold, and they were false in `dist/index.d.ts`, in the
 immutable `docs-content/` tarball, and in **three runtime warning messages**:
 
-- `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`: *"every later field is one place further right"*. On the
+- `ASTM_RECORD_ALIGNMENT_SHIFTED_FIELDS`: _"every later field is one place further right"_. On the
   canonical set `R|1|^^^687|28.6&F&|&|&U/L||||F` reads **nine** fields under **both** readings, with
   the sender's `F` in field 9 under both and `isActiveFinal: true` either way. No index moves; what
   differs is the units (`&|&U/L` against `&U/L`).
-- `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`: *"the field is read as more repeats than the other reading
-  gives it"*. `28.6&F&\&\&U/L` reads **two** repeats under both.
-- `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`: *"every later component sits one place further right"*.
+- `ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD`: _"the field is read as more repeats than the other reading
+  gives it"_. `28.6&F&\&\&U/L` reads **two** repeats under both.
+- `ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS`: _"every later component sits one place further right"_.
   `DOE&F&^&^&JANE^A` reads **three** components under both, with `A` the middle name under both.
 
 **The remedy is the CLAIM, not the GUARD, for the fourth time in this family.** Narrowing the
@@ -1996,8 +2001,8 @@ constants inside its own assertion. The modeled slots are pinned separately, aga
 alignment rather than against a remembered figure.
 
 **▶ 🔴🔴🔴 AND THE CORRECTION ITSELF GREW A NEW UNIVERSAL, WHICH THE SECOND REFUTER PASS CAUGHT.**
-The rewritten runtime messages opened *"The two readings disagree about **every byte** after this
-point"*. **False on the very class the same sentence then names**: on
+The rewritten runtime messages opened _"The two readings disagree about **every byte** after this
+point"_. **False on the very class the same sentence then names**: on
 `R|1|^^^687|28.6&F&|&|&U/L||||F` the two readings **resync**, and fields 6 to 9 are byte-identical
 and index-identical under both. So the repair for one over-broad claim was written as another
 over-broad claim, three clauses earlier in the same string. The form that survives every sweep is the
@@ -2007,8 +2012,8 @@ tail" phrasing were standing in `README.md`, `src/common/escapes.ts`,
 `docs-content/troubleshooting.md` and two measurement files, and were scoped with it.
 
 **▶ THE SECOND PASS ALSO CAUGHT A COMPANION-CODE CLAIM THAT THE WIDENING FALSIFIED, IN
-`dist/index.d.ts`.** All three warning factories said *"It fires alongside
-`ASTM_UNPAIRED_ESCAPE_CHARACTER`"* unconditionally. That was **true of the old predicate**, which
+`dist/index.d.ts`.** All three warning factories said _"It fires alongside
+`ASTM_UNPAIRED_ESCAPE_CHARACTER`"_ unconditionally. That was **true of the old predicate**, which
 required a bare escape character at `i+4`; on the half this slice added the tail is a complete
 triple and **no unpaired character exists in the record at all**, which the slice's own new test
 asserts three times. It now names both companions and says which one depends on the tail. **This is
@@ -2615,6 +2620,15 @@ Part of the `attw` gate's trap list; it belongs with `#attw`.
 
 ## The two-file contract, and why the matcher had to be re-derived here
 
+> **Correction, 2026-11-08: the pointer form changed.** `CLAUDE.md` now writes every pointer in the
+> path-qualified form, this file's full path, then `#`, then the anchor: the one form the shared
+> agent-notes checker in `@cosyte/script-utils` accepts there, because a bare backticked anchor
+> names no file a reader can follow. `scripts/check-agent-notes.ts` follows: the path-qualified form
+> is now the live form whose absence refuses, the bare form is still matched wherever it is written
+> (this file cross-references its own sections that way), and the placeholder exemption is gone with
+> the sentence it described. The measurement below is the record of why the gate was written as it
+> was, not a description of the tree today.
+
 `scripts/check-agent-notes.ts` checks the contract between `CLAUDE.md` and this file: that every
 pointer resolves, that no section a pointer reaches is empty, and that this file stays reachable from
 the one every worker reads. The teeth are `test/scripts/agent-notes.test.ts`, so it rides the
@@ -2762,14 +2776,14 @@ Roots were `src` and `test/fixtures`, and the walk exempts `.md`. Measured again
 Measured on `1e16cda`, the commit before this slice, so the figures do not move when the slice adds
 files. `T` is `git ls-files`, and the base scope is `src/` plus `test/fixtures/` less `.md`:
 
-| | files | command |
-|---|---|---|
-| tracked | 165 | `git ls-files \| wc -l` |
-| observed by the all-mode walk | 59 | the base scope, above |
-| **scanned by NEITHER route** | **106** | `T` less the base scope |
-| of those, under `test/` | **66** | `git ls-files test/ \| grep -v ^test/fixtures/` |
-| of those 66, containing the two characters `P\|` | **33** | that list, `xargs /usr/bin/grep -l 'P\|'` |
-| observed after the widening | **132** | the new scope, less `.md` |
+|                                                  | files   | command                                         |
+| ------------------------------------------------ | ------- | ----------------------------------------------- |
+| tracked                                          | 165     | `git ls-files \| wc -l`                         |
+| observed by the all-mode walk                    | 59      | the base scope, above                           |
+| **scanned by NEITHER route**                     | **106** | `T` less the base scope                         |
+| of those, under `test/`                          | **66**  | `git ls-files test/ \| grep -v ^test/fixtures/` |
+| of those 66, containing the two characters `P\|` | **33**  | that list, `xargs /usr/bin/grep -l 'P\|'`       |
+| observed after the widening                      | **132** | the new scope, less `.md`                       |
 
 **The 33 is a count of files CONTAINING the two characters, not of files the detector reads.** The
 two are different numbers and conflating them is how the first draft of this table said 31: a
@@ -2862,12 +2876,12 @@ is still read off disk with exactly the views it had. The mechanism is written o
 `[phi-scan] OK: no hits` over a synthetic stream carrying a patient name, a mother's maiden name, a
 birthdate and a dashed SSN:**
 
-| state | why neither route saw it |
-|---|---|
-| **decoy content at a tracked path** | the walk read the clean file on disk, and the reconciliation only asked whether a file was *there* |
-| **a tracked path outside every walk root** | `WALK_ROOT_NAMES` is three names and the reconciliation only looks **within** them, so it cannot notice a corpus it was never pointed at |
-| **a tracked symlink or gitlink outside every walk root** | `walk()` classifies entries **inside** a root; git carries a link's **target path**, itself a PHI surface |
-| **an empty index** | every clause of the reconciliation is satisfied for free by having nothing to reconcile against |
+| state                                                    | why neither route saw it                                                                                                                 |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **decoy content at a tracked path**                      | the walk read the clean file on disk, and the reconciliation only asked whether a file was _there_                                       |
+| **a tracked path outside every walk root**               | `WALK_ROOT_NAMES` is three names and the reconciliation only looks **within** them, so it cannot notice a corpus it was never pointed at |
+| **a tracked symlink or gitlink outside every walk root** | `walk()` classifies entries **inside** a root; git carries a link's **target path**, itself a PHI surface                                |
+| **an empty index**                                       | every clause of the reconciliation is satisfied for free by having nothing to reconcile against                                          |
 
 **And one state a sibling's list names that was ALREADY closed here, so this route must not be
 credited with it: a tracked file absent from the working tree under a declared root.** That is the
@@ -2915,7 +2929,7 @@ the merge, and both worth carrying:**
 - **The empty-index refusal fired BEFORE the walk was scanned**, which made the run strictly worse
   than the superseded scanner's for one input: an empty index with a PHI-bearing fixture on disk
   exited **1** naming every locus before, and **2** naming nothing after. `A REFUSAL MUST NOT
-  SWALLOW A REAL HIT` is the rule the index route already carried, and it applies to that clause for
+SWALLOW A REAL HIT` is the rule the index route already carried, and it applies to that clause for
   the same reason. It is now refused after the walk loop, hits printed first, exit still 2.
 
 **The five axes that do not transfer, re-derived here rather than ported:**

@@ -6,9 +6,10 @@ that honestly is; the whole public export surface as the subject of the stabilit
 line makes; every break a consumer would see; and what has to happen before anything publishes.
 
 It was first taken for `0.1.0`. It was taken again on 2026-11-07 for the first set pending after
-`0.1.0` published, because `test/scripts/release-readiness.test.ts` fails on that set until the
-next set is audited and the published base is moved. The `0.1.0` audit as it stood when that version
-shipped is this file at the `v0.1.0` tag. What it found that still matters to a consumer, the breaks
+`0.1.0` published, and again on 2026-11-08 for the first set pending after `0.1.1`, because
+`test/scripts/release-readiness.test.ts` fails on such a set until it is audited and the published
+base is moved. The `0.1.0` audit as it stood when that version shipped is this file at the `v0.1.0`
+tag, and the `0.1.1` audit is this file at the `v0.1.1` tag. What it found that still matters to a consumer, the breaks
 `0.1.0` shipped, is kept in section 4.
 
 It is bookkeeping, not consumer documentation. It is deliberately not `README.md` and not
@@ -27,10 +28,9 @@ wrong.
 
 ## 1. The pending changeset audit
 
-The published version is the `version` field of `package.json`, `0.1.0`, the first release on the
-`0.1.x` line, published on 2026-09-25. The pending set below is every file matching
-`.changeset/*.md` other than `README.md` (`config.json` is the tool's configuration and carries no
-bump).
+The published version is the `version` field of `package.json`, `0.1.1`, published on 2026-11-07
+through npm trusted publishing. The pending set below is every file matching `.changeset/*.md`
+other than `README.md` (`config.json` is the tool's configuration and carries no bump).
 
 One changeset is pending, and it arrived carrying `patch`. It is applied as written, because its own
 text and the change it documents both support `patch`, as read below. Reclassification runs in both
@@ -39,40 +39,39 @@ directions or it is not a reading, so the same rule that moved three `0.1.0` cha
 
 <!-- audit:begin -->
 
-| pending changeset       | bump as written | applied bump |
-| ----------------------- | --------------- | ------------ |
-| `trusted-publishing.md` | `patch`         | `patch`      |
+| pending changeset      | bump as written | applied bump |
+| ---------------------- | --------------- | ------------ |
+| `readme-docs-pages.md` | `patch`         | `patch`      |
 
 <!-- audit:end -->
 
-Highest bump in the set: `patch`. Applied to the published `0.1.0`, Changesets resolves
-`@cosyte/astm` to **`0.1.1`**.
+Highest bump in the set: `patch`. Applied to the published `0.1.1`, Changesets resolves
+`@cosyte/astm` to **`0.1.2`**.
 
-### `trusted-publishing.md`: `patch`
+### `readme-docs-pages.md`: `patch`
 
-Its own text says the release is published through npm trusted publishing, with provenance, that the
-code, API and behavior are unchanged from `0.1.0`, and that only the README and some doc comments
-differ. Each claim was checked against the tree rather than taken from the text.
+Its own text says the README follows the shared layout, that its API tour and its coverage and
+compatibility notes moved unchanged to two docs pages, and that no code, API or behavior changes.
+Each claim was checked against the tree rather than taken from the text.
 
-- **Why the release exists.** On 2026-11-07 the operator registered npm trusted publishers for every
-  `@cosyte` package and directed that every package be published once, so that npm marks each
-  trusted publisher valid (section 6). npm never republishes an existing version and nothing else
-  was pending here, so a version whose only news is the publishing route is what that direction
-  needs. The route belongs to the shared release workflow that `.github/workflows/release.yml`
-  calls, and no file in this repository changes for it.
+- **Why the release exists.** The operator's standards of 2026-11-07 set one README skeleton for
+  every library, checked by the README gate in `@cosyte/script-utils`, and a size well under npm's
+  cut. The README is in the tarball, so a consumer reading it on npm sees the new one only once a
+  version carries it.
 - **What the tarball changes.** `package.json` ships `dist`, `README.md`, `LICENSE` and
-  `CHANGELOG.md`, and everything that feeds them was compared between the `v0.1.0` tag and this
-  branch. Under `src/`, six files under `src/frames/` changed, and every changed line is a comment
-  in which a number range written with an en dash now reads with "to". `src/index.ts`,
-  `package.json`, `tsup.config.ts`, `tsconfig.json` and `pnpm-lock.yaml` are unchanged.
-- **What the build shows.** Built from this branch, `dist/index.mjs` and `dist/index.cjs` are
-  byte-identical to the files in the published `0.1.0` tarball. `dist/index.d.ts` and
-  `dist/index.d.cts` differ in seven doc-comment lines, which are that same range wording; the
-  source maps differ because they embed the source text; and `README.md` differs in two lines, which
-  now write Cosyte with a capital C.
+  `CHANGELOG.md`. Between the `v0.1.1` tag and this branch nothing under `src/` changed, and
+  neither did `tsup.config.ts` or `tsconfig.json`. `package.json` changed in its `prepare` script
+  and dev dependencies only, and `pnpm-lock.yaml` in dev dependencies only. `README.md` is
+  rewritten, and `CHANGELOG.md` gains the entry Changesets writes from this changeset.
+- **What the build shows.** Built from this branch, `dist/index.mjs`, `dist/index.cjs`,
+  `dist/index.d.ts` and `dist/index.d.cts` are byte-identical to the files in the published `0.1.1`
+  tarball, and the file list of `dist/` is the same.
+- **What else ships.** The two new pages, `docs-content/guides-api-by-layer.md` and
+  `docs-content/concepts-coverage.md`, ship in the release's docs asset, not in the npm tarball.
+  Their prose is the README's, moved with its headings one level up.
 
 Measured against section 3's enumeration, it adds no value, removes none, renames none, and changes
-no exported function's behaviour. It emits no byte differently: no runtime statement changed, so a
+no exported function's behaviour. It emits no byte differently: the built code is identical, so a
 parsed and re-serialized record is unchanged and no warning code moves. That is what a `patch`
 claims, so `patch` is what it keeps.
 
@@ -92,7 +91,7 @@ convenience: leave its bump unapplied, record it in section 4 as a break candida
 operator, and do not quietly write `minor` over it. A `major` silently downgraded to `minor` reads,
 from the outside, exactly like a repo that had nothing to escalate.
 
-## 3. The public export surface certified at `0.1.0`, unchanged in `0.1.1`
+## 3. The public export surface certified at `0.1.0`, unchanged in `0.1.1` and `0.1.2`
 
 The subject of the stability claim is the package's single public entry point, `src/index.ts`, and
 the surface is everything it re-exports: values and types both. `package.json` publishes exactly one
@@ -505,7 +504,7 @@ From `./frames/types.js`:
 <!-- certification:begin -->
 
 **The surface enumerated above is certified as the public API of `@cosyte/astm` at `0.1.0`, and it
-is carried unchanged into `0.1.1`: it is settled, and it is stable enough for a consumer to depend
+is carried unchanged into `0.1.1` and `0.1.2`: it is settled, and it is stable enough for a consumer to depend
 on.** Every identifier in it is a deliberate export with a documented contract, the record layer is
 feature-complete, and no part of it is a placeholder waiting to be renamed. From `0.1.0` onward a
 removal or a rename of anything on that list is a break with a real cost, to be surfaced and decided
@@ -515,8 +514,9 @@ The certification is scoped, deliberately, and the scope is the whole of its hon
 
 - It certifies the surface **as of this branch**. Against `0.1.0` that surface is identical:
   `src/index.ts` and every module behind it are unchanged apart from comments (section 1), so a
-  consumer of `0.1.0` has no work to do to take `0.1.1`. The work a consumer of `0.0.22` had to do
-  to take `0.1.0` is section 4, enumerated.
+  consumer of `0.1.0` has no work to do to take `0.1.1`. Since `0.1.1` nothing under `src/` has
+  changed, so the same holds for `0.1.2`. The work a consumer of `0.0.22` had to do to take `0.1.0`
+  is section 4, enumerated.
 - It is a claim about names, shapes and documented contracts, not a promise that a warning code
   never gains a member or that a lenient parse never becomes more precise. Both are additive and
   both are governed by the profile safety gate rather than by this file.
@@ -742,8 +742,8 @@ rule is that saying nothing never reads as saying none.
 <!-- unresolved:begin -->
 
 None. The one pending changeset classifies from its own text, and the change it documents was
-checked against the `v0.1.0` tag, against `src/index.ts` and the modules behind it, and against the
-published `0.1.0` tarball.
+checked against the `v0.1.1` tag, against `src/index.ts` and the modules behind it, and against the
+published `0.1.1` tarball.
 
 <!-- unresolved:end -->
 
@@ -757,16 +757,19 @@ release pipeline cuts it.**
   meta-repo). On 2026-09-25 the operator directed that every package be put on `0.1.x` and
   published, in these words: "I need every single package on v0.1.x and published." `0.1.0`
   published that day and shipped the breaks in section 4, each with its migration in `CHANGELOG.md`.
-- **Why `0.1.1` is prepared.** On 2026-11-07 the operator registered npm trusted publishers for
+- **Why `0.1.1` was prepared.** On 2026-11-07 the operator registered npm trusted publishers for
   every `@cosyte` package and directed, in these words: "every package needs to be published so that
-  the trusted publisher is marked as valid". The pending set is that publish for this package.
+  the trusted publisher is marked as valid". `0.1.1` was that publish for this package.
+- **Why `0.1.2` is prepared.** The same day the operator decided one standard for every repository
+  and approved the releases of the repositories brought to it ("Finished repos, I approve runs"),
+  patch versions only. The pending set is this package's README brought to that standard.
 - **What merging a change here does.** `.github/workflows/release.yml` fires on a push to `main`
   and calls the shared release pipeline, which opens or updates the "Version Packages" pull request
   and parks the publish on the `release` environment gate. Merging that pull request and approving
   that gate belong to whoever runs the release, never to a change that edits this file.
-- **So the honest reading** is: the pending set resolves to `0.1.1`, the surface it carries is the
-  one `0.1.0` certified, and it carries no break. The version in `package.json` is still `0.1.0` and
-  stays `0.1.0` until Changesets writes the next one.
+- **So the honest reading** is: the pending set resolves to `0.1.2`, the surface it carries is the
+  one `0.1.0` certified, and it carries no break. The version in `package.json` is still `0.1.1` and
+  stays `0.1.1` until Changesets writes the next one.
 
 ### The follow-on the `0.1.0` bump created
 

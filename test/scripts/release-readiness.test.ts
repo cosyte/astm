@@ -10,10 +10,10 @@
  *
  * WHAT IT ASSERTS
  *   - the pending set is non-empty and resolves the package to the prepared version off the
- *     published base, `0.1.1` off `0.1.0`, which needs `patch` bumps only: no `minor` and no
+ *     published base, `0.1.2` off `0.1.1`, which needs `patch` bumps only: no `minor` and no
  *     `major`;
- *   - the trusted publishing changeset, the one the record audits, carries `patch`, because
- *     neither its own text nor the tree since the published base moves a public value;
+ *   - the README changeset, the one the record audits, carries `patch`, because neither its own
+ *     text nor the tree since the published base moves a public value;
  *   - the record's audit table accounts for every pending changeset and states the bump each
  *     one actually carries;
  *   - the surface the record enumerates is exactly what the entry point re-exports, values
@@ -62,13 +62,13 @@ const PACKAGE_NAME = "@cosyte/astm";
  * computed from. It is compared against `package.json` rather than trusted: if the two ever
  * disagree, the audit is describing a release that already happened.
  */
-const PUBLISHED_BASE = "0.1.0";
+const PUBLISHED_BASE = "0.1.1";
 
 /** The version the pending set is prepared to resolve to. */
-const PREPARED_VERSION = "0.1.1";
+const PREPARED_VERSION = "0.1.2";
 
 /** The changeset the record audits, whose own text and change move no public value. */
-const TRUSTED_PUBLISHING_CHANGESET = "trusted-publishing.md";
+const AUDITED_CHANGESET = "readme-docs-pages.md";
 
 type Bump = "patch" | "minor" | "major";
 
@@ -435,12 +435,12 @@ describe.skipIf(RELEASE_COMMIT)("the pending changeset set", () => {
     expect(resolveNextVersion(PUBLISHED_BASE, BUMPS)).toBe(PREPARED_VERSION);
   });
 
-  it("classifies the trusted publishing changeset as patch, because it moves no public value", () => {
+  it("classifies the README changeset as patch, because it moves no public value", () => {
     // Its own text says the code, API and behavior are unchanged, and the tree agrees: since the
-    // published base, `src/index.ts` is unchanged and every other change under `src/` is a
-    // comment. Section 1 of the record sets out what was compared.
-    const entry = PENDING.find((pending) => pending.file === TRUSTED_PUBLISHING_CHANGESET);
-    expect(entry, `${TRUSTED_PUBLISHING_CHANGESET} is not in the pending set`).toBeDefined();
+    // published base nothing under `src/` changed, and the built code is byte-identical to the
+    // published tarball. Section 1 of the record sets out what was compared.
+    const entry = PENDING.find((pending) => pending.file === AUDITED_CHANGESET);
+    expect(entry, `${AUDITED_CHANGESET} is not in the pending set`).toBeDefined();
     expect(entry?.bump).toBe("patch");
   });
 });

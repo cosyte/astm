@@ -50,10 +50,10 @@ const TSX_BIN = join(REPO_ROOT, "node_modules", ".bin", "tsx");
  * out a tree where it is tracked. Re-run the gate AFTER staging, never only before.
  */
 const TICK = "\u0060";
-/** This tree's live pointer form, BUILT rather than spelled. */
-const pointer = (anchor: string): string => `${TICK}#${anchor}${TICK}`;
-/** The path-qualified form a sibling repo writes, also built rather than spelled. */
-const pathPointer = (anchor: string): string => `documentation/agent-notes.md#${anchor}`;
+/** This tree's live pointer form since 2026-11-08, path-qualified, BUILT rather than spelled. */
+const pointer = (anchor: string): string => `documentation/agent-notes.md#${anchor}`;
+/** The backtick-quoted bare form the tree wrote before, still matched, also built. */
+const barePointer = (anchor: string): string => `${TICK}#${anchor}${TICK}`;
 
 const trees: string[] = [];
 afterAll(() => {
@@ -66,22 +66,13 @@ interface RunResult {
   stderr: string;
 }
 
-/**
- * The placeholder the gate declares as a non-pointer. EVERY fixture carries it,
- * because an exemption that matches nothing is a refusal by design, and one case
- * omits it deliberately to prove that.
- */
-const PLACEHOLDER = `a bare ${pointer("anchor")} below is an anchor in that file`;
-
-/** A minimal `CLAUDE.md`: the path link, the placeholder, and whatever pointers a case wants. */
-function claudeMd(body: string, opts: { pathLink?: boolean; placeholder?: boolean } = {}): string {
+/** A minimal `CLAUDE.md`: the path link and whatever pointers a case wants. */
+function claudeMd(body: string, opts: { pathLink?: boolean } = {}): string {
   const link =
     opts.pathLink === false
       ? "documentation/agent-notes.md"
       : "[the record](documentation/agent-notes.md)";
-  const ph =
-    opts.placeholder === false ? "a bare anchor below is an anchor in that file" : PLACEHOLDER;
-  return `# Guide\n\n> The narrative lives in ${link}. ${ph}.\n\n${body}\n`;
+  return `# Guide\n\n> The narrative lives in ${link}.\n\n${body}\n`;
 }
 
 /** Build a throwaway git tree from a map of relative path to contents. */
@@ -132,7 +123,7 @@ describe("the contract holds", () => {
     const r = run(dir);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("agent-notes contract: OK");
-    expect(r.stdout).toContain("2 live bare-anchor form");
+    expect(r.stdout).toContain("2 path-qualified live form");
     expect(r.stdout).toMatch(/2 tracked, 2 read, 0 unreadable/);
   });
 
@@ -144,7 +135,7 @@ describe("the contract holds", () => {
     });
     const r = run(dir);
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain("2 live bare-anchor form");
+    expect(r.stdout).toContain("2 path-qualified live form");
   });
 
   it("does not red a container heading that legitimately has no body of its own", () => {
@@ -197,7 +188,7 @@ describe("a broken contract is caught", () => {
     expect(r.stderr).toContain("is empty");
   });
 
-  it("reds when CLAUDE.md stops linking the record by path, since bare anchors need it", () => {
+  it("reds when CLAUDE.md stops linking the record by path", () => {
     const dir = makeTree({
       "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`, { pathLink: false }),
       "documentation/agent-notes.md": TWO_SECTIONS,
@@ -231,44 +222,17 @@ describe("it refuses rather than guessing", () => {
     expect(r.stderr).toContain("no pointer into");
   });
 
-  it("refuses when the LIVE form is gone but a sibling repo's spelling still matches", () => {
+  it("refuses when the LIVE form is gone but another spelling still matches", () => {
     // The ported-matcher tripwire. A gate that reported OK here would be the
     // exact defect this class keeps producing, one direction later.
     const dir = makeTree({
-      "CLAUDE.md": claudeMd(`Why: [x](${pathPointer("defect-1")}).`),
+      "CLAUDE.md": claudeMd(`Why: ${barePointer("defect-1")}.`),
       "documentation/agent-notes.md": TWO_SECTIONS,
     });
     const r = run(dir);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("live form");
     expect(r.stderr).toContain("Re-derive the forms against the tree");
-  });
-
-  it("refuses when the declared non-pointer matches nothing, so a skip cannot go phantom", () => {
-    const dir = makeTree({
-      "CLAUDE.md": claudeMd(`Why: ${pointer("defect-1")}.`, { placeholder: false }),
-      "documentation/agent-notes.md": TWO_SECTIONS,
-    });
-    const r = run(dir);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain('declared non-pointer "anchor"');
-    expect(r.stderr).toContain("goes phantom");
-  });
-
-  it("refuses when the declared non-pointer silently widens to a second occurrence", () => {
-    // Fired for real during this gate's build: the trap line announcing the gate
-    // spelled the placeholder while describing the pointer form, and the
-    // exemption absorbed it with a reason that did not describe it. An exclusion
-    // that can quietly widen is the phantom defect from the other side.
-    const dir = makeTree({
-      "CLAUDE.md": claudeMd(
-        `Why: ${pointer("defect-1")}. The form is a bare ${pointer("anchor")}, spelled out.`,
-      ),
-      "documentation/agent-notes.md": TWO_SECTIONS,
-    });
-    const r = run(dir);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("describes ONE sentence but matched 2 occurrences");
   });
 
   it("refuses when a tracked file is missing from the worktree", () => {
@@ -314,7 +278,8 @@ describe("the corpus and the encoding bound, pinned in both directions", () => {
     const r = run(dir);
     expect(r.code).toBe(0);
     expect(r.stdout).toMatch(/3 tracked, 3 read, 0 unreadable/);
-    expect(r.stdout).toContain("2 live bare-anchor form");
+    expect(r.stdout).toContain("pointers: 2 (1 path-qualified live form");
+    expect(r.stdout).toContain("1 bare backticked");
   });
 
   it("matches a pointer spelled in ASCII bytes inside a Windows-1252 file", () => {
@@ -330,7 +295,7 @@ describe("the corpus and the encoding bound, pinned in both directions", () => {
     });
     const r = run(dir);
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain("2 live bare-anchor form");
+    expect(r.stdout).toContain("2 path-qualified live form");
   });
 
   it("does NOT match a pointer in a UTF-16 file, which is the disclosed miss", () => {
@@ -342,7 +307,7 @@ describe("the corpus and the encoding bound, pinned in both directions", () => {
     const r = run(dir);
     expect(r.code).toBe(0);
     // One pointer, not two: the UTF-16 spelling is invisible, by the stated rule.
-    expect(r.stdout).toContain("1 live bare-anchor form");
+    expect(r.stdout).toContain("1 path-qualified live form");
   });
 
   it("ignores an anchor that is inside a fenced code block", () => {
@@ -381,18 +346,18 @@ describe("this repository's own tree", () => {
     expect(r.code).toBe(0);
   });
 
-  it("is written in the live bare-anchor form, which is why the sibling matchers are not used", () => {
-    // The measurement this gate was derived from, pinned so a silent migration
-    // of the spelling shows up here rather than as a gate that covers nothing.
+  it("is written in the path-qualified live form, with no basename-qualified pointer", () => {
+    // Pinned so a silent migration of the spelling shows up here rather than as a
+    // gate that covers nothing.
     const r = run(REPO_ROOT);
     const m =
-      /pointers: (\d+) \((\d+) live bare-anchor form, (\d+) basename-qualified, (\d+) path-qualified\)/.exec(
+      /pointers: (\d+) \((\d+) path-qualified live form, (\d+) basename-qualified, (\d+) bare backticked\)/.exec(
         r.stdout,
       );
     expect(m).not.toBeNull();
-    const [, total, liveN] = m as RegExpExecArray;
-    expect(Number(liveN)).toBeGreaterThan(0);
-    expect(Number(liveN)).toBe(Number(total));
+    const [, , pathN, basenameN] = m as RegExpExecArray;
+    expect(Number(pathN)).toBeGreaterThan(0);
+    expect(Number(basenameN)).toBe(0);
   });
 
   it("resolves its pointers through explicit anchors, which heading slugs alone would miss", () => {
@@ -400,9 +365,9 @@ describe("this repository's own tree", () => {
     const explicit = new Set([...notes.matchAll(/<a\s+(?:id|name)="([^"]+)"/g)].map((m) => m[1]));
     expect(explicit.size).toBeGreaterThan(0);
     const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
-    const anchors = [...claude.matchAll(/`#([A-Za-z0-9._-]+)`/g)]
-      .map((m) => m[1] as string)
-      .filter((a) => a !== "anchor");
+    const anchors = [...claude.matchAll(/documentation\/agent-notes\.md#([A-Za-z0-9._-]+)/g)].map(
+      (m) => m[1] as string,
+    );
     expect(anchors.length).toBeGreaterThan(0);
     for (const a of anchors) expect(explicit.has(a)).toBe(true);
   });
