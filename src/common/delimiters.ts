@@ -81,10 +81,7 @@ export const CANONICAL_DELIMITERS: Delimiters = {
  *   escape character.
  */
 export type DelimiterDeclarationFault =
-  | "not-a-header"
-  | "record-too-short"
-  | "definition-truncated"
-  | "field-separator-reused";
+  "not-a-header" | "record-too-short" | "definition-truncated" | "field-separator-reused";
 
 /** The result of reading delimiters from a header record: either resolved or a named failure. */
 export type DelimiterReadResult =

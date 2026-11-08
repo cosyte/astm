@@ -87,7 +87,7 @@ function workflowRunning(command: string): string {
 describe("check-gate-coverage: a CI gate with no local route is a failure", () => {
   it("reds when a workflow runs a repo script that no package script reproduces", () => {
     const root = makeTree(
-      { test: "vitest run" },
+      { test: "cosyte-process test" },
       { "gate.yml": workflowRunning("bash scripts/check-something.sh") },
     );
     const r = run(root);
@@ -120,7 +120,7 @@ describe("check-gate-coverage: a CI gate with no local route is a failure", () =
 describe("check-gate-coverage: a shared pipeline told to run a step needs that step", () => {
   it("reds when a `run-<x>: true` input names a script this repo does not define", () => {
     const root = makeTree(
-      { test: "vitest run" },
+      { test: "cosyte-process test" },
       {
         "ci.yml": [
           "name: CI",

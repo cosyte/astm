@@ -137,12 +137,7 @@ export interface VerbatimInput {
 
 /** Any record the message builder can emit (the terminator `L` is appended automatically). */
 export type AstmRecordInput =
-  | PatientInput
-  | OrderInput
-  | ResultInput
-  | CommentInput
-  | QueryInput
-  | VerbatimInput;
+  PatientInput | OrderInput | ResultInput | CommentInput | QueryInput | VerbatimInput;
 
 /** Optional header fields (after the delimiter declaration). */
 export interface HeaderInput {

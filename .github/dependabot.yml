@@ -18,6 +18,20 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    ignore:
+      # @types/node describes the oldest Node.js this package runs on (engines: >=22), so it stays
+      # on the 22 line. A newer major type-checks calls that Node 22 does not have.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # @cosyte/process owns the vitest, typescript, eslint and prettier versions. This repository
+      # declares them directly only because test files import vitest and the compiler API,
+      # `typecheck:examples` and `lint:examples` run tsc and eslint over the examples' own configs,
+      # and the changelog test and the `version` script run prettier, each pinned to exactly the
+      # version process runs. They move when process does, never on their own.
+      - dependency-name: "vitest"
+      - dependency-name: "typescript"
+      - dependency-name: "eslint"
+      - dependency-name: "prettier"
   # keep GitHub Actions references current
   - package-ecosystem: github-actions
     directory: "/"
