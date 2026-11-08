@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+### Patch Changes
+
+- 93c5774: The README follows our shared layout, with Support and Security sections and the Node.js versions CI tests (22, 24, and 26), and at a fifth of its former length it fits well inside npm's README limit. Its API tour and its coverage and compatibility notes moved, unchanged, to two pages on docs.cosyte.com/astm: "The API, layer by layer" and "Coverage and compatibility". No code, API, or behavior changes.
+
 ## 0.1.1
 
 ### Patch Changes
