@@ -230,9 +230,7 @@ export interface LivdCandidate {
  * Every one of them surfaces every candidate and chooses no LOINC.
  */
 export type LivdAmbiguityReason =
-  | "no-reported-units"
-  | "no-candidate-matched-units"
-  | "multiple-candidates-matched-units";
+  "no-reported-units" | "no-candidate-matched-units" | "multiple-candidates-matched-units";
 
 /**
  * The outcome of looking a vendor code up in a {@link LivdCatalog}. A distinct

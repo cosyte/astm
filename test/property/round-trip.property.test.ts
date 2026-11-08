@@ -59,7 +59,7 @@ function specShapedInput(): fc.Arbitrary<string> {
  * warning or an *allowed* fatal, never an unclassified throw.
  */
 function hostileInput(): fc.Arbitrary<string> {
-  return fc.oneof(fc.string(), fc.fullUnicodeString(), specShapedInput());
+  return fc.oneof(fc.string(), fc.string({ unit: "binary" }), specShapedInput());
 }
 
 describe("astm conformance (archetype invariants)", () => {

@@ -6,11 +6,11 @@ that honestly is; the whole public export surface as the subject of the stabilit
 line makes; every break a consumer would see; and what has to happen before anything publishes.
 
 It was first taken for `0.1.0`. It was taken again on 2026-11-07 for the first set pending after
-`0.1.0` published, and on 2026-11-08 for the first sets pending after `0.1.1`, after `0.1.2` and
-after `0.1.3`, because `test/scripts/release-readiness.test.ts` fails on such a set until it is
-audited and the published base is moved. The `0.1.0` audit as it stood when that version shipped is
-this file at the `v0.1.0` tag, and the `0.1.1`, `0.1.2` and `0.1.3` audits are this file at the
-`v0.1.1`, `v0.1.2` and `v0.1.3` tags. What it found that still matters to a consumer, the breaks `0.1.0` shipped, is
+`0.1.0` published, and on 2026-11-08 for the first sets pending after `0.1.1`, after `0.1.2`, after
+`0.1.3` and after `0.1.4`, because `test/scripts/release-readiness.test.ts` fails on such a set until
+it is audited and the published base is moved. The `0.1.0` audit as it stood when that version
+shipped is this file at the `v0.1.0` tag, and the `0.1.1`, `0.1.2`, `0.1.3` and `0.1.4` audits are
+this file at the `v0.1.1`, `v0.1.2`, `v0.1.3` and `v0.1.4` tags. What it found that still matters to a consumer, the breaks `0.1.0` shipped, is
 kept in section 4.
 
 It is bookkeeping, not consumer documentation. It is deliberately not `README.md` and not
@@ -18,7 +18,7 @@ It is bookkeeping, not consumer documentation. It is deliberately not `README.md
 
 **What this file does not do.** It does not publish, tag, approve the release environment, or
 retrigger anything. It does not decide any break. It does not touch `package.json` `version` or
-`src/index.ts` `VERSION`: Changesets owns the bump, `scripts/sync-version.mjs` mirrors it into the
+`src/index.ts` `VERSION`: Changesets owns the bump, `cosyte-process sync-version` mirrors it into the
 source, and `test/sanity.test.ts` fails if the two ever disagree. Hand-editing either is the exact
 failure that test exists to catch.
 
@@ -29,7 +29,7 @@ wrong.
 
 ## 1. The pending changeset audit
 
-The published version is the `version` field of `package.json`, `0.1.3`, published on 2026-11-08
+The published version is the `version` field of `package.json`, `0.1.4`, published on 2026-11-08
 through npm trusted publishing. The pending set below is every file matching `.changeset/*.md`
 other than `README.md` (`config.json` is the tool's configuration and carries no bump).
 
@@ -40,51 +40,49 @@ directions or it is not a reading, so the same rule that moved three `0.1.0` cha
 
 <!-- audit:begin -->
 
-| pending changeset                | bump as written | applied bump |
-| -------------------------------- | --------------- | ------------ |
-| `classification-stream-scope.md` | `patch`         | `patch`      |
+| pending changeset        | bump as written | applied bump |
+| ------------------------ | --------------- | ------------ |
+| `tsup-9-declarations.md` | `patch`         | `patch`      |
 
 <!-- audit:end -->
 
-Highest bump in the set: `patch`. Applied to the published `0.1.3`, Changesets resolves
-`@cosyte/astm` to **`0.1.4`**.
+Highest bump in the set: `patch`. Applied to the published `0.1.4`, Changesets resolves
+`@cosyte/astm` to **`0.1.5`**.
 
-### `classification-stream-scope.md`: `patch`
+### `tsup-9-declarations.md`: `patch`
 
-Its own text says the documentation of `AstmMessage.classification` and the types around it now
-says the classification covers the whole stream, that one warning's message text changes from
-"Message carried both" to "Stream carried both", and that classification, warning codes and every
-other value are unchanged. Each claim was checked against the tree rather than taken from the text.
+Its own text says the type declarations are now bundled by tsup 9 with the JavaScript unchanged,
+that the two declaration files list the type-only exports in a separate `export type` statement,
+that the doc comment on `VERSION` names the step that keeps it equal to the `package.json` version,
+that the source maps carry three reflowed type unions, and that the package exports the same names
+and types as before. Each claim was checked against the tree rather than taken from the text.
 
-- **Why the release exists.** The doc comment on `AstmMessage.classification` called it "the
-  host-query classification of this message", but `parseAstmRecords` folds `classifyMessage` over
-  every record in the stream, so on a multi-message stream a `Q` in one message made the whole
-  stream read as a host query while the published types said otherwise.
-  `docs-content/guides-api-by-layer.md` already said it correctly. The JSDoc ships in
-  `dist/index.d.ts` and `dist/index.d.cts`, so a consumer reading it in an editor sees the
-  correction only once a version carries it.
-- **What the tarball changes.** `package.json` ships `dist`, `README.md`, `LICENSE` and
-  `CHANGELOG.md`. Between the `v0.1.3` tag and this branch four files under `src/` changed:
-  `src/records/types.ts`, `src/records/host-query.ts` and `src/records/parse.ts` in comments only,
-  and `src/common/warnings.ts` in comments and the one constant message string of
-  `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`. `tsup.config.ts` and `tsconfig.json` are unchanged.
-  `package.json` changed in its scripts and dev dependencies only, and `pnpm-lock.yaml` in dev
-  dependencies only. `CHANGELOG.md` gains the entry Changesets writes from this changeset.
-- **What the build shows.** Built from this branch, `dist/index.mjs` and `dist/index.cjs` differ
-  from the files in the published `0.1.3` tarball in the doc comment on that warning code, which
-  the build keeps, and in the message string. `dist/index.d.ts` and `dist/index.d.cts` differ in
-  doc comments only, and the file list of `dist/` is the same.
-- **What the tests show.** `test/records/message-scoping.test.ts` pins the stream-wide behaviour: a
-  two-message stream whose first message is a host query and whose second is a result upload
-  classifies as `host-query` with `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`, while
-  `classifyMessage(m.records)` over `messages()` answers `host-query` and `results`; an unsupported
-  record in one message withholds the kind for the whole stream; and on a single-message stream the
-  two agree.
+- **Why the release exists.** The dev toolchain moved onto `@cosyte/process`, the shared runner for
+  build, test, lint, typecheck and format, which builds with tsup 9 and formats with Prettier 3.9.
+  Nothing a consumer calls changed; the published files did, because tsup 9 writes the declaration
+  bundle in a different layout and the source maps embed the source.
+- **What the tarball changes.** `package.json` ships `dist`, `README.md`, `LICENSE`,
+  `TRADEMARKS.md` and `CHANGELOG.md`. Between the `v0.1.4` tag and this branch four files under
+  `src/` changed: `src/index.ts` in the doc comment on `VERSION` only, and
+  `src/common/delimiters.ts`, `src/records/build.ts` and `src/terminology/catalog.ts` in the line
+  layout of one exported type union each (`DelimiterDeclarationFault`, `AstmRecordInput`,
+  `LivdAmbiguityReason`), with the same members in the same order. `tsup.config.ts` and
+  `tsconfig.json` are unchanged. `package.json` changed in its scripts and dev dependencies only,
+  and `pnpm-lock.yaml` in dev dependencies only. `CHANGELOG.md` gains the entry Changesets writes
+  from this changeset.
+- **What the build shows.** Built from this branch, `dist/index.mjs` and `dist/index.cjs` are
+  byte-identical to the files in the published `0.1.4` tarball, and the file list of the tarball is
+  the same. `dist/index.d.ts` and `dist/index.d.cts` differ in two places: the `VERSION` doc comment,
+  and the closing export list, which tsup 9 splits into one `export { ... }` of the values and one
+  `export type { ... }` of the types, the same names in each. The source maps differ in the embedded
+  source of those four files and in the mappings that follow it.
+- **What the tests show.** The whole suite passes on this branch with the same counts as on the
+  `v0.1.4` tree, the enumeration in section 3 still matches the entry point, and `pnpm attw` passes
+  on the packed tarball for both the `import` and the `require` condition.
 
 Measured against section 3's enumeration, it adds no value, removes none, renames none, and changes
-no exported function's documented behaviour: the documentation now matches what the code always
-did. No warning code moves, and a warning's message is value-free prose, not a contract. That is
-what a `patch` claims, so `patch` is what it keeps.
+no exported function's documented behaviour. That is what a `patch` claims, so `patch` is what it
+keeps.
 
 ## 2. Why no changeset in this set is classified `major`
 
@@ -102,15 +100,16 @@ convenience: leave its bump unapplied, record it in section 4 as a break candida
 operator, and do not quietly write `minor` over it. A `major` silently downgraded to `minor` reads,
 from the outside, exactly like a repo that had nothing to escalate.
 
-## 3. The public export surface certified at `0.1.0`, unchanged in `0.1.1`, `0.1.2`, `0.1.3`, and `0.1.4`
+## 3. The public export surface certified at `0.1.0`, unchanged in `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, and `0.1.5`
 
 The subject of the stability claim is the package's single public entry point, `src/index.ts`, and
 the surface is everything it re-exports: values and types both. `package.json` publishes exactly one
 entry (`.` plus `./package.json`), so this list is the whole declaration surface a consumer can
 reach.
 
-`src/index.ts` is unchanged since the `v0.1.0` tag, so the enumeration below is the one `0.1.0`
-certified, and the test grades it against this branch's entry point, not against that tag.
+Since the `v0.1.0` tag `src/index.ts` has changed only in the value of `VERSION`, which each release
+writes, and in that constant's doc comment, so the enumeration below is the one `0.1.0` certified,
+and the test grades it against this branch's entry point, not against that tag.
 
 Counts: **118 values, 102 types, 220 identifiers**. The enumeration below is compared against the
 entry point by `test/scripts/release-readiness.test.ts`, which names every added and every removed
@@ -515,7 +514,7 @@ From `./frames/types.js`:
 <!-- certification:begin -->
 
 **The surface enumerated above is certified as the public API of `@cosyte/astm` at `0.1.0`, and it
-is carried unchanged into `0.1.1`, `0.1.2`, `0.1.3`, and `0.1.4`: it is settled, and it is stable enough for a consumer to depend
+is carried unchanged into `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, and `0.1.5`: it is settled, and it is stable enough for a consumer to depend
 on.** Every identifier in it is a deliberate export with a documented contract, the record layer is
 feature-complete, and no part of it is a placeholder waiting to be renamed. From `0.1.0` onward a
 removal or a rename of anything on that list is a break with a real cost, to be surfaced and decided
@@ -529,7 +528,9 @@ The certification is scoped, deliberately, and the scope is the whole of its hon
   `src/` has changed and nothing else, so the same holds for `0.1.2`. Since `0.1.2` one pattern
   inside a private function has changed, classifying every value as before, so the same holds for
   `0.1.3`. Since `0.1.3` doc comments and one warning's message text have changed, so the same holds
-  for `0.1.4`. The work a consumer of `0.0.22` had to do to take `0.1.0`
+  for `0.1.4`. Since `0.1.4` one doc comment and the line layout of three type unions have changed,
+  and tsup 9 groups the declaration export list differently, so the same holds for `0.1.5`. The work
+  a consumer of `0.0.22` had to do to take `0.1.0`
   is section 4, enumerated.
 - It is a claim about names, shapes and documented contracts, not a promise that a warning code
   never gains a member or that a lenient parse never becomes more precise. Both are additive and
@@ -755,8 +756,8 @@ rule is that saying nothing never reads as saying none.
 <!-- unresolved:begin -->
 
 None. The one pending changeset classifies from its own text, and the change it documents was
-checked against the `v0.1.3` tag, against `src/index.ts` and the modules behind it, and against the
-published `0.1.3` tarball.
+checked against the `v0.1.4` tag, against `src/index.ts` and the modules behind it, and against the
+published `0.1.4` tarball.
 
 <!-- unresolved:end -->
 
@@ -779,16 +780,21 @@ release pipeline cuts it.**
 - **Why `0.1.3` was prepared.** On 2026-11-08 the code-scanning sweep found the pattern behind the
   units-absent warning quadratic on a long whitespace run in a result value. That set was the fix,
   released as a patch under the same approval.
-- **Why `0.1.4` is prepared.** On 2026-11-08 the operator approved the library-defect fixes ("Library
+- **Why `0.1.4` was prepared.** On 2026-11-08 the operator approved the library-defect fixes ("Library
   defects (Recommended)"), and one was the doc comment on `AstmMessage.classification` calling a stream-wide value
-  a message's. The pending set is that correction, released as a patch under the same approval.
+  a message's. That set was the correction, released as a patch under the same approval.
+- **Why `0.1.5` is prepared.** On 2026-11-08 the operator directed that every package use the shared
+  packages from `cosyte/config` ("Every package needs to use our shared utils at cosyte/config").
+  This package's build now runs through `@cosyte/process`, whose tsup 9 lays out the declaration
+  files differently, so the pending set ships those files as a patch under the approval of patch
+  releases ("Finished repos, I approve runs").
 - **What merging a change here does.** `.github/workflows/release.yml` fires on a push to `main`
   and calls the shared release pipeline, which opens or updates the "Version Packages" pull request
   and parks the publish on the `release` environment gate. Merging that pull request and approving
   that gate belong to whoever runs the release, never to a change that edits this file.
-- **So the honest reading** is: the pending set resolves to `0.1.4`, the surface it carries is the
-  one `0.1.0` certified, and it carries no break. The version in `package.json` is still `0.1.3` and
-  stays `0.1.3` until Changesets writes the next one.
+- **So the honest reading** is: the pending set resolves to `0.1.5`, the surface it carries is the
+  one `0.1.0` certified, and it carries no break. The version in `package.json` is still `0.1.4` and
+  stays `0.1.4` until Changesets writes the next one.
 
 ### The follow-on the `0.1.0` bump created
 
