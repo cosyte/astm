@@ -6,9 +6,9 @@ name: Public-surface gate
 # changeset, CHANGELOG.md, the commit, the PR and the umbrella's plans/, never in README.md,
 # docs-content/, the npm description, a JSDoc block a consumer's editor renders, or a
 # message string a consumer reads in their logs. The shared internal-reference gate in
-# `@cosyte/script-utils` enforces it, with this repository's axes in
-# `scripts/internal-refs.json`, and `scripts/check-no-internal-refs.sh` runs after it for the
-# string literals in `src/`, a surface the shared gate has no axis for yet.
+# `@cosyte/script-utils` enforces it over the public surface, the npm metadata, the doc
+# comments in `src/` and the string literals in `src/`, with this repository's axes in
+# `scripts/internal-refs.json`.
 #
 # WHY A GATE AND NOT A NOTE. The founder, on the sweep that removed 149 of these across the
 # ecosystem: "it needs to not just be a memory note, but something that is addressed in the
@@ -18,12 +18,13 @@ name: Public-surface gate
 # doc comments of fifteen source files and into the published `dist/index.d.ts`.
 #
 # WHAT ACTUALLY SCANS, AND WHERE THE RULE LIVES. `pnpm check:no-internal-refs`, which runs
-# the shared gate and then this repository's string-literal backstop. The shared gate lives
+# the shared gate, `cosyte-internal-refs`. The shared gate lives
 # in node_modules, so the job below calls the shared gate workflow's INSTALLING form, which
 # installs from the committed lockfile before it scans and carries no pattern, no allow-list
 # and no file selection of its own. The rules and their self-tests live in
 # `@cosyte/script-utils`; the project prefixes, the standards designations they collide
-# with, the surface and one added rule live in `scripts/internal-refs.json`, because what
+# with, the surface, both source passes, two added rules and this package's own self-test
+# samples live in `scripts/internal-refs.json`, because what
 # counts as a project prefix and what counts as a domain designator is a property of this
 # package.
 #

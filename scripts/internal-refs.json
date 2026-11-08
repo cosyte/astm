@@ -1,5 +1,5 @@
 {
-  "$comment": "This repository's axes for the shared internal-reference gate in @cosyte/script-utils (README, runInternalRefsScan). The prefixes, the standards designations that collide with them, and the surface are the ones scripts/check-no-internal-refs.sh carried; its roadmap-citation rule, which the canonical set lacks, is added below with its samples.",
+  "$comment": "This repository's axes for the shared internal-reference gate in @cosyte/script-utils (README, runInternalRefsScan). The prefixes, the standards designations that collide with them, and the surface are the ones the retired scripts/check-no-internal-refs.sh carried. Its roadmap-citation rule, which the canonical set lacks, is added below, and so is its reading of slice after the and each, which the canonical jargon rule narrowed in 0.1.6 and which in this package is only ever our word for a unit of work. The samples are that script's self-tests: the public-surface, doc-comment and runtime-message sentences each rule must catch and the astm reference vocabulary (SPEC-7, ACC-42, E1381 protocol phases, the warning codes) it must let through.",
   "projectPrefixes": [
     "PARSERS-PUBLIC",
     "DOCS-CONTENT",
@@ -71,6 +71,13 @@
       "src/**/*.ts"
     ]
   },
+  "sourceStringLiterals": {
+    "enabled": true,
+    "paths": [
+      "src/*.ts",
+      "src/**/*.ts"
+    ]
+  },
   "extraRules": [
     {
       "id": "roadmap-citation",
@@ -83,14 +90,91 @@
         "Grounded in the astm roadmap §5",
         "refined from the roadmap sketch",
         "and the deid roadmap forbids it",
-        "unsupported for this record type; see the astm roadmap for when it lands"
+        "unsupported for this record type; see the astm roadmap for when it lands",
+        "Grounded in the astm roadmap §5, refined from the roadmap sketch, and the deid roadmap forbids it"
       ],
       "negatives": [
         "## Roadmap",
         "a product roadmap and the vendor roadmap",
         "roadmapping the migration",
-        "the roadmaps of other projects"
+        "the roadmaps of other projects",
+        "## Roadmap; a product roadmap and the vendor roadmap; roadmapping the migration; the roadmaps of other projects"
+      ]
+    },
+    {
+      "id": "slice-determiner",
+      "name": "internal jargon (\"the slice\", \"each slice\")",
+      "pattern": {
+        "source": "\\b(?:the|each)\\s+(?:(?!(?:of|in|on|between|per|for|to|with|at)\\s)[\\w-]+\\s+){0,2}slices?\\b(?!\\s+(?:thickness|location|spacing|position|interval|order|number|index|gap|count|data|pixel|orientation|plane|direction|width|vector|sensitivity|progression|factor))",
+        "flags": "i"
+      },
+      "positives": [
+        "The last slice adds the frame codec, and each slice before it added a record type",
+        "the slice that landed the checksum"
+      ],
+      "negatives": [
+        "The slice thickness and the number of slices are DICOM attributes, each slice location is too",
+        "raw.slice(0, 56) and value.slice(1) are TypeScript, and the phase of the clinical study is reader vocabulary"
       ]
     }
-  ]
+  ],
+  "extraSamples": {
+    "internal-identifier": {
+      "positives": [
+        "Item ASTM-7 is done, REAL-CORPUS is deferred, and CCDA-P7 with it",
+        "ASTM-7 shipped this reader"
+      ],
+      "negatives": [
+        "ASTM-E1394 and ASTM-E1381 are the standards this package parses, ASTM-specific tolerance and OSS-derived indices are prose, the synthetic example ids SPEC-7 and ACC-42, CLSI-LIS01 and CLSI-LIS02, LIS01-A2 and LIS02-A2, POCT1-A, the editions E1394-97 and E1381-02, RS-232 serial lines, ISO-8601 timestamps, the analyte SARS-CoV, TOP-LEVEL option keys, ICD-10-CM P00-P96, FHIR-bridge stability, docs-content/ layout, HL7-defined tables, HL7-V2 and HL7-CDA, FHIR-R4, DICOM-SR, X12-837P and X12-005010, NCPDP-SCRIPT",
+        "ASTM_RECORD_UNKNOWN_TYPE and ASTM_FRAME_BAD_CHECKSUM and ASTM_LTP_AMBIGUOUS_TRANSPORT and ASTM_LIVD_UNMAPPED_CODE and PROFILE_QUIRK_APPLIED, ./tokenize.js and ../common/escapes.js, the synthetic example ids SPEC-7 and ACC-42, ASTM-E1394 and ASTM-E1381, CLSI-LIS01 and LIS02-A2, RS-232"
+      ]
+    },
+    "phase-or-wave": {
+      "positives": [
+        "Phase 5b closes it (Phase W, Phase-1 and the thirteenth slice landed earlier, in wave 2), and Phases 1 and 3 preceded it",
+        "Added in Phase 9 and reworked in phase 10b"
+      ],
+      "negatives": [
+        "Frame 3 was rejected; the current protocol phase is neutral and a transfer phase is not resumed. A Phase III trial and the acute phase reactant are out of scope, and the reducer stays in phase with the analyzer."
+      ]
+    },
+    "adr-reference": {
+      "positives": [
+        "Decided in ADR 0015, restated in ADR-0021, and recorded in docs/adr/0001-transport.md",
+        "Behaviour fixed by ADR 0001, recorded in docs/adr/0001-transport.md"
+      ],
+      "negatives": [
+        "ADR is not an E1394 record type, and 0015 alone is a value",
+        "ADR is not an E1394 record type, and 0001 alone is a value"
+      ]
+    },
+    "internal-jargon": {
+      "positives": [
+        "This slice adds the frame codec and the final slice removes it",
+        "Added by the final slice of the frame codec"
+      ],
+      "negatives": [
+        "The slice thickness and the number of slices are DICOM attributes, each slice location is too, and the phase of the clinical study and the phase of illness are the reader words this rule must not touch",
+        "Record is 260 bytes; only the first 240 are framed. The slice thickness and the number of slices are DICOM attributes."
+      ]
+    },
+    "internal-repo-path": {
+      "positives": [
+        "Roadmap operations/roadmaps/astm.md and documentation/decisions/0015-x.md",
+        "See operations/roadmaps/astm.md"
+      ],
+      "negatives": [
+        "Parser operations are documented in the README, and documentation for the API is generated"
+      ]
+    },
+    "traceability-marker": {
+      "positives": [
+        "Repeating [S-RESULT], and Open-question #12 resolves the direction",
+        "Traced as [S-RESULT]"
+      ],
+      "negatives": [
+        "A character range like [S-Z], a value set written [SNOMED], the E1394 scientific record written S|1| verbatim, and open questions about the feed"
+      ]
+    }
+  }
 }
