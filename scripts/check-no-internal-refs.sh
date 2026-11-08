@@ -15,10 +15,9 @@
 # carry our internal bookkeeping: item identifiers (`ASTM-7`, `REAL-CORPUS`), "Phase 8" /
 # "roadmap Phase K", sweep and programme names, ADR numbers, internal repo paths, prose
 # citations of the roadmap, or process commentary about how the artifact came to exist.
-# The rule and its history: `documentation/agent-notes.md`, the section "4. No internal
-# project bookkeeping on a public surface". The founder's words: "The releases should also not
-# speak on anything regarding phases, etc. That has no relevance to the user consuming it.
-# This goes for readmes and documentation as well."
+# The founder's words: "The releases should also not speak on anything regarding phases,
+# etc. That has no relevance to the user consuming it. This goes for readmes and
+# documentation as well."
 #
 # WHY THIS IS A GATE AND NOT A MEMORY NOTE. Founder, same day: "it needs to not just be
 # a memory note, but something that is addressed in the workflow accordingly. This needs
@@ -1113,8 +1112,7 @@ fail_with_hits() {
   echo "       When you strip an identifier off the FRONT of a line, repair the head too:" >&2
   echo "       drop a leading orphan parenthetical, strip leading punctuation, recapitalise." >&2
   echo "       Leaving the fragment behind is worse than the text it replaced." >&2
-  echo "       Rule: documentation/agent-notes.md, '4. No internal project bookkeeping on" >&2
-  echo "       a public surface'." >&2
+  echo "       Rule: the header of scripts/check-no-internal-refs.sh." >&2
   exit 1
 }
 
