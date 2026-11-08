@@ -809,9 +809,13 @@ function parseDateField(
  * Whether a result value is purely numeric (optional comparator + sign + digits): the case where a
  * missing unit is a genuine hazard. A qualitative value (letters, e.g. `POSITIVE`) is excluded, so it
  * does not trip the units-absent warning.
+ *
+ * The whitespace after the comparator sits inside the comparator's optional group, so no two
+ * whitespace runs can share the same characters: the match takes time linear in the value's length,
+ * where two adjacent `\s*` took quadratic time on a long whitespace run from the sender.
  */
 function isNumericValue(value: string): boolean {
-  return /^\s*[<>]?\s*-?\d+(?:\.\d+)?\s*$/u.test(value);
+  return /^\s*(?:[<>]\s*)?-?\d+(?:\.\d+)?\s*$/u.test(value);
 }
 
 /** The full field text (all components), or `undefined` when the field is absent or empty. */

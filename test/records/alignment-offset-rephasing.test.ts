@@ -62,14 +62,26 @@ const codes = (raw: string): readonly string[] => parseAstmRecords(raw).warnings
  * **That resumption is the whole mechanism of this file.** Because the competing reading restarts a
  * character further on, a second construct is read out of phase with the reading taken, and the gap
  * between the two segment counts widens once more.
+ *
+ * `resume: "leftmost"` is the negative control's perturbation: a contested position is read as the
+ * ordinary triple the leftmost reading takes, so the scan resumes where that reading resumes.
  */
-const competingSplit = (text: string, delimiter: string, escape: string): string[] => {
+const competingSplit = (
+  text: string,
+  delimiter: string,
+  escape: string,
+  resume: "competing" | "leftmost" = "competing",
+): string[] => {
   const out: string[] = [];
   let current = "";
   let i = 0;
   while (i < text.length) {
     const isTriple = text.charAt(i) === escape && text.charAt(i + 2) === escape;
-    const contested = isTriple && text.charAt(i + 3) === delimiter && text.charAt(i + 4) === escape;
+    const contested =
+      resume === "competing" &&
+      isTriple &&
+      text.charAt(i + 3) === delimiter &&
+      text.charAt(i + 4) === escape;
     if (contested) {
       current += text.slice(i, i + 5);
       i += 5;
@@ -291,8 +303,18 @@ describe("negative controls, run rather than declared", () => {
     // Two-sided. The competing reading is defined by resuming one character further on at a
     // contested position; a transcription that resumes at the same place as the leftmost reading is
     // the leftmost reading, and must collapse every offset in this file to zero.
-    const collapsed = (text: string): string[] => splitEscapeAware(text, "|", "&");
-    expect(collapsed(TWO_CONSTRUCTS).length - collapsed(TWO_CONSTRUCTS).length).toBe(0);
+    const collapsed = (text: string): string[] => competingSplit(text, "|", "&", "leftmost");
+    for (const record of [
+      ONE_CONSTRUCT,
+      TWO_CONSTRUCTS,
+      ...twoConstructCorpus.map((t) => t.line),
+    ]) {
+      const leftmost = splitEscapeAware(record, "|", "&");
+      // Collapsed, the transcription is the leftmost reading segment for segment, so it measures
+      // no displacement at all; only the one-character resumption separates the two readings.
+      expect(collapsed(record)).toEqual(leftmost);
+      expect(leftmost.length - collapsed(record).length).toBe(0);
+    }
     expect(offset(TWO_CONSTRUCTS)).not.toBe(0);
     // And the transcription must reproduce the bytes, or it is measuring some other string.
     expect(competingSplit(TWO_CONSTRUCTS, "|", "&").join("|")).toBe(TWO_CONSTRUCTS);
