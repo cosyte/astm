@@ -3,6 +3,15 @@
  * `@cosyte/astm` two-file-contract gate: the contract between THIS repo's
  * `CLAUDE.md` and THIS repo's `documentation/agent-notes.md`, checked.
  *
+ * THE LIVE FORM CHANGED ON 2026-11-08. `CLAUDE.md` now writes every pointer in
+ * the PATH-QUALIFIED form, the one form the shared agent-notes checker in
+ * `@cosyte/script-utils` accepts there, so that form is the live one below and
+ * its absence is the refusal. The bare backtick-quoted form is still matched
+ * wherever it is written (the record cross-references its own sections that
+ * way), and the placeholder exemption went with the sentence it described. The
+ * measurement narrated below is the history of why this gate exists; the shared
+ * checker replaces it.
+ *
  * ===========================================================================
  * WHAT THE CONTRACT IS HERE
  * ===========================================================================
@@ -282,34 +291,30 @@ const NOTES = `${NOTES_DIR}/${NOTES_BASENAME}`;
  * an entry that matches nothing REFUSES rather than passing, so a skip cannot go
  * phantom when the prose it describes is reworded away.
  */
-const DECLARED_NON_POINTERS: { file: string; anchor: string; why: string }[] = [
-  {
-    file: CLAUDE_MD,
-    anchor: "anchor",
-    why:
-      "the opening blockquote DEFINES the pointer syntax, and to define it the sentence has " +
-      "to spell a pointer-shaped token as a placeholder. It names no section and is not meant " +
-      "to resolve. Nothing structural separates it from a real pointer, so it is named here.",
-  },
-];
+const DECLARED_NON_POINTERS: { file: string; anchor: string; why: string }[] = [];
 
 /** Escape every RegExp metacharacter, backslash first so its own escape is not re-escaped. */
 const escapeForRegExp = (text: string): string => text.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 
-const ANCHOR = "([A-Za-z0-9._-]+)";
+/**
+ * No `.` in an anchor, as in the shared checker: the path-qualified form has no closing backtick,
+ * so a sentence's closing period would otherwise read as part of the anchor it follows.
+ */
+const ANCHOR = "([A-Za-z0-9_-]+)";
 
 /**
  * Built at run time so this file never contains a pointer of its own.
  *
- * LIVE_RE is the live form in this tree: a backtick-quoted anchor with no
- * filename. The backticks are what make it a pointer rather than prose; an
- * unquoted `#` in running text is a heading, a shell comment or an issue
+ * BARE_RE is the form this tree wrote until 2026-11-08: a backtick-quoted anchor
+ * with no filename. The backticks are what make it a pointer rather than prose;
+ * an unquoted `#` in running text is a heading, a shell comment or an issue
  * reference, and matching those would produce noise this gate could not defend.
+ * The record still cross-references its own sections this way, so it is matched.
  */
-const LIVE_RE = new RegExp("`#" + ANCHOR + "`", "g");
+const BARE_RE = new RegExp("`#" + ANCHOR + "`", "g");
 /** BASENAME_RE is `terminology`'s spelling. Zero here today, matched so a paste is not invisible. */
 const BASENAME_RE = new RegExp(`(?<![\\w/.-])${escapeForRegExp(NOTES_BASENAME)}#${ANCHOR}`, "g");
-/** PATH_RE is `ccda` and `mllp`'s spelling. Zero here today, matched for the same reason. */
+/** PATH_RE is the live form: `CLAUDE.md` writes every pointer this way, as `ccda` and `mllp` do. */
 const PATH_RE = new RegExp(`${escapeForRegExp(NOTES)}#${ANCHOR}`, "g");
 
 /** The path link that makes every bare anchor in this tree interpretable. */
@@ -527,7 +532,7 @@ function lineOf(text: string, index: number): number {
 interface Pointer {
   file: string;
   anchor: string;
-  form: "live" | "basename" | "path";
+  form: "bare" | "basename" | "path";
   line: number;
 }
 
@@ -549,10 +554,10 @@ for (const [rel, text] of opened) {
   };
   scan(PATH_RE, "path");
   scan(BASENAME_RE, "basename");
-  scan(LIVE_RE, "live");
+  scan(BARE_RE, "bare");
 }
 
-const live = pointers.filter((p) => p.form === "live");
+const bare = pointers.filter((p) => p.form === "bare");
 const basename = pointers.filter((p) => p.form === "basename");
 const path = pointers.filter((p) => p.form === "path");
 
@@ -594,17 +599,17 @@ if (pointers.length === 0) {
       `the two-file contract is gone, or this gate stopped matching the pointers it is about.`,
   );
 }
-// And zero in the LIVE form refuses too, even with a sibling form still matching:
-// this tree writes its pointers as a backtick-quoted bare anchor, so matching
-// none of them is the ported-matcher defect (green over a corpus the matcher
-// never covered), not a clean run.
-if (live.length === 0) {
+// And zero in the LIVE form refuses too, even with another form still matching:
+// `CLAUDE.md` writes its pointers path-qualified, so matching none of them is
+// the ported-matcher defect (green over a corpus the matcher never covered), not
+// a clean run.
+if (path.length === 0) {
   refuse(
-    `no pointer in this tree's live form (a backtick-quoted anchor with no filename) was found, ` +
-      `though ${basename.length + path.length} in a sibling repo's spelling were. Every pointer ` +
-      `in this repository is written that way, so this run covered none of them: either the ` +
-      `spelling migrated, or this gate stopped matching it. Re-derive the forms against the tree ` +
-      `before touching this.`,
+    `no pointer in this tree's live form (the record's full path, then the anchor) was found, ` +
+      `though ${basename.length + bare.length} in another spelling were. Every pointer in ` +
+      `CLAUDE.md is written that way, so this run covered none of them: either the spelling ` +
+      `migrated, or this gate stopped matching it. Re-derive the forms against the tree before ` +
+      `touching this.`,
   );
 }
 
@@ -719,10 +724,9 @@ if (!pointers.some((p) => p.file === CLAUDE_MD)) {
 //    no sibling repo needs it.
 if (!PATH_LINK_RE.test(opened.get(CLAUDE_MD) ?? "")) {
   problems.push(
-    `${CLAUDE_MD} does not link ${NOTES} by path. Every pointer in this tree is a bare anchor ` +
-      `with no filename, so that link is the only thing that says which file they are anchors ` +
-      `in. Without it all ${live.length} of them are uninterpretable, while still "resolving" ` +
-      `by any anchor check.`,
+    `${CLAUDE_MD} does not link ${NOTES} by path. The card names the record it points into ` +
+      `with a link a reader can follow, and the bare anchors the record itself writes (` +
+      `${bare.length} of them) are anchors in that file.`,
   );
 }
 
@@ -737,8 +741,8 @@ const summary =
   `(no file is ever skipped)\n` +
   `  targets:  ${targets.length} in ${NOTES} (${explicitCount} explicit anchors, ` +
   `${headingCount} headings), ${reached.size} of them pointed at\n` +
-  `  pointers: ${pointers.length} (${live.length} live bare-anchor form, ` +
-  `${basename.length} basename-qualified, ${path.length} path-qualified)\n` +
+  `  pointers: ${pointers.length} (${path.length} path-qualified live form, ` +
+  `${basename.length} basename-qualified, ${bare.length} bare backticked)\n` +
   (unreferenced.length > 0
     ? `  unreferenced anchors (legitimate, reported not failed): ${unreferenced.join(", ")}\n`
     : "") +

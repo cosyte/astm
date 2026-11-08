@@ -13,6 +13,10 @@ Add a changeset for every meaningful change:
 pnpm changeset
 ```
 
+Until the operator says otherwise, we publish patch versions only (their decision of 2026-11-07):
+write `patch`, and raise a change whose honest bump is `minor` with the operator before it merges.
+The rule below is how that bump is judged.
+
 The package is on the `0.1.x` line, so pick the bump by what the change does to the public surface,
 which is everything `src/index.ts` exports and the behaviour behind it:
 
