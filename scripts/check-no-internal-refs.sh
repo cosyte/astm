@@ -7,8 +7,8 @@
 # carry our internal bookkeeping: item identifiers (`ASTM-7`, `REAL-CORPUS`), "Phase 8" /
 # "roadmap Phase K", sweep and programme names, ADR numbers, internal repo paths, prose
 # citations of the roadmap, or process commentary about how the artifact came to exist.
-# Source of truth: the meta-repo's `documentation/conventions.md`, "No internal project
-# bookkeeping on a public surface". The founder's words: "The releases should also not
+# The rule and its history: `documentation/agent-notes.md`, the section "4. No internal
+# project bookkeeping on a public surface". The founder's words: "The releases should also not
 # speak on anything regarding phases, etc. That has no relevance to the user consuming it.
 # This goes for readmes and documentation as well."
 #
@@ -1105,8 +1105,8 @@ fail_with_hits() {
   echo "       When you strip an identifier off the FRONT of a line, repair the head too:" >&2
   echo "       drop a leading orphan parenthetical, strip leading punctuation, recapitalise." >&2
   echo "       Leaving the fragment behind is worse than the text it replaced." >&2
-  echo "       Rule: documentation/conventions.md, 'No internal project bookkeeping on a" >&2
-  echo "       public surface'." >&2
+  echo "       Rule: documentation/agent-notes.md, '4. No internal project bookkeeping on" >&2
+  echo "       a public surface'." >&2
   exit 1
 }
 
