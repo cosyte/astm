@@ -63,6 +63,11 @@ patient is unchanged, and so is a result-only message with no `P` at all, which 
 `undefined`. `commentsFor()` is unchanged on every stream, because the parent record you hand it
 already names the message.
 
+`classification` reads the whole stream too, and it does not throw: it is folded over every record,
+so a `Q` in one message makes the whole stream read as a host query, and a stream that also carries
+results raises `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`. Classify each message on its own with
+`classifyMessage(m.records)`.
+
 Splitting reads each record's type letter, so check for an `ASTM_RECORD_UNKNOWN_TYPE` warning before
 you trust the split. A header the reader does not recognize as a header, one carrying a stray leading
 byte for instance, opens no message, and the messages either side of it merge back into one, so a

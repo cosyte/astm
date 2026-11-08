@@ -57,8 +57,7 @@ jobs:
 
   # The repository's documents, each checked by the shared checker in @cosyte/script-utils: the
   # README against the house skeleton and npm's size limit, the CLAUDE.md card against its spec,
-  # every pointer into documentation/agent-notes.md, and the package.json description against the
-  # catalog of our libraries.
+  # and the package.json description against the catalog of our libraries.
   documents:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -75,5 +74,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:readme
       - run: pnpm check:claude-card
-      - run: pnpm check:agent-notes
       - run: pnpm check:catalog

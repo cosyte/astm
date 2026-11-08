@@ -527,9 +527,8 @@ The certification is scoped, deliberately, and the scope is the whole of its hon
 - It is a claim about names, shapes and documented contracts, not a promise that a warning code
   never gains a member or that a lenient parse never becomes more precise. Both are additive and
   both are governed by the profile safety gate rather than by this file.
-- Known open defects are recorded in `documentation/agent-notes.md`, which `CLAUDE.md` points into,
-  and they stay open across this bump. A defect is a behaviour this package reports honestly and has
-  not fixed; it is not an unsettled API.
+- Known open defects stay open across this bump. A defect is a behaviour this package reports
+  honestly and has not fixed; it is not an unsettled API.
 
 <!-- certification:end -->
 

@@ -36,25 +36,22 @@ logs, a warning message is a constant with no field data, and `pnpm phi-scan` is
 
 ## Rules
 
-Each names its failure; the pointer is the [agent notes](documentation/agent-notes.md) section
-that records it. Read documentation/agent-notes.md#defects before changing the code it names.
+Each names its failure and the pull request that fixed it.
 
-- Infer nothing the sender did not send: `patient()` paired another patient's results, and `Glucose`
-  read as a LOINC. documentation/agent-notes.md#defect-1 documentation/agent-notes.md#defect-9
+- Infer nothing the sender did not send: `patient()` paired another patient's results (#25), and
+  `Glucose` read as a LOINC (#74).
 - A warning closing a silent loss is a report, not a repair: the bytes read stay the same. A loss
-  only a tolerable code reports gets a narrower code too. documentation/agent-notes.md#defect-11
+  only a tolerable code reports gets a narrower code too (#53).
 - A new warning code is safety-critical until argued onto `TOLERABLE_CODES` in
-  `src/profiles/safety.ts`; `applyAstmProfile` re-checks it. documentation/agent-notes.md#defect-2
-- Never call a failure loud in every case from the cases you ran: defects 5, 6, 7 and 13 each had a
-  silent branch. When a claim measures false, fix every restatement, then grep your replacement.
-  documentation/agent-notes.md#defect-7 documentation/agent-notes.md#defect-17c
+  `src/profiles/safety.ts`; `applyAstmProfile` re-checks it (#32).
+- Never call a failure loud in every case from the cases you ran: four defects called loud each had
+  a silent branch (#39, #44, #46, #48). When a claim measures false, fix every restatement, then
+  grep your replacement (#61).
 - `pnpm attw` runs the shared attw gate, never the bare `attw` CLI, which exits 0 when the types
-  are missing. documentation/agent-notes.md#attw
-- `docs-content/` ships in an immutable release asset, and its sidebar left the spine twice; no
-  version number there or in `README.md`. documentation/agent-notes.md#docs-sidebar
+  are missing (#41).
+- `docs-content/` ships in an immutable release asset, and its sidebar left the spine twice (#18);
+  no version number there or in `README.md`.
 - No task ids, phase language or private paths in `README.md`, `docs-content/`, `/** */` comments
-  or strings; reword, never delete. documentation/agent-notes.md#no-internal-refs
-- No agent-notes pointer in a changeset or a shipped file, and rerun the gate after `git add`: the
-  pointer check reads `git ls-files`. documentation/agent-notes.md#agent-notes-contract
-- Never hand-edit `CHANGELOG.md`: a release writes it from the changeset summaries. Kept by hand,
-  it stopped at 0.0.2 while npm reached 0.1.1.
+  or strings; reword, never delete (#20).
+- Never hand-edit `CHANGELOG.md`: a release writes it from the changeset summaries (#101). Kept by
+  hand, it stopped at 0.0.2 while npm reached 0.1.1.
