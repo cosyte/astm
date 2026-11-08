@@ -10,9 +10,9 @@
  *
  * WHAT IT ASSERTS
  *   - the pending set is non-empty and resolves the package to the prepared version off the
- *     published base, `0.1.2` off `0.1.1`, which needs `patch` bumps only: no `minor` and no
+ *     published base, `0.1.3` off `0.1.2`, which needs `patch` bumps only: no `minor` and no
  *     `major`;
- *   - the README changeset, the one the record audits, carries `patch`, because neither its own
+ *   - the numeric-value changeset, the one the record audits, carries `patch`, because neither its own
  *     text nor the tree since the published base moves a public value;
  *   - the record's audit table accounts for every pending changeset and states the bump each
  *     one actually carries;
@@ -62,13 +62,13 @@ const PACKAGE_NAME = "@cosyte/astm";
  * computed from. It is compared against `package.json` rather than trusted: if the two ever
  * disagree, the audit is describing a release that already happened.
  */
-const PUBLISHED_BASE = "0.1.1";
+const PUBLISHED_BASE = "0.1.2";
 
 /** The version the pending set is prepared to resolve to. */
-const PREPARED_VERSION = "0.1.2";
+const PREPARED_VERSION = "0.1.3";
 
 /** The changeset the record audits, whose own text and change move no public value. */
-const AUDITED_CHANGESET = "readme-docs-pages.md";
+const AUDITED_CHANGESET = "numeric-value-linear-time.md";
 
 type Bump = "patch" | "minor" | "major";
 
@@ -435,10 +435,11 @@ describe.skipIf(RELEASE_COMMIT)("the pending changeset set", () => {
     expect(resolveNextVersion(PUBLISHED_BASE, BUMPS)).toBe(PREPARED_VERSION);
   });
 
-  it("classifies the README changeset as patch, because it moves no public value", () => {
-    // Its own text says the code, API and behavior are unchanged, and the tree agrees: since the
-    // published base one doc comment under `src/` changed, and the built code is byte-identical to
-    // the published tarball. Section 1 of the record sets out what was compared.
+  it("classifies the numeric-value changeset as patch, because it moves no public value", () => {
+    // Its own text says every value is classified exactly as before, and the tree agrees: since the
+    // published base one pattern inside a private function under `src/` changed, and the built
+    // declarations are byte-identical to the published tarball. Section 1 of the record sets out
+    // what was compared.
     const entry = PENDING.find((pending) => pending.file === AUDITED_CHANGESET);
     expect(entry, `${AUDITED_CHANGESET} is not in the pending set`).toBeDefined();
     expect(entry?.bump).toBe("patch");
