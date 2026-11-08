@@ -155,7 +155,7 @@ function trueInputs(yaml: string): string[] {
  * Does some package script reproduce this command locally?
  *
  * Matched on the command TEXT rather than on a name, because a workflow calls a
- * gate the way a person would (`bash scripts/check-no-internal-refs.sh`) and the script
+ * gate the way a person would (`tsx scripts/phi-scan.ts`) and the script
  * entry is the same text. A name-based map would have to be maintained beside
  * the thing it describes, which is the failure mode this whole file is about.
  */
