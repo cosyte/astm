@@ -22,6 +22,8 @@ import { describe, expect, it } from "vitest";
 import {
   AMBIGUOUS_CODES,
   AstmAmbiguousStreamError,
+  WARNING_CODES,
+  classifyMessage,
   comments,
   commentsFor,
   messages,
@@ -273,5 +275,73 @@ describe("edge cases, decided deliberately", () => {
     if (secondResult !== undefined) {
       expect(commentsFor(msg, secondResult).map((c) => c.text)).toEqual(["second"]);
     }
+  });
+});
+
+/**
+ * `classification` on the parsed model answers for the whole stream, not for a message: it is folded
+ * over every record and, unlike the flat accessors, it does not throw on a multi-message stream. The
+ * documented way to classify one message is `classifyMessage(m.records)` over `messages()`. These
+ * pin both halves, so a per-message `classification` (or a stream-wide answer described as a
+ * message's) cannot arrive unnoticed.
+ */
+describe("classification is stream-wide; classifyMessage over messages() is per message", () => {
+  /** A host-query request, then an ordinary result upload for a different specimen. */
+  const QUERY_THEN_RESULTS =
+    "H|\\^&\r" +
+    "P|1\r" +
+    "Q|1|^SPEC-0001||ALL\r" +
+    "L|1|N\r" +
+    "H|\\^&\r" +
+    "P|1|PRAC-0002|LAB-0002||SYNTHB^BRAVO\r" +
+    "O|1|SPEC-0002||^^^687|R\r" +
+    "R|1|^^^687|10.0|U/L||N||F\r" +
+    "L|1|N\r";
+
+  it("classifies the whole stream as a host query when one of its messages is", () => {
+    const msg = parseAstmRecords(QUERY_THEN_RESULTS);
+    expect(messages(msg)).toHaveLength(2);
+    expect(msg.classification).toEqual({
+      kind: "host-query",
+      hasQuery: true,
+      hasResults: true,
+      hasOrders: true,
+      hasUnrecognized: false,
+      isHostQueryRequest: true,
+    });
+    // The Q and the R sit in different messages, and the stream-wide fold still flags the pair.
+    expect(msg.warnings.map((w) => w.code)).toEqual([
+      WARNING_CODES.ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND,
+    ]);
+  });
+
+  it("classifies each message on its own through classifyMessage(m.records)", () => {
+    const [request, upload] = messages(parseAstmRecords(QUERY_THEN_RESULTS));
+    expect(request && classifyMessage(request.records).kind).toBe("host-query");
+    expect(upload && classifyMessage(upload.records)).toEqual({
+      kind: "results",
+      hasQuery: false,
+      hasResults: true,
+      hasOrders: true,
+      hasUnrecognized: false,
+      isHostQueryRequest: false,
+    });
+  });
+
+  it("withholds the stream's kind over an unrecognized letter in a message it did not come from", () => {
+    // The unrecognized record sits in the first message; the results are all in the second.
+    const msg = parseAstmRecords(
+      "H|\\^&\rX|1|vendor\rL|1|N\r" + "H|\\^&\rP|1|PRAC-0002\rR|1|^^^687|10.0|U/L||N||F\rL|1|N\r",
+    );
+    const [first, second] = messages(msg);
+    expect(msg.classification.kind).toBe("indeterminate");
+    expect(msg.classification.hasUnrecognized).toBe(true);
+    expect(first && classifyMessage(first.records).kind).toBe("indeterminate");
+    expect(second && classifyMessage(second.records).kind).toBe("results");
+  });
+
+  it("agrees with classifyMessage over every record on a single-message stream", () => {
+    const msg = parseAstmRecords(ONE_PATIENT);
+    expect(msg.classification).toEqual(classifyMessage(msg.records));
   });
 });

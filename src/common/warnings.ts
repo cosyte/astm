@@ -491,9 +491,12 @@ export const WARNING_CODES = {
    */
   ASTM_RECORD_UNINTERPRETED_QUERY_STATUS: "ASTM_RECORD_UNINTERPRETED_QUERY_STATUS",
   /**
-   * A message carried **both** a `Q` (request) and an `R` (result) record: a contradictory shape. The
-   * message is classified `host-query` (the `Q` **dominates**, so it is never read as a result set) and
+   * The stream carried **both** a `Q` (request) and an `R` (result) record: a contradictory shape. The
+   * stream is classified `host-query` (the `Q` **dominates**, so it is never read as a result set) and
    * this warning flags the anomaly. Positional context only; no field value.
+   *
+   * Classification is folded over the whole stream, so a `Q` in one message and an `R` in another
+   * raise it too. `classifyMessage(m.records)` over `messages()` says which message carried which.
    */
   ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND: "ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND",
   /**
@@ -1122,10 +1125,10 @@ export function uninterpretedQueryStatus(position: AstmPosition): AstmRecordWarn
 }
 
 /**
- * Build an `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` warning. Emitted when a message
- * carries both a `Q` (request) and an `R` (result) record; the message is
- * classified as a host-query request (the `Q` dominates) and the anomaly is
- * flagged.
+ * Build an `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND` warning. Emitted when a parsed
+ * stream carries both a `Q` (request) and an `R` (result) record, in one message
+ * or across several; the stream is classified as a host-query request (the `Q`
+ * dominates) and the anomaly is flagged.
  *
  * @example
  * ```ts
@@ -1137,7 +1140,7 @@ export function ambiguousMessageKind(position: AstmPosition): AstmRecordWarning 
   return {
     code: WARNING_CODES.ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND,
     message:
-      "Message carried both a Q (request) and an R (result) record, classified host-query; Q dominates.",
+      "Stream carried both a Q (request) and an R (result) record, classified host-query; Q dominates.",
     position,
   };
 }
