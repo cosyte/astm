@@ -259,8 +259,11 @@ export interface CommentRecord extends RecordBase {
  * The `Q` (Request Information) record: the host-query request.
  *
  * A `Q` record asks the LIS for information (e.g. outstanding orders for a
- * specimen); its **presence classifies the whole message as a request, never a
- * result set** (see {@link AstmMessage.classification}). Its safety-relevant
+ * specimen); its **presence classifies the records it arrives in as a request,
+ * never a result set**. {@link AstmMessage.classification} is folded over the
+ * whole parsed stream, so a `Q` in any one message makes the whole stream read as
+ * a host query; `classifyMessage(m.records)` classifies one message from
+ * `messages()` on its own. Its safety-relevant
  * fields, the starting/ending range ID and the request-information status, are
  * surfaced **verbatim**; the field *positions* are the public ASTM E1394 layout,
  * but their internal structure and code meanings are **`[OSS-derived / paywalled]`**
@@ -365,10 +368,11 @@ export interface TerminatorRecord extends RecordBase {
  * arrives here instead, opens no message, and the messages either side of it are
  * grouped as one. Check `rawType` before trusting a split.
  *
- * **And one of these may be a `Q`.** Message classification counts type letters
- * too, so a message carrying an unsupported record is classified `indeterminate`
- * unless a `Q` was read outright: see
- * {@link AstmMessageClassification.hasUnrecognized}.
+ * **And one of these may be a `Q`.** Classification counts type letters too, so
+ * records that include an unsupported one are classified `indeterminate` unless a
+ * `Q` was read outright. On {@link AstmMessage.classification} that is every
+ * record in the stream, so one unsupported record in any message withholds the
+ * kind for the whole stream: see {@link AstmMessageClassification.hasUnrecognized}.
  *
  * **A header that arrives here also failed to re-scope the delimiters.** The
  * records after it are read with the set already in force, and where that set is
@@ -395,12 +399,13 @@ export type AstmRecord =
   | UnsupportedRecord;
 
 /**
- * How a message is classified by the host-query flow.
+ * How the host-query flow classifies a set of records: one message's under
+ * `classifyMessage(m.records)`, the whole stream's on {@link AstmMessage.classification}.
  *
- * - `host-query` (the message carries at least one `Q` record): it is a **request
+ * - `host-query` (the records include at least one `Q`): it is a **request
  *   for information**, and **must never be read as a result set** (the load-bearing
  *   safety distinction of this layer). `Q` **dominates**: a `Q` present classifies
- *   the message as a request even if a result record is also present (an anomaly,
+ *   the records as a request even if a result record is also present (an anomaly,
  *   separately warned), so a `Q`-bearing message is never silently treated as a
  *   result upload.
  * - `results` (no `Q`, at least one `R` result record): a result upload / response.
@@ -412,9 +417,16 @@ export type AstmRecord =
 export type AstmMessageKind = "host-query" | "results" | "orders" | "indeterminate";
 
 /**
- * The message-level classification from the host-query flow. `isHostQueryRequest`
- * is the single boolean a consumer should gate on before treating records as
- * results: it is `true` **iff** a `Q` record is present.
+ * The host-query classification of a set of records. `isHostQueryRequest` is the
+ * single boolean a consumer should gate on before treating records as results: it
+ * is `true` **iff** a `Q` record is present among the records classified.
+ *
+ * Which records those are depends on where it comes from. On
+ * {@link AstmMessage.classification} it is folded over **every record in the
+ * stream**, not one message: a stream carrying several `H` … `L` messages gets one
+ * classification, so a `Q` in any message makes the whole stream read as a host
+ * query. `classifyMessage(m.records)`, on a message from `messages()`, gives
+ * that one message's classification.
  *
  * @example
  * ```ts
@@ -426,9 +438,9 @@ export type AstmMessageKind = "host-query" | "results" | "orders" | "indetermina
  */
 export interface AstmMessageClassification {
   /**
-   * The message kind.
+   * The kind of the records classified.
    *
-   * `indeterminate` also covers a message the reader declines to classify: when
+   * `indeterminate` also covers records the reader declines to classify: when
    * {@link AstmMessageClassification.hasUnrecognized} is `true` and no `Q` was read, the kind is
    * withheld rather than guessed, because the unreadable letter may have been that `Q`. The `has*`
    * flags below stay truthful in that case, so a caller that wants the raw counts still has them.
@@ -444,7 +456,7 @@ export interface AstmMessageClassification {
    * At least one record's type letter was **not recognized** (an
    * {@link UnsupportedRecord}), so the letter counts above are known to be incomplete.
    *
-   * Any of them may have been a `Q`, which is why a message carrying one is classified
+   * Any of them may have been a `Q`, which is why records that include one are classified
    * `indeterminate` unless a `Q` was read outright. `ASTM_RECORD_UNKNOWN_TYPE` reports the same
    * condition on {@link AstmMessage.warnings}.
    */
@@ -453,7 +465,7 @@ export interface AstmMessageClassification {
    * `true` **iff** `kind === "host-query"` (a `Q` record was read), the safety surface: gate on this
    * before treating records as results, so a query is never misread as a result upload.
    *
-   * `false` is **not** a warrant that the message is a result set. Read `kind` for that: it is
+   * `false` is **not** a warrant that the records are a result set. Read `kind` for that: it is
    * `indeterminate` whenever the reader could not account for every type letter.
    */
   readonly isHostQueryRequest: boolean;
@@ -485,10 +497,14 @@ export interface AstmMessage {
    */
   readonly delimiters: Delimiters;
   /**
-   * The host-query classification of this message: whether it is a request (`Q`
-   * present), a result upload, an order download, or indeterminate. Gate on
-   * {@link AstmMessageClassification.isHostQueryRequest} before reading records as
-   * results.
+   * The host-query classification of the **whole stream**: whether its records make a request
+   * (`Q` present), a result upload, an order download, or indeterminate. Gate on
+   * {@link AstmMessageClassification.isHostQueryRequest} before reading records as results.
+   *
+   * It is folded over every record, not per message, and it does not throw on a multi-message
+   * stream. A `Q` in one message makes the whole stream read as a host query, and a stream that
+   * also carries results anywhere raises `ASTM_RECORD_AMBIGUOUS_MESSAGE_KIND`. Classify each
+   * message on its own with `classifyMessage(m.records)` over `messages()`.
    */
   readonly classification: AstmMessageClassification;
   readonly warnings: readonly AstmRecordWarning[];

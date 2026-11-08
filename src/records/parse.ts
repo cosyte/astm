@@ -198,9 +198,10 @@ export function parseAstmRecords(
   // Second pass: attach each comment to its immediately-preceding H/P/O/R parent (an orphan → root).
   const records = attachComments(built, warnings);
 
-  // Host-query classification. `Q` dominates so a query is never read as a result set; a message that
-  // carries BOTH a Q and an R is contradictory: classified host-query (still a request) and warned,
-  // never silently treated as a result upload.
+  // Host-query classification, folded over the whole stream rather than per message. `Q` dominates
+  // so a query is never read as a result set; a stream that carries BOTH a Q and an R, in one message
+  // or across two, is contradictory: classified host-query (still a request) and warned, never
+  // silently treated as a result upload.
   const classification = classifyMessage(records);
   if (classification.hasQuery && classification.hasResults) {
     warnings.push(ambiguousMessageKind({ recordIndex: 0, recordType: "H" }));

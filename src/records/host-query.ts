@@ -32,8 +32,8 @@ import type { AstmMessageClassification, AstmRecord } from "./types.js";
  * Classify a record stream by the host-query flow. Pure and total: it only reads
  * the record type letters, never a field value.
  *
- * `Q` dominates: a message with any `Q` record is a `host-query` request even when
- * a result (`R`) record is also present, so a query is never misread as a result
+ * `Q` dominates: records with any `Q` among them are a `host-query` request even
+ * when a result (`R`) record is also present, so a query is never misread as a result
  * upload. (The `Q`+`R` anomaly is separately warned at parse time.)
  *
  * An **unsupported** record letter with no `Q` alongside it yields `indeterminate`,
@@ -42,8 +42,13 @@ import type { AstmMessageClassification, AstmRecord } from "./types.js";
  * {@link AstmMessageClassification.hasUnrecognized} reports why the answer is
  * withheld, and the `has*` counts stay truthful throughout.
  *
+ * `parseAstmRecords` applies this to every record in the stream, so
+ * its `classification` answers for the whole stream, not per message.
+ * Pass one message's records (`m.records` for `m` of `messages()`) to classify that
+ * message on its own.
+ *
  * @param records - The parsed records, in wire order.
- * @returns The message classification.
+ * @returns The classification of exactly those records.
  * @example
  * ```ts
  * import { classifyMessage, parseAstmRecords } from "@cosyte/astm";

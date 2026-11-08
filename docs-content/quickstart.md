@@ -224,7 +224,7 @@ r?.status.vocabulary.reason; // fixed prose saying so
 ## Tell a query apart from a result upload
 
 A `Q` (request-information) record means the message is a **host-query request**, not a result set,
-so it must never be read as one. `parseAstmRecords` classifies every message up front; gate on
+so it must never be read as one. `parseAstmRecords` classifies the stream up front; gate on
 `classification.isHostQueryRequest` before treating records as results.
 
 ```ts runnable
@@ -236,6 +236,11 @@ const msg = parseAstmRecords(raw);
 
 msg.classification.kind; // => "host-query"
 ```
+
+`classification` answers for the whole stream, not for one message: it is folded over every record,
+so on a stream carrying several messages a `Q` in any one of them makes the whole stream read as a
+host query. Classify each message on its own with `classifyMessage(m.records)` over `messages()`,
+as [Several messages in one stream](./guides-api-by-layer#several-messages-in-one-stream) shows.
 
 The `Q` **dominates**: even a message that (anomalously) carries both a `Q` and an `R` is classified
 `host-query` and flagged, a query is never silently read as a result upload.
