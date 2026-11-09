@@ -108,6 +108,8 @@ The full documentation lives at [docs.cosyte.com/astm](https://docs.cosyte.com/a
 
 Questions, bug reports, and analyzer quirks you have met on a real feed all start on the [issue tracker](https://github.com/cosyte/astm/issues); there is no separate forum. Describe a quirk by its shape, or reproduce it with synthetic values: never paste real patient data into an issue.
 
+Need an ASTM instrument integration built, or hosted and run for you? See our [integration services](https://cosyte.com/integration-services).
+
 ## Security
 
 Report a vulnerability privately, to security@cosyte.com or through GitHub's private vulnerability reporting, as the [security policy](https://github.com/cosyte/.github/blob/main/SECURITY.md) describes, and never in a public issue.
