@@ -35,16 +35,22 @@ import type { AstmMessage, MessageInput } from "../../src/index.js";
 
 // The sizes are small on purpose. A parse allocates heavily, so a pass of tens of milliseconds is
 // one warmup batch of one pass, and the collector's noise then keeps the warmup from settling; at
-// these sizes a 50 ms batch holds several passes. The regression is made strong enough instead.
+// these sizes a 50 ms batch holds several passes. Each base phase is still above the contract's
+// 4 ms floor on a hosted runner (about 7 to 10 ms there), and the regression is made strong enough
+// for its signal to clear the ceiling at these sizes.
 
-/** Result messages in the count axis's base phase, about 20 KiB. */
-const COUNT = 50;
+/** Result messages in the count axis's base phase, about 40 KiB. */
+const COUNT = 100;
+/** The build is about 3 times faster than a parse, so its count axis has more messages. */
+const BUILD_COUNT = 250;
 /** Results in the size axis's base session, about 9 KiB; the scaled phase has 4 times as many. */
 const RESULTS = 100;
 /** Sessions in each size-axis phase. */
-const SESSIONS = 2;
+const SESSIONS = 4;
+/** Sessions in each of the build's size-axis phases, for the same reason as `BUILD_COUNT`. */
+const BUILD_SESSIONS = 8;
 /** The chunk the regressed copy appends at a time. */
-const CHUNK = 2;
+const CHUNK = 8;
 
 /**
  * The bytes assembled the wrong way: each time a chunk arrives, everything received so far is
@@ -107,8 +113,8 @@ function buildOptions(): ScalingGateOptions<MessageInput, string> {
     name: "@cosyte/astm buildAstmMessage",
     parse: (input) => astm.buildAstmMessage(input),
     weigh: (out) => out.length,
-    count: { n: COUNT, generate: (i) => messageInput(i) },
-    size: { inputs: SESSIONS, size: RESULTS, generate: (i, size) => sessionInput(i, size) },
+    count: { n: BUILD_COUNT, generate: (i) => messageInput(i) },
+    size: { inputs: BUILD_SESSIONS, size: RESULTS, generate: (i, size) => sessionInput(i, size) },
   };
 }
 
