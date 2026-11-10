@@ -203,14 +203,15 @@ export { recognizeUniversalTestId, primaryCode } from "./common/coding-system.js
 export type { UniversalTestId, UniversalTestIdProvenance } from "./common/coding-system.js";
 export { deepFreeze } from "./common/freeze.js";
 
-// ── The vendor profile system (P8): the engine + registry + tolerance transform ──
+// ── The vendor profile system: the engine + registry + tolerance transform ──
 // `defineAstmProfile` builds an immutable, provenance-backed profile with a
 // safety gate enforced both at definition time and again when a warning would be
 // downgraded (a profile can never tolerate a safety-critical
 // deviation, and never alters an extracted value: it only re-badges an expected
 // warning to PROFILE_QUIRK_APPLIED and can force the raw-vs-framed transport). The
 // built-in registry ships `default` + the corpus-grounded `referenceCorpus`; named
-// vendor profiles are deferred (REAL-CORPUS) but fully supported by the engine.
+// vendor profiles wait for a public, vendor-attributed quirk document, and the engine
+// fully supports them.
 export {
   defineAstmProfile,
   AstmProfileDefinitionError,
@@ -236,8 +237,8 @@ export type {
   AnyAstmWarningCode,
 } from "./profiles/index.js";
 
-// ── The terminology layer (P9): LIVD-aware LOINC recognition (bring-your-own) ──
-// `@cosyte/astm` bundles no LOINC/SNOMED/LIVD data (roadmap §5): LOINC is © Regenstrief
+// ── The terminology layer: LIVD-aware LOINC recognition (bring-your-own) ──
+// `@cosyte/astm` bundles no LOINC/SNOMED/LIVD data: LOINC is © Regenstrief
 // (redistributable only with its attribution notice) and the public CDC LIVD file is
 // SARS-CoV-2-specific and carries separately-licensed SNOMED: not a general public-domain
 // catalog. So a consumer supplies their own IICC LIVD catalog (`defineLivdCatalog`) and
@@ -270,7 +271,7 @@ export type {
   LivdWarningCode,
 } from "./terminology/index.js";
 
-// ── The LTP protocol layer (P6): transport detection + pure session reducer ──
+// ── The LTP protocol layer: transport detection + pure session reducer ──
 export { detectFraming } from "./ltp/transport.js";
 export type { AstmFraming, DetectFramingOptions, DetectFramingResult } from "./ltp/transport.js";
 export { ltpInitialState, ltpReduce } from "./ltp/reducer.js";
@@ -289,7 +290,7 @@ export {
 } from "./ltp/constants.js";
 export type { LtpPhase, LtpState, LtpEvent, LtpAction, LtpTransition } from "./ltp/types.js";
 
-// ── The E1381 / CLSI-LIS01 framing layer (P5) ──
+// ── The E1381 / CLSI-LIS01 framing layer ──
 export { decodeAstmFrames } from "./frames/decode.js";
 export { composeAstmFrames, AstmFrameEncodeError } from "./frames/encode.js";
 export type { AstmFrameEncodeErrorCode, ComposeFramesOptions } from "./frames/encode.js";
