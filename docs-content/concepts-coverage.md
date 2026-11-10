@@ -1,8 +1,8 @@
 ---
 id: concepts-coverage
 title: Coverage and compatibility
-description: "What the parser reads and emits, which behaviors are reasoned from the reader rather than quoted from the standard, and the escape and delimiter edge cases each warning code reports."
-sidebar_position: 4
+sidebar_label: Coverage and compatibility
+description: "What the parser reads and writes, which behaviors are our reading rather than a quotation of the standard, and the escape edge cases each warning reports."
 ---
 
 # Coverage and compatibility
@@ -236,23 +236,15 @@ wired, and there is no fourth: nothing splits on the escape role.
 
 ## A header that names one character in two delimiter roles
 
-ASTM messages are self-describing: the `H` record declares the four delimiters and a conformant
-reader follows them. A declaration whose **field** separator is also one of the other three is
-refused outright, because the four roles would be indistinguishable. A declaration where two of the
-_remaining_ three agree is still read, because the stream is readable and refusing it would drop
-records the sender did send, but the boundary between those two roles is no longer in the bytes.
+[How delimiters are read and written](./delimiters.md#a-header-that-names-one-character-in-two-roles)
+covers this case, `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, with the rest of the delimiter rules.
 
-Under `H|^^&`, where the repeat and component roles are both `^`, a field a canonical sender would
-have written as two repeats of two components reads back as four repeats of one component each.
-Under `H|\&&`, where the component and escape roles are both `&`, the same character splits
-(`A&B` is two components) or opens an escape atom (`A&F&B` is the single component `A|B`) depending
-only on what follows it.
+## How-to guides that apply this
 
-Such a header now raises `ASTM_RECORD_DELIMITER_ROLE_COLLISION`, at the header that put the set into
-force, once rather than once per colliding pair. A later header restating the set already in force
-warns nothing, on the same rule that governs the other delimiter warnings. The code is **not** tolerable. That matters
-because every such set is by definition non-canonical, so the only warning it used to raise was
-`ASTM_NONSTANDARD_DELIMITERS`, which is tolerable: a profile expecting an ordinary vendor set left a
-`{ strict: true }` parse accepting a declaration whose own field tree cannot be recovered. Emit has
-always refused these sets (`ASTM_EMIT_INVALID_DELIMITERS`), which is how the gap first showed: a
-message that parsed clean threw when it was serialized back against its own declared delimiters.
+- [Read a result safely](./read-results.md)
+- [Handle warnings and fail fast](./handle-warnings.md)
+- [Write records and frames](./write-records-and-frames.md)
+- [Write a vendor profile](./guides-vendor-profiles.md)
+
+Every code named on this page is listed in [Warning and error codes](./warning-codes.md), and
+[Troubleshooting](./troubleshooting.md) has a section for each of the escape-alignment codes.

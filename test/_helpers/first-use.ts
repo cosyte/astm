@@ -73,6 +73,55 @@ export function compileErrors(
     });
 }
 
+/**
+ * The same check as {@link compileErrors}, for many examples in one program: each example becomes
+ * its own module in the repository root, so one example's declarations never reach another, and
+ * the package's types are read once rather than once per example. Returns each example's errors
+ * under its name, an empty list for one that compiles.
+ */
+export function compileErrorsEach(
+  root: string,
+  paths: Readonly<Record<string, string>>,
+  examples: readonly { readonly name: string; readonly code: string }[],
+): Map<string, string[]> {
+  const files = new Map(
+    examples.map((example, index) => [join(root, `docs-sample-${String(index)}.mts`), example]),
+  );
+  const options: ts.CompilerOptions = {
+    ...READER_OPTIONS,
+    typeRoots: [join(root, "node_modules", "@types")],
+    paths: Object.fromEntries(Object.entries(paths).map(([pkg, entry]) => [pkg, [entry]])),
+  };
+  const host = ts.createCompilerHost(options, true);
+  const getSourceFile = host.getSourceFile.bind(host);
+  host.getSourceFile = (name, language, onError, create) => {
+    const example = files.get(name);
+    return example === undefined
+      ? getSourceFile(name, language, onError, create)
+      : ts.createSourceFile(name, example.code, language, true);
+  };
+  const fileExists = host.fileExists.bind(host);
+  host.fileExists = (name) => files.has(name) || fileExists(name);
+  const readFile = host.readFile.bind(host);
+  host.readFile = (name) => files.get(name)?.code ?? readFile(name);
+  const program = ts.createProgram([...files.keys()], options, host);
+  const out = new Map<string, string[]>();
+  for (const [file, example] of files) {
+    out.set(
+      example.name,
+      ts
+        .getPreEmitDiagnostics(program, program.getSourceFile(file))
+        .filter((d) => d.file?.fileName === file)
+        .map((d) => {
+          const line = d.file?.getLineAndCharacterOfPosition(d.start ?? 0).line ?? 0;
+          const text = ts.flattenDiagnosticMessageText(d.messageText, " ");
+          return `line ${String(line + 1)}: TS${String(d.code)} ${text}`;
+        }),
+    );
+  }
+  return out;
+}
+
 /** One fenced code block: its info string split into language and tags, and its body. */
 export interface Fence {
   readonly lang: string;

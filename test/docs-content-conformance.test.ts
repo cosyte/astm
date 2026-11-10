@@ -6,13 +6,15 @@ import { describe, expect, it } from "vitest";
 /**
  * STRUCTURAL CONFORMANCE GATE over the docs bundle this package SHIPS.
  *
- * `test/docs-sidebar-ia.test.ts` grades the sidebar against the upstream spine and
- * `test/docs-content.test.ts` runs the executable snippets. Neither grades the PAGES: their
- * frontmatter, their heading shape, their internal links, or the one rule this repo has broken
- * before and will break again, which is naming a release version in prose. This file is that gate.
+ * `test/docs-sidebar-ia.test.ts` grades the sidebar against the docs-content standard and
+ * `test/docs-content.test.ts` runs the samples. Neither grades the PAGES: their front matter, their
+ * heading shape, their internal links and anchors, the quality pages' generated section, or the one
+ * rule this repo has broken before and will break again, which is naming a release version in
+ * prose. This file is that gate. The front matter and link rules follow the docs-content standard
+ * (cosyte/config, `documentation/decisions/0006-the-docs-content-standard.md`, sections 4, 5 and 8).
  *
  * WHY IT IS A GATE AND NOT A REVIEW NOTE. The bundle is tarred into a release asset that
- * `cosyte/docs` re-fetches forever. A released tarball is IMMUTABLE: a wrong page cannot be
+ * docs.cosyte.com re-fetches forever. A released tarball is IMMUTABLE: a wrong page cannot be
  * corrected in place by any later diff to any repo, only superseded by a later release, and it
  * renders wrong on the published site until then. Every rule below is one whose violation would
  * otherwise be found by a reader of the published page.
@@ -43,6 +45,8 @@ interface Bundle {
   readonly files: readonly string[];
   /** Parsed `sidebars.json`, or `undefined` when the bundle ships none. */
   readonly sidebar: unknown;
+  /** The generated reference pages under `api/`, keyed by their path inside it. */
+  readonly reference: ReadonlyMap<string, string>;
 }
 
 /**
@@ -75,7 +79,15 @@ function readShippedBundle(): Bundle {
   const sidebar: unknown = existsSync(sidebarPath)
     ? JSON.parse(readFileSync(sidebarPath, "utf8"))
     : undefined;
-  return { pages, files, sidebar };
+  const referenceDir = `${docsContentDir}api/`;
+  const reference = new Map<string, string>();
+  if (existsSync(referenceDir)) {
+    for (const entry of readdirSync(referenceDir, { recursive: true, encoding: "utf8" })) {
+      if (entry.endsWith(".md"))
+        reference.set(entry, readFileSync(`${referenceDir}${entry}`, "utf8"));
+    }
+  }
+  return { pages, files: files.filter((f) => f !== "api"), sidebar, reference };
 }
 
 /** Build a bundle from literal page sources, for the negative cases. */
@@ -83,9 +95,10 @@ function bundleOf(
   sources: Readonly<Record<string, string>>,
   sidebar?: unknown,
   extraFiles: readonly string[] = [],
+  reference: ReadonlyMap<string, string> = new Map(),
 ): Bundle {
   const pages = Object.entries(sources).map(([file, text]) => parsePage(file, text));
-  return { pages, files: [...Object.keys(sources), ...extraFiles], sidebar };
+  return { pages, files: [...Object.keys(sources), ...extraFiles], sidebar, reference };
 }
 
 const shipped = readShippedBundle();
@@ -271,15 +284,19 @@ function checkRequiredArtifacts(bundle: Bundle): string[] {
 // RULE: frontmatter shape and the single level-1 heading
 // ---------------------------------------------------------------------------
 
-const REQUIRED_FRONTMATTER = ["id", "title", "sidebar_position"] as const;
+const REQUIRED_FRONTMATTER = ["id", "title", "sidebar_label", "description"] as const;
+
+/** The length of a description a search result shows. */
+const DESCRIPTION_LIMIT = 160;
 
 function checkFrontmatter(bundle: Bundle): string[] {
   const problems: string[] = [];
   for (const page of bundle.pages) {
     const stem = page.file.replace(/\.md$/, "");
     for (const key of REQUIRED_FRONTMATTER) {
-      if (!page.frontmatter.has(key))
-        problems.push(`${page.file}: frontmatter is missing \`${key}\``);
+      const value = page.frontmatter.get(key);
+      if (value === undefined) problems.push(`${page.file}: frontmatter is missing \`${key}\``);
+      else if (value.length === 0) problems.push(`${page.file}: frontmatter \`${key}\` is empty`);
     }
     const id = page.frontmatter.get("id");
     if (id !== undefined && id !== stem) {
@@ -287,9 +304,15 @@ function checkFrontmatter(bundle: Bundle): string[] {
         `${page.file}: frontmatter \`id\` is \`${id}\`, which is not the filename stem`,
       );
     }
-    const position = page.frontmatter.get("sidebar_position");
-    if (position !== undefined && !/^\d+$/.test(position)) {
-      problems.push(`${page.file}: \`sidebar_position\` is \`${position}\`, which is not a number`);
+    const description = page.frontmatter.get("description");
+    if (description !== undefined && description.length > DESCRIPTION_LIMIT) {
+      problems.push(
+        `${page.file}: \`description\` is ${String(description.length)} characters, over ` +
+          `${String(DESCRIPTION_LIMIT)}`,
+      );
+    }
+    if (page.frontmatter.has("sidebar_position")) {
+      problems.push(`${page.file}: \`sidebar_position\` is set; the sidebar sets the order`);
     }
     const h1 = headings(page.body).filter((h) => h.level === 1);
     if (h1.length !== 1) {
@@ -300,61 +323,87 @@ function checkFrontmatter(bundle: Bundle): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// RULE: `sidebar_position` is unique within a sidebar category
-// ---------------------------------------------------------------------------
-
-/**
- * Two pages in one category declaring the same position leaves their order to whatever the docs
- * site's tie-break happens to be, which is a rendering nobody chose. It is graded PER CATEGORY
- * rather than per bundle because the field is scoped that way: two categories each opening at `1`
- * is correct.
- */
-function checkSidebarPositions(bundle: Bundle): string[] {
-  const category = categoryByDocId(sidebarEntries(bundle.sidebar), TOP_LEVEL);
-  const seen = new Map<string, Map<string, string>>();
-  const problems: string[] = [];
-  for (const page of bundle.pages) {
-    const stem = page.file.replace(/\.md$/, "");
-    const position = page.frontmatter.get("sidebar_position");
-    if (position === undefined) continue;
-    const label = category.get(stem) ?? "(unreferenced)";
-    const inCategory = seen.get(label) ?? new Map<string, string>();
-    const clash = inCategory.get(position);
-    if (clash !== undefined) {
-      problems.push(
-        `${page.file} and ${clash} both declare \`sidebar_position: ${position}\` in the ` +
-          `\`${label}\` category`,
-      );
-    } else {
-      inCategory.set(position, page.file);
-    }
-    seen.set(label, inCategory);
-  }
-  return problems;
-}
-
-// ---------------------------------------------------------------------------
-// RULE: a relative link resolves to a shipped page
+// RULE: a relative link resolves to a shipped page, and its anchor to a heading on it
 // ---------------------------------------------------------------------------
 
 /**
  * A broken sibling link on a published, immutable page is a dead end a later diff cannot repair.
- * Only RELATIVE targets are graded: an external URL is somebody else's uptime, and a target that is
- * a bare fragment names no page at all.
+ * Only RELATIVE targets are graded: an external URL is somebody else's uptime. The shared CI's link
+ * check is not switched on for this repository, so this rule is what resolves them.
+ *
+ * The standard's spelling is the only one accepted: `./page.md` or `./page.md#anchor` for a page of
+ * this bundle, and `./api/<page>.md` or `./api/<page>.md#anchor` for the generated reference, so a
+ * link resolves on GitHub and on the site alike. A bare `#anchor` names a heading on the same page.
+ * An anchor must be one the target page offers, slugged the way the site slugs a heading.
  */
+const PAGE_LINK = /^\.\/([a-z0-9]+(?:-[a-z0-9]+)*\.md)(?:#(.+))?$/;
+const REFERENCE_LINK = /^\.\/api\/((?:(?!\.\.?\/)[^/#]+\/)*[^/#]+\.md)(?:#(.+))?$/;
+
+/**
+ * The anchor the site gives a heading, as github-slugger computes it for the text: lower-cased,
+ * every character that is not a letter, a digit, `_`, a space or a hyphen dropped (code ticks,
+ * escapes and parentheses included), and each space turned into a hyphen.
+ */
+function headingSlug(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}_ -]/gu, "")
+    .replace(/ /g, "-");
+}
+
+/** Every anchor a page offers: one per heading outside fenced code, a repeat numbered from `-1`. */
+function anchorsIn(body: string): Set<string> {
+  const anchors = new Set<string>();
+  const counts = new Map<string, number>();
+  for (const heading of headings(body)) {
+    const base = headingSlug(heading.text);
+    const seen = counts.get(base) ?? 0;
+    counts.set(base, seen + 1);
+    anchors.add(seen === 0 ? base : `${base}-${String(seen)}`);
+  }
+  return anchors;
+}
+
+/** What is wrong with one relative link target, or `undefined` when it resolves. */
+function linkFault(target: string, from: Page, bundle: Bundle): string | undefined {
+  if (target.startsWith("#")) {
+    return anchorsIn(from.body).has(target.slice(1)) ? undefined : "names no heading on this page";
+  }
+  const reference = REFERENCE_LINK.exec(target);
+  if (reference !== null) {
+    const text = bundle.reference.get(reference[1] ?? "");
+    if (text === undefined) return "names no page in docs-content/api/";
+    const anchor = reference[2];
+    return anchor === undefined || anchorsIn(text).has(anchor)
+      ? undefined
+      : "names no heading on that reference page";
+  }
+  const shaped = PAGE_LINK.exec(target);
+  if (shaped === null) return "is not written as ./<page>.md or ./api/<page>.md";
+  const page = bundle.pages.find((p) => p.file === shaped[1]);
+  if (page === undefined) return "names no shipped page";
+  const anchor = shaped[2];
+  return anchor === undefined || anchorsIn(page.body).has(anchor)
+    ? undefined
+    : "names no heading on that page";
+}
+
+/** Every link target on a page outside fenced code, link text allowed to wrap across lines. */
+function linkTargets(body: string): string[] {
+  const prose: string[] = [];
+  for (const { line, inFence } of walkLines(body)) prose.push(inFence ? "" : line);
+  return [...prose.join("\n").matchAll(/\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)].map(
+    (m) => m[1] ?? "",
+  );
+}
+
 function checkRelativeLinks(bundle: Bundle): string[] {
-  const stems = new Set(bundle.pages.map((p) => p.file.replace(/\.md$/, "")));
   const problems: string[] = [];
   for (const page of bundle.pages) {
-    for (const m of page.body.matchAll(/\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
-      const target = m[1] ?? "";
-      if (!target.startsWith(".")) continue;
-      const withoutAnchor = target.split("#")[0] ?? "";
-      const stem = withoutAnchor.replace(/^\.\//, "").replace(/\.md$/, "");
-      if (stem.length === 0) continue;
-      if (!stems.has(stem)) {
-        problems.push(`${page.file}: relative link \`${target}\` names no shipped page`);
-      }
+    for (const target of linkTargets(page.body)) {
+      if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
+      const fault = linkFault(target, page, bundle);
+      if (fault !== undefined) problems.push(`${page.file}: link \`${target}\` ${fault}`);
     }
   }
   return problems;
@@ -656,6 +705,40 @@ function checkNoToleratedListSnapshot(bundle: Bundle): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// RULE: the quality pages' numbers are generated, never typed
+// ---------------------------------------------------------------------------
+
+/**
+ * The testing and performance pages each carry a `## Current numbers` section that the release
+ * build fills in with numbers measured on `main`. In the repository the section holds only the
+ * sentence saying so: a number typed here would be stale on the next commit and would ship in an
+ * immutable tarball. So the section must be exactly that sentence.
+ */
+const QUALITY_PAGES = ["testing-and-quality.md", "performance.md"] as const;
+const CURRENT_NUMBERS = "Current numbers";
+const CURRENT_NUMBERS_PLACEHOLDER =
+  "The numbers for this section are measured on `main` at each release and filled in when the " +
+  "release is built. They are never typed by hand.";
+
+function checkQualityPages(bundle: Bundle): string[] {
+  const problems: string[] = [];
+  for (const name of QUALITY_PAGES) {
+    const page = bundle.pages.find((p) => p.file === name);
+    if (page === undefined) {
+      problems.push(`the bundle is missing ${name}`);
+      continue;
+    }
+    const section = sectionUnder(page.body, CURRENT_NUMBERS);
+    if (section === undefined) {
+      problems.push(`${name}: carries no \`## ${CURRENT_NUMBERS}\` section`);
+    } else if (section.split(/\s+/).filter(Boolean).join(" ") !== CURRENT_NUMBERS_PLACEHOLDER) {
+      problems.push(`${name}: \`## ${CURRENT_NUMBERS}\` holds more than the placeholder sentence`);
+    }
+  }
+  return problems;
+}
+
+// ---------------------------------------------------------------------------
 // The shipped bundle
 // ---------------------------------------------------------------------------
 
@@ -664,16 +747,16 @@ describe("the shipped docs bundle conforms", () => {
     expect(checkRequiredArtifacts(shipped)).toEqual([]);
   });
 
-  it("carries `id`, `title` and `sidebar_position` on every page, with one level-1 heading", () => {
+  it("carries the standard's front matter on every page, with one level-1 heading", () => {
     expect(checkFrontmatter(shipped)).toEqual([]);
   });
 
-  it("declares no duplicate `sidebar_position` inside one sidebar category", () => {
-    expect(checkSidebarPositions(shipped)).toEqual([]);
+  it("resolves every relative link to a shipped page and every anchor to a heading on it", () => {
+    expect(checkRelativeLinks(shipped)).toEqual([]);
   });
 
-  it("resolves every relative link to a shipped page", () => {
-    expect(checkRelativeLinks(shipped)).toEqual([]);
+  it("holds only the placeholder sentence in each quality page's current numbers", () => {
+    expect(checkQualityPages(shipped)).toEqual([]);
   });
 
   it("names no package release version in prose", () => {
@@ -710,6 +793,9 @@ const PAGE = (front: string, body: string): string => `---\n${front}\n---\n\n${b
 
 const MINIMAL_SIDEBAR = { docs: ["intro"] };
 
+/** Front matter that carries every required key. */
+const FRONT = "id: intro\ntitle: Intro\nsidebar_label: Intro\ndescription: The overview.";
+
 describe("the conformance gate fires", () => {
   it("names an absent `intro.md` and an absent `sidebars.json`", () => {
     const problems = checkRequiredArtifacts(bundleOf({ "other.md": PAGE("id: other", "# Other") }));
@@ -718,26 +804,37 @@ describe("the conformance gate fires", () => {
     expect(problems.join(" ")).toContain("sidebars.json");
   });
 
-  it("names a missing frontmatter key", () => {
+  it("names a missing frontmatter key, and an empty one", () => {
     const problems = checkFrontmatter(
-      bundleOf({ "intro.md": PAGE("id: intro\ntitle: Intro", "# Intro") }),
+      bundleOf({ "intro.md": PAGE("id: intro\ntitle: Intro\nsidebar_label:", "# Intro") }),
     );
-    expect(problems).toEqual(["intro.md: frontmatter is missing `sidebar_position`"]);
+    expect(problems).toEqual([
+      "intro.md: frontmatter `sidebar_label` is empty",
+      "intro.md: frontmatter is missing `description`",
+    ]);
   });
 
   it("names an `id` that is not the filename stem", () => {
-    const problems = checkFrontmatter(
-      bundleOf({
-        "intro.md": PAGE("id: getting-started\ntitle: Intro\nsidebar_position: 1", "# Intro"),
-      }),
-    );
+    const front = FRONT.replace("id: intro", "id: getting-started");
+    const problems = checkFrontmatter(bundleOf({ "intro.md": PAGE(front, "# Intro") }));
     expect(problems).toEqual([
       "intro.md: frontmatter `id` is `getting-started`, which is not the filename stem",
     ]);
   });
 
+  it("names a description over 160 characters and a `sidebar_position`", () => {
+    const long = FRONT.replace("The overview.", "x".repeat(161));
+    expect(checkFrontmatter(bundleOf({ "intro.md": PAGE(long, "# Intro") }))).toEqual([
+      "intro.md: `description` is 161 characters, over 160",
+    ]);
+    const positioned = `${FRONT}\nsidebar_position: 1`;
+    expect(checkFrontmatter(bundleOf({ "intro.md": PAGE(positioned, "# Intro") }))).toEqual([
+      "intro.md: `sidebar_position` is set; the sidebar sets the order",
+    ]);
+  });
+
   it("names a page carrying two level-1 headings, and one carrying none", () => {
-    const front = "id: intro\ntitle: Intro\nsidebar_position: 1";
+    const front = FRONT;
     expect(checkFrontmatter(bundleOf({ "intro.md": PAGE(front, "# One\n\n# Two") }))).toEqual([
       "intro.md: carries 2 level-1 headings, not exactly one",
     ]);
@@ -747,65 +844,75 @@ describe("the conformance gate fires", () => {
   });
 
   it("does not count a `#` inside a fenced block as a heading", () => {
-    const front = "id: intro\ntitle: Intro\nsidebar_position: 1";
+    const front = FRONT;
     const body = "# Intro\n\n```bash\n# a shell comment, not a heading\n```";
     expect(checkFrontmatter(bundleOf({ "intro.md": PAGE(front, body) }))).toEqual([]);
-  });
-
-  it("names two pages sharing a `sidebar_position` inside one category", () => {
-    const sidebar = {
-      docs: [{ type: "category", label: "Troubleshooting", items: ["a", "b"] }],
-    };
-    const problems = checkSidebarPositions(
-      bundleOf(
-        {
-          "a.md": PAGE("id: a\ntitle: A\nsidebar_position: 1", "# A"),
-          "b.md": PAGE("id: b\ntitle: B\nsidebar_position: 1", "# B"),
-        },
-        sidebar,
-      ),
-    );
-    expect(problems).toEqual([
-      "b.md and a.md both declare `sidebar_position: 1` in the `Troubleshooting` category",
-    ]);
-  });
-
-  it("allows the same position in two DIFFERENT categories", () => {
-    const sidebar = {
-      docs: [
-        { type: "category", label: "Installation", items: ["a"] },
-        { type: "category", label: "Guides", items: ["b"] },
-      ],
-    };
-    const problems = checkSidebarPositions(
-      bundleOf(
-        {
-          "a.md": PAGE("id: a\ntitle: A\nsidebar_position: 1", "# A"),
-          "b.md": PAGE("id: b\ntitle: B\nsidebar_position: 1", "# B"),
-        },
-        sidebar,
-      ),
-    );
-    expect(problems).toEqual([]);
   });
 
   it("names the linking page and the unresolved target of a broken relative link", () => {
     const problems = checkRelativeLinks(
       bundleOf({
-        "intro.md": PAGE("id: intro", "# Intro\n\nSee [the guide](./guides-overview)."),
+        "intro.md": PAGE("id: intro", "# Intro\n\nSee [the guide](./guides-overview.md)."),
       }),
     );
-    expect(problems).toEqual(["intro.md: relative link `./guides-overview` names no shipped page"]);
+    expect(problems).toEqual(["intro.md: link `./guides-overview.md` names no shipped page"]);
   });
 
-  it("resolves a relative link written with `.md` and with an anchor", () => {
+  it("refuses a link not written as ./<page>.md", () => {
     const problems = checkRelativeLinks(
       bundleOf({
-        "intro.md": PAGE("id: intro", "# Intro\n\n[a](./other.md) and [b](./other#part)."),
+        "intro.md": PAGE("id: intro", "# Intro\n\n[a](./other) and [b](other.md)."),
         "other.md": PAGE("id: other", "# Other"),
       }),
     );
-    expect(problems).toEqual([]);
+    expect(problems).toEqual([
+      "intro.md: link `./other` is not written as ./<page>.md or ./api/<page>.md",
+      "intro.md: link `other.md` is not written as ./<page>.md or ./api/<page>.md",
+    ]);
+  });
+
+  it("resolves a link with an anchor to a heading on the target page, and names one that is not", () => {
+    const pages = {
+      "intro.md": PAGE(
+        "id: intro",
+        "# Intro\n\n[a](./other.md#the-part) [b](./other.md#no-such) [c](#intro) [d](#nope).",
+      ),
+      "other.md": PAGE("id: other", "# Other\n\n## The part"),
+    };
+    expect(checkRelativeLinks(bundleOf(pages))).toEqual([
+      "intro.md: link `./other.md#no-such` names no heading on that page",
+      "intro.md: link `#nope` names no heading on this page",
+    ]);
+  });
+
+  it("resolves a link into the generated reference, page and anchor, the way the site slugs", () => {
+    const reference = new Map([
+      ["README.md", "# @cosyte/astm\n\n### parseAstmRecords()\n\n### WARNING\\_CODES\n"],
+    ]);
+    const body =
+      "# Intro\n\n[a](./api/README.md#parseastmrecords) [b](./api/README.md#warning_codes) " +
+      "[c](./api/README.md#nothing) [d](./api/OTHER.md) [e](./api/../intro.md)";
+    expect(
+      checkRelativeLinks(
+        bundleOf({ "intro.md": PAGE("id: intro", body) }, undefined, [], reference),
+      ),
+    ).toEqual([
+      "intro.md: link `./api/README.md#nothing` names no heading on that reference page",
+      "intro.md: link `./api/OTHER.md` names no page in docs-content/api/",
+      "intro.md: link `./api/../intro.md` is not written as ./<page>.md or ./api/<page>.md",
+    ]);
+  });
+
+  it("numbers a repeated heading's anchor from -1, and ignores a link inside a fenced block", () => {
+    const pages = {
+      "intro.md": PAGE(
+        "id: intro",
+        "# Intro\n\n## Notes\n\n## Notes\n\n[a](#notes-1) [b](#notes-2)\n\n```md\n[c](./gone.md)\n```",
+      ),
+    };
+    expect(checkRelativeLinks(bundleOf(pages))).toEqual([
+      "intro.md: link `#notes-2` names no heading on this page",
+    ]);
   });
 
   it("leaves an absolute URL alone", () => {
@@ -813,6 +920,26 @@ describe("the conformance gate fires", () => {
       bundleOf({ "intro.md": PAGE("id: intro", "# Intro\n\n[npm](https://example.com/pkg).") }),
     );
     expect(problems).toEqual([]);
+  });
+
+  it("names a quality page whose current numbers hold more than the placeholder, or are missing", () => {
+    const placeholder = `## Current numbers\n\n${CURRENT_NUMBERS_PLACEHOLDER}`;
+    const ok = bundleOf({
+      "testing-and-quality.md": PAGE("id: testing-and-quality", `# T\n\n${placeholder}`),
+      "performance.md": PAGE("id: performance", `# P\n\n${placeholder}`),
+    });
+    expect(checkQualityPages(ok)).toEqual([]);
+    const typed = bundleOf({
+      "testing-and-quality.md": PAGE(
+        "id: testing-and-quality",
+        `# T\n\n${placeholder}\n\nLine coverage: 99%.`,
+      ),
+      "performance.md": PAGE("id: performance", "# P\n\n## Numbers\n\nFast."),
+    });
+    expect(checkQualityPages(typed)).toEqual([
+      "testing-and-quality.md: `## Current numbers` holds more than the placeholder sentence",
+      "performance.md: carries no `## Current numbers` section",
+    ]);
   });
 
   it("names a version token written as a bare word and one written as an inline span", () => {

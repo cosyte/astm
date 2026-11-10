@@ -1,11 +1,11 @@
 ---
 id: guides-vendor-profiles
-title: Vendor profiles
-description: "How a profile records one documented analyzer deviation without quieting any other tolerance, and why no named vendor profile ships."
-sidebar_position: 2
+title: Write a vendor profile
+sidebar_label: Write a vendor profile
+description: "Record one documented analyzer deviation in a profile without quieting any other warning, and see the safety gate that bounds every profile."
 ---
 
-# Vendor profiles
+# Write a vendor profile
 
 An analyzer that deviates from the standard in a documented, harmless way makes a lenient parse warn
 on every message it sends. Turning the warning off everywhere is the wrong fix: the next instrument
@@ -13,14 +13,14 @@ needs it. A **profile** is how you say "I expect this one deviation, from this i
 is the document that says so", while every other tolerance the parser applies stays exactly as loud
 as it was.
 
-**This package ships no named per-vendor profile, and that is deliberate.** The two built-ins are
-`astmProfiles.default`, a conservative baseline, and `astmProfiles.referenceCorpus`, grounded
-firsthand in the redistributable public reference corpus. A named per-vendor built-in ships only
-when a public, vendor-attributed quirk document grounds it, and inspection of the public corpus
-found the record layer spec-clean, so none is asserted. The engine fully supports them; you write
-the one your instrument's interface document describes, which is the only person who has that
-document. Naming an analyzer as an example of a behavior is not the same thing as shipping a
-profile for it, and this page does the first and not the second.
+**We ship no named per-vendor profile, and that is deliberate.** The two built-ins are
+`astmProfiles.default`, a conservative baseline that tolerates nothing, and
+`astmProfiles.referenceCorpus`, grounded firsthand in the redistributable public reference corpus.
+A named per-vendor built-in ships only when a public, vendor-attributed quirk document grounds it,
+and inspection of the public corpus found the record layer spec-clean, so none is asserted. The
+engine fully supports them; you write the one your instrument's interface document describes,
+because you are the one who has that document. Naming an analyzer as an example of a behavior is
+not the same thing as shipping a profile for it, and this page does the first and not the second.
 
 ## Apply a vendor profile
 
@@ -67,8 +67,33 @@ A few things worth knowing while you write one:
   it to leading-byte detection.
 - **`describe()`** prints the whole thing back as text, which is what to paste into a review.
 
+```ts runnable
+import { defineAstmProfile, resolveProfileTransport } from "@cosyte/astm";
+
+const site = defineAstmProfile({
+  name: "site-analyzer",
+  tolerate: [
+    {
+      code: "ASTM_NONSTANDARD_DELIMITERS",
+      rationale: "declares its own delimiter set in every header",
+      match: { recordType: "H" },
+    },
+  ],
+  transport: "raw",
+  provenance: { source: "Bench analyzer host interface document", reference: "on file, internal" },
+});
+const child = defineAstmProfile({ name: "site-analyzer-b", extends: site, tolerate: [] });
+
+resolveProfileTransport(site); // => "raw"
+child.lineage; // => ["site-analyzer", "site-analyzer-b"]
+child.describe?.().split("\n")[0]; // => "Profile 'site-analyzer-b'"
+```
+
 Register it as the process default with `setDefaultAstmProfile` when every stream on a service comes
-from the same instrument; pass it per call when they do not.
+from the same instrument; pass it per call when they do not. An explicit `profile` option always
+wins, and `{ profile: null }` opts one call out of the default. The default is the one piece of
+module-level state in the package, so a test that sets it clears it again with
+`setDefaultAstmProfile(null)`.
 
 ## The profile safety gate
 
@@ -96,8 +121,14 @@ is why a profile is safe to apply to production traffic, and it is also the boun
 for you. A profile cannot repair a stream. Where the parser reports that a reading is contested, the
 answer is to read the raw line, not to tolerate the code.
 
-## More
+## Reference
 
-- [Branch on a specific vendor quirk](./guides-overview): matching a warning code without a profile.
-- [What it does, and does not do](./limitations): the honest boundary, including the deviations no
+- [`defineAstmProfile`](./api/README.md#defineastmprofile),
+  [`DefineAstmProfileOptions`](./api/README.md#defineastmprofileoptions) and
+  [`AstmQuirkTolerance`](./api/README.md#astmquirktolerance)
+- [`astmProfiles`](./api/README.md#astmprofiles),
+  [`setDefaultAstmProfile`](./api/README.md#setdefaultastmprofile) and
+  [`isSafetyCriticalCode`](./api/README.md#issafetycriticalcode)
+- [Handle warnings and fail fast](./handle-warnings.md): matching a warning code without a profile.
+- [What it does, and does not do](./limitations.md): the boundary, including the deviations no
   profile may tolerate.

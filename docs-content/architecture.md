@@ -1,14 +1,14 @@
 ---
 id: architecture
 title: The two-layer architecture
+sidebar_label: The two-layer architecture
 description: "How the record layer (E1394) and the framing layer (E1381) stay independent, and the one point where they meet."
-sidebar_position: 2
 ---
 
 # The two-layer architecture
 
 ASTM is not one standard but **two independent layers under one interface**, and `@cosyte/astm`
-mirrors that split exactly. Understanding the boundary is the key to using the library well: you
+follows that split exactly. Understanding the boundary is the key to using the library well: you
 decode the layers independently and compose them only at the one point they meet.
 
 ## Two standards, one domain
@@ -28,23 +28,31 @@ layers, and a thin common core.
 Middleware often hands you **already-de-framed** record bytes (the framing was stripped upstream, or
 the vendor drops framing over raw TCP entirely). In that case you never touch the frame layer:
 
-```ts
+```ts runnable
 import { parseAstmRecords, results } from "@cosyte/astm";
 
 // De-framed record bytes straight into the record parser.
+const deFramedBytes = new TextEncoder().encode("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
 const msg = parseAstmRecords(deFramedBytes);
-results(msg)[0]?.value;
+results(msg)[0]?.value; // => "28.6"
 ```
 
 When you receive a raw byte stream off a serial line or socket, the frame layer decodes it first, and
 `parseFramedAstm` composes the two at the edge, only frames the framing layer _vouched for_ (checksum
 verified, in sequence) ever reach the record parser:
 
-```ts
-import { parseFramedAstm, results } from "@cosyte/astm";
+```ts runnable
+import { parseAstmRecords, parseFramedAstm, results, serializeFramedAstm } from "@cosyte/astm";
+
+// Framed bytes, as they arrive off a serial line.
+const framedBytes = serializeFramedAstm(
+  parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r"),
+);
 
 const { message, frames, frameWarnings } = parseFramedAstm(framedBytes);
-results(message)[0]?.value; // parsed only from trusted, reassembled record bytes
+frames.length; // => 3
+frameWarnings; // => []
+results(message)[0]?.value; // => "28.6"
 ```
 
 ## The transport reality the frame layer handles
@@ -69,8 +77,13 @@ the wire or the clock: it models the state transitions, and you drive them with 
 - **Composability.** A consumer takes exactly the layer they need. The two only meet in
   `parseFramedAstm` / `serializeFramedAstm`, and that seam is deliberately thin.
 
-## Where to go next
+## How-to guides that apply this
 
-- [Quickstart](./quickstart): parse a result, decode a framed stream, serialize, and build.
-- [Core concepts](./concepts-archetype): the shared parser archetype and the tolerance tiers.
-- [What it does, and does not do](./limitations): the honest boundary before you rely on it.
+- [Decode a framed byte stream](./decode-framed-streams.md): detect framing, decode frames, and parse
+  only what they vouched for.
+- [Drive the LTP receiver over your own connection](./drive-the-ltp-receiver.md): the protocol layer
+  over your own I/O.
+- [Write records and frames](./write-records-and-frames.md): the emit side of both layers.
+
+[The parser archetype](./concepts-archetype.md) covers the model both layers share, and [What it
+does, and does not do](./limitations.md) the boundary of the whole.
