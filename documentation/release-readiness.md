@@ -6,11 +6,12 @@ that honestly is; the whole public export surface as the subject of the stabilit
 line makes; every break a consumer would see; and what has to happen before anything publishes.
 
 It was first taken for `0.1.0`. It was taken again on 2026-11-07 for the first set pending after
-`0.1.0` published, and on 2026-11-08 for the first sets pending after `0.1.1`, after `0.1.2`, after
-`0.1.3` and after `0.1.4`, because `test/scripts/release-readiness.test.ts` fails on such a set until
-it is audited and the published base is moved. The `0.1.0` audit as it stood when that version
-shipped is this file at the `v0.1.0` tag, and the `0.1.1`, `0.1.2`, `0.1.3` and `0.1.4` audits are
-this file at the `v0.1.1`, `v0.1.2`, `v0.1.3` and `v0.1.4` tags. What it found that still matters to a consumer, the breaks `0.1.0` shipped, is
+`0.1.0` published, on 2026-11-08 for the first sets pending after `0.1.1`, after `0.1.2`, after
+`0.1.3` and after `0.1.4`, and on 2026-11-10 for the first set pending after `0.1.5`, because
+`test/scripts/release-readiness.test.ts` fails on such a set until it is audited and the published
+base is moved. The `0.1.0` audit as it stood when that version shipped is this file at the `v0.1.0`
+tag, and the `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4` and `0.1.5` audits are this file at the `v0.1.1`,
+`v0.1.2`, `v0.1.3`, `v0.1.4` and `v0.1.5` tags. What it found that still matters to a consumer, the breaks `0.1.0` shipped, is
 kept in section 4.
 
 It is bookkeeping, not consumer documentation. It is deliberately not `README.md` and not
@@ -29,7 +30,7 @@ wrong.
 
 ## 1. The pending changeset audit
 
-The published version is the `version` field of `package.json`, `0.1.4`, published on 2026-11-08
+The published version is the `version` field of `package.json`, `0.1.5`, published on 2026-11-08
 through npm trusted publishing. The pending set below is every file matching `.changeset/*.md`
 other than `README.md` (`config.json` is the tool's configuration and carries no bump).
 
@@ -40,49 +41,57 @@ directions or it is not a reading, so the same rule that moved three `0.1.0` cha
 
 <!-- audit:begin -->
 
-| pending changeset        | bump as written | applied bump |
-| ------------------------ | --------------- | ------------ |
-| `tsup-9-declarations.md` | `patch`         | `patch`      |
+| pending changeset             | bump as written | applied bump |
+| ----------------------------- | --------------- | ------------ |
+| `patient-name-empty-parts.md` | `patch`         | `patch`      |
 
 <!-- audit:end -->
 
-Highest bump in the set: `patch`. Applied to the published `0.1.4`, Changesets resolves
-`@cosyte/astm` to **`0.1.5`**.
+Highest bump in the set: `patch`. Applied to the published `0.1.5`, Changesets resolves
+`@cosyte/astm` to **`0.1.6`**.
 
-### `tsup-9-declarations.md`: `patch`
+### `patient-name-empty-parts.md`: `patch`
 
-Its own text says the type declarations are now bundled by tsup 9 with the JavaScript unchanged,
-that the two declaration files list the type-only exports in a separate `export type` statement,
-that the doc comment on `VERSION` names the step that keeps it equal to the `package.json` version,
-that the source maps carry three reflowed type unions, and that the package exports the same names
-and types as before. Each claim was checked against the tree rather than taken from the text.
+Its own text says a patient name whose last part is empty now parses, so a name built with only a
+first or middle part reads back equal; that an empty name part is now absent from `name` whether
+the sender wrote its delimiter or not; and that a field with no text in any of the three parts
+still reads no name. Each claim was checked against the tree rather than taken from the text.
 
-- **Why the release exists.** The dev toolchain moved onto `@cosyte/process`, the shared runner for
-  build, test, lint, typecheck and format, which builds with tsup 9 and formats with Prettier 3.9.
-  Nothing a consumer calls changed; the published files did, because tsup 9 writes the declaration
-  bundle in a different layout and the source maps embed the source.
+- **Why the release exists.** The coverage work that took the suite to 100% found that the private
+  `buildPatient` in `src/records/parse.ts` built a name only when its first component, the last
+  name, carried text. `P|1|||ID3|^JANE^` read no name at all, and `buildAstmMessage` emits exactly
+  that field for `name: { first: "JANE" }`, so a built message did not read back equal, against the
+  builder's documented round-trip. The same function surfaced an empty part as the empty string when
+  its delimiter was written (`DOE^^`) and left it absent when it was not (`DOE`). A name is now
+  built from the parts present, and an empty part is absent in both cases.
 - **What the tarball changes.** `package.json` ships `dist`, `README.md`, `LICENSE`,
-  `TRADEMARKS.md` and `CHANGELOG.md`. Between the `v0.1.4` tag and this branch four files under
-  `src/` changed: `src/index.ts` in the doc comment on `VERSION` only, and
-  `src/common/delimiters.ts`, `src/records/build.ts` and `src/terminology/catalog.ts` in the line
-  layout of one exported type union each (`DelimiterDeclarationFault`, `AstmRecordInput`,
-  `LivdAmbiguityReason`), with the same members in the same order. `tsup.config.ts` and
-  `tsconfig.json` are unchanged. `package.json` changed in its scripts and dev dependencies only,
-  and `pnpm-lock.yaml` in dev dependencies only. `CHANGELOG.md` gains the entry Changesets writes
-  from this changeset.
-- **What the build shows.** Built from this branch, `dist/index.mjs` and `dist/index.cjs` are
-  byte-identical to the files in the published `0.1.4` tarball, and the file list of the tarball is
-  the same. `dist/index.d.ts` and `dist/index.d.cts` differ in two places: the `VERSION` doc comment,
-  and the closing export list, which tsup 9 splits into one `export { ... }` of the values and one
-  `export type { ... }` of the types, the same names in each. The source maps differ in the embedded
-  source of those four files and in the mappings that follow it.
-- **What the tests show.** The whole suite passes on this branch with the same counts as on the
-  `v0.1.4` tree, the enumeration in section 3 still matches the entry point, and `pnpm attw` passes
-  on the packed tarball for both the `import` and the `require` condition.
+  `TRADEMARKS.md` and `CHANGELOG.md`. Between the `v0.1.5` tag and this branch eight files under
+  `src/` changed. `src/records/parse.ts` changed in that private function, one private helper beside
+  it, and comments, and `src/records/types.ts` in the doc comments on `PatientName` and
+  `PatientRecord.name`. The coverage work changed the rest without changing what any of them
+  returns: `src/profiles/validate.ts` lost two early returns from the private `levenshtein` that the
+  loop below them already answers, `src/records/build.ts` lost an unreachable `undefined` case from
+  the private `utid`, and `src/ltp/reducer.ts`, `src/common/delimiters.ts`,
+  `src/records/tokenize.ts` and `src/terminology/catalog.ts` gained comments only. `tsup.config.ts`,
+  `tsconfig.json`, `package.json` and `pnpm-lock.yaml` are unchanged. `CHANGELOG.md` gains the entry
+  Changesets writes from this changeset.
+- **What the build shows.** Built from this branch, `dist/index.mjs` and `dist/index.cjs` differ
+  from the files in the published `0.1.5` tarball in the patient-name reading and its helper, in the
+  two early returns and the `undefined` case, and in one comment the build keeps. `dist/index.d.ts`
+  and `dist/index.d.cts` differ in the two doc comments only, and the file list of `dist/` is the
+  same.
+- **What the tests show.** `test/records/build.test.ts` pins the reading through the public API:
+  `^JANE^`, `^JANE`, `^^Q` and `^JANE^Q` each read a name; `DOE^^`, `DOE^` and `DOE` read the same
+  `{ last: "DOE" }`, and `DOE^JANE` and `DOE^JANE^` the same two parts; an empty field and `^^`
+  read no name; and each of seven part combinations built by `buildAstmMessage` reads back equal to
+  its input. The whole suite passes with coverage at 100%.
 
 Measured against section 3's enumeration, it adds no value, removes none, renames none, and changes
-no exported function's documented behaviour. That is what a `patch` claims, so `patch` is what it
-keeps.
+no exported type: `PatientName` already declared `last`, `first` and `middle` optional, and
+`PatientRecord.name` was already optional. A consumer that read `first === ""` on `DOE^^` now reads
+`undefined`, which the type always allowed, and a name the parser dropped is now surfaced. That is a
+fix to a documented behaviour, the round-trip, and a `patch` claims exactly that, so `patch` is what
+it keeps.
 
 ## 2. Why no changeset in this set is classified `major`
 
@@ -100,7 +109,7 @@ convenience: leave its bump unapplied, record it in section 4 as a break candida
 operator, and do not quietly write `minor` over it. A `major` silently downgraded to `minor` reads,
 from the outside, exactly like a repo that had nothing to escalate.
 
-## 3. The public export surface certified at `0.1.0`, unchanged in `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, and `0.1.5`
+## 3. The public export surface certified at `0.1.0`, unchanged in `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, `0.1.5`, and `0.1.6`
 
 The subject of the stability claim is the package's single public entry point, `src/index.ts`, and
 the surface is everything it re-exports: values and types both. `package.json` publishes exactly one
@@ -514,7 +523,7 @@ From `./frames/types.js`:
 <!-- certification:begin -->
 
 **The surface enumerated above is certified as the public API of `@cosyte/astm` at `0.1.0`, and it
-is carried unchanged into `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, and `0.1.5`: it is settled, and it is stable enough for a consumer to depend
+is carried unchanged into `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, `0.1.5`, and `0.1.6`: it is settled, and it is stable enough for a consumer to depend
 on.** Every identifier in it is a deliberate export with a documented contract, the record layer is
 feature-complete, and no part of it is a placeholder waiting to be renamed. From `0.1.0` onward a
 removal or a rename of anything on that list is a break with a real cost, to be surfaced and decided
@@ -529,8 +538,9 @@ The certification is scoped, deliberately, and the scope is the whole of its hon
   inside a private function has changed, classifying every value as before, so the same holds for
   `0.1.3`. Since `0.1.3` doc comments and one warning's message text have changed, so the same holds
   for `0.1.4`. Since `0.1.4` one doc comment and the line layout of three type unions have changed,
-  and tsup 9 groups the declaration export list differently, so the same holds for `0.1.5`. The work
-  a consumer of `0.0.22` had to do to take `0.1.0`
+  and tsup 9 groups the declaration export list differently, so the same holds for `0.1.5`. Since
+  `0.1.5` private functions and doc comments have changed, and a patient name is read from the parts
+  present, so the same holds for `0.1.6`. The work a consumer of `0.0.22` had to do to take `0.1.0`
   is section 4, enumerated.
 - It is a claim about names, shapes and documented contracts, not a promise that a warning code
   never gains a member or that a lenient parse never becomes more precise. Both are additive and
@@ -542,8 +552,9 @@ The certification is scoped, deliberately, and the scope is the whole of its hon
 
 ## 4. Break candidates
 
-This set carries none. Section 1 found no public value added, removed, renamed or changed in
-behaviour, so a consumer of `0.1.0` sees no break in `0.1.1`.
+This set carries none. Section 1 found no public value added, removed or renamed. The one changed
+behaviour, a patient name read from the parts present, is a fix within the types `0.1.0` certified,
+which always declared each name part optional, so a consumer of `0.1.5` sees no break in `0.1.6`.
 
 The ten entries below are the breaks `0.1.0` shipped, as a consumer of `0.0.22` sees them. They stay
 here because `CHANGELOG.md` sends that consumer to this file for each migration. They were held for
@@ -756,8 +767,8 @@ rule is that saying nothing never reads as saying none.
 <!-- unresolved:begin -->
 
 None. The one pending changeset classifies from its own text, and the change it documents was
-checked against the `v0.1.4` tag, against `src/index.ts` and the modules behind it, and against the
-published `0.1.4` tarball.
+checked against the `v0.1.5` tag, against `src/index.ts` and the modules behind it, and against the
+published `0.1.5` tarball.
 
 <!-- unresolved:end -->
 
@@ -783,18 +794,21 @@ release pipeline cuts it.**
 - **Why `0.1.4` was prepared.** On 2026-11-08 the operator approved the library-defect fixes ("Library
   defects (Recommended)"), and one was the doc comment on `AstmMessage.classification` calling a stream-wide value
   a message's. That set was the correction, released as a patch under the same approval.
-- **Why `0.1.5` is prepared.** On 2026-11-08 the operator directed that every package use the shared
+- **Why `0.1.5` was prepared.** On 2026-11-08 the operator directed that every package use the shared
   packages from `cosyte/config` ("Every package needs to use our shared utils at cosyte/config").
   This package's build now runs through `@cosyte/process`, whose tsup 9 lays out the declaration
-  files differently, so the pending set ships those files as a patch under the approval of patch
+  files differently, so that set shipped those files as a patch under the approval of patch
   releases ("Finished repos, I approve runs").
+- **Why `0.1.6` is prepared.** On 2026-11-10 the coverage work found the parser dropping a patient
+  name whose last part is empty, which broke the builder's round-trip. The pending set is that fix,
+  released as a patch under the same approval of patch releases.
 - **What merging a change here does.** `.github/workflows/release.yml` fires on a push to `main`
   and calls the shared release pipeline, which opens or updates the "Version Packages" pull request
   and parks the publish on the `release` environment gate. Merging that pull request and approving
   that gate belong to whoever runs the release, never to a change that edits this file.
-- **So the honest reading** is: the pending set resolves to `0.1.5`, the surface it carries is the
-  one `0.1.0` certified, and it carries no break. The version in `package.json` is still `0.1.4` and
-  stays `0.1.4` until Changesets writes the next one.
+- **So the honest reading** is: the pending set resolves to `0.1.6`, the surface it carries is the
+  one `0.1.0` certified, and it carries no break. The version in `package.json` is still `0.1.5` and
+  stays `0.1.5` until Changesets writes the next one.
 
 ### The follow-on the `0.1.0` bump created
 

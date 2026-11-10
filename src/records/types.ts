@@ -76,6 +76,10 @@ export interface HeaderRecord extends RecordBase {
 
 /**
  * A patient name (`Last^First^Middle`), each component surfaced verbatim.
+ *
+ * A part is present only when its component carries text. An empty component is absent, never the
+ * empty string, whether the sender wrote its delimiter or left it off: `DOE^^` and `DOE` both read
+ * `{ last: "DOE" }`, and `^JANE^` reads `{ first: "JANE" }` with no `last`.
  */
 export interface PatientName {
   readonly raw: string;
@@ -104,7 +108,10 @@ export interface PatientRecord extends RecordBase {
    * separate from the practice- and laboratory-assigned IDs: the three never collapse into one.
    */
   readonly patientIdThree?: string;
-  /** Field 6: patient name (`Last^First^Middle`). */
+  /**
+   * Field 6: patient name (`Last^First^Middle`). Present when at least one of the three parts
+   * carries text, so a name with an empty last part is still read; absent when none does.
+   */
   readonly name?: PatientName;
   /** Field 7: mother's maiden name, surfaced verbatim (a surname component; PHI). */
   readonly mothersMaidenName?: string;
