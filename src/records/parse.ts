@@ -523,15 +523,19 @@ function buildPatient(
   fields: readonly AstmField[],
   warnings: AstmRecordWarning[],
 ): PatientRecord {
+  // A name is built from the parts present: an empty component is absent from `name`, never the
+  // empty string, whether the sender wrote its delimiter (`DOE^^`) or left it off (`DOE`), and a
+  // name whose last part is empty (`^JANE^`) is still a name. Only a field with no text in any of
+  // the three parts reads no name.
   const nameField = astmField(fields, 6);
+  const nameParts = {
+    ...nonEmptyString("last", nameField?.components[0]),
+    ...nonEmptyString("first", nameField?.components[1]),
+    ...nonEmptyString("middle", nameField?.components[2]),
+  };
   const name: PatientName | undefined =
-    nameField !== undefined && fieldScalar(nameField) !== undefined
-      ? {
-          raw: nameField.raw,
-          ...definedString("last", nameField.components[0]),
-          ...definedString("first", nameField.components[1]),
-          ...definedString("middle", nameField.components[2]),
-        }
+    nameField !== undefined && Object.keys(nameParts).length > 0
+      ? { raw: nameField.raw, ...nameParts }
       : undefined;
 
   const birthDate = parseDateField(
@@ -828,4 +832,9 @@ function fieldRaw(field: AstmField | undefined): string | undefined {
 /** Spread helper: include `{ [key]: value }` only when `value` is a defined string. */
 function definedString(key: string, value: string | undefined): Record<string, string> {
   return value === undefined ? {} : { [key]: value };
+}
+
+/** Like {@link definedString}, but an empty string is absent too. */
+function nonEmptyString(key: string, value: string | undefined): Record<string, string> {
+  return value === undefined || value.length === 0 ? {} : { [key]: value };
 }

@@ -314,3 +314,47 @@ describe("buildAstmMessage: every record kind and every optional field", () => {
     );
   });
 });
+
+describe("patient name: a name is built from the parts present", () => {
+  // One representation for an empty component, whether the sender wrote its delimiter or left it
+  // off: the part is absent from `name`, never the empty string. `name` itself is present whenever
+  // at least one of last, first and middle carries text, so a name whose last part is empty is
+  // still a name. All names below are synthetic.
+  const readName = (field: string) =>
+    patient(parseAstmRecords(`H|\\^&\rP|1|||ID3|${field}\rL|1\r`))?.name;
+
+  it("reads a name whose last part is empty", () => {
+    expect(readName("^JANE^")).toEqual({ raw: "^JANE^", first: "JANE" });
+    expect(readName("^JANE")).toEqual({ raw: "^JANE", first: "JANE" });
+    expect(readName("^^Q")).toEqual({ raw: "^^Q", middle: "Q" });
+    expect(readName("^JANE^Q")).toEqual({ raw: "^JANE^Q", first: "JANE", middle: "Q" });
+  });
+
+  it("reads an empty component the same whether its delimiter was written or left off", () => {
+    expect(readName("DOE^^")).toEqual({ raw: "DOE^^", last: "DOE" });
+    expect(readName("DOE^")).toEqual({ raw: "DOE^", last: "DOE" });
+    expect(readName("DOE")).toEqual({ raw: "DOE", last: "DOE" });
+    expect(readName("DOE^JANE")).toEqual({ raw: "DOE^JANE", last: "DOE", first: "JANE" });
+    expect(readName("DOE^JANE^")).toEqual({ raw: "DOE^JANE^", last: "DOE", first: "JANE" });
+    expect(readName("DOE^^Q")).toEqual({ raw: "DOE^^Q", last: "DOE", middle: "Q" });
+  });
+
+  it("reads no name when no part carries text", () => {
+    expect(readName("")).toBeUndefined();
+    expect(readName("^^")).toBeUndefined();
+  });
+
+  it.each([
+    [{ first: "JANE" }, "^JANE^"],
+    [{ middle: "Q" }, "^^Q"],
+    [{ first: "JANE", middle: "Q" }, "^JANE^Q"],
+    [{ last: "DOE" }, "DOE^^"],
+    [{ last: "DOE", first: "JANE" }, "DOE^JANE^"],
+    [{ last: "DOE", middle: "Q" }, "DOE^^Q"],
+    [{ last: "DOE", first: "JANE", middle: "Q" }, "DOE^JANE^Q"],
+  ])("builds %o and reads it back equal", (input, wire) => {
+    const raw = buildAstmMessage({ records: [{ type: "P", name: input }] });
+    expect(raw).toContain(`\rP|1||||${wire}\r`);
+    expect(def(patient(parseAstmRecords(raw))).name).toEqual({ raw: wire, ...input });
+  });
+});
