@@ -32,3 +32,11 @@ describe("frame checksum", () => {
     expect(parseChecksumHex(Uint8Array.from([0x37, 0x35]), 5, 6)).toBeUndefined(); // out of range
   });
 });
+
+describe("computeChecksum: a span that runs past the end of the bytes", () => {
+  it("adds nothing for a position past the end, so the sum covers only the bytes present", () => {
+    const bytes = Uint8Array.from([0x31, 0x41]);
+    expect(computeChecksum(bytes, 0, 9)).toBe(computeChecksum(bytes, 0, 1));
+    expect(computeChecksum(bytes, 0, 9)).toBe((0x31 + 0x41) & 0xff);
+  });
+});

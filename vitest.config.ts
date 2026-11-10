@@ -3,14 +3,16 @@ import { cosyteVitest } from "@cosyte/vitest-config";
 /**
  * Vitest config for @cosyte/astm from the shared @cosyte/vitest-config standard.
  *
- * Per-directory >= 90 coverage gates on every shipped source directory. As of Phase 10 (release
- * hardening) the whole `src/` surface is gated per-dir (`common`/`records`/`profiles` plus the
- * framing (`frames`), transport (`ltp`), and terminology (`terminology`) layers) on top of the
- * global >= 90 gate. A new source directory is added here the phase it lands, so the release bar
- * holds directory by directory, not just in aggregate.
+ * Coverage is gated at 100% for lines, branches, functions and statements across every file in
+ * `src/` (barrels excepted, per the shared standard), enforced by `pnpm test:coverage`. The shared
+ * config's per-directory >= 90 gates on every shipped source directory stay underneath it, and a
+ * new source directory is added to `coverageDirs` when it lands. A threshold only rises: a line
+ * that truly cannot be reached carries an inline `v8 ignore` comment naming its reason, never a
+ * lowered number here.
  */
 export default cosyteVitest({
   coverageDirs: ["common", "records", "profiles", "frames", "ltp", "terminology"],
+  coverageThresholds: { lines: 100, branches: 100, functions: 100, statements: 100 },
   test: {
     globals: false,
     environment: "node",

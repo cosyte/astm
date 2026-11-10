@@ -167,4 +167,25 @@ describe("serializeAstmRecord: the header follows the model", () => {
     const msg = parseAstmRecords("H#~*\\###SYNTH-LAB\rL#1\r");
     expect(serializeAstmRecord(def(msg.records[0]))).toBe("H|\\^&|||SYNTH-LAB");
   });
+
+  it("declares the canonical set for a header model that carries no declaration field", () => {
+    const msg = parseAstmRecords("H|\\^&|||SYNTH-LAB\rL|1\r");
+    const header = def(msg.records[0]);
+    expect(serializeAstmRecord({ ...header, fields: header.fields.slice(0, 1) })).toBe("H|\\^&");
+  });
+});
+
+describe("serializeAstmRecord: a vendor record whose fields no longer match its raw line", () => {
+  it("emits from the fields, a missing field as empty, when the field list has a hole", () => {
+    const msg = parseAstmRecords("H|\\^&\rM|1|QC^LEVEL2|4.21\rL|1\r");
+    const m = def(msg.records[1]);
+    // A JavaScript caller can hand back a field list with a hole where the sequence number was.
+    const fields = [...m.fields];
+    // eslint-disable-next-line @typescript-eslint/no-array-delete
+    delete fields[1];
+    expect(fields).toHaveLength(m.fields.length);
+    // The raw line is reused only when it reads back to the same fields, and it no longer does.
+    expect(serializeAstmRecord({ ...m, fields })).toBe("M||QC^LEVEL2|4.21");
+    expect(serializeAstmRecord(m)).toBe("M|1|QC^LEVEL2|4.21");
+  });
 });

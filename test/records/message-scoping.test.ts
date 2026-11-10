@@ -345,3 +345,54 @@ describe("classification is stream-wide; classifyMessage over messages() is per 
     expect(msg.classification).toEqual(classifyMessage(msg.records));
   });
 });
+
+/**
+ * The accessors take a model, and a JavaScript caller can hand them one it built itself rather than
+ * one `parseAstmRecords` returned. These pin what such a model gets: the same answers and the same
+ * refusals, never a crash on a field the parser would always have set.
+ */
+describe("a model built by hand rather than parsed", () => {
+  it("messages() gives a stream that opens without an H record the stream's own header", () => {
+    const parsed = parseAstmRecords(ONE_PATIENT);
+    const headless = { ...parsed, records: parsed.records.slice(1) };
+    const [only] = messages(headless);
+    expect(only?.header).toBe(parsed.header);
+    expect(only?.records.map((r) => r.type)).toEqual(["P", "O", "R", "C", "L"]);
+    expect(only?.patient?.practiceAssignedId).toBe("PRAC-0001");
+  });
+
+  it("refuses a two-header stream whose records carry no index, naming record 0", () => {
+    const parsed = parseAstmRecords(ONE_PATIENT);
+    const { recordIndex: _drop, ...bareHeader } = parsed.header;
+    const forged = { ...parsed, records: [bareHeader, bareHeader] } as unknown as typeof parsed;
+    try {
+      results(forged);
+      expect.unreachable();
+    } catch (err) {
+      const e = err as AstmAmbiguousStreamError;
+      expect(e.code).toBe(AMBIGUOUS_CODES.ASTM_AMBIGUOUS_MULTI_MESSAGE);
+      expect(e.messageCount).toBe(2);
+      expect(e.position).toEqual({ recordIndex: 0, recordType: "H" });
+    }
+  });
+
+  it("refuses a two-patient message whose records carry no index, naming record 0", () => {
+    const parsed = parseAstmRecords(ONE_PATIENT);
+    const p = parsed.records[1];
+    expect(p?.type).toBe("P");
+    const { recordIndex: _drop, ...bareP } = p ?? parsed.header;
+    const forged = {
+      ...parsed,
+      records: [parsed.header, bareP, bareP],
+    } as unknown as typeof parsed;
+    try {
+      patient(forged);
+      expect.unreachable();
+    } catch (err) {
+      const e = err as AstmAmbiguousStreamError;
+      expect(e.code).toBe(AMBIGUOUS_CODES.ASTM_AMBIGUOUS_MULTI_PATIENT);
+      expect(e.patientCount).toBe(2);
+      expect(e.position).toEqual({ recordIndex: 0, recordType: "P" });
+    }
+  });
+});

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { parseAstmRecords, parseFramedAstm, results } from "../../src/index.js";
+import {
+  parseAstmRecords,
+  parseFramedAstm,
+  results,
+  serializeFramedAstm,
+} from "../../src/index.js";
 
 import { frame, stream } from "./_frame-builder.js";
 
@@ -54,5 +59,16 @@ describe("parseFramedAstm: composing the framing and record layers at the edge",
     // The untrusted result record was never merged, so the parsed message has no results.
     expect(results(message)).toEqual([]);
     expect(message.records.map((r) => r.type)).toEqual(["H", "L"]);
+  });
+});
+
+describe("serializeFramedAstm: a bare record list", () => {
+  it("frames an array of records exactly as it frames the message that holds them", () => {
+    const msg = parseAstmRecords("H|\\^&\rR|1|^^^687|28.6|U/L||N||F\rL|1\r");
+    const fromList = serializeFramedAstm(msg.records);
+    expect(fromList).toEqual(serializeFramedAstm(msg));
+    const back = parseFramedAstm(fromList);
+    expect(back.message.records.map((r) => r.type)).toEqual(["H", "R", "L"]);
+    expect(results(back.message)[0]?.value).toBe("28.6");
   });
 });

@@ -177,6 +177,7 @@ export function readDelimiterDeclaration(headerRecord: string): DelimiterReadRes
   // A field separator that also appears among the other three delimiters is not a coherent
   // declaration: the four roles must be distinguishable. Refuse rather than mis-split. Unreachable
   // as written (the truncation rule answers first); kept as the statement of the invariant.
+  /* v8 ignore next -- for any string the definition ends at the field separator's next occurrence, so a separator reused as repeat, component or escape leaves it under 3 characters and the truncation rule above answers first */
   if (field === repeat || field === component || field === escape) {
     return { ok: false, fault: "field-separator-reused" };
   }

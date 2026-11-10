@@ -154,7 +154,9 @@ function processTransferFrame(state: LtpState, frame: AstmFrame): LtpTransition 
   }
 
   const fn = frame.frameNumber;
-  // A trusted frame is terminated with a valid checksum, so its frame number was read; guard anyway.
+  // A trusted frame decoded from a Uint8Array always carries its frame number. One decoded from a
+  // plain array with a hole where that byte belongs does not, nor need one a caller built by hand,
+  // and with no sequence number to accept it against it is NAKed.
   if (fn === undefined) {
     return reject(state, undefined);
   }

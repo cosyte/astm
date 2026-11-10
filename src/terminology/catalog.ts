@@ -643,6 +643,7 @@ export function defineLivdCatalog(
       // answer that read `mapped` before this feature never becomes `ambiguous`.
       if (distinct.length === 1) {
         const [first] = bucket;
+        /* v8 ignore next -- the bucket is non-empty (checked above) and filled only by push of an entry whose vendorCode was read, so its first element is set */
         if (first === undefined) return { status: "unmapped" };
         return deepFreeze(mappedFrom(first));
       }

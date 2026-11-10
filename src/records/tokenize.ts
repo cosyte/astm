@@ -242,6 +242,7 @@ function toField(
     ),
   );
   // `splitEscapeAware` always returns at least one element, so `repeats[0]` is defined.
+  /* v8 ignore next -- every return path of splitEscapeAware yields at least one segment, so repeats[0] is set */
   const components = repeats[0] ?? [""];
   return { raw, components, repeats };
 }

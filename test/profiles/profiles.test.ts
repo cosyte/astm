@@ -474,4 +474,42 @@ describe("edge branches: describe scopes, merge inheritance, match narrowing, hi
     expect(message).toMatch(/unknown option key 'zzzzzzzz'/u);
     expect(message).not.toMatch(/Did you mean/u);
   });
+
+  it("describe() renders a tolerance with no match as unscoped", () => {
+    const unscoped = defineAstmProfile({
+      name: "u",
+      tolerate: [{ code: "ASTM_UNKNOWN_ESCAPE_SEQUENCE", rationale: "synthetic reason" }],
+    });
+    const text = unscoped.describe?.() ?? "";
+    expect(text).toContain("    - ASTM_UNKNOWN_ESCAPE_SEQUENCE: synthetic reason");
+    expect(text).not.toContain("@");
+  });
+
+  it("merge lists a shared ancestor once when two parents both extend it", () => {
+    const base = defineAstmProfile({ name: "base" });
+    const left = defineAstmProfile({ name: "left", extends: base });
+    const right = defineAstmProfile({ name: "right", extends: base });
+    const child = defineAstmProfile({ name: "child", extends: [left, right] });
+    expect(child.lineage).toEqual(["base", "left", "right", "child"]);
+  });
+
+  it("merge does not repeat a name a profile shares with its parent", () => {
+    const base = defineAstmProfile({ name: "base" });
+    const again = defineAstmProfile({ name: "base", extends: base });
+    expect(again.lineage).toEqual(["base"]);
+  });
+
+  it("an empty option key throws with no did-you-mean hint", () => {
+    let message = "";
+    try {
+      defineAstmProfile({ name: "x", "": true } as unknown as Parameters<
+        typeof defineAstmProfile
+      >[0]);
+    } catch (err) {
+      expect(err).toBeInstanceOf(AstmProfileDefinitionError);
+      message = (err as Error).message;
+    }
+    expect(message).toMatch(/unknown option key ''/u);
+    expect(message).not.toMatch(/Did you mean/u);
+  });
 });

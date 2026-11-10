@@ -45,19 +45,21 @@ const KNOWN_TRANSPORTS: readonly string[] = ["framed", "raw"];
  * @internal
  */
 function levenshtein(a: string, b: string): number {
-  if (a === b) return 0;
   if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
   let prev: number[] = [];
   for (let j = 0; j <= b.length; j++) prev.push(j);
   for (let i = 1; i <= a.length; i++) {
     const curr: number[] = [i];
     for (let j = 1; j <= b.length; j++) {
       const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      // The `?? 0` fallbacks only satisfy the type checker: `prev` holds b.length + 1 entries and
+      // `curr` holds j entries here, so `prev[j]`, `curr[j - 1]` and `prev[j - 1]` are all set.
+      /* v8 ignore next -- each index read here is in range (see above), so no fallback is taken */
       curr.push(Math.min((prev[j] ?? 0) + 1, (curr[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + cost));
     }
     prev = curr;
   }
+  /* v8 ignore next -- `prev` holds b.length + 1 entries, so this index is in range */
   return prev[b.length] ?? 0;
 }
 

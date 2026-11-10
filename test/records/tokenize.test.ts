@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   CANONICAL_DELIMITERS,
+  WARNING_CODES,
   fieldScalar,
+  parseAstmRecords,
   tokenizeHeader,
   tokenizeRecord,
 } from "../../src/index.js";
@@ -87,5 +89,36 @@ describe("tokenizeHeader", () => {
     tokenizeHeader("H|\\^&|||a&Z&b", D, (i) => seen.push(i));
     // The data portion's field 2 is the whole record's field index 4 (1-based field 5).
     expect(seen).toEqual([4]);
+  });
+
+  // The two alignment reports raised INSIDE a field (the repeat and the component split) reach a
+  // header's data fields too, at the whole-record index, like every other report above.
+  it("reports a contested repeat and component boundary at its WHOLE-RECORD field index", () => {
+    const truncated: number[] = [];
+    const shifted: number[] = [];
+    tokenizeHeader(
+      "H|\\^&|||28.6&S&\\&U/L|&F&^&GLU^L^687",
+      D,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      (i) => truncated.push(i),
+      (i) => shifted.push(i),
+    );
+    expect(truncated).toEqual([4]);
+    expect(shifted).toEqual([5]);
+  });
+
+  it("raises both reports as warnings on a parsed header", () => {
+    const warnings = parseAstmRecords("H|\\^&|||28.6&S&\\&U/L|&F&^&GLU^L^687\rL|1\r").warnings;
+    const at = (code: string) => warnings.filter((w) => w.code === code).map((w) => w.position);
+    expect(at(WARNING_CODES.ASTM_RECORD_ALIGNMENT_TRUNCATED_FIELD)).toEqual([
+      { recordIndex: 0, recordType: "H", fieldIndex: 5 },
+    ]);
+    expect(at(WARNING_CODES.ASTM_RECORD_ALIGNMENT_SHIFTED_COMPONENTS)).toEqual([
+      { recordIndex: 0, recordType: "H", fieldIndex: 6 },
+    ]);
   });
 });
