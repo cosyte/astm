@@ -2,3 +2,6 @@
 # comments in src/. Its --check compares the committed pages with what it writes, byte for byte, so
 # formatting them here would make the check fail on every run.
 docs-content/api/
+
+# Bench readings and profiles, written by `pnpm bench:reading` and `pnpm bench:profile`.
+bench-results/
