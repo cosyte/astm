@@ -54,7 +54,7 @@ the linear form and checks that it classifies values exactly as the old one did.
 pnpm install --frozen-lockfile
 pnpm fuzz                                                      # the fuzz targets, with their budgets
 ASTM_FUZZ_SEED=12345 ASTM_FUZZ_SECONDS=120 pnpm fuzz           # a longer run, as the nightly does
-pnpm test test/records/numeric-value-backtracking.test.ts      # the linear numeric check
+pnpm exec vitest run test/records/numeric-value-backtracking.test.ts   # the linear numeric check
 ```
 
 ## Current numbers
