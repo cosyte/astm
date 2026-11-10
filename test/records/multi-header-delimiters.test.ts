@@ -125,6 +125,25 @@ describe("a later header that redeclares the delimiters", () => {
   });
 });
 
+describe("a later header that redeclares back to the canonical set", () => {
+  const msg = parseAstmRecords(MSG_REDECLARED + MSG_CANONICAL);
+
+  it("warns that the set changed, and does not call the canonical set non-standard", () => {
+    expect(msg.warnings.map((w) => [w.code, w.position.recordIndex])).toEqual([
+      // The FIRST header's own non-canonical set, reported where it was declared.
+      [WARNING_CODES.ASTM_NONSTANDARD_DELIMITERS, 0],
+      // The change back, with no non-standard warning: the set now in force is canonical.
+      [WARNING_CODES.ASTM_RECORD_DELIMITERS_REDECLARED, 5],
+    ]);
+  });
+
+  it("reads the second message's result with the canonical set", () => {
+    const second = messages(msg)[1]?.results[0];
+    expect(second?.value).toBe("28.6");
+    expect(second?.units).toBe("U/L");
+  });
+});
+
 describe("a later header that restates the set already in force", () => {
   const raw =
     "H|\\^&|||sender\rP|1||LAB-1\rL|1|N\r" +

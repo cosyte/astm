@@ -170,8 +170,8 @@ function line(fields: readonly (readonly string[])[]): string {
 }
 
 /** Build the components of a Universal Test ID field from a verbatim component list. */
-function utid(components: readonly string[] | undefined): readonly string[] {
-  return components === undefined ? [""] : [...components];
+function utid(components: readonly string[]): readonly string[] {
+  return [...components];
 }
 
 /** Set a 1-based ASTM field position in a sparse builder array (index 0 is the type letter). */

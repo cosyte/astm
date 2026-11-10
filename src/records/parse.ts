@@ -149,6 +149,7 @@ export function parseAstmRecords(
     throw new AstmParseError(
       FATAL_CODES.ASTM_RECORD_NO_HEADER,
       "First record is not an H (header) record.",
+      /* v8 ignore next -- the empty-input check above leaves at least one non-empty line, so the first record always has a type letter and the bare position is never built */
       leadType !== undefined && leadType.length > 0
         ? { recordIndex: 0, recordType: leadType }
         : { recordIndex: 0 },

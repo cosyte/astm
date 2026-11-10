@@ -70,3 +70,18 @@ export function frame(text: string, opts: FrameOpts = {}): number[] {
 export function stream(...parts: readonly (readonly number[])[]): Uint8Array {
   return Uint8Array.from(parts.flat());
 }
+
+/**
+ * A final frame whose frame-number byte is a HOLE in a plain array, as a JavaScript caller can
+ * pass where a `Uint8Array` is typed. Its checksum is computed with the missing byte read as `0`,
+ * the same way the decoder reads it, so the frame is terminated with a checksum that verifies.
+ */
+export function unnumberedFrame(text: string): Uint8Array {
+  const textBytes = bytesOf(text);
+  const csHex = hex2(checksumOf([...textBytes, ETX]));
+  const out: number[] = [STX, 0, ...textBytes, ETX, ...bytesOf(csHex), CR, LF];
+  // `delete` leaves a true hole at index 1, so reading it gives `undefined`, not `0`.
+  // eslint-disable-next-line @typescript-eslint/no-array-delete
+  delete out[1];
+  return out as unknown as Uint8Array;
+}

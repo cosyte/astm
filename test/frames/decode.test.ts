@@ -9,7 +9,15 @@ import {
   decodeAstmFrames,
 } from "../../src/index.js";
 
-import { bytesOf, checksumOf, def, frame, hex2, stream } from "./_frame-builder.js";
+import {
+  bytesOf,
+  checksumOf,
+  def,
+  frame,
+  hex2,
+  stream,
+  unnumberedFrame,
+} from "./_frame-builder.js";
 
 /** Latin1-decode reassembled record bytes back to a string for readable assertions. */
 function asText(bytes: Uint8Array): string {
@@ -238,5 +246,19 @@ describe("decodeAstmFrames: modes and empties", () => {
     const bytes = stream(frame("H|\\^&\r", { fn: 1 }));
     const { records } = decodeAstmFrames(bytes, { strict: true });
     expect(asText(def(records[0]))).toBe("H|\\^&\r");
+  });
+});
+
+describe("decodeAstmFrames: a frame-number byte that is missing", () => {
+  // A JavaScript caller can pass a sparse plain array where a `Uint8Array` is typed. A hole where
+  // the frame number belongs reads as no frame number at all, never as frame 0 or as in sequence.
+  it("surfaces the frame with no frame number, warns of a sequence gap and emits no record", () => {
+    const { frames, records, warnings } = decodeAstmFrames(unnumberedFrame("R|1|"));
+    const f = def(frames[0]);
+    expect("frameNumber" in f).toBe(false);
+    expect(f.checksum.valid).toBe(true);
+    expect(warnings.map((w) => w.code)).toEqual([FRAME_WARNING_CODES.ASTM_FRAME_SEQUENCE_GAP]);
+    expect(warnings[0]?.position).toEqual({ byteOffset: 0 });
+    expect(records).toEqual([]);
   });
 });

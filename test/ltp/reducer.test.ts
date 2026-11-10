@@ -15,7 +15,7 @@ import {
   LTP_WARNING_CODES,
 } from "../../src/index.js";
 import type { LtpAction, LtpState } from "../../src/index.js";
-import { def } from "../frames/_frame-builder.js";
+import { def, unnumberedFrame } from "../frames/_frame-builder.js";
 import { frameEvent, frameOf } from "./_events.js";
 
 const actionTypes = (actions: readonly LtpAction[]): string[] => actions.map((a) => a.type);
@@ -121,6 +121,22 @@ describe("LTP reducer: the ACK-failsafe (never fabricate a positive ACK)", () =>
     const step = ltpReduce(state, { type: "frame", frame: bad });
     expect(actionTypes(step.actions)).toEqual(["sendNak"]);
     expect(step.state.records).toHaveLength(0);
+  });
+
+  it("a trusted frame with no frame number is NAKed, and the warning names no frame number", () => {
+    const state = established();
+    // The decoder vouches for its checksum, but the frame-number byte is missing (a hole in a plain
+    // array a JavaScript caller passed), so there is no sequence number to accept it against.
+    const unnumbered = def(decodeAstmFrames(unnumberedFrame("R|1|")).frames[0]);
+    expect(unnumbered.trusted).toBe(true);
+    expect(unnumbered.frameNumber).toBeUndefined();
+    const step = ltpReduce(state, { type: "frame", frame: unnumbered });
+    expect(actionTypes(step.actions)).toEqual(["sendNak"]);
+    expect(step.state.records).toHaveLength(0);
+    expect(step.state.expectedFrame).toBe(1);
+    expect(step.warnings).toHaveLength(1);
+    expect(step.warnings[0]?.code).toBe(LTP_WARNING_CODES.ASTM_LTP_FRAME_REJECTED);
+    expect(step.warnings[0] !== undefined && "frameNumber" in step.warnings[0]).toBe(false);
   });
 });
 
