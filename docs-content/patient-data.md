@@ -1,8 +1,8 @@
 ---
 id: patient-data
 title: What it does with patient data
+sidebar_label: What it does with patient data
 description: "What @cosyte/astm does with patient data: what it logs, what it keeps, and what stays the job of the system around it."
-sidebar_position: 3
 ---
 
 # What `@cosyte/astm` does with patient data
@@ -90,5 +90,12 @@ Everything at the edges, which is most of the compliance surface:
 - **Test data.** Keep fixtures synthetic. Real traffic in a test corpus is the most common way a
   patient identifier reaches a repository, and a repository is forever.
 
-Read [What it does, and does not do](./limitations) for the rest of the boundary, including the
+Read [What it does, and does not do](./limitations.md) for the rest of the boundary, including the
 cases where a value the parser hands back is contested and the raw line is the thing to read.
+
+## How-to guides that apply this
+
+- [Handle warnings and fail fast](./handle-warnings.md#log-the-warning-not-the-record): logging a
+  warning rather than a record.
+- [Drive the LTP receiver over your own connection](./drive-the-ltp-receiver.md): the input and
+  output adapter that stays yours.

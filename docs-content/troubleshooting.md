@@ -1,36 +1,44 @@
 ---
 id: troubleshooting
 title: Troubleshooting
+sidebar_label: Troubleshooting
 description: "Common symptoms when integrating @cosyte/astm, and how to read what the parser is telling you."
-sidebar_position: 1
 ---
 
 # Troubleshooting
 
 Common symptoms when integrating `@cosyte/astm`, and how to read what the parser is telling you.
+Every code named here is listed, with a link to its full rule, in [Warning and error
+codes](./warning-codes.md).
 
 ## The parse "succeeded" but the result looks wrong
 
 `@cosyte/astm` is lenient: it recovers from vendor quirks rather than throwing. That means a surprising
 result usually comes with an explanation in `warnings`. Inspect them first:
 
-```ts
+```ts runnable
+import { parseAstmRecords } from "@cosyte/astm";
+
+const raw = "H|\\^&\rR|1|^^^687|28.6||||F\rL|1\r";
 const { warnings } = parseAstmRecords(raw);
 
 for (const w of warnings) {
   console.warn(w.code, w.message, w.position);
 }
+warnings.length; // => 1
 ```
 
 Each warning carries a **stable code** (`WARNING_CODES`) and positional context. If a deviation
 should be a hard failure for your integration, re-parse with `{ strict: true }` to have it thrown
-instead.
+instead. [Handle warnings and fail fast](./handle-warnings.md) shows both.
 
 ## A parse threw
 
-Only **Tier-3 fatal** conditions (`FATAL_CODES`) throw in lenient mode: these mark input the parser
-cannot recover into a structured result. In `{ strict: true }` mode, any tolerated deviation throws
-too. Catch and inspect the error's code to tell the two apart.
+Only the fatal conditions in `FATAL_CODES` throw in lenient mode: an empty input
+(`EMPTY_INPUT`), a stream that does not start with a header (`ASTM_RECORD_NO_HEADER`), and a first
+header that cannot declare its delimiters (`ASTM_RECORD_UNDECLARED_DELIMITERS`). Each is an
+`AstmParseError`. In `{ strict: true }` mode, any tolerated deviation throws too, as an
+`AstmStrictError`. Catch and inspect the error's code to tell them apart.
 
 ## An accessor threw `AstmAmbiguousStreamError`
 
@@ -39,15 +47,9 @@ The parse succeeded; an accessor refused to answer. `patient()`, `results()`, `o
 not determine one answer, and refusing is the point: the alternative is one patient's results
 attributed to another. Two codes:
 
-- **`ASTM_AMBIGUOUS_MULTI_MESSAGE`**: the stream carries more than one `H` … `L` message. Read each
-  message's own records instead:
-
-  ```ts
-  for (const m of messages(msg)) {
-    m.patient;
-    m.results;
-  }
-  ```
+- **`ASTM_AMBIGUOUS_MULTI_MESSAGE`**: the stream carries more than one `H` to `L` message. Read
+  each message's own records with `messages(msg)` instead, as [Read a stream that carries several
+  messages](./read-several-messages.md) shows.
 
 - **`ASTM_AMBIGUOUS_MULTI_PATIENT`** (from `patient()` only): one message carries several `P`
   records, so "the patient" is not determined. Read `messages(msg)[n].patients` for all of them.
@@ -425,10 +427,9 @@ so that fallback never fires on a part it composed.
 
 ## Known limitations
 
-`@cosyte/astm` is feature-complete across both layers, but its promise is deliberately narrow. See
-[What it does, and does not do](./limitations) for the full, honest boundary: no live I/O, units are
-verbatim free text (not UCUM), no bundled terminology dictionary (LIVD is bring-your-own), and `M`/`S`
-records are surfaced verbatim, never interpreted.
+The promise is deliberately narrow. See [What it does, and does not do](./limitations.md) for the
+full boundary: no live I/O, units are verbatim free text (not UCUM), no bundled terminology
+dictionary (LIVD is bring-your-own), and `M`/`S` records are surfaced verbatim, never interpreted.
 
-The **API Reference** always reflects exactly what this release ships: treat it as the source of
-truth over any prose above.
+[The API reference](./api/README.md) reflects exactly what this release ships: treat it as the
+source of truth over any prose above.

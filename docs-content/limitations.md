@@ -1,16 +1,16 @@
 ---
 id: limitations
 title: What it does, and does not do
+sidebar_label: What it does, and does not do
 description: "What the library promises about lab results, and the edges of that promise, stated plainly."
-sidebar_position: 2
 ---
 
 # What `@cosyte/astm` does, and does not do
 
 A lab result drives treatment. A parser that silently hands back a wrong value, unit, flag, status, or
 patient ID can cause harm. So this page is deliberately blunt about the promise and its edges. Read it
-before you rely on the library: the **API Reference** is always the exact truth of what a given
-release ships; this page is the honest shape of the whole.
+before you rely on the library: [the API reference](./api/README.md) is the exact statement of what
+a given release ships; this page is the shape of the whole.
 
 ## The promise (narrow, on purpose)
 
@@ -243,3 +243,12 @@ Mindray, Snibe) still implement. `@cosyte/astm` targets the second editions.
 free text can carry it. Fixtures are **synthetic-only**; warnings and errors carry **positional
 context only, never a value**; and a format-specific PHI scanner gates every change. Never log a raw
 payload.
+
+## How-to guides that apply this
+
+- [Read a result safely](./read-results.md): the status, flag and range rules above, in code.
+- [Map local test codes to LOINC](./map-local-codes-to-loinc.md): the catalog, the unit comparison and
+  the wire value.
+- [Write records and frames](./write-records-and-frames.md): what emit refuses, and why.
+- [Drive the LTP receiver over your own connection](./drive-the-ltp-receiver.md): the connection and
+  the timers that stay yours.

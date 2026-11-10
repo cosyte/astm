@@ -91,16 +91,17 @@ Six things are worth reading off that output. The value and the units are surfac
 
 That block is executed on every test run and its output is asserted against the text beside it (`test/readme-usage.test.ts`), so an example that drifts from the package fails the build rather than misleading a reader.
 
-The rest of the API, layer by layer (several messages in one stream, framed bytes, the transport and its `LTP` reducer, LIVD mapping, and dates without an invented timezone), is in the guide [The API, layer by layer](https://github.com/cosyte/astm/blob/main/docs-content/guides-api-by-layer.md).
+The rest of the API (several messages in one stream, framed bytes, the transport and its `LTP` reducer, LIVD mapping, and dates without an invented timezone) has a how-to guide each in the documentation below.
 
 ## Documentation
 
 The full documentation lives at [docs.cosyte.com/astm](https://docs.cosyte.com/astm), built from this repository's [`docs-content/`](https://github.com/cosyte/astm/tree/main/docs-content). Start with these pages:
 
-- [Quickstart](https://github.com/cosyte/astm/blob/main/docs-content/quickstart.md): parse a result stream, read a result and its warnings, emit and frame records, and map a local code to LOINC.
-- [The API, layer by layer](https://github.com/cosyte/astm/blob/main/docs-content/guides-api-by-layer.md): records, several messages in one stream, frames, the transport, LIVD mapping, and dates.
-- [Coverage and compatibility](https://github.com/cosyte/astm/blob/main/docs-content/concepts-coverage.md): what the parser reads and emits, and the escape and delimiter edge cases each warning code reports.
-- [Vendor profiles](https://github.com/cosyte/astm/blob/main/docs-content/guides-vendor-profiles.md): how a profile tolerates one documented deviation without touching a value.
+- [Quickstart](https://github.com/cosyte/astm/blob/main/docs-content/quickstart.md): parse a result stream, read a result and its warnings, decode a framed stream, and write records back out.
+- [Receive results from an analyzer](https://github.com/cosyte/astm/blob/main/docs-content/receive-results-from-an-analyzer.md): a tutorial that takes a framed transfer through the protocol receiver to its results.
+- How-to guides: [read a result safely](https://github.com/cosyte/astm/blob/main/docs-content/read-results.md), [read several messages](https://github.com/cosyte/astm/blob/main/docs-content/read-several-messages.md), [decode a framed stream](https://github.com/cosyte/astm/blob/main/docs-content/decode-framed-streams.md), [write records and frames](https://github.com/cosyte/astm/blob/main/docs-content/write-records-and-frames.md), [map local codes to LOINC](https://github.com/cosyte/astm/blob/main/docs-content/map-local-codes-to-loinc.md), [read a timestamp](https://github.com/cosyte/astm/blob/main/docs-content/read-dates.md) and [write a vendor profile](https://github.com/cosyte/astm/blob/main/docs-content/guides-vendor-profiles.md).
+- [Coverage and compatibility](https://github.com/cosyte/astm/blob/main/docs-content/concepts-coverage.md): what the parser reads and emits, and the escape edge cases each warning code reports.
+- [Warning and error codes](https://github.com/cosyte/astm/blob/main/docs-content/warning-codes.md): every code, with what it means.
 - [What the library does with patient data](https://github.com/cosyte/astm/blob/main/docs-content/patient-data.md), and [what it does and does not do](https://github.com/cosyte/astm/blob/main/docs-content/limitations.md).
 - [Troubleshooting](https://github.com/cosyte/astm/blob/main/docs-content/troubleshooting.md): common symptoms, and how to read what the parser is telling you.
 
