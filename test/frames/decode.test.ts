@@ -261,4 +261,77 @@ describe("decodeAstmFrames: a frame-number byte that is missing", () => {
     expect(warnings[0]?.position).toEqual({ byteOffset: 0 });
     expect(records).toEqual([]);
   });
+
+  it("reads that frame as terminated, trusted and in bounds: only its number is missing", () => {
+    const { frames } = decodeAstmFrames(unnumberedFrame("R|1|"));
+    expect(frames[0]).toMatchObject({
+      terminator: "ETX",
+      trusted: true,
+      unterminated: false,
+      oversize: false,
+      byteOffset: 0,
+    });
+  });
+});
+
+describe("decodeAstmFrames: resyncing after a frame number out of range", () => {
+  // Only a 0 to 7 digit is a frame number the counter can resync to. A byte outside that range is a
+  // gap, and the frame after it is judged against the number the counter already expected.
+  it.each([
+    [":", 10],
+    ["8", 8],
+    ["/", -1],
+  ])("does not resync to %s, so the next in-sequence frame is no gap", (_byte, fn) => {
+    const bytes = stream(
+      frame("H|\\^&\r", { fn: 1 }),
+      frame("P|1\r", { fn }),
+      frame("L|1|N\r", { fn: 2 }),
+    );
+    const { frames, records, warnings } = decodeAstmFrames(bytes);
+    expect(frames.map((f) => f.frameNumber)).toEqual([1, fn, 2]);
+    expect(warnings.map((w) => [w.code, w.position?.frameNumber])).toEqual([
+      [FRAME_WARNING_CODES.ASTM_FRAME_SEQUENCE_GAP, fn],
+    ]);
+    expect(records.map(asText)).toEqual(["H|\\^&\r", "L|1|N\r"]);
+  });
+
+  it("resyncs to an in-range number it did not expect", () => {
+    const bytes = stream(
+      frame("H|\\^&\r", { fn: 1 }),
+      frame("P|1\r", { fn: 5 }),
+      frame("L|1|N\r", { fn: 6 }),
+    );
+    const { warnings, records } = decodeAstmFrames(bytes);
+    expect(warnings.map((w) => [w.code, w.position?.frameNumber])).toEqual([
+      [FRAME_WARNING_CODES.ASTM_FRAME_SEQUENCE_GAP, 5],
+    ]);
+    expect(records.map(asText)).toEqual(["H|\\^&\r", "L|1|N\r"]);
+  });
+});
+
+describe("decodeAstmFrames: an unterminated frame inside a multi-frame record", () => {
+  it("taints the record it interrupts, so the frames either side are never joined", () => {
+    // Frame 1 opens a record on ETB; frame 2 never terminates (the next STX arrives first); frame 2
+    // again closes a record on ETX. Joining frames 1 and 3 would invent a record nobody sent.
+    const unterminated = [0x02, 0x32, ...bytesOf("O|1|SPEC-9")];
+    const bytes = stream(
+      frame("R|1|^^^687|", { fn: 1, kind: "ETB" }),
+      unterminated,
+      frame("28.6\r", { fn: 2, kind: "ETX" }),
+    );
+    const { frames, records, warnings } = decodeAstmFrames(bytes);
+    expect(frames.map((f) => f.unterminated)).toEqual([false, true, false]);
+    expect(warnings.map((w) => w.code)).toEqual([FRAME_WARNING_CODES.ASTM_FRAME_UNTERMINATED]);
+    expect(records).toEqual([]);
+  });
+
+  it("reads a checksum cut short by a new STX as one unterminated frame, not two", () => {
+    // The stream ends one byte after ETX, and that byte is STX: the checksum is truncated, and the
+    // STX is the last byte, too short to open a frame of its own.
+    const bytes = Uint8Array.from([0x02, 0x31, ...bytesOf("L|1"), 0x03, 0x02]);
+    const { frames, warnings } = decodeAstmFrames(bytes);
+    expect(frames).toHaveLength(1);
+    expect(frames[0]).toMatchObject({ frameNumber: 1, unterminated: true, byteOffset: 0 });
+    expect(warnings.map((w) => w.code)).toEqual([FRAME_WARNING_CODES.ASTM_FRAME_UNTERMINATED]);
+  });
 });

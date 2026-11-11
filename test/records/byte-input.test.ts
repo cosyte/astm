@@ -43,6 +43,16 @@ describe("record bytes are read as Latin-1, one character a byte", () => {
     expect(field.charCodeAt(field.indexOf("\u0080"))).toBe(0x80);
   });
 
+  it.each([0x7f, 0x80, 0x9f, 0xa0])(
+    "reads the byte %i on its own as the character with its code",
+    (byte) => {
+      // Alone, so no other byte decides which route the input takes: 0x80 and 0x9F are the two
+      // ends of the range windows-1252 reads differently, and 0x7F and 0xA0 sit just outside it.
+      const msg = parseAstmRecords(stream([0x41, byte, 0x42]).bytes);
+      expect(msg.records[1]?.fields[3]?.raw).toBe(`A${String.fromCharCode(byte)}B`);
+    },
+  );
+
   it("reads a long input across chunk boundaries the same as its text", () => {
     const payload: number[] = [];
     for (let i = 0; i < 20_000; i += 1) payload.push(i % 7 === 0 ? 0x85 : 0x41 + (i % 26));
