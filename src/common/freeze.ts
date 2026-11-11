@@ -30,3 +30,26 @@ export function deepFreeze<T>(value: T): T {
   }
   return value;
 }
+
+/**
+ * {@link deepFreeze} for an object graph the parser built itself: the same walk, freezing the same
+ * objects and stopping at the same already-frozen ones, without the key array `Object.keys` makes
+ * for every object it visits. An array is walked by index and an object by its own enumerable keys,
+ * which for the plain objects and arrays the parser builds are exactly the keys `Object.keys` lists.
+ *
+ * @internal
+ */
+export function freezeBuilt<T>(value: T): T {
+  if (value === null || typeof value !== "object") return value;
+  if (Object.isFrozen(value)) return value;
+  Object.freeze(value);
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i += 1) freezeBuilt(value[i] as unknown);
+    return value;
+  }
+  const record = value as Record<string, unknown>;
+  for (const key in record) {
+    if (Object.hasOwn(record, key)) freezeBuilt(record[key]);
+  }
+  return value;
+}

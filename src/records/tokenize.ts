@@ -65,33 +65,20 @@ export function tokenizeRecord(
   onAlignmentTruncatedField?: (fieldIndex: number) => void,
   onAlignmentShiftedComponents?: (fieldIndex: number) => void,
 ): AstmField[] {
-  // The field split reports the ambiguity itself: the segment index it hands back IS the field
-  // index, because a gained field boundary is not visible from inside either field it made. The
-  // shift report is wired HERE ONLY, for the same reason read from the other side: only a gained
-  // FIELD boundary moves every later field, so only this split can see a modeled slot change hands.
-  const rawFields = splitEscapeAware(
+  return tokenizeFields(
     record,
-    d.field,
-    d.escape,
-    (fieldIndex) => onAmbiguousAlignment?.(fieldIndex),
-    (fieldIndex) => onAlignmentShiftedFields?.(fieldIndex),
-  );
-  return rawFields.map((raw, fieldIndex) =>
-    toField(
-      raw,
-      d,
-      () => onUnknownEscape?.(fieldIndex),
-      () => onUnpairedEscape?.(fieldIndex),
-      () => onSwallowedDelimiter?.(fieldIndex),
-      () => onAmbiguousAlignment?.(fieldIndex),
-      // The repeat split runs INSIDE one field, so the index it hands back is a repeat index and is
-      // discarded: what a caller needs is which field carries the contested boundary, and that is
-      // the index this map is already iterating.
-      () => onAlignmentTruncatedField?.(fieldIndex),
-      // Likewise for the component split, which runs inside one repeat of one field: the index it
-      // hands back is a component index and is discarded for the same reason.
-      () => onAlignmentShiftedComponents?.(fieldIndex),
-    ),
+    d,
+    {
+      onUnknownEscape,
+      onUnpairedEscape,
+      onSwallowedDelimiter,
+      onAmbiguousAlignment,
+      onAlignmentShiftedFields,
+      onAlignmentTruncatedField,
+      onAlignmentShiftedComponents,
+    },
+    0,
+    false,
   );
 }
 
@@ -156,42 +143,206 @@ export function tokenizeHeader(
   onAlignmentTruncatedField?: (fieldIndex: number) => void,
   onAlignmentShiftedComponents?: (fieldIndex: number) => void,
 ): AstmField[] {
+  return tokenizeHeaderFields(
+    record,
+    d,
+    {
+      onUnknownEscape,
+      onUnpairedEscape,
+      onSwallowedDelimiter,
+      onAmbiguousAlignment,
+      onAlignmentShiftedFields,
+      onAlignmentTruncatedField,
+      onAlignmentShiftedComponents,
+    },
+    false,
+  );
+}
+
+/**
+ * The tokenizer's reports, each called with the 0-based whole-record field index: the sinks of
+ * {@link tokenizeRecord} and {@link tokenizeHeader}, held in one object so a field is tokenized
+ * without a closure of its own for each of them.
+ */
+export interface FieldSinks {
+  readonly onUnknownEscape?: ((fieldIndex: number) => void) | undefined;
+  readonly onUnpairedEscape?: ((fieldIndex: number) => void) | undefined;
+  readonly onSwallowedDelimiter?: ((fieldIndex: number) => void) | undefined;
+  readonly onAmbiguousAlignment?: ((fieldIndex: number) => void) | undefined;
+  readonly onAlignmentShiftedFields?: ((fieldIndex: number) => void) | undefined;
+  readonly onAlignmentTruncatedField?: ((fieldIndex: number) => void) | undefined;
+  readonly onAlignmentShiftedComponents?: ((fieldIndex: number) => void) | undefined;
+}
+
+/**
+ * Call one sink, if it is set, as a plain function call with the field index alone: the way each
+ * sink has always been called, so a sink never sees the sinks object as its `this`.
+ */
+function report(sink: ((fieldIndex: number) => void) | undefined, fieldIndex: number): void {
+  sink?.(fieldIndex);
+}
+
+/**
+ * The one empty field the parser hands out for every empty field it reads. It is frozen, so no
+ * caller can tell it from a field of its own: an empty field has no text that could differ, and
+ * one shared node in place of three objects for each of them is most of what a sparse record
+ * costs to hold.
+ */
+const EMPTY_FIELD: AstmField = Object.freeze({
+  raw: "",
+  components: Object.freeze([""]),
+  repeats: Object.freeze([Object.freeze([""])]),
+});
+
+/**
+ * Tokenize a record's fields from `offset` on: the body of {@link tokenizeRecord}, and of the
+ * parser's own reading, which asks for every node frozen as it is built (`freeze`) so the parsed
+ * message needs no walk over its fields afterwards. {@link tokenizeRecord} returns its fields
+ * unfrozen, as it always has.
+ *
+ * @internal
+ */
+export function tokenizeFields(
+  record: string,
+  d: Delimiters,
+  sinks: FieldSinks,
+  offset: number,
+  freeze: boolean,
+): AstmField[] {
+  // The field split reports the ambiguity itself: the segment index it hands back IS the field
+  // index, because a gained field boundary is not visible from inside either field it made. The
+  // shift report is wired HERE ONLY, for the same reason read from the other side: only a gained
+  // FIELD boundary moves every later field, so only this split can see a modeled slot change hands.
+  const rawFields = splitEscapeAware(
+    record,
+    d.field,
+    d.escape,
+    (fieldIndex) => report(sinks.onAmbiguousAlignment, fieldIndex + offset),
+    (fieldIndex) => report(sinks.onAlignmentShiftedFields, fieldIndex + offset),
+  );
+  const fields = rawFields.map((raw, fieldIndex) =>
+    toField(raw, d, sinks, fieldIndex + offset, freeze),
+  );
+  return freeze ? (Object.freeze(fields) as AstmField[]) : fields;
+}
+
+/**
+ * One field of a record as the parse first holds it: the field's own text where the field is
+ * plain (see {@link isPlainField}), or the field already built where reading it took a split or a
+ * decode. A plain field is built only when a caller reads it ({@link plainField}), and it is built
+ * the same as it would have been at once.
+ *
+ * @internal
+ */
+export type FieldSlot = string | AstmField;
+
+/**
+ * Tokenize a record's fields into {@link FieldSlot}s: the same reading as {@link tokenizeFields},
+ * reporting the same things in the same order, with each plain field left as its text. A plain
+ * field reports nothing (every report needs an escape character), so leaving it unbuilt moves no
+ * report.
+ *
+ * @internal
+ */
+export function tokenizeSlots(record: string, d: Delimiters, sinks: FieldSinks): FieldSlot[] {
+  const rawFields: FieldSlot[] = splitEscapeAware(
+    record,
+    d.field,
+    d.escape,
+    (fieldIndex) => report(sinks.onAmbiguousAlignment, fieldIndex),
+    (fieldIndex) => report(sinks.onAlignmentShiftedFields, fieldIndex),
+  );
+  for (let i = 0; i < rawFields.length; i += 1) {
+    const raw = rawFields[i] as string;
+    if (!isPlainField(raw, d)) rawFields[i] = toField(raw, d, sinks, i, true);
+  }
+  return rawFields;
+}
+
+/**
+ * Whether a field has no repeat delimiter, no component delimiter and no escape character: one
+ * repeat of one component, its own text. The splits would each hand back the whole text and report
+ * nothing, since every report needs an escape character, and the decode would return it as is.
+ *
+ * @internal
+ */
+export function isPlainField(raw: string, d: Delimiters): boolean {
+  return !raw.includes(d.repeat) && !raw.includes(d.component) && !raw.includes(d.escape);
+}
+
+/**
+ * The frozen field a plain field's text reads as: one repeat of one component, its text. Every
+ * empty field is the one shared {@link EMPTY_FIELD}.
+ *
+ * @internal
+ */
+export function plainField(raw: string): AstmField {
+  if (raw.length === 0) return EMPTY_FIELD;
+  const components = Object.freeze([raw]);
+  return Object.freeze({ raw, components, repeats: Object.freeze([components]) });
+}
+
+/**
+ * The body of {@link tokenizeHeader}, with the same `freeze` switch as {@link tokenizeFields}.
+ *
+ * @internal
+ */
+export function tokenizeHeaderFields(
+  record: string,
+  d: Delimiters,
+  sinks: FieldSinks,
+  freeze: boolean,
+): AstmField[] {
   // The delimiter-definition field runs from index 2 to the next field separator.
   const defEnd = record.indexOf(d.field, 2);
   const definition = defEnd === -1 ? record.slice(2) : record.slice(2, defEnd);
-  const head = [opaqueField(record.slice(0, Math.min(1, record.length))), opaqueField(definition)];
-  if (defEnd === -1) return head;
-  // Data fields start at whole-record index 2, so shift the tokenizer's local index by 2.
-  const data = tokenizeRecord(
-    record.slice(defEnd + 1),
-    d,
-    (i) => onUnknownEscape?.(i + 2),
-    (i) => onUnpairedEscape?.(i + 2),
-    (i) => onSwallowedDelimiter?.(i + 2),
-    (i) => onAmbiguousAlignment?.(i + 2),
-    (i) => onAlignmentShiftedFields?.(i + 2),
-    (i) => onAlignmentTruncatedField?.(i + 2),
-    (i) => onAlignmentShiftedComponents?.(i + 2),
-  );
-  return [...head, ...data];
+  const head = [
+    opaqueField(record.slice(0, Math.min(1, record.length)), freeze),
+    opaqueField(definition, freeze),
+  ];
+  // Data fields start at whole-record index 2, so the tokenizer's local index is shifted by 2.
+  const fields =
+    defEnd === -1
+      ? head
+      : [...head, ...tokenizeFields(record.slice(defEnd + 1), d, sinks, 2, freeze)];
+  return freeze ? (Object.freeze(fields) as AstmField[]) : fields;
 }
 
 /** A field whose text is structural, not data: surfaced verbatim as one component, never decoded. */
-function opaqueField(raw: string): AstmField {
-  return { raw, components: [raw], repeats: [[raw]] };
+function opaqueField(raw: string, freeze: boolean): AstmField {
+  if (!freeze) return { raw, components: [raw], repeats: [[raw]] };
+  return Object.freeze({
+    raw,
+    components: Object.freeze([raw]),
+    repeats: Object.freeze([Object.freeze([raw])]),
+  });
 }
 
 /** Build one {@link AstmField} from its raw wire text: split into repeats → components, then decode. */
 function toField(
   raw: string,
   d: Delimiters,
-  onUnknownEscape: () => void,
-  onUnpairedEscape: () => void,
-  onSwallowedDelimiter: () => void,
-  onAmbiguousAlignment: () => void,
-  onAlignmentTruncatedField: () => void,
-  onAlignmentShiftedComponents: () => void,
+  sinks: FieldSinks,
+  fieldIndex: number,
+  freeze: boolean,
 ): AstmField {
+  // A plain field is one repeat of one component, its own text (see isPlainField).
+  if (isPlainField(raw, d)) {
+    if (freeze) return plainField(raw);
+    const components = [raw];
+    return { raw, components, repeats: [components] };
+  }
+  const onUnknownEscape = (): void => report(sinks.onUnknownEscape, fieldIndex);
+  const onUnpairedEscape = (): void => report(sinks.onUnpairedEscape, fieldIndex);
+  const onSwallowedDelimiter = (): void => report(sinks.onSwallowedDelimiter, fieldIndex);
+  const onAmbiguousAlignment = (): void => report(sinks.onAmbiguousAlignment, fieldIndex);
+  // The repeat split runs INSIDE one field, so the index it hands back is a repeat index and is
+  // discarded: what a caller needs is which field carries the contested boundary, and that is
+  // `fieldIndex`. Likewise for the component split, which runs inside one repeat of one field: the
+  // index it hands back is a component index and is discarded for the same reason.
+  const onAlignmentTruncatedField = (): void => report(sinks.onAlignmentTruncatedField, fieldIndex);
+  const onAlignmentShiftedComponents = (): void =>
+    report(sinks.onAlignmentShiftedComponents, fieldIndex);
   // Each split reports the competing alignments that would have held ITS delimiter, so a role is
   // asked about exactly once: a character that is a delimiter in a later role survives into the
   // segment that role's pass reads, and one this pass split on cannot reach a later one.
@@ -216,35 +367,29 @@ function toField(
     raw,
     d.repeat,
     d.escape,
-    () => {
-      onAmbiguousAlignment();
-    },
+    onAmbiguousAlignment,
     undefined,
-    () => {
-      onAlignmentTruncatedField();
-    },
+    onAlignmentTruncatedField,
   );
-  const repeats = rawRepeats.map((rep) =>
-    splitEscapeAware(
+  const repeats = rawRepeats.map((rep) => {
+    const components = splitEscapeAware(
       rep,
       d.component,
       d.escape,
-      () => {
-        onAmbiguousAlignment();
-      },
+      onAmbiguousAlignment,
       undefined,
       undefined,
-      () => {
-        onAlignmentShiftedComponents();
-      },
+      onAlignmentShiftedComponents,
     ).map((comp) =>
       decodeEscapes(comp, d, onUnknownEscape, onUnpairedEscape, onSwallowedDelimiter),
-    ),
-  );
+    );
+    return freeze ? Object.freeze(components) : components;
+  });
   // `splitEscapeAware` always returns at least one element, so `repeats[0]` is defined.
   /* v8 ignore next -- every return path of splitEscapeAware yields at least one segment, so repeats[0] is set */
   const components = repeats[0] ?? [""];
-  return { raw, components, repeats };
+  if (!freeze) return { raw, components, repeats };
+  return Object.freeze({ raw, components, repeats: Object.freeze(repeats) });
 }
 
 /**

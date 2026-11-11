@@ -42,7 +42,14 @@ interface RecordBase {
   readonly type: string;
   /** 0-based ordinal of the record within the message. */
   readonly recordIndex: number;
-  /** The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it. */
+  /**
+   * The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
+   *
+   * On a record the parser returns this is an enumerable getter, not a data property: a field with
+   * no repeat, component or escape character is built the first time `fields` is read, and every
+   * read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+   * `structuredClone` all see it as a value. Every empty field is one shared frozen object.
+   */
   readonly fields: readonly AstmField[];
 }
 

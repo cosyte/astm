@@ -102,7 +102,7 @@
  */
 
 import { CANONICAL_DELIMITERS, type Delimiters } from "../common/delimiters.js";
-import { tokenizeRecord } from "./tokenize.js";
+import { decodeEscapes, splitEscapeAware } from "../common/escapes.js";
 import type {
   AstmField,
   AstmMessage,
@@ -270,13 +270,16 @@ function assertEmittableDelimiters(d: Delimiters, recordIndex?: number): void {
     }
   }
 
-  DELIMITER_ROLES.forEach((a, i) => {
-    for (const b of DELIMITER_ROLES.slice(i + 1)) {
+  // Every pair once, in the same order as before, without a copy of the role list for each role.
+  for (let i = 0; i < DELIMITER_ROLES.length; i += 1) {
+    for (let j = i + 1; j < DELIMITER_ROLES.length; j += 1) {
+      const a = DELIMITER_ROLES[i] as (typeof DELIMITER_ROLES)[number];
+      const b = DELIMITER_ROLES[j] as (typeof DELIMITER_ROLES)[number];
       if (d[a] === d[b]) {
         invalid(`the ${a} and ${b} delimiters must not be the same character`);
       }
     }
-  });
+  }
 }
 
 /**
@@ -354,21 +357,31 @@ function escapeMnemonic(ch: string, d: Delimiters): string | undefined {
  * safety gate's tolerable allow-list, so `{ strict: true }` under a gate-legal
  * profile accepted the altered value. After this change no set in that sweep
  * diverges.
+ *
+ * It is the body of {@link encodeComponent} for a caller that checked its delimiter set once
+ * rather than once a component.
+ *
+ * @internal
  */
-function encodeLeaf(leaf: string, d: Delimiters, recordIndex?: number): string {
+export function encodeLeaf(leaf: string, d: Delimiters, recordIndex?: number): string {
   if (leaf.includes("\r") || leaf.includes("\n")) {
     throw new AstmSerializeError(
       "A value contains a record terminator (CR/LF), which cannot be escaped without breaking framing.",
       recordIndex,
     );
   }
+  // The text between characters that need escaping is copied one run at a time: `run` is where the
+  // text not yet copied starts, and a leaf with nothing to escape is returned as it is.
   let out = "";
+  let run = 0;
   for (let i = 0; i < leaf.length; i += 1) {
-    const ch = leaf.charAt(i);
-    const mnemonic = escapeMnemonic(ch, d);
-    out += mnemonic === undefined ? ch : d.escape + mnemonic + d.escape;
+    const mnemonic = escapeMnemonic(leaf.charAt(i), d);
+    if (mnemonic !== undefined) {
+      out += leaf.slice(run, i) + d.escape + mnemonic + d.escape;
+      run = i + 1;
+    }
   }
-  return out;
+  return run === 0 ? leaf : out + leaf.slice(run);
 }
 
 /** Encode one field from its decoded repeat/component tree, re-escaping each leaf. */
@@ -576,20 +589,22 @@ function serializeVerbatimRecord(
  * delimiter either set would split on.
  */
 function recoversVerbatim(record: ManufacturerRecord | ScientificRecord, d: Delimiters): boolean {
-  return sameFieldTree(tokenizeRecord(record.rawLine, d), record.fields);
-}
-
-/** Structural equality over two tokenized field trees, compared on decoded values. */
-function sameFieldTree(a: readonly AstmField[], b: readonly AstmField[]): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((fieldA, i) => {
-    const fieldB = b[i];
+  // The same splits and decode the tokenizer makes, compared against the modeled tree as they go,
+  // with no field tree built for the line: a split has no side effect without its sinks, so stopping
+  // at the first difference answers exactly what tokenizing the whole line and comparing would.
+  const fields = record.fields;
+  const rawFields = splitEscapeAware(record.rawLine, d.field, d.escape);
+  if (rawFields.length !== fields.length) return false;
+  return rawFields.every((raw, i) => {
+    const fieldB = fields[i];
     if (fieldB === undefined) return false;
-    if (fieldA.repeats.length !== fieldB.repeats.length) return false;
-    return fieldA.repeats.every((repA, r) => {
+    const rawRepeats = splitEscapeAware(raw, d.repeat, d.escape);
+    if (rawRepeats.length !== fieldB.repeats.length) return false;
+    return rawRepeats.every((rep, r) => {
       const repB = fieldB.repeats[r];
-      if (repB === undefined || repA.length !== repB.length) return false;
-      return repA.every((comp, c) => comp === repB[c]);
+      const rawComponents = splitEscapeAware(rep, d.component, d.escape);
+      if (repB === undefined || rawComponents.length !== repB.length) return false;
+      return rawComponents.every((comp, c) => decodeEscapes(comp, d) === repB[c]);
     });
   });
 }
@@ -713,6 +728,18 @@ function declarationResidual(header: HeaderRecord, d: Delimiters): string {
   const residual = declaration.slice(roles.length);
   if (residual.includes(d.field) || CONTROL_CHARACTER.test(residual)) return "";
   return residual;
+}
+
+/**
+ * Each record's text and its CR terminator, against the canonical set, for the framed write: the
+ * text {@link serializeAstmRecord} writes for each, with the canonical set checked once for the
+ * list rather than once a record. The canonical set always passes the check.
+ *
+ * @internal
+ */
+export function serializeRecordLines(records: readonly AstmRecord[]): string[] {
+  assertEmittableDelimiters(CANONICAL_DELIMITERS);
+  return records.map((r) => serializeRecordChecked(r, CANONICAL_DELIMITERS) + "\r");
 }
 
 /**

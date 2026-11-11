@@ -144,16 +144,29 @@ export function decodeAstmFrames(
       declared !== undefined ? { computed, declared, valid } : { computed, valid };
     const text = bytes.slice(i + 2, termIndex);
 
-    const frame: AstmFrame = {
-      ...(frameNumber !== undefined ? { frameNumber } : {}),
-      terminator: termKind,
-      text,
-      byteOffset: stxOffset,
-      checksum,
-      trusted: valid,
-      unterminated: false,
-      oversize,
-    };
+    // Written as one literal, with no object spread into it. The frame number is read from the
+    // byte after STX and is absent only where that byte is (an array with a hole passed as bytes).
+    const frame: AstmFrame =
+      frameNumber !== undefined
+        ? {
+            frameNumber,
+            terminator: termKind,
+            text,
+            byteOffset: stxOffset,
+            checksum,
+            trusted: valid,
+            unterminated: false,
+            oversize,
+          }
+        : {
+            terminator: termKind,
+            text,
+            byteOffset: stxOffset,
+            checksum,
+            trusted: valid,
+            unterminated: false,
+            oversize,
+          };
     frames.push(frame);
 
     // Sequence check: never bridge a gap silently. An out-of-range FN (not 0 to 7) is a gap by

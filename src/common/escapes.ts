@@ -604,41 +604,39 @@ export function decodeEscapes(
   onSwallowedDelimiter?: SwallowedDelimiterSink,
 ): string {
   const esc = d.escape;
-  if (!leaf.includes(esc)) return leaf;
+  // An escape role that is not one character never equals the one character at a position, so it
+  // heads nothing and the leaf is its own decoding, exactly as one with no escape character in it.
+  if (esc.length !== 1 || !leaf.includes(esc)) return leaf;
 
+  // The text between escape characters is copied one run at a time, never a character at a time:
+  // `run` is where the text not yet copied starts.
   let out = "";
-  let i = 0;
-  while (i < leaf.length) {
-    const ch = leaf.charAt(i);
-    if (ch !== esc) {
-      out += ch;
-      i += 1;
-      continue;
-    }
+  let run = 0;
+  let i = leaf.indexOf(esc);
+  while (i !== -1) {
     if (!isEscapeSequenceAt(leaf, i, esc)) {
       // An escape character heading no sequence: keep it as the literal character it is,
       // report it, and carry on. Never swallow the remainder of the leaf behind it.
-      out += ch;
-      i += 1;
       onUnpaired?.();
+      i = leaf.indexOf(esc, i + 1);
       continue;
     }
     const body = leaf.charAt(i + 1);
     const replacement = escapeBody(body, d);
     if (replacement === undefined) {
       // Unrecognized escape: preserve the whole `&X&` verbatim, surface it, never guess.
-      out += esc + body + esc;
       onUnknown?.();
       // ...and if that body is one of the three splitting roles, the atom rule is why it
       // is sitting here rather than having ended a field/repeat/component. That is a lost
       // boundary, not merely an unreadable body, so it gets its own report.
       if (isSplittingDelimiter(body, d)) onSwallowedDelimiter?.();
     } else {
-      out += replacement;
+      out += leaf.slice(run, i) + replacement;
+      run = i + 3;
     }
-    i += 3;
+    i = leaf.indexOf(esc, i + 3);
   }
-  return out;
+  return run === 0 ? leaf : out + leaf.slice(run);
 }
 
 /**
@@ -752,8 +750,18 @@ export function splitEscapeAware(
   onShiftedComponents?: ShiftedComponentsSink,
 ): string[] {
   if (text.length === 0) return [""];
+  // Where no character of `text` can open an escape sequence there is no atom to keep whole and
+  // nothing for any sink to report, so the split is the plain one. An escape role that is not one
+  // character can never equal the one character read at a position below, and a delimiter that is
+  // not one character can never split, so both are read the way the loop reads them.
+  if (escape.length !== 1 || !text.includes(escape)) {
+    return delimiter.length === 1 ? text.split(delimiter) : [text];
+  }
   const out: string[] = [];
-  let current = "";
+  // Each segment is the text from `start` to the delimiter that ends it, sliced once rather than
+  // built a character at a time: an escape sequence is copied verbatim either way, so the text
+  // between two boundaries is exactly the segment.
+  let start = 0;
   let i = 0;
   while (i < text.length) {
     const ch = text.charAt(i);
@@ -801,20 +809,18 @@ export function splitEscapeAware(
         onTruncatedField?.(out.length);
         onShiftedComponents?.(out.length);
       }
-      // Copy the whole escape sequence verbatim; do not inspect it for delimiters.
-      current += text.slice(i, i + 3);
+      // Keep the whole escape sequence in the segment verbatim; do not inspect it for delimiters.
       i += 3;
       continue;
     }
     if (ch === delimiter) {
-      out.push(current);
-      current = "";
+      out.push(text.slice(start, i));
       i += 1;
+      start = i;
       continue;
     }
-    current += ch;
     i += 1;
   }
-  out.push(current);
+  out.push(text.slice(start));
   return out;
 }
