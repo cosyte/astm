@@ -754,9 +754,6 @@ export function splitEscapeAware(
   // nothing for any sink to report, so the split is the plain one. An escape role that is not one
   // character can never equal the one character read at a position below, and a delimiter that is
   // not one character can never split, so both are read the way the loop reads them.
-  // The fast path returns what the loop would, only sooner, so a mutant that skips it passes every
-  // test and only the time moves: such mutants timed out on one full run and survived the next.
-  // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent, the loop gives the same split
   if (escape.length !== 1 || !text.includes(escape)) {
     return delimiter.length === 1 ? text.split(delimiter) : [text];
   }
