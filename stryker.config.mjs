@@ -15,11 +15,11 @@ export default cosyteStryker({
   vitestConfig: "vitest.mutation.config.ts",
   stryker: {
     // A mutant times out when a test takes longer than timeoutFactor times its first, unmutated
-    // run plus timeoutMS. At StrykerJS's defaults (1.5 and 5,000 ms) 124 mutants timed out on a
-    // full run, and the floor sat a fraction of one mutant above the score, so a mutant near that
-    // line that finished on one run and timed out on the next could turn the weekly run red. A
-    // wider margin lets a slow mutant that still finishes finish every time, so only a mutant
-    // that never ends times out, and the full score does not move with the runner's load.
+    // run plus timeoutMS. At StrykerJS's defaults (1.5 and 5,000 ms) 117 to 124 mutants timed out
+    // on a full run, a timeout counts as caught, and dozens of those finish and survive when given
+    // the time, so the score counted mutants no test catches. With this margin about 52 time out,
+    // and two full runs differ by one or two mutants: a fast-path mutant in the escape split that
+    // returns the same result more slowly still lands on either side of the line.
     timeoutFactor: 3,
     timeoutMS: 10_000,
   },
