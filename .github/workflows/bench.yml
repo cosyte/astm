@@ -19,6 +19,8 @@ name: Bench
 
 on:
   workflow_dispatch: {}
+  push:
+    branches: [perf/parse-validate-build]
   pull_request:
     branches: [main]
     paths:
