@@ -43,6 +43,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   compileErrors,
@@ -51,11 +52,11 @@ import {
   recordStreamLiteral,
   section as helperSection,
 } from "./_helpers/first-use.js";
+import { ON_DENO, TSX_COMMAND, TSX_PREFIX } from "./_helpers/runtime.js";
 
 const REPO_ROOT = process.cwd();
 const README_PATH = join(REPO_ROOT, "README.md");
 const ENTRY_POINT = join(REPO_ROOT, "src", "index.ts");
-const TSX_BIN = join(REPO_ROOT, "node_modules", ".bin", "tsx");
 const PUBLISHED_SPECIFIER = '"@cosyte/astm"';
 /** tsx has to transpile the whole entry point before the example runs. */
 const SPAWN_TIMEOUT = 60_000;
@@ -124,10 +125,15 @@ let usageFences: Fence[];
 function runExample(source: string, fileName: string): RunResult {
   const occurrences = source.split(PUBLISHED_SPECIFIER).length - 1;
   expect(occurrences, "the Usage example imports @cosyte/astm exactly once").toBe(1);
-  const runnable = source.replace(PUBLISHED_SPECIFIER, JSON.stringify(ENTRY_POINT));
+  const runnable = source.replace(
+    PUBLISHED_SPECIFIER,
+    // A file URL, not a path: on Windows a path starts with a drive letter, which an ESM import
+    // reads as a URL scheme.
+    JSON.stringify(pathToFileURL(ENTRY_POINT).href),
+  );
   const path = join(dir, fileName);
   writeFileSync(path, `${runnable}\n`, "utf8");
-  const r = spawnSync(TSX_BIN, [path], {
+  const r = spawnSync(TSX_COMMAND, [...TSX_PREFIX, path], {
     cwd: REPO_ROOT,
     encoding: "utf8",
     shell: false,
@@ -156,7 +162,10 @@ describe("the README Usage example", () => {
     expect(example?.body).toContain(`from ${PUBLISHED_SPECIFIER};`);
   });
 
-  it(
+  // Skipped under Deno: there `node_modules/.bin/tsx` runs on Deno, which loads `src/index.ts`
+  // without tsx's resolver and refuses its `./records/parse.js` import of a `.ts` file ("Module not
+  // found ... Maybe change the extension to '.ts'"). It runs on Node, on every system, and on Bun.
+  it.skipIf(ON_DENO)(
     "runs, and prints exactly the output the README shows beside it",
     () => {
       const example = usageFences[0];
@@ -176,7 +185,8 @@ describe("the README Usage example", () => {
     CASE_TIMEOUT,
   );
 
-  it(
+  // Skipped under Deno, for the reason above: it runs the example the same way.
+  it.skipIf(ON_DENO)(
     "is really executed: changing the input stream changes the output",
     () => {
       const example = usageFences[0];

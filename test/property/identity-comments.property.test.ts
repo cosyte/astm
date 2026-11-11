@@ -3,6 +3,8 @@ import fc from "fast-check";
 
 import { comments, parseAstmRecords, patient, parseAstmDate } from "../../src/index.js";
 
+import { checkProperty } from "./_property.js";
+
 /**
  * Phase-3 headline safety properties, over arbitrary input:
  *
@@ -27,7 +29,7 @@ describe("comment attachment property", () => {
       )
       .map(([t, fields]) => [t, ...fields].join("|"));
 
-    fc.assert(
+    checkProperty(
       fc.property(fc.array(line, { maxLength: 10 }), (lines) => {
         const raw = ["H|\\^&", ...lines].join("\r");
         const msg = parseAstmRecords(raw);
@@ -53,7 +55,7 @@ describe("comment attachment property", () => {
 describe("distinct patient IDs property", () => {
   it("practice / lab / third IDs never cross-contaminate", () => {
     const token = fc.stringMatching(/^[A-Za-z0-9-]{1,8}$/u);
-    fc.assert(
+    checkProperty(
       fc.property(token, token, token, (prac, lab, id3) => {
         const msg = parseAstmRecords(`H|\\^&\rP|1|${prac}|${lab}|${id3}\rL|1\r`);
         const p = patient(msg);
@@ -67,7 +69,7 @@ describe("distinct patient IDs property", () => {
 
 describe("partial timestamp property", () => {
   it("never fabricates a component and marks a truncated run", () => {
-    fc.assert(
+    checkProperty(
       fc.property(fc.stringMatching(/^\d{1,16}$/u), (digits) => {
         const d = parseAstmDate(digits);
         if (d === undefined) {

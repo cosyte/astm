@@ -10,6 +10,8 @@ import {
   parseReferenceRange,
 } from "../../src/index.js";
 
+import { checkProperty } from "./_property.js";
+
 /**
  * The Phase-2 headline safety properties, over arbitrary input. These are the
  * "never a confident wrong value" invariants the whole phase exists to hold:
@@ -28,7 +30,7 @@ import {
 const STATUS_CODES = ["F", "C", "P", "R", "S", "I", "X"] as const;
 describe("result-semantics safety properties", () => {
   it("a C/X status is never active-final, and only F is", () => {
-    fc.assert(
+    checkProperty(
       fc.property(fc.string(), (raw) => {
         const s = interpretResultStatus(raw);
         const t = raw.trim();
@@ -42,7 +44,7 @@ describe("result-semantics safety properties", () => {
   });
 
   it("an absent status is unspecified and never active-final", () => {
-    fc.assert(
+    checkProperty(
       fc.property(fc.constantFrom(undefined, "", " ", "   ", "\t"), (raw) => {
         const s = interpretResultStatus(raw);
         expect(s.meaning).toBe("unspecified");
@@ -52,7 +54,7 @@ describe("result-semantics safety properties", () => {
   });
 
   it("a flag reads as normal ONLY for the exact letter N", () => {
-    fc.assert(
+    checkProperty(
       fc.property(fc.string(), (raw) => {
         const f = interpretAbnormalFlag(raw);
         expect(f.meaning === "normal").toBe(raw.trim() === "N");
@@ -66,7 +68,7 @@ describe("result-semantics safety properties", () => {
   });
 
   it("a reference range never fabricates a bound", () => {
-    fc.assert(
+    checkProperty(
       fc.property(fc.string(), (raw) => {
         const r = parseReferenceRange(raw);
         expect(r.raw).toBe(raw); // always verbatim
@@ -84,7 +86,7 @@ describe("result-semantics safety properties", () => {
 
 describe("outside the named vocabulary: raw surfaced, unrecognized, never coerced", () => {
   it("a flag outside the vocabulary is verbatim, unrecognized and never normal", () => {
-    fc.assert(
+    checkProperty(
       fc.property(fc.string(), (raw) => {
         const f = interpretAbnormalFlag(raw);
         const recognized = (ABNORMAL_FLAG_CODES as readonly string[]).includes(raw.trim());
@@ -100,7 +102,7 @@ describe("outside the named vocabulary: raw surfaced, unrecognized, never coerce
   });
 
   it("a status outside the set is verbatim, unrecognized and never final", () => {
-    fc.assert(
+    checkProperty(
       fc.property(
         fc.string().filter((s) => s.trim().length > 0),
         (raw) => {
@@ -120,7 +122,7 @@ describe("outside the named vocabulary: raw surfaced, unrecognized, never coerce
   });
 
   it("an unrecognized flag STILL reports the vocabulary identifier and version", () => {
-    fc.assert(
+    checkProperty(
       fc.property(fc.string(), (raw) => {
         const f = interpretAbnormalFlag(raw);
         // Present on every outcome, so unknown-to-anyone and not-caught-up-with
@@ -133,7 +135,7 @@ describe("outside the named vocabulary: raw surfaced, unrecognized, never coerce
   });
 
   it("every status, absent or present, reports the unattributed statement", () => {
-    fc.assert(
+    checkProperty(
       fc.property(fc.option(fc.string(), { nil: undefined }), (raw) => {
         const s = interpretResultStatus(raw);
         expect(s.vocabulary.attributed).toBe(false);
@@ -154,7 +156,7 @@ describe("recognition is exact-match: case is never folded", () => {
     });
     // Every letter-bearing code has at least one variant that differs by case only.
     expect(caseVariants.length).toBeGreaterThan(0);
-    fc.assert(
+    checkProperty(
       fc.property(fc.constantFrom(...caseVariants), (raw) => {
         const f = interpretAbnormalFlag(raw);
         expect(f.recognized).toBe(false);
@@ -167,7 +169,7 @@ describe("recognition is exact-match: case is never folded", () => {
   });
 
   it("a status that would match only case-insensitively stays unrecognized and verbatim", () => {
-    fc.assert(
+    checkProperty(
       fc.property(fc.constantFrom(...STATUS_CODES.map((c) => c.toLowerCase())), (raw) => {
         const s = interpretResultStatus(raw);
         expect(s.recognized).toBe(false);

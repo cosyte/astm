@@ -27,6 +27,7 @@ pnpm format:check
 pnpm phi-scan
 pnpm test
 pnpm test:coverage
+pnpm quality:check --base origin/main
 pnpm build
 pnpm attw
 pnpm typecheck:examples
@@ -41,6 +42,25 @@ pnpm check:documents
 CI's `scaling-gate` job runs `pnpm test:perf`, the scaling gates in `test/perf/scaling-gate.perf.ts`:
 they fail when the record parse, the strict validation, the record build or the framed parse grows
 faster than its input. They run apart from `pnpm test` and never under coverage.
+
+## The testing standard
+
+`quality-floor.json` holds the coverage and the mutation score CI measures, and they only rise.
+`pnpm quality:check` holds coverage to it (after `pnpm test:coverage`); with `--base origin/main`
+every changed line coverage counts must also have run, and no floor may be lowered. On a pull
+request CI's `mutation` job mutates the changed source files with `stryker.config.mjs`
+(`pnpm mutate changed --base origin/main`, then `pnpm quality:mutation --base origin/main`) and
+every mutant in the changed lines must be killed. `.github/workflows/weekly-mutation.yml` runs the
+full run (`pnpm mutate:full`) twice a week, in eight shards, and holds its score to the floor. To
+raise a floor, run `pnpm quality:raise` after a full run and open a pull request.
+
+Properties under `test/property/` run through `test/property/_property.ts`: 100 cases a property on
+a pull request, and 10,000 each night (`.github/workflows/nightly-properties.yml`, which runs
+`pnpm test:properties`), each night's seed of each property printed in its log. The fuzz targets
+keep their own nightly run, `pnpm fuzz`. CI runs the suite on Linux and macOS, and under Bun and
+Deno; a test that cannot run on one is skipped there by name, with its reason, through the checks
+in `test/_helpers/runtime.ts`. The suite also passes on Windows, where CI's `verify` waits on the
+shared attw gate (see `ci.yml`).
 
 ## Benchmarks
 

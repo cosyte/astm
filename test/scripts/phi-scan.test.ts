@@ -30,10 +30,10 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { TSX_COMMAND, TSX_PREFIX } from "../_helpers/runtime.js";
 
 const REPO_ROOT = process.cwd();
 const SCANNER_PATH = join(REPO_ROOT, "scripts", "phi-scan.ts");
-const TSX_BIN = join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
 /**
  * EVERY VIOLATOR VALUE THIS SUITE FEEDS THE SCANNER IS COMPOSED, NOT WRITTEN,
@@ -70,7 +70,7 @@ interface RunResult {
 }
 
 function runScanner(args: string[]): RunResult {
-  const r = spawnSync(TSX_BIN, [SCANNER_PATH, ...args], {
+  const r = spawnSync(TSX_COMMAND, [...TSX_PREFIX, SCANNER_PATH, ...args], {
     cwd: REPO_ROOT,
     encoding: "utf8",
     shell: false,
@@ -256,7 +256,11 @@ function gitOut(cwd: string, args: string[]): string {
  */
 function runIn(cwd: string, args: string[]): RunResult {
   const scanner = join(cwd, "scripts", "phi-scan.ts");
-  const r = spawnSync(TSX_BIN, [scanner, ...args], { cwd, encoding: "utf8", shell: false });
+  const r = spawnSync(TSX_COMMAND, [...TSX_PREFIX, scanner, ...args], {
+    cwd,
+    encoding: "utf8",
+    shell: false,
+  });
   return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
@@ -837,7 +841,7 @@ describe("phi-scan: the argv the two-field stride is coupled to", () => {
       withB,
       source.replace(SHIPPED_ARGV_FRAGMENT, `${SHIPPED_ARGV_FRAGMENT}\n        "-B",`),
     );
-    const injected = spawnSync(TSX_BIN, [withB, "--staged"], {
+    const injected = spawnSync(TSX_COMMAND, [...TSX_PREFIX, withB, "--staged"], {
       cwd: root,
       encoding: "utf8",
       shell: false,
@@ -853,7 +857,7 @@ describe("phi-scan: the argv the two-field stride is coupled to", () => {
         `"--no-renames",\n        "-B",\n        "--diff-filter=AMTU",`,
       ),
     );
-    const blind = spawnSync(TSX_BIN, [supersededFilter, "--staged"], {
+    const blind = spawnSync(TSX_COMMAND, [...TSX_PREFIX, supersededFilter, "--staged"], {
       cwd: root,
       encoding: "utf8",
       shell: false,
@@ -1022,7 +1026,11 @@ function variantIn(root: string, name: string, from: string, to: string): string
 }
 
 function runVariant(root: string, scanner: string, args: string[] = []): RunResult {
-  const r = spawnSync(TSX_BIN, [scanner, ...args], { cwd: root, encoding: "utf8", shell: false });
+  const r = spawnSync(TSX_COMMAND, [...TSX_PREFIX, scanner, ...args], {
+    cwd: root,
+    encoding: "utf8",
+    shell: false,
+  });
   return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
@@ -1818,7 +1826,7 @@ describe("phi-scan: the scan is about THIS package, whatever directory it is run
     writeFileSync(join(elsewhere, "src", "violator.ts"), SYNTHETIC_PHI);
 
     // This package's OWN scanner, invoked with cwd set to that tree.
-    const r = spawnSync(TSX_BIN, [SCANNER_PATH], {
+    const r = spawnSync(TSX_COMMAND, [...TSX_PREFIX, SCANNER_PATH], {
       cwd: elsewhere,
       encoding: "utf8",
       shell: false,

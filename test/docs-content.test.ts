@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -17,6 +18,7 @@ import {
   fixturesByContent,
   recordStreamLiteral,
 } from "./_helpers/first-use.js";
+import { ON_WINDOWS } from "./_helpers/runtime.js";
 
 /**
  * Doc/code-agreement gate. Every TypeScript and JavaScript sample on a hand-written page of
@@ -37,12 +39,18 @@ import {
  * `dist/` on demand here rather than assuming build order.
  */
 const root = join(import.meta.dirname, "..");
-const distEntry = join(root, "dist", "index.mjs");
+/**
+ * The built entry point as a file URL, not a path: on Windows a path starts with a drive letter,
+ * which an ESM import reads as a URL scheme and refuses.
+ */
+const distEntry = pathToFileURL(join(root, "dist", "index.mjs")).href;
 const resolve = (specifier: string): string | undefined =>
   specifier === "@cosyte/astm" ? distEntry : undefined;
 
 beforeAll(() => {
-  execFileSync("pnpm", ["build"], { cwd: root, stdio: "inherit" });
+  // On Windows `pnpm` is a `.cmd` file, which Node starts only through a shell. The command and
+  // its one argument are fixed here, so the shell is handed nothing it could expand.
+  execFileSync("pnpm", ["build"], { cwd: root, stdio: "inherit", shell: ON_WINDOWS });
 }, 120_000);
 
 const docsDir = join(root, "docs-content");

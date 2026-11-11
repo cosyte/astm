@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 
 import ts from "typescript";
 
@@ -35,6 +35,16 @@ const READER_OPTIONS: ts.CompilerOptions = {
 };
 
 /**
+ * A path as the TypeScript compiler names it: with forward slashes. On Windows `join` writes
+ * backslashes and the compiler host asks for a file, and names a diagnostic's file, with forward
+ * slashes, so a name kept with backslashes would never match one and every example would read as
+ * compiling cleanly.
+ */
+function compilerPath(path: string): string {
+  return path.split(sep).join("/");
+}
+
+/**
  * Every TypeScript error a reader's new project reports for one example, as `line N: TSxxxx
  * message`; empty when the example compiles. The example is compiled as an ES module sitting in
  * the repository root, with each specifier in `paths` resolved to the single source file the
@@ -46,11 +56,13 @@ export function compileErrors(
   paths: Readonly<Record<string, string>>,
   code: string,
 ): string[] {
-  const file = join(root, "first-use-example.mts");
+  const file = compilerPath(join(root, "first-use-example.mts"));
   const options: ts.CompilerOptions = {
     ...READER_OPTIONS,
     typeRoots: [join(root, "node_modules", "@types")],
-    paths: Object.fromEntries(Object.entries(paths).map(([pkg, entry]) => [pkg, [entry]])),
+    paths: Object.fromEntries(
+      Object.entries(paths).map(([pkg, entry]) => [pkg, [compilerPath(entry)]]),
+    ),
   };
   const host = ts.createCompilerHost(options, true);
   const getSourceFile = host.getSourceFile.bind(host);
@@ -85,12 +97,17 @@ export function compileErrorsEach(
   examples: readonly { readonly name: string; readonly code: string }[],
 ): Map<string, string[]> {
   const files = new Map(
-    examples.map((example, index) => [join(root, `docs-sample-${String(index)}.mts`), example]),
+    examples.map((example, index) => [
+      compilerPath(join(root, `docs-sample-${String(index)}.mts`)),
+      example,
+    ]),
   );
   const options: ts.CompilerOptions = {
     ...READER_OPTIONS,
     typeRoots: [join(root, "node_modules", "@types")],
-    paths: Object.fromEntries(Object.entries(paths).map(([pkg, entry]) => [pkg, [entry]])),
+    paths: Object.fromEntries(
+      Object.entries(paths).map(([pkg, entry]) => [pkg, [compilerPath(entry)]]),
+    ),
   };
   const host = ts.createCompilerHost(options, true);
   const getSourceFile = host.getSourceFile.bind(host);

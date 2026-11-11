@@ -7,6 +7,8 @@ import {
   type ScientificRecord,
 } from "../../src/index.js";
 
+import { checkProperty } from "./_property.js";
+
 /**
  * Phase-4 headline safety properties, over arbitrary input:
  *
@@ -30,7 +32,7 @@ describe("Q-bearing message is a request property", () => {
       )
       .map(([t, fields]) => [t, ...fields].join("|"));
 
-    fc.assert(
+    checkProperty(
       fc.property(fc.array(line, { maxLength: 8 }), (lines) => {
         const raw = ["H|\\^&", ...lines].join("\r");
         const msg = parseAstmRecords(raw);
@@ -49,7 +51,7 @@ describe("Q-bearing message is a request property", () => {
 
 describe("M / S verbatim round-trip property", () => {
   it("preserves an M or S record's exact wire line byte-for-byte", () => {
-    fc.assert(
+    checkProperty(
       fc.property(
         fc.constantFrom("M", "S"),
         fc.array(CONTENT, { maxLength: 5 }),

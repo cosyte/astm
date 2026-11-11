@@ -19,10 +19,10 @@ import { spawnSync } from "node:child_process";
 import { writeFileSync, mkdtempSync, mkdirSync, rmSync, copyFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { TSX_COMMAND, TSX_PREFIX } from "../_helpers/runtime.js";
 
 const REPO_ROOT = process.cwd();
 const CHECKER_PATH = join(REPO_ROOT, "scripts", "check-gate-coverage.ts");
-const TSX_BIN = join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
 const trees: string[] = [];
 
@@ -44,6 +44,8 @@ interface RunResult {
 const BASE_PREFIXLESS_GATES: Record<string, string> = {
   fuzz: "vitest run test/property",
   "pack:docs": "bash scripts/build-docs-artifacts.sh",
+  "test:properties": "vitest run test/property",
+  "mutate:full": "cosyte-mutate full",
 };
 
 /**
@@ -71,11 +73,15 @@ function makeTree(
 }
 
 function run(root: string): RunResult {
-  const r = spawnSync(TSX_BIN, [join(root, "scripts", "check-gate-coverage.ts")], {
-    cwd: root,
-    encoding: "utf8",
-    shell: false,
-  });
+  const r = spawnSync(
+    TSX_COMMAND,
+    [...TSX_PREFIX, join(root, "scripts", "check-gate-coverage.ts")],
+    {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    },
+  );
   return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
@@ -180,6 +186,38 @@ describe("check-gate-coverage: a shared pipeline told to run a step needs that s
     expect(r.stdout).toContain("run-bench-compare  ->  pnpm run bench:compare");
   });
 
+  it("reads the testing standard's steps as needing the scripts they call", () => {
+    // `bun` and `deno` run the `test` script under another runtime, `coverage-ratchet` runs the
+    // coverage suite and holds it to the floor file (`pnpm quality:check`), and `mutation` runs
+    // `cosyte-mutate changed` (`pnpm mutate changed --base <ref>`).
+    const testingCaller = [
+      "name: CI",
+      "jobs:",
+      "  ci:",
+      "    uses: cosyte/.github/.github/workflows/ci.yml@main",
+      "    with:",
+      "      run-bun: true",
+      "      run-deno: true",
+      "      run-coverage-ratchet: true",
+      "      run-mutation: true",
+      "",
+    ].join("\n");
+    const root = makeTree(
+      {
+        test: "cosyte-process test",
+        "quality:check": "cosyte-ratchet check --skip mutation",
+        mutate: "cosyte-mutate",
+      },
+      { "ci.yml": testingCaller },
+    );
+    const r = run(root);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout).toContain("run-bun  ->  pnpm run test");
+    expect(r.stdout).toContain("run-deno  ->  pnpm run test");
+    expect(r.stdout).toContain("run-coverage-ratchet  ->  pnpm run quality:check");
+    expect(r.stdout).toContain("run-mutation  ->  pnpm run mutate");
+  });
+
   it("reds when the script such a step calls is missing", () => {
     const root = makeTree(
       { "bench:compare": "cosyte-bench compare --suite bench/a.bench.mjs" },
@@ -274,18 +312,28 @@ describe("check-gate-coverage: a gate whose name carries no recognisable prefix"
     expect(r.stderr).toContain("pack:docs");
   });
 
-  it("discloses both of them, by name, on a run that passes", () => {
+  it("discloses each of them, by name, on a run that passes", () => {
     const root = makeTree({}, {});
     const r = run(root);
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toContain("pnpm run fuzz");
     expect(r.stdout).toContain("pack:docs");
+    expect(r.stdout).toContain("pnpm run test:properties");
+    expect(r.stdout).toContain("pnpm run mutate:full");
+  });
+
+  it("reds when the nightly property run's or the weekly mutation run's script is dropped", () => {
+    for (const script of ["test:properties", "mutate:full"]) {
+      const r = run(makeTree({}, {}, [script]));
+      expect(r.code, `stdout: ${r.stdout}`).toBe(1);
+      expect(r.stderr).toContain(script);
+    }
   });
 });
 
 describe("check-gate-coverage: this package's own tree", () => {
   it("passes, and names every gate it cannot reach locally", () => {
-    const r = spawnSync(TSX_BIN, [CHECKER_PATH], {
+    const r = spawnSync(TSX_COMMAND, [...TSX_PREFIX, CHECKER_PATH], {
       cwd: REPO_ROOT,
       encoding: "utf8",
       shell: false,

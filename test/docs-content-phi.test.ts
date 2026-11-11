@@ -30,10 +30,10 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { TSX_COMMAND, TSX_PREFIX } from "./_helpers/runtime.js";
 
 const REPO_ROOT = process.cwd();
 const SCANNER_PATH = join(REPO_ROOT, "scripts", "phi-scan.ts");
-const TSX_BIN = join(REPO_ROOT, "node_modules", ".bin", "tsx");
 const DOCS_DIR = join(REPO_ROOT, "docs-content");
 
 /**
@@ -64,7 +64,11 @@ function git(cwd: string, args: string[]): void {
 }
 
 function run(scanner: string, cwd: string, args: string[] = []): RunResult {
-  const r = spawnSync(TSX_BIN, [scanner, ...args], { cwd, encoding: "utf8", shell: false });
+  const r = spawnSync(TSX_COMMAND, [...TSX_PREFIX, scanner, ...args], {
+    cwd,
+    encoding: "utf8",
+    shell: false,
+  });
   return { code: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 

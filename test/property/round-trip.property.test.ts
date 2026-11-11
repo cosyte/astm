@@ -32,6 +32,8 @@ import {
   type Delimiters,
 } from "../../src/index.js";
 
+import { checkProperty, propertyRun } from "./_property.js";
+
 const fatalCodes = new Set<string>(Object.values(FATAL_CODES));
 const knownWarningCodes = new Set<string>(Object.values(WARNING_CODES));
 
@@ -65,6 +67,7 @@ function hostileInput(): fc.Arbitrary<string> {
 describe("astm conformance (archetype invariants)", () => {
   it("is lenient: arbitrary input never throws a non-fatal, and every warning has a known code", () => {
     lenientNeverThrowsProperty({
+      ...propertyRun(),
       arbitrary: hostileInput(),
       parse: (raw: string) => parseAstmRecords(raw),
       isFatal: (err) => err instanceof AstmParseError && fatalCodes.has(err.code),
@@ -79,6 +82,7 @@ describe("astm conformance (archetype invariants)", () => {
 
   it("is immutable: the parsed model rejects mutation and preserves prior state", () => {
     immutabilityProperty({
+      ...propertyRun(),
       arbitrary: specShapedInput(),
       parse: (raw: string) => parseAstmRecords(raw),
       // The frozen records array must reject a push (throws): a valid frozen response.
@@ -89,6 +93,7 @@ describe("astm conformance (archetype invariants)", () => {
 
   it("round-trips: the serializer is the conservative inverse of the parser", () => {
     roundTripProperty<AstmMessage>({
+      ...propertyRun(),
       // The parser's own arbitrary: a spec-shaped message, parsed into the model.
       arbitrary: specShapedInput().map((raw) => parseAstmRecords(raw)),
       serialize: (msg) => serializeAstmRecords(msg),
@@ -165,7 +170,7 @@ describe("emit is single-delimiter-set: a round-trip never silently loses a fiel
   // Re-parsing collapsed every field of an `M`/`S` row into one, with ZERO warnings: on the
   // analyzer/LIS path, a silently lost result or specimen identifier.
   it("recovers every field of every record after serialize -> parse, for any declared set", () => {
-    fc.assert(
+    checkProperty(
       fc.property(arbitraryDelimiterMessage(), (raw) => {
         const before = parseAstmRecords(raw);
         const after = parseAstmRecords(serializeAstmRecords(before));
@@ -186,7 +191,7 @@ describe("emit is single-delimiter-set: a round-trip never silently loses a fiel
   });
 
   it("emits a stream whose every record reads under the delimiters the header declares", () => {
-    fc.assert(
+    checkProperty(
       fc.property(arbitraryDelimiterMessage(), (raw) => {
         const out = serializeAstmRecords(parseAstmRecords(raw));
         // Serializing the re-parsed stream is a fixed point: nothing was left to normalize.
