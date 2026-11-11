@@ -15,8 +15,6 @@ name: Nightly properties
 # took 15 seconds; the shared job stops it at 60 minutes.
 
 on:
-  push:
-    branches: [test/testing-standard]
   schedule:
     # 04:29 UTC. An odd minute: GitHub delays scheduled runs at the start of every hour.
     - cron: "29 4 * * *"
