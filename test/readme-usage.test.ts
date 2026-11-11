@@ -52,7 +52,7 @@ import {
   recordStreamLiteral,
   section as helperSection,
 } from "./_helpers/first-use.js";
-import { TSX_COMMAND, TSX_PREFIX } from "./_helpers/runtime.js";
+import { ON_DENO, TSX_COMMAND, TSX_PREFIX } from "./_helpers/runtime.js";
 
 const REPO_ROOT = process.cwd();
 const README_PATH = join(REPO_ROOT, "README.md");
@@ -162,7 +162,10 @@ describe("the README Usage example", () => {
     expect(example?.body).toContain(`from ${PUBLISHED_SPECIFIER};`);
   });
 
-  it(
+  // Skipped under Deno: there `node_modules/.bin/tsx` runs on Deno, which loads `src/index.ts`
+  // without tsx's resolver and refuses its `./records/parse.js` import of a `.ts` file ("Module not
+  // found ... Maybe change the extension to '.ts'"). It runs on Node, on every system, and on Bun.
+  it.skipIf(ON_DENO)(
     "runs, and prints exactly the output the README shows beside it",
     () => {
       const example = usageFences[0];
@@ -182,7 +185,8 @@ describe("the README Usage example", () => {
     CASE_TIMEOUT,
   );
 
-  it(
+  // Skipped under Deno, for the reason above: it runs the example the same way.
+  it.skipIf(ON_DENO)(
     "is really executed: changing the input stream changes the output",
     () => {
       const example = usageFences[0];

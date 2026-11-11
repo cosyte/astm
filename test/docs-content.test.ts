@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -38,7 +39,11 @@ import { ON_WINDOWS } from "./_helpers/runtime.js";
  * `dist/` on demand here rather than assuming build order.
  */
 const root = join(import.meta.dirname, "..");
-const distEntry = join(root, "dist", "index.mjs");
+/**
+ * The built entry point as a file URL, not a path: on Windows a path starts with a drive letter,
+ * which an ESM import reads as a URL scheme and refuses.
+ */
+const distEntry = pathToFileURL(join(root, "dist", "index.mjs")).href;
 const resolve = (specifier: string): string | undefined =>
   specifier === "@cosyte/astm" ? distEntry : undefined;
 

@@ -18,6 +18,9 @@ import { join } from "node:path";
  */
 export const ON_NODE: boolean = process.versions["bun"] === undefined && !("Deno" in globalThis);
 
+/** Whether the suite runs under Deno. */
+export const ON_DENO: boolean = "Deno" in globalThis;
+
 /** Whether the suite runs on Windows. */
 export const ON_WINDOWS: boolean = process.platform === "win32";
 
