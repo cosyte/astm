@@ -164,11 +164,28 @@ function line(fields: readonly (readonly string[])[]): string {
   const d = CANONICAL_DELIMITERS;
   // The canonical set is a constant this module controls and always passes the delimiter check, so
   // each component is escaped against it directly instead of re-checking the set for every one.
-  const encoded = fields.map((comps) => comps.map((c) => encodeLeaf(c, d)).join(d.component));
+  //
   // Trim trailing empty fields: an absent trailing field and an empty one are equivalent on parse.
-  let end = encoded.length;
-  while (end > 0 && encoded[end - 1] === "") end -= 1;
-  return encoded.slice(0, end).join(d.field);
+  // A field writes nothing only when it has no component or one empty one, so the trailing empty
+  // fields are found before anything is escaped, and the rest are written in order straight into
+  // the line, with no array of escaped fields or components built first.
+  let end = fields.length;
+  while (end > 0 && writesNothing(fields[end - 1] as readonly string[])) end -= 1;
+  let out = "";
+  for (let i = 0; i < end; i += 1) {
+    if (i > 0) out += d.field;
+    const comps = fields[i] as readonly string[];
+    for (let k = 0; k < comps.length; k += 1) {
+      if (k > 0) out += d.component;
+      out += encodeLeaf(comps[k] as string, d);
+    }
+  }
+  return out;
+}
+
+/** Whether a field's components write no text: none, or one empty component. */
+function writesNothing(comps: readonly string[]): boolean {
+  return comps.length === 0 || (comps.length === 1 && comps[0] === "");
 }
 
 /** Build the components of a Universal Test ID field from a verbatim component list. */
@@ -343,5 +360,5 @@ export function buildAstmMessage(input: MessageInput): string {
   if (input.terminationCode !== undefined) term[2] = [input.terminationCode];
   lines.push(line(padGaps(term)));
 
-  return lines.map((l) => l + "\r").join("");
+  return lines.join("\r") + "\r";
 }
