@@ -5,3 +5,7 @@ docs-content/api/
 
 # Bench readings and profiles, written by `pnpm bench:reading` and `pnpm bench:profile`.
 bench-results/
+
+# Mutation testing (StrykerJS): the reports and the sandbox it runs in.
+reports/
+.stryker-tmp/

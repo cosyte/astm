@@ -13,6 +13,8 @@ import fc from "fast-check";
 import { decodeAstmFrames } from "../../src/index.js";
 import { def, frame } from "../frames/_frame-builder.js";
 
+import { checkProperty } from "./_property.js";
+
 const MAX_TEXT = 240;
 
 /** Record text with no frame-control bytes, so it splits cleanly into frame payloads. */
@@ -44,7 +46,7 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
 
 describe("frame reassembly properties", () => {
   it("N-frame reassembly equals the single-frame form (any split size)", () => {
-    fc.assert(
+    checkProperty(
       fc.property(recordText(), fc.integer({ min: 1, max: MAX_TEXT }), (text, size) => {
         const single = decodeAstmFrames(Uint8Array.from(frame(text, { fn: 1, kind: "ETX" })));
         const multi = decodeAstmFrames(splitIntoFrames(text, size));
@@ -59,7 +61,7 @@ describe("frame reassembly properties", () => {
   });
 
   it("a correctly-sequenced multi-frame stream (chunks ≤ 240) decodes with zero warnings", () => {
-    fc.assert(
+    checkProperty(
       fc.property(recordText(), fc.integer({ min: 1, max: MAX_TEXT }), (text, size) => {
         const { records, warnings } = decodeAstmFrames(splitIntoFrames(text, size));
         expect(warnings).toEqual([]); // no gap, no bad checksum, no oversize (chunks ≤ 240)
@@ -70,7 +72,7 @@ describe("frame reassembly properties", () => {
   });
 
   it("every trusted frame's recomputed checksum matches its declared checksum", () => {
-    fc.assert(
+    checkProperty(
       fc.property(recordText(), fc.integer({ min: 1, max: MAX_TEXT }), (text, size) => {
         const { frames } = decodeAstmFrames(splitIntoFrames(text, size));
         for (const f of frames) {
@@ -84,7 +86,7 @@ describe("frame reassembly properties", () => {
   });
 
   it("the decoded result and its frames reject mutation (immutable views)", () => {
-    fc.assert(
+    checkProperty(
       fc.property(recordText(), (text) => {
         const result = decodeAstmFrames(Uint8Array.from(frame(text, { fn: 1, kind: "ETX" })));
         // The arrays are frozen; a push must throw or be a no-op that does not grow them.

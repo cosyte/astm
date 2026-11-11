@@ -11,6 +11,8 @@ import {
   type AstmProfile,
 } from "../../src/index.js";
 
+import { checkProperty } from "./_property.js";
+
 /**
  * Phase-8 headline safety properties, over arbitrary input:
  *
@@ -50,7 +52,7 @@ const MESSAGE = fc.array(LINE, { maxLength: 8 }).map((lines) => ["H|\\^&", ...li
 
 describe("a profile never changes a message's parse (property)", () => {
   it("records + delimiters are identical with and without the maximal tolerant profile", () => {
-    fc.assert(
+    checkProperty(
       fc.property(MESSAGE, (raw) => {
         const bare = parseAstmRecords(raw);
         const withProfile = parseAstmRecords(raw, { profile: MAXIMAL });
@@ -62,7 +64,7 @@ describe("a profile never changes a message's parse (property)", () => {
   });
 
   it("tolerance downgrades but never drops a warning; every quirk names a tolerated code", () => {
-    fc.assert(
+    checkProperty(
       fc.property(MESSAGE, (raw) => {
         const bare = parseAstmRecords(raw);
         const withProfile = parseAstmRecords(raw, { profile: MAXIMAL });

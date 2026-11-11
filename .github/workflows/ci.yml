@@ -18,34 +18,46 @@ permissions:
   contents: read
 
 jobs:
-  # Universal gates from the shared pipeline (typecheck, lint, format, test, coverage, build, attw,
-  # dual ESM/CJS smoke, actionlint) on Node 22, 24 and 26, the matrix the pipeline runs by default.
-  # Every caller of the shared workflows names one published `workflows-*` reference, pinned by its
-  # commit, and the references move together. Repo-specific extra jobs (an examples smoke, for
+  # Universal gates from the shared pipeline (typecheck, lint, format, PHI scan, test, coverage,
+  # build, attw, dual ESM/CJS smoke, actionlint) on Node 22, 24 and 26, the matrix the pipeline runs
+  # by default, on Linux, Windows and macOS. Every caller of the shared workflows names one published
+  # `workflows-*` reference, pinned by its commit. Repo-specific extra jobs (an examples smoke, for
   # instance) are added on top of this caller, never instead of it.
-  # The template ships a PHI scanner (scripts/phi-scan.ts), so the shared pipeline's optional
-  # PHI-scan step is switched on. NOTE: the scaffolded scanner is a STARTER. It detects only
-  # cross-cutting SSN/email shapes until you add structured, field-level detection for this
-  # standard's PHI (see the STARTER banner in scripts/phi-scan.ts).
   #
-  # The performance standard's two jobs run beside `verify`, never after it, so a pull request waits
-  # for the slowest job rather than their sum:
+  # The testing standard's jobs run beside `verify`, never after it, so a pull request waits for the
+  # slowest job rather than their sum:
+  # - `bun` and `deno`: the whole suite again under Bun and under Deno, each in its own job on
+  #   Linux. A test that cannot run there is skipped by name with its reason (the `ON_NODE` checks
+  #   in test/_helpers/runtime.ts).
+  # - `coverage-ratchet`: coverage held to quality-floor.json, and on a pull request every changed
+  #   line that coverage counts must have run and no floor may be lowered or removed;
+  # - `mutation` (pull requests only): the changed source files mutated with stryker.config.mjs,
+  #   and every mutant in the changed lines killed. The full run is weekly-mutation.yml's.
+  #
+  # The performance standard's two jobs run beside `verify` too:
   # - `scaling-gate`: `pnpm test:perf`, the scaling gates on the record parse, the strict
   #   validation, the record build and the framed parse, and their self-checks, never under
-  #   coverage. A skipped job satisfies a required check, so require `ci / scaling-gate` only while
-  #   its input below stays on.
+  #   coverage.
   # - `bench-compare` (pull requests only): bench/astm.bench.mjs timed on the base build and the
   #   head build, interleaved on one runner, at each shape's first size. Advisory: it never fails,
   #   so never require it. The large sizes are measured by bench.yml's reading instead.
   #
-  # This caller alone is one release ahead of the others: the release of commit 0be6757a7738 is the
-  # first with those two jobs. Its name carries its date, which a PHI scan of a changed file reads
-  # as a date of service, so the comment names its commit instead. The other callers move to it
-  # with the next change to them.
+  # A skipped job satisfies a required check, so require `bun`, `deno`, `coverage-ratchet`,
+  # `mutation` or `scaling-gate` only while its input below stays on.
+  #
+  # This caller, nightly-properties.yml and weekly-mutation.yml name the newest release, whose weekly
+  # run is sharded; the other callers move to it with the next change to them. A
+  # release's name carries its date, which a PHI scan of a changed file reads as a date of service,
+  # so the comment names its commit instead.
   ci:
-    uses: cosyte/.github/.github/workflows/ci.yml@0be6757a773885cbd5165dbfa0f93772d907b3e8 # the release of 0be6757a7738
+    uses: cosyte/.github/.github/workflows/ci.yml@398cd4ded647dddd9f2e220ceb042840f59e1426 # the release of 398cd4ded647
     with:
+      os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
       run-phi-scan: true
+      run-bun: true
+      run-deno: true
+      run-coverage-ratchet: true
+      run-mutation: true
       run-scaling-gate: true
       run-bench-compare: true
       bench-suites: bench/astm.bench.mjs

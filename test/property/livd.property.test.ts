@@ -4,6 +4,8 @@ import fc from "fast-check";
 import { applyLivd, defineLivdCatalog, parseAstmRecords, results } from "../../src/index.js";
 import type { LivdEntry } from "../../src/index.js";
 
+import { checkProperty } from "./_property.js";
+
 /**
  * The Phase-9 headline safety properties, over arbitrary vendor codes and catalogs.
  * The whole layer exists to hold these, a wrong LOINC mis-identifies a test:
@@ -112,7 +114,7 @@ function streamOf(code: string, units: string): string {
 
 describe("LIVD safety properties", () => {
   it("never fabricates a LOINC: every annotated LOINC is one the catalog held", () => {
-    fc.assert(
+    checkProperty(
       fc.property(codeArb, fc.array(entryArb, { maxLength: 12 }), (code, entries) => {
         const catalog = defineLivdCatalog(entries);
         const msg = parseAstmRecords(`H|\\^&\rR|1|^^^${code}|5|U/L||N||F\rL|1\r`);
@@ -138,7 +140,7 @@ describe("LIVD safety properties", () => {
   });
 
   it("the mapping matches the catalog's own lookup for the reported code", () => {
-    fc.assert(
+    checkProperty(
       fc.property(codeArb, fc.array(entryArb, { maxLength: 12 }), (code, entries) => {
         const catalog = defineLivdCatalog(entries);
         const msg = parseAstmRecords(`H|\\^&\rR|1|^^^${code}|5|U/L||N||F\rL|1\r`);
@@ -151,7 +153,7 @@ describe("LIVD safety properties", () => {
   });
 
   it("is additive: applying LIVD never mutates the parsed message", () => {
-    fc.assert(
+    checkProperty(
       fc.property(codeArb, fc.array(entryArb, { maxLength: 12 }), (code, entries) => {
         const catalog = defineLivdCatalog(entries);
         const msg = parseAstmRecords(`H|\\^&\rR|1|^^^${code}|5|U/L||N||F\rL|1\r`);
@@ -163,7 +165,7 @@ describe("LIVD safety properties", () => {
   });
 
   it("a wire value in component 1 never displaces the catalog and is never a LOINC", () => {
-    fc.assert(
+    checkProperty(
       fc.property(
         loincArb,
         codeArb,
@@ -195,7 +197,7 @@ describe("LIVD safety properties", () => {
   });
 
   it("one lookup yields at most one LOINC, over arbitrary catalogs and units", () => {
-    fc.assert(
+    checkProperty(
       fc.property(
         codeArb,
         unitArb,
@@ -244,7 +246,7 @@ describe("LIVD safety properties", () => {
 
   it("a unit-selected answer's representative unit equals the units the record reported", () => {
     let selections = 0;
-    fc.assert(
+    checkProperty(
       fc.property(
         unitArb,
         fc.array(sharedRowArb, { minLength: 1, maxLength: 6 }),
@@ -284,7 +286,7 @@ describe("LIVD safety properties", () => {
   });
 
   it("the wire value in component 1 is never a lookup key", () => {
-    fc.assert(
+    checkProperty(
       fc.property(loincArb, fc.array(entryArb, { maxLength: 8 }), (wireValue, entries) => {
         // A catalog that WOULD answer for the wire value, and a record with no
         // vendor code: the key is the vendor transmission code alone, so nothing

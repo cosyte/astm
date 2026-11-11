@@ -21,6 +21,8 @@ import { detectFraming, ltpInitialState, ltpReduce } from "../../src/index.js";
 import type { AstmFrame, LtpEvent } from "../../src/index.js";
 import { frameOf, runSession, concatBytes, bytesEqual } from "../ltp/_events.js";
 
+import { checkProperty } from "./_property.js";
+
 /** Safe record text: printable ASCII with no frame-control bytes, leading with a record letter. */
 function recordText(): fc.Arbitrary<string> {
   const letter = fc.constantFrom(..."HPORCQMSL");
@@ -70,7 +72,7 @@ function frameRecords(
 
 describe("LTP reducer properties", () => {
   it("never emits ACK after an untrusted (bad-checksum) frame", () => {
-    fc.assert(
+    checkProperty(
       fc.property(untrustedFrame(), (frame) => {
         const state = ltpReduce(ltpInitialState(), { type: "enq" }).state;
         const step = ltpReduce(state, { type: "frame", frame });
@@ -82,7 +84,7 @@ describe("LTP reducer properties", () => {
   });
 
   it("a full ENQ → frames → EOT session reassembles exactly the source records", () => {
-    fc.assert(
+    checkProperty(
       fc.property(
         fc.array(recordText(), { minLength: 1, maxLength: 6 }),
         fc.integer({ min: 1, max: 240 }),
@@ -100,7 +102,7 @@ describe("LTP reducer properties", () => {
   });
 
   it("a raw-TCP stream equals its framed twin, and detects as raw", () => {
-    fc.assert(
+    checkProperty(
       fc.property(
         fc.array(recordText(), { minLength: 1, maxLength: 6 }),
         fc.integer({ min: 1, max: 240 }),

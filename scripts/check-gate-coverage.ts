@@ -90,11 +90,20 @@ const DECLARED_UNREACHABLE: { match: string; why: string }[] = [
  * input. Every other `run-<x>: true` input needs a script named `<x>`. The
  * shared `scaling-gate` step runs `pnpm test:perf`; the shared `bench-compare`
  * step runs `cosyte-bench compare` on the suites it is given, which
- * `pnpm bench:compare` reproduces with a base and a head named.
+ * `pnpm bench:compare` reproduces with a base and a head named. The testing
+ * standard's steps: `bun` and `deno` run the `test` script under another
+ * runtime; `coverage-ratchet` runs the coverage suite and holds it to
+ * `quality-floor.json`, which `pnpm test:coverage && pnpm quality:check`
+ * reproduces; `mutation` runs `cosyte-mutate changed`, which
+ * `pnpm mutate changed --base origin/main` reproduces.
  */
 const SHARED_STEP_SCRIPTS: Record<string, string> = {
   "scaling-gate": "test:perf",
   "bench-compare": "bench:compare",
+  bun: "test",
+  deno: "test",
+  "coverage-ratchet": "quality:check",
+  mutation: "mutate",
 };
 
 /**
@@ -108,6 +117,16 @@ const CI_GATES_OUTSIDE_A_NAME_PREFIX: { script: string; runBy: string }[] = [
     runBy: ".github/workflows/nightly-fuzz.yml (scheduled, through the shared nightly-fuzz.yml)",
   },
   { script: "pack:docs", runBy: "the shared release pipeline's docs-artifact step" },
+  {
+    script: "test:properties",
+    runBy:
+      ".github/workflows/nightly-properties.yml (scheduled, through the shared nightly-properties.yml)",
+  },
+  {
+    script: "mutate:full",
+    runBy:
+      ".github/workflows/weekly-mutation.yml (scheduled, through the shared weekly-mutation.yml)",
+  },
 ];
 
 /**

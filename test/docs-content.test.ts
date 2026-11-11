@@ -17,6 +17,7 @@ import {
   fixturesByContent,
   recordStreamLiteral,
 } from "./_helpers/first-use.js";
+import { ON_WINDOWS } from "./_helpers/runtime.js";
 
 /**
  * Doc/code-agreement gate. Every TypeScript and JavaScript sample on a hand-written page of
@@ -42,7 +43,9 @@ const resolve = (specifier: string): string | undefined =>
   specifier === "@cosyte/astm" ? distEntry : undefined;
 
 beforeAll(() => {
-  execFileSync("pnpm", ["build"], { cwd: root, stdio: "inherit" });
+  // On Windows `pnpm` is a `.cmd` file, which Node starts only through a shell. The command and
+  // its one argument are fixed here, so the shell is handed nothing it could expand.
+  execFileSync("pnpm", ["build"], { cwd: root, stdio: "inherit", shell: ON_WINDOWS });
 }, 120_000);
 
 const docsDir = join(root, "docs-content");

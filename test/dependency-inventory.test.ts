@@ -30,11 +30,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterAll, describe, expect, it } from "vitest";
+import { TSX_COMMAND, TSX_PREFIX } from "./_helpers/runtime.js";
 
 const REPO_ROOT = process.cwd();
 const SCRIPT_NAME = "check-dependency-inventory.ts";
 const SCRIPT_PATH = join(REPO_ROOT, "scripts", SCRIPT_NAME);
-const TSX_BIN = join(REPO_ROOT, "node_modules", ".bin", "tsx");
 const ARTIFACT_RELATIVE = join("dist-artifacts", "dependency-inventory.cdx.json");
 
 /** The documented format the artifact declares, as a consumer would look for it. */
@@ -118,7 +118,7 @@ function makeTree(options: TreeOptions = {}): string {
 }
 
 function runIn(root: string, args: readonly string[] = []): RunResult {
-  const r = spawnSync(TSX_BIN, [join(root, "scripts", SCRIPT_NAME), ...args], {
+  const r = spawnSync(TSX_COMMAND, [...TSX_PREFIX, join(root, "scripts", SCRIPT_NAME), ...args], {
     cwd: root,
     encoding: "utf8",
     shell: false,
@@ -183,7 +183,10 @@ describe("AC-2: the inventory names this package and the version being built", (
   it("[AC-2] carries the version the manifest carries, on this package's own tree", () => {
     const r = runIn(makeTree({ lock: lockfile(DEFAULT_IDS) }));
     expect(r.code).toBe(0);
-    const real = spawnSync(TSX_BIN, [SCRIPT_PATH], { cwd: REPO_ROOT, encoding: "utf8" });
+    const real = spawnSync(TSX_COMMAND, [...TSX_PREFIX, SCRIPT_PATH], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+    });
     expect(real.status, `stderr: ${real.stderr ?? ""}`).toBe(0);
     const manifest = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8")) as {
       version: string;
@@ -215,7 +218,10 @@ describe("AC-3: the inventory lists every dependency the build resolves", () => 
     // This package's own tree: `dependencies` is empty and `devDependencies` is not, so a
     // reading of "the manifest's two lists" would produce a handful of entries. The build
     // resolves an order of magnitude more, and every direct devDependency is among them.
-    const real = spawnSync(TSX_BIN, [SCRIPT_PATH], { cwd: REPO_ROOT, encoding: "utf8" });
+    const real = spawnSync(TSX_COMMAND, [...TSX_PREFIX, SCRIPT_PATH], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+    });
     expect(real.status, `stderr: ${real.stderr ?? ""}`).toBe(0);
     const bom = JSON.parse(readFileSync(join(REPO_ROOT, ARTIFACT_RELATIVE), "utf8")) as Bom;
     const manifest = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8")) as {
