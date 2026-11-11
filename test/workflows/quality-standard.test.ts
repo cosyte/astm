@@ -104,6 +104,16 @@ describe("the mutation config", () => {
     expect(config.vitest.configFile).toBe("vitest.mutation.config.ts");
   });
 
+  it("gives a mutant room to finish, so only a mutant that never ends times out", async () => {
+    // At StrykerJS's defaults (1.5 and 5,000 ms) the count of timed-out mutants moved with the
+    // runner's load, and the full score with it.
+    const { default: config } = await importModule<{
+      default: { timeoutFactor?: number; timeoutMS?: number };
+    }>("stryker.config.mjs");
+    expect(config.timeoutFactor).toBeGreaterThanOrEqual(3);
+    expect(config.timeoutMS).toBeGreaterThanOrEqual(10_000);
+  });
+
   it("leaves out of the mutation suite only tests that read a clock, test the tooling or run a child process", async () => {
     const { default: config } = await importModule<{
       default: { test: { exclude: string[] } };
@@ -138,8 +148,20 @@ describe("the workflow callers", () => {
     for (const input of ["run-bun", "run-deno", "run-coverage-ratchet", "run-mutation"]) {
       expect(ci).toMatch(new RegExp(`^      ${input}: true$`, "mu"));
     }
-    // Windows waits on the shared attw gate, which cannot start attw there (see ci.yml).
+    // Windows runs in its own job: the shared attw gate cannot start attw there (see ci.yml).
     expect(ci).toMatch(/^ {6}os: '\["ubuntu-latest", "macos-latest"\]'$/mu);
+  });
+
+  it("ci.yml runs the suite on Windows on Node 22, 24 and 26", () => {
+    const ci = read(".github", "workflows", "ci.yml");
+    const job = /^ {2}windows:\n((?: {4}.*\n|\n)+)/mu.exec(ci)?.[1];
+    expect(job).toBeDefined();
+    expect(job).toMatch(/^ {4}runs-on: windows-latest$/mu);
+    expect(job).toMatch(/^ {8}node: \["22", "24", "26"\]$/mu);
+    expect(job).toMatch(/^ {10}node-version: \$\{\{ matrix\.node \}\}$/mu);
+    for (const step of ["typecheck", "lint", "test", "test:coverage", "build"]) {
+      expect(job, step).toMatch(new RegExp(`^ {6}- run: pnpm ${step}$`, "mu"));
+    }
   });
 
   it("the nightly property run and the sharded weekly mutation run are scheduled, at the reference ci.yml uses", () => {
