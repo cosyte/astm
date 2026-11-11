@@ -24,6 +24,10 @@ const DENSE_PEAK_MULTIPLE = 20;
 const OPAQUE_PEAK_MULTIPLE = 3;
 const COLD_IMPORT_MS = 15;
 const THROUGHPUT_KEPT = 0.5;
+// What a call that allocates nothing reads as its peak heap: the measurement's own objects, about
+// 22 KiB measured on a development machine (a runner's figure may differ a little). A 400 B
+// message's budget of 20 times is 8 KiB, under this floor.
+const PROBE_FLOOR_KIB = 22;
 
 /** The shape a benchmark measures: the text after the operation's name. */
 function shapeOf(benchmark) {
@@ -72,6 +76,8 @@ function main(argv) {
     "### Budgets",
     "",
     `Peak heap is one call's peak above the settled heap over one input's bytes; the budget is ${String(DENSE_PEAK_MULTIPLE)} times for a dense shape and ${String(OPAQUE_PEAK_MULTIPLE)} times for the framed payload.`,
+    "",
+    `The peak includes a fixed cost of the measurement itself, about ${String(PROBE_FLOOR_KIB)} KiB for a call that allocates nothing, so a dense input under ${String(Math.round((PROBE_FLOOR_KIB * 1024) / DENSE_PEAK_MULTIPLE))} B cannot read within its budget whatever the call does; for those, read the allocations per operation.`,
     "",
     "| Benchmark | Size | Input | Peak heap | Multiple | Budget | Within |",
     "| --- | --- | --- | --- | --- | --- | --- |",
