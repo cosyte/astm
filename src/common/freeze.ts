@@ -41,6 +41,9 @@ export function deepFreeze<T>(value: T): T {
  */
 export function freezeBuilt<T>(value: T): T {
   if (value === null || typeof value !== "object") return value;
+  // Walking a frozen graph again freezes nothing new, so a mutant that skips this stop passes every
+  // test and only the time moves: it timed out on one full run and survived the next.
+  // Stryker disable next-line ConditionalExpression: equivalent, a second walk changes nothing
   if (Object.isFrozen(value)) return value;
   Object.freeze(value);
   if (Array.isArray(value)) {
