@@ -27,8 +27,8 @@ jobs:
   # The testing standard's jobs run beside `verify`, never after it, so a pull request waits for the
   # slowest job rather than their sum:
   # - `bun` and `deno`: the whole suite again under Bun and under Deno, each in its own job on
-  #   Linux. A test that cannot run there is skipped by name with its reason (the `ON_NODE` checks
-  #   in test/_helpers/runtime.ts).
+  #   Linux. A test that cannot run there is skipped by name with its reason, through the checks
+  #   in test/_helpers/runtime.ts.
   # - `coverage-ratchet`: coverage held to quality-floor.json, and on a pull request every changed
   #   line that coverage counts must have run and no floor may be lowered or removed;
   # - `mutation` (pull requests only): the changed source files mutated with stryker.config.mjs,

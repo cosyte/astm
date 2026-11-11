@@ -10,8 +10,9 @@ name: Nightly properties
 # The fuzz targets (`*-fuzz` and multi-header) are left out here: nightly-fuzz.yml runs them each
 # night for a time budget from a seed that changes with every run.
 #
-# A test's budget is 30 minutes here, not the suite's 10 seconds: 10,000 cases of the slowest
-# property take far longer than 100 do. The shared job stops the whole run at 60 minutes.
+# A test's budget is 10 minutes here, not the suite's 10 seconds: 10,000 cases take a hundred times
+# as long as 100. Measured on a GitHub-hosted runner when this was added, the whole run at 10,000
+# took 15 seconds; the shared job stops it at 60 minutes.
 
 on:
   push:
@@ -32,5 +33,5 @@ jobs:
   nightly:
     uses: cosyte/.github/.github/workflows/nightly-properties.yml@398cd4ded647dddd9f2e220ceb042840f59e1426 # the release of 398cd4ded647
     with:
-      test-cmd: "pnpm test:properties --testTimeout=1800000"
+      test-cmd: "pnpm test:properties --testTimeout=600000"
       property-runs: "10000"

@@ -71,7 +71,7 @@ pnpm build && pnpm examples   # the example programs, against the built package
 ASTM_FUZZ_SEED=12345 ASTM_FUZZ_SECONDS=120 pnpm fuzz
 
 # The property suites at the nightly depth, and one failing case replayed from its seed and path.
-COSYTE_PROPERTY_RUNS=10000 pnpm test:properties --testTimeout=1800000
+COSYTE_PROPERTY_RUNS=10000 pnpm test:properties --testTimeout=600000
 COSYTE_PROPERTY_SEED=<seed> COSYTE_PROPERTY_PATH=<path> pnpm exec vitest run <test file>
 
 # Mutation testing: the source files a change touched, then the full run (it takes hours).
