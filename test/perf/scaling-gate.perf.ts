@@ -50,7 +50,12 @@ const RESULTS = 100;
 /** Sessions in each size-axis phase. */
 const SESSIONS = 16;
 /** Sessions in each of the build's size-axis phases, for the same reason as `BUILD_COUNT`. */
-const BUILD_SESSIONS = 48;
+const BUILD_SESSIONS = 24;
+/**
+ * Results in each build size-axis session. More sessions alone left the base phase at about 3.5 to
+ * 3.9 ms on a runner, so each session is larger too.
+ */
+const BUILD_RESULTS = 400;
 /** The chunk the regressed copy appends at a time. */
 const CHUNK = 8;
 
@@ -116,7 +121,11 @@ function buildOptions(): ScalingGateOptions<MessageInput, string> {
     parse: (input) => astm.buildAstmMessage(input),
     weigh: (out) => out.length,
     count: { n: BUILD_COUNT, generate: (i) => messageInput(i) },
-    size: { inputs: BUILD_SESSIONS, size: RESULTS, generate: (i, size) => sessionInput(i, size) },
+    size: {
+      inputs: BUILD_SESSIONS,
+      size: BUILD_RESULTS,
+      generate: (i, size) => sessionInput(i, size),
+    },
   };
 }
 
