@@ -28,7 +28,6 @@
  * turns away and how to frame such content instead.
  */
 
-import { computeChecksum, toChecksumHex } from "./checksum.js";
 import {
   CR,
   ETB,
@@ -202,7 +201,8 @@ export interface ComposeFramesOptions {
 const MAX_SINGLE_BYTE_CODE_POINT = 0xff;
 
 /**
- * Latin1 bytes of a string (each char → its byte), so `\r` etc. survive 1:1.
+ * Refuse a record string with a character that is not one Latin-1 byte: each character of
+ * a record string is written as its byte, so `\r` etc. survive 1:1.
  *
  * **The conversion is total or it throws.** It used to mask each character with
  * `& 0xff`, which silently replaced any character above `U+00FF` with a
@@ -221,18 +221,16 @@ const MAX_SINGLE_BYTE_CODE_POINT = 0xff;
  * above `U+00FF`, so an astral character is refused by the same bound, at the
  * index of its first half.
  *
- * @param input - One record: bytes are returned as-is, a string is read as a
- *   byte string.
+ * @param input - One record: bytes pass unchecked, a string is read as a byte
+ *   string.
  * @param recordIndex - The record's index within the input, for error context.
  * @throws {@link AstmFrameEncodeError} `ASTM_FRAME_UNENCODABLE_CHARACTER` when a
  *   character has no single byte to stand for.
  */
-function toBytes(input: Uint8Array | string, recordIndex: number): Uint8Array {
-  if (typeof input !== "string") return input;
-  const out = new Uint8Array(input.length);
+function assertSingleBytes(input: Uint8Array | string, recordIndex: number): void {
+  if (typeof input !== "string") return;
   for (let i = 0; i < input.length; i += 1) {
-    const code = input.charCodeAt(i);
-    if (code > MAX_SINGLE_BYTE_CODE_POINT) {
+    if (input.charCodeAt(i) > MAX_SINGLE_BYTE_CODE_POINT) {
       throw new AstmFrameEncodeError(
         "A record contains a character above U+00FF, which is not a single byte. " +
           "Encode the record with the character encoding your instrument uses and pass the bytes.",
@@ -241,9 +239,12 @@ function toBytes(input: Uint8Array | string, recordIndex: number): Uint8Array {
         i,
       );
     }
-    out[i] = code;
   }
-  return out;
+}
+
+/** The byte at `i` of a record, read from its bytes or, for text, from its one-byte character. */
+function byteAt(record: Uint8Array | string, i: number): number {
+  return typeof record === "string" ? record.charCodeAt(i) : (record[i] as number);
 }
 
 /**
@@ -278,15 +279,14 @@ const RESERVED_STRUCTURE_BYTES: ReadonlySet<number> = new Set([STX, ETB, ETX]);
  * cannot route around it by encoding the record themselves, which is the point:
  * the byte is unframable regardless of how it got there.
  *
- * @param bytes - One record's bytes.
+ * @param bytes - One record, its bytes or its text of one-byte characters.
  * @param recordIndex - The record's index within the input, for error context.
  * @throws {@link AstmFrameEncodeError} `ASTM_FRAME_RESERVED_BYTE` at the first
  *   such byte.
  */
-function assertFramable(bytes: Uint8Array, recordIndex: number): void {
+function assertFramable(bytes: Uint8Array | string, recordIndex: number): void {
   for (let i = 0; i < bytes.length; i += 1) {
-    const byte = bytes[i];
-    if (byte !== undefined && RESERVED_STRUCTURE_BYTES.has(byte)) {
+    if (RESERVED_STRUCTURE_BYTES.has(byteAt(bytes, i))) {
       throw new AstmFrameEncodeError(
         "A record contains a byte the framing layer reads as structure (STX, ETB or ETX). " +
           "A frame has no escape sequence for one, so it cannot be carried inside a frame: " +
@@ -332,15 +332,47 @@ function assertStartFrameNumber(value: number): void {
   }
 }
 
-/** Build one frame's bytes: `STX FN text (ETB|ETX) C1 C2 CR LF`, checksum over `FN … terminator`. */
-function encodeFrame(text: Uint8Array, frameNumber: number, isFinal: boolean): number[] {
-  const term = isFinal ? ETX : ETB;
-  // Assemble STX FN text term, then compute the checksum over FN..term inclusive.
-  const bytes = [STX, FN_ZERO + frameNumber, ...text, term];
-  const cs = computeChecksum(Uint8Array.from(bytes), 1, bytes.length - 1);
-  const hex = toChecksumHex(cs);
-  return [...bytes, hex.charCodeAt(0), hex.charCodeAt(1), CR, LF];
+/** The upper-case hex digit of one nibble, as `toChecksumHex` writes it. */
+function hexDigit(nibble: number): number {
+  return nibble < 10 ? 0x30 + nibble : 0x41 + nibble - 10;
 }
+
+/**
+ * Write one frame, `STX FN text (ETB|ETX) C1 C2 CR LF`, into `out` at `at`, the checksum taken over
+ * `FN … terminator` as it is written. The text is `record` from `from` to `to`. Returns where the
+ * next frame starts.
+ */
+function writeFrame(
+  out: Uint8Array,
+  at: number,
+  record: Uint8Array | string,
+  from: number,
+  to: number,
+  frameNumber: number,
+  isFinal: boolean,
+): number {
+  const term = isFinal ? ETX : ETB;
+  let w = at;
+  out[w++] = STX;
+  const fn = FN_ZERO + frameNumber;
+  out[w++] = fn;
+  let sum = fn;
+  for (let i = from; i < to; i += 1) {
+    const byte = byteAt(record, i);
+    out[w++] = byte;
+    sum = (sum + byte) & 0xff;
+  }
+  out[w++] = term;
+  sum = (sum + term) & 0xff;
+  out[w++] = hexDigit(sum >> 4);
+  out[w++] = hexDigit(sum & 0x0f);
+  out[w++] = CR;
+  out[w++] = LF;
+  return w;
+}
+
+/** The bytes a frame adds around its text: STX, FN, the terminator, two checksum digits, CR, LF. */
+const FRAME_OVERHEAD = 7;
 
 /**
  * Frame reassembled record bytes into a spec-clean ASTM/CLSI-LIS01 byte stream:
@@ -422,26 +454,35 @@ export function composeAstmFrames(
     throw new AstmFrameEncodeError("Cannot frame an empty record list: nothing to transmit.");
   }
 
-  const out: number[] = [];
-  let frameNumber = start;
-
+  // Every record is checked before a byte is written, in the order the records come and, within a
+  // record, in the order the checks have always run: a character with no single byte, then an
+  // empty record, then a byte the framing reads as structure. Checking is all a record's refusal
+  // depends on, so the first refusal is the one a record-by-record write would have met.
+  let total = 0;
   records.forEach((record, recordIndex) => {
-    const bytes = toBytes(record, recordIndex);
-    if (bytes.length === 0) {
+    assertSingleBytes(record, recordIndex);
+    if (record.length === 0) {
       throw new AstmFrameEncodeError(
         "Cannot frame an empty record: a frame must carry record bytes.",
         recordIndex,
       );
     }
-    assertFramable(bytes, recordIndex);
-    // Split the record text into <=240-byte chunks; the last chunk of the record closes with ETX.
-    for (let offset = 0; offset < bytes.length; offset += MAX_FRAME_TEXT) {
-      const chunk = bytes.subarray(offset, offset + MAX_FRAME_TEXT);
-      const isFinal = offset + MAX_FRAME_TEXT >= bytes.length;
-      out.push(...encodeFrame(chunk, frameNumber, isFinal));
-      frameNumber = (frameNumber + 1) % FRAME_NUMBER_MODULUS;
-    }
+    assertFramable(record, recordIndex);
+    total += record.length + FRAME_OVERHEAD * Math.ceil(record.length / MAX_FRAME_TEXT);
   });
 
-  return Uint8Array.from(out);
+  // Then every frame is written straight into one buffer of the exact size.
+  const out = new Uint8Array(total);
+  let at = 0;
+  let frameNumber = start;
+  for (const record of records) {
+    // Split the record text into <=240-byte chunks; the last chunk of the record closes with ETX.
+    for (let offset = 0; offset < record.length; offset += MAX_FRAME_TEXT) {
+      const end = Math.min(offset + MAX_FRAME_TEXT, record.length);
+      const isFinal = offset + MAX_FRAME_TEXT >= record.length;
+      at = writeFrame(out, at, record, offset, end, frameNumber, isFinal);
+      frameNumber = (frameNumber + 1) % FRAME_NUMBER_MODULUS;
+    }
+  }
+  return out;
 }

@@ -21,7 +21,7 @@
  */
 
 import { CANONICAL_DELIMITERS } from "../common/delimiters.js";
-import { AstmSerializeError, encodeComponent } from "./serialize.js";
+import { AstmSerializeError, encodeLeaf } from "./serialize.js";
 
 /** A patient name split into its components; only the supplied parts are emitted. */
 export interface PatientNameInput {
@@ -162,7 +162,9 @@ export interface MessageInput {
 /** Join a positional field array into a record line, trimming trailing empty fields. */
 function line(fields: readonly (readonly string[])[]): string {
   const d = CANONICAL_DELIMITERS;
-  const encoded = fields.map((comps) => comps.map((c) => encodeComponent(c, d)).join(d.component));
+  // The canonical set is a constant this module controls and always passes the delimiter check, so
+  // each component is escaped against it directly instead of re-checking the set for every one.
+  const encoded = fields.map((comps) => comps.map((c) => encodeLeaf(c, d)).join(d.component));
   // Trim trailing empty fields: an absent trailing field and an empty one are equivalent on parse.
   let end = encoded.length;
   while (end > 0 && encoded[end - 1] === "") end -= 1;

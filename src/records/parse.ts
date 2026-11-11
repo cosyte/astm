@@ -9,7 +9,7 @@
  */
 
 import { AstmParseError, FATAL_CODES } from "../common/errors.js";
-import { deepFreeze } from "../common/freeze.js";
+import { deepFreeze, freezeBuilt } from "../common/freeze.js";
 import {
   hasCollidingRoles,
   isNonStandard,
@@ -54,7 +54,7 @@ import { classifyMessage } from "./host-query.js";
 import { applyAstmProfileToWarnings } from "../profiles/apply.js";
 import { getDefaultAstmProfile } from "../profiles/registry.js";
 import type { AstmProfile } from "../profiles/types.js";
-import { fieldScalar, tokenizeHeader, tokenizeRecord } from "./tokenize.js";
+import { fieldScalar, tokenizeFields, tokenizeHeaderFields, type FieldSinks } from "./tokenize.js";
 import type {
   AstmField,
   AstmMessage,
@@ -136,7 +136,9 @@ export function parseAstmRecords(
 ): AstmMessage {
   const text = typeof raw === "string" ? raw : decodeBytes(raw);
 
-  if (text.trim().length === 0) {
+  // Whether any character is not white space: `\s` is the set `trim` removes, so this is the test
+  // `text.trim().length === 0` made, without the trimmed copy of the whole input.
+  if (!/\S/u.test(text)) {
     throw new AstmParseError(FATAL_CODES.EMPTY_INPUT, "Input is empty.", { recordIndex: 0 });
   }
 
@@ -190,11 +192,13 @@ export function parseAstmRecords(
   // about the same bytes. "Last header wins retroactively" would require re-reading records already
   // delivered; "first header wins forever" is the collapse itself.
   let active = delimiters;
+  const at: RecordAt = { recordIndex: 0, recordType: "" };
+  const sinks = parseSinks(at, warnings);
   const built: AstmRecord[] = lines.map((line, recordIndex) => {
     if (recordIndex > 0 && line.charAt(0) === "H") {
       active = adoptRedeclaredDelimiters(line, active, recordIndex, warnings);
     }
-    return buildRecord(line, recordIndex, active, warnings);
+    return buildRecord(line, recordIndex, active, warnings, sinks, at);
   });
   // Second pass: attach each comment to its immediately-preceding H/P/O/R parent (an orphan → root).
   const records = attachComments(built, warnings);
@@ -238,7 +242,12 @@ export function parseAstmRecords(
         }
       : { header, records, delimiters, classification, warnings: finalWarnings };
 
-  return deepFreeze(message);
+  // The warnings and the profile can hold objects a caller made (a profile's lineage, a quirk it
+  // matched), so they get the general walk. Everything else the parse built itself, and its fields
+  // were frozen as they were made, so the rest of the walk visits each record and stops at them.
+  deepFreeze(finalWarnings);
+  if (message.profile !== undefined) deepFreeze(message.profile);
+  return freezeBuilt(message);
 }
 
 /**
@@ -324,11 +333,36 @@ function sameDelimiters(a: Delimiters, b: Delimiters): boolean {
   );
 }
 
-/** Decode record bytes as latin1 so every byte survives to the string 1:1 (ASTM is byte-oriented). */
+/**
+ * Decode record bytes as latin1 so every byte survives to the string 1:1 (ASTM is byte-oriented).
+ */
 function decodeBytes(bytes: Uint8Array): string {
-  let out = "";
-  for (const b of bytes) out += String.fromCharCode(b);
-  return out;
+  // The platform decoder reads bytes into one string with no copy of them as arguments. The label
+  // `latin1` names windows-1252, which agrees with Latin-1 on every byte but 0x80 to 0x9F, so it is
+  // used only when no byte of the input is in that range.
+  if (!hasWindows1252Difference(bytes)) return new TextDecoder("latin1").decode(bytes);
+  // A chunk at a time rather than a character at a time: each chunk becomes one string of its
+  // bytes' character codes, the same characters the one-at-a-time read produced, and the chunk
+  // bound keeps the argument list of each call well inside what an engine accepts.
+  const parts: string[] = [];
+  for (let at = 0; at < bytes.length; at += DECODE_CHUNK) {
+    // `apply` takes the typed array as the argument list as it is, with no array copied out of it.
+    const chunk = bytes.subarray(at, at + DECODE_CHUNK) as unknown as number[];
+    parts.push(String.fromCharCode.apply(undefined, chunk));
+  }
+  return parts.join("");
+}
+
+/** How many bytes {@link decodeBytes} turns into characters in one call. */
+const DECODE_CHUNK = 8192;
+
+/** Whether a byte is one windows-1252 reads as a different character than Latin-1 does. */
+function hasWindows1252Difference(bytes: Uint8Array): boolean {
+  for (let i = 0; i < bytes.length; i += 1) {
+    const b = bytes[i] as number;
+    if (b >= 0x80 && b <= 0x9f) return true;
+  }
+  return false;
 }
 
 /** ASTM fields are 1-indexed; the type letter is field 1. Map an ASTM field number to the array slot. */
@@ -336,21 +370,33 @@ function astmField(fields: readonly AstmField[], n: number): AstmField | undefin
   return fields[n - 1];
 }
 
-function buildRecord(
-  line: string,
-  recordIndex: number,
-  d: Delimiters,
-  warnings: AstmRecordWarning[],
-): AstmRecord {
-  const rawType = line.charAt(0);
+/**
+ * Where the record being tokenized sits. The parse sets it before each record, and its sinks read
+ * it, so one set of sinks serves every record instead of seven closures being made for each.
+ */
+interface RecordAt {
+  recordIndex: number;
+  recordType: string;
+}
+
+/** The tokenizer sinks of one parse: each pushes its warning at the record `at` names. */
+function parseSinks(at: RecordAt, warnings: AstmRecordWarning[]): FieldSinks {
   const onUnknownEscape = (fieldIndex: number): void => {
     warnings.push(
-      unknownEscapeSequence({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+      unknownEscapeSequence({
+        recordIndex: at.recordIndex,
+        recordType: at.recordType,
+        fieldIndex: fieldIndex + 1,
+      }),
     );
   };
   const onUnpairedEscape = (fieldIndex: number): void => {
     warnings.push(
-      unpairedEscapeCharacter({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+      unpairedEscapeCharacter({
+        recordIndex: at.recordIndex,
+        recordType: at.recordType,
+        fieldIndex: fieldIndex + 1,
+      }),
     );
   };
   // Fires in addition to onUnknownEscape, never instead of it: the unknown-sequence code says a
@@ -358,7 +404,11 @@ function buildRecord(
   // a delimiter out of the split, which costs a field boundary.
   const onSwallowedDelimiter = (fieldIndex: number): void => {
     warnings.push(
-      delimiterSwallowedByEscape({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+      delimiterSwallowedByEscape({
+        recordIndex: at.recordIndex,
+        recordType: at.recordType,
+        fieldIndex: fieldIndex + 1,
+      }),
     );
   };
   // The mirror of the one above, and the more dangerous direction. That one reports a boundary the
@@ -368,7 +418,11 @@ function buildRecord(
   // codes before this one existed.
   const onAmbiguousAlignment = (fieldIndex: number): void => {
     warnings.push(
-      ambiguousEscapeAlignment({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+      ambiguousEscapeAlignment({
+        recordIndex: at.recordIndex,
+        recordType: at.recordType,
+        fieldIndex: fieldIndex + 1,
+      }),
     );
   };
   // The same contested position asked a different question, and it is the one that reaches a
@@ -383,7 +437,11 @@ function buildRecord(
   // alongside the two above, never instead of them.
   const onAlignmentShiftedFields = (fieldIndex: number): void => {
     warnings.push(
-      alignmentShiftedFields({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+      alignmentShiftedFields({
+        recordIndex: at.recordIndex,
+        recordType: at.recordType,
+        fieldIndex: fieldIndex + 1,
+      }),
     );
   };
   // The same contested position and the same tail test again, on the REPEAT separator, where the
@@ -393,7 +451,11 @@ function buildRecord(
   // the components that sat before the boundary. Fires alongside the others, never instead of them.
   const onAlignmentTruncatedField = (fieldIndex: number): void => {
     warnings.push(
-      alignmentTruncatedField({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+      alignmentTruncatedField({
+        recordIndex: at.recordIndex,
+        recordType: at.recordType,
+        fieldIndex: fieldIndex + 1,
+      }),
     );
   };
   // The same contested position and the same tail test a third time, on the COMPONENT separator,
@@ -404,36 +466,43 @@ function buildRecord(
   // Fires alongside the others, never instead of them.
   const onAlignmentShiftedComponents = (fieldIndex: number): void => {
     warnings.push(
-      alignmentShiftedComponents({ recordIndex, recordType: rawType, fieldIndex: fieldIndex + 1 }),
+      alignmentShiftedComponents({
+        recordIndex: at.recordIndex,
+        recordType: at.recordType,
+        fieldIndex: fieldIndex + 1,
+      }),
     );
   };
+  return {
+    onUnknownEscape,
+    onUnpairedEscape,
+    onSwallowedDelimiter,
+    onAmbiguousAlignment,
+    onAlignmentShiftedFields,
+    onAlignmentTruncatedField,
+    onAlignmentShiftedComponents,
+  };
+}
+
+function buildRecord(
+  line: string,
+  recordIndex: number,
+  d: Delimiters,
+  warnings: AstmRecordWarning[],
+  sinks: FieldSinks,
+  at: RecordAt,
+): AstmRecord {
+  const rawType = line.charAt(0);
+  at.recordIndex = recordIndex;
+  at.recordType = rawType;
   // The header needs its own tokenizer: all three non-field delimiters sit literally inside the
   // delimiter declaration, so the generic tokenizer would split the declaration on its own repeat
-  // and component characters and report its escape character as unpaired.
+  // and component characters and report its escape character as unpaired. Every node is frozen as
+  // it is built, so the message's final freeze never walks the fields.
   const fields =
     rawType === "H"
-      ? tokenizeHeader(
-          line,
-          d,
-          onUnknownEscape,
-          onUnpairedEscape,
-          onSwallowedDelimiter,
-          onAmbiguousAlignment,
-          onAlignmentShiftedFields,
-          onAlignmentTruncatedField,
-          onAlignmentShiftedComponents,
-        )
-      : tokenizeRecord(
-          line,
-          d,
-          onUnknownEscape,
-          onUnpairedEscape,
-          onSwallowedDelimiter,
-          onAmbiguousAlignment,
-          onAlignmentShiftedFields,
-          onAlignmentTruncatedField,
-          onAlignmentShiftedComponents,
-        );
+      ? tokenizeHeaderFields(line, d, sinks, true)
+      : tokenizeFields(line, d, sinks, 0, true);
 
   // A record that carries content beyond its type letter but yields exactly ONE field contains no
   // field separator at all, so the delimiters in force are not the set this record was written

@@ -12,7 +12,7 @@
  */
 
 import { parseAstmRecords } from "../records/parse.js";
-import { serializeAstmRecord } from "../records/serialize.js";
+import { serializeRecordLines } from "../records/serialize.js";
 import type { AstmMessage, AstmParseOptions, AstmRecord } from "../records/types.js";
 import { composeAstmFrames, type ComposeFramesOptions } from "./encode.js";
 import { decodeAstmFrames } from "./decode.js";
@@ -125,7 +125,7 @@ export function serializeFramedAstm(
     ? (input as readonly AstmRecord[])
     : (input as AstmMessage).records;
   // Frame each record independently (record text + its CR terminator) so decode reassembles per record.
-  const recordBytes = records.map((r) => serializeAstmRecord(r) + "\r");
+  const recordBytes = serializeRecordLines(records);
   return composeAstmFrames(recordBytes, options);
 }
 
