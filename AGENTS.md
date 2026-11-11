@@ -38,6 +38,35 @@ pnpm check:no-internal-refs
 pnpm check:documents
 ```
 
+CI's `scaling-gate` job runs `pnpm test:perf`, the scaling gates in `test/perf/scaling-gate.perf.ts`:
+they fail when the record parse, the strict validation, the record build or the framed parse grows
+faster than its input. They run apart from `pnpm test` and never under coverage.
+
+## Benchmarks
+
+`bench/astm.bench.mjs` measures the built package on synthetic traffic in the shapes an analyzer
+interface sees: the small result message an analyzer sends all day, a long result session of 100 to
+10,000 results across many patients and orders, that session framed for the wire, and a result
+with a large base64 payload over many frames. Each is parsed, validated (the strict parse, then the
+stream split into messages) and built. `bench/shapes.mjs` builds every input in code;
+`test/perf/bench-shapes.test.ts` holds that each is what `buildAstmMessage` and
+`serializeFramedAstm` write, and that each reads with no warning under `strict`.
+
+```sh
+pnpm build
+pnpm bench:reading --out bench-results/reading.json --summary bench-results/reading.md
+node bench/budgets.mjs bench-results/reading.json
+pnpm bench:compare --base <base checkout>/dist/index.mjs --head dist/index.mjs
+pnpm bench:profile --out bench-results/profile
+```
+
+A reading reports throughput, latency p50/p95/p99, allocations, peak heap, a long run for leaks,
+and the cold import with its gzip size. `pnpm bench:profile` measures each size of 64 KiB or more
+in a fresh process (peak resident memory and single-call time), then profiles the hottest paths. On
+a pull request CI compares the base build with the head at each shape's first size, and
+`.github/workflows/bench.yml` takes a reading and a profile on a hosted runner when `bench/`
+changes. Both are advisory.
+
 ## Rules
 
 - Synthetic data only. Real patient data never enters this repository: not in a fixture, a test, a

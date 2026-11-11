@@ -115,9 +115,81 @@ describe("check-gate-coverage: a CI gate with no local route is a failure", () =
     expect(r.code, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toContain("pnpm run fuzz");
   });
+
+  it("resolves a `pnpm <script>` invocation with arguments to that script", () => {
+    const root = makeTree(
+      { "bench:profile": "node bench/profile.mjs dist/index.mjs" },
+      { "bench.yml": workflowRunning("pnpm bench:profile --out bench-results/profile") },
+    );
+    const r = run(root);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout).toContain("pnpm run bench:profile");
+  });
+
+  it("resolves a `pnpm exec` of a script's whole body, with arguments after it", () => {
+    const root = makeTree(
+      { "bench:reading": "cosyte-bench run --suite bench/a.bench.mjs --target dist/index.mjs" },
+      {
+        "bench.yml": workflowRunning(
+          "pnpm exec cosyte-bench run --suite bench/a.bench.mjs --target dist/index.mjs --commit x",
+        ),
+      },
+    );
+    const r = run(root);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout).toContain("pnpm run bench:reading");
+  });
+
+  it("reds on a `pnpm exec` that only part of a script's body matches", () => {
+    const root = makeTree(
+      { "bench:reading": "cosyte-bench run --suite bench/a.bench.mjs --target dist/index.mjs" },
+      { "bench.yml": workflowRunning("pnpm exec cosyte-bench run --suite bench/b.bench.mjs") },
+    );
+    const r = run(root);
+    expect(r.code, `stdout: ${r.stdout}`).toBe(1);
+    expect(r.stderr).toContain("no package script reproduces it");
+  });
 });
 
 describe("check-gate-coverage: a shared pipeline told to run a step needs that step", () => {
+  /** A caller that switches on the shared pipeline's two performance steps. */
+  const performanceCaller = [
+    "name: CI",
+    "jobs:",
+    "  ci:",
+    "    uses: cosyte/.github/.github/workflows/ci.yml@main",
+    "    with:",
+    "      run-scaling-gate: true",
+    "      run-bench-compare: true",
+    "",
+  ].join("\n");
+
+  it("reads a step that calls a script of another name as needing that script", () => {
+    // The shared `scaling-gate` step runs `pnpm test:perf`, and `bench-compare` is reproduced
+    // locally by `pnpm bench:compare`: neither is a script named after its input.
+    const root = makeTree(
+      {
+        "test:perf": "vitest run --config vitest.perf.config.ts",
+        "bench:compare": "cosyte-bench compare --suite bench/a.bench.mjs",
+      },
+      { "ci.yml": performanceCaller },
+    );
+    const r = run(root);
+    expect(r.code, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout).toContain("run-scaling-gate  ->  pnpm run test:perf");
+    expect(r.stdout).toContain("run-bench-compare  ->  pnpm run bench:compare");
+  });
+
+  it("reds when the script such a step calls is missing", () => {
+    const root = makeTree(
+      { "bench:compare": "cosyte-bench compare --suite bench/a.bench.mjs" },
+      { "ci.yml": performanceCaller },
+    );
+    const r = run(root);
+    expect(r.code, `stdout: ${r.stdout}`).toBe(1);
+    expect(r.stderr).toContain("`test:perf`");
+  });
+
   it("reds when a `run-<x>: true` input names a script this repo does not define", () => {
     const root = makeTree(
       { test: "cosyte-process test" },

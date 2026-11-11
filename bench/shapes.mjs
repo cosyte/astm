@@ -1,0 +1,289 @@
+// The synthetic inputs of bench/astm.bench.mjs, the profile and the scaling gates, built in code
+// from an index: no file is read, and every name, identifier and value is made up.
+//
+// Four shapes, the ones an analyzer interface sees:
+// - the single small result message an analyzer sends all day: one patient, one order, a few
+//   results;
+// - a long result session: one message carrying many patients, each with two orders of ten results
+//   and a comment, the batch an analyzer uploads after a run or a reconnect;
+// - that session framed for the wire (E1381 / CLSI LIS01-A2): every record split into frames of at
+//   most 240 bytes of text, each with its frame number and checksum;
+// - a result carrying a large opaque payload: a manufacturer record with a base64 histogram, framed
+//   for the wire too, the shape a hematology analyzer's graphics take.
+//
+// This module never imports the package under test, so one suite measures a base build and a head
+// build. Each shape is built twice from the same table: as the wire text (or bytes), and as the
+// `buildAstmMessage` input that writes that text, so the build benchmark writes exactly the bytes
+// the parse benchmark reads. `test/perf/bench-shapes.test.ts` holds that they agree, that each reads
+// with no warning under `strict`, and that the framing here matches the package's own.
+
+export const KIB = 1024;
+export const MIB = 1024 * 1024;
+
+const STX = 0x02;
+const ETX = 0x03;
+const ETB = 0x17;
+const CR = 0x0d;
+const LF = 0x0a;
+const MAX_FRAME_TEXT = 240;
+
+/** A chemistry panel: code, units, reference range, low and high, the value's base. */
+const PANEL = [
+  ["GLU", "mg/dL", "70-110", 70, 110, 80],
+  ["BUN", "mg/dL", "7-20", 7, 20, 9],
+  ["CREA", "mg/dL", "0.6-1.3", 0.6, 1.3, 0.7],
+  ["NA", "mmol/L", "135-145", 135, 145, 134],
+  ["K", "mmol/L", "3.5-5.1", 3.5, 5.1, 3.4],
+  ["CL", "mmol/L", "98-107", 98, 107, 97],
+  ["CO2", "mmol/L", "22-29", 22, 29, 21],
+  ["CA", "mg/dL", "8.6-10.3", 8.6, 10.3, 8.5],
+  ["ALT", "U/L", "7-56", 7, 56, 10],
+  ["AST", "U/L", "10-40", 10, 40, 12],
+];
+
+const HEADER_FIELDS = ["", "", "SynthAnalyzer^1.0^SN0001", "", "", "", "", "", "LIS", "", "P"];
+
+function pad(i, width) {
+  return String(i).padStart(width, "0");
+}
+
+/** The synthetic stamp of a result, a fixed day, minutes from the index. */
+function stamp(i) {
+  return `20260101${pad(8 + Math.floor((i % 600) / 60), 2)}${pad(i % 60, 2)}00`;
+}
+
+/** One result of the panel: its test, value, flag. Values step with the index so none repeats. */
+function result(k, seq) {
+  const [code, units, range, low, high, base] = PANEL[k % PANEL.length];
+  const step = (high - low) / 20;
+  const raw = base + step * ((k * 7) % 26);
+  const value = Number.isInteger(low) ? String(Math.round(raw)) : raw.toFixed(1);
+  const flag = Number(value) < low ? "L" : Number(value) > high ? "H" : "N";
+  return {
+    type: "R",
+    seq: String(seq),
+    universalTestId: ["", "", "", code],
+    value,
+    units,
+    referenceRange: range,
+    abnormalFlags: flag,
+    resultStatus: "F",
+    operator: "tech01",
+    startedAt: stamp(k),
+    completedAt: stamp(k + 15),
+    instrument: "SYNTH-01",
+  };
+}
+
+function patientInput(p, seq) {
+  const id = pad(p, 6);
+  return {
+    type: "P",
+    seq: String(seq),
+    practiceAssignedId: `PRAC${id}`,
+    laboratoryAssignedId: `LAB${id}`,
+    name: { last: "Doe", first: `Pat${id}`, middle: "Q" },
+    birthDate: "19800101",
+    sex: p % 2 === 0 ? "F" : "M",
+  };
+}
+
+function orderInput(o, seq) {
+  const id = pad(o, 7);
+  return {
+    type: "O",
+    seq: String(seq),
+    specimenId: `SPEC${id}`,
+    instrumentSpecimenId: `INST${id}`,
+    universalTestId: ["", "", "", o % 2 === 0 ? "CHEM" : "LYTE"],
+    priority: "R",
+    actionCode: "N",
+    reportType: "F",
+  };
+}
+
+/** The `MessageInput` of a session of `results` results: ten to an order, two orders a patient. */
+export function sessionInput(i, results) {
+  const records = [];
+  const first = i * 1_000_003;
+  for (let r = 0, p = 0; r < results; p++) {
+    records.push(patientInput(first + p, p + 1));
+    for (let o = 0; o < 2 && r < results; o++) {
+      records.push(orderInput((first + p) * 2 + o, o + 1));
+      for (let k = 0; k < 10 && r < results; k++, r++) records.push(result(first + r, k + 1));
+      records.push({
+        type: "C",
+        seq: "1",
+        source: "I",
+        text: "Synthetic sample note",
+        commentType: "G",
+      });
+    }
+  }
+  return { header: { fields: HEADER_FIELDS }, records, terminationCode: "N" };
+}
+
+/** The `MessageInput` of the single small result message: one patient, one order, three results. */
+export function messageInput(i) {
+  const records = [patientInput(i, 1), orderInput(i, 1)];
+  for (let k = 0; k < 3; k++) records.push(result(i * 3 + k, k + 1));
+  return { header: { fields: HEADER_FIELDS }, records, terminationCode: "N" };
+}
+
+/**
+ * `bytes` generated bytes, base64: a stand-in for a histogram or scattergram. A fixed linear
+ * congruential sequence, so every run builds the same bytes.
+ */
+function base64Data(bytes, seed) {
+  const data = Buffer.alloc(bytes);
+  let state = (seed * 2654435761 + 1) >>> 0;
+  for (let k = 0; k < bytes; k++) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    data[k] = state >>> 24;
+  }
+  return data.toString("base64");
+}
+
+/**
+ * The `MessageInput` of a result with a payload of about `bytes` bytes: one patient, one order, one
+ * result, then a manufacturer record carrying the histogram behind it, in base64.
+ */
+export function payloadInput(i, bytes) {
+  const records = [patientInput(i, 1), orderInput(i, 1), result(i, 1)];
+  // Base64 writes four characters for every three bytes.
+  const data = base64Data(Math.max(3, Math.floor((bytes * 3) / 4)), i);
+  records.push({ type: "M", fields: ["SYNTH", "HISTOGRAM", "RBC", "BASE64", data] });
+  return { header: { fields: HEADER_FIELDS }, records, terminationCode: "N" };
+}
+
+// The wire text of each input, written here without the package: the same rules as its builder
+// (trailing empty fields dropped, a name's parts as components), on values that need no escape.
+
+function fields(list) {
+  let end = list.length;
+  while (end > 0 && list[end - 1] === "") end--;
+  return list.slice(0, end).join("|");
+}
+
+function at(list, position, value) {
+  while (list.length < position) list.push("");
+  list[position - 1] = value ?? "";
+}
+
+function recordLine(rec) {
+  const f = [rec.type, rec.seq ?? "1"];
+  switch (rec.type) {
+    case "P":
+      at(f, 3, rec.practiceAssignedId);
+      at(f, 4, rec.laboratoryAssignedId);
+      at(f, 6, `${rec.name.last}^${rec.name.first}^${rec.name.middle}`);
+      at(f, 8, rec.birthDate);
+      at(f, 9, rec.sex);
+      return fields(f);
+    case "O":
+      at(f, 3, rec.specimenId);
+      at(f, 4, rec.instrumentSpecimenId);
+      at(f, 5, rec.universalTestId.join("^"));
+      at(f, 6, rec.priority);
+      at(f, 12, rec.actionCode);
+      at(f, 26, rec.reportType);
+      return fields(f);
+    case "R":
+      at(f, 3, rec.universalTestId.join("^"));
+      at(f, 4, rec.value);
+      at(f, 5, rec.units);
+      at(f, 6, rec.referenceRange);
+      at(f, 7, rec.abnormalFlags);
+      at(f, 9, rec.resultStatus);
+      at(f, 11, rec.operator);
+      at(f, 12, rec.startedAt);
+      at(f, 13, rec.completedAt);
+      at(f, 14, rec.instrument);
+      return fields(f);
+    case "C":
+      at(f, 3, rec.source);
+      at(f, 4, rec.text);
+      at(f, 5, rec.commentType);
+      return fields(f);
+    case "M":
+      return [...f, ...rec.fields].join("|");
+    default:
+      throw new TypeError(`no line for record type ${String(rec.type)}`);
+  }
+}
+
+/** The records of a `MessageInput` as wire lines, each without its CR: header, body, terminator. */
+function lines(input) {
+  return [
+    `H|\\^&|${input.header.fields.join("|")}`,
+    ...input.records.map(recordLine),
+    `L|1|${input.terminationCode}`,
+  ];
+}
+
+/** A `MessageInput` as the de-framed record text a parser reads: every record closed by a CR. */
+export function text(input) {
+  return lines(input)
+    .map((l) => `${l}\r`)
+    .join("");
+}
+
+/** Two upper-case hex digits of a checksum. */
+function hex(sum) {
+  return (sum & 0xff).toString(16).toUpperCase().padStart(2, "0");
+}
+
+/**
+ * A `MessageInput` framed as E1381 sends it: each record (with its CR) on its own run of frames of
+ * at most 240 bytes of text, every frame but the record's last closed by ETB, the last by ETX, the
+ * frame number counting 1 to 7 then 0, and the checksum the low byte of the sum from the frame
+ * number through the ETB or ETX, in two hex digits, then CR LF.
+ */
+export function framed(input) {
+  const records = lines(input).map((l) => Buffer.from(`${l}\r`, "latin1"));
+  let total = 0;
+  for (const r of records) total += r.length + Math.ceil(r.length / MAX_FRAME_TEXT) * 7;
+  const out = Buffer.alloc(total);
+  let at = 0;
+  let frameNumber = 1;
+  for (const r of records) {
+    for (let offset = 0; offset < r.length; offset += MAX_FRAME_TEXT) {
+      const chunk = r.subarray(offset, offset + MAX_FRAME_TEXT);
+      const close = offset + MAX_FRAME_TEXT >= r.length ? ETX : ETB;
+      const fn = 0x30 + frameNumber;
+      let sum = fn + close;
+      for (const b of chunk) sum += b;
+      out[at++] = STX;
+      out[at++] = fn;
+      chunk.copy(out, at);
+      at += chunk.length;
+      out[at++] = close;
+      out.write(hex(sum), at, "latin1");
+      at += 2;
+      out[at++] = CR;
+      out[at++] = LF;
+      frameNumber = (frameNumber + 1) % 8;
+    }
+  }
+  return new Uint8Array(out.buffer, out.byteOffset, at);
+}
+
+/** The single small result message, as record text. */
+export function resultMessage(i) {
+  return text(messageInput(i));
+}
+
+/** A session of `results` results, as record text. */
+export function session(i, results) {
+  return text(sessionInput(i, results));
+}
+
+/** A session of `results` results, framed. */
+export function framedSession(i, results) {
+  return framed(sessionInput(i, results));
+}
+
+/** A result with a payload of about `bytes` bytes, framed. */
+export function framedPayload(i, bytes) {
+  return framed(payloadInput(i, bytes));
+}

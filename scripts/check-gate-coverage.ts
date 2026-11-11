@@ -86,6 +86,18 @@ const DECLARED_UNREACHABLE: { match: string; why: string }[] = [
 ];
 
 /**
+ * A shared pipeline step whose local route is a script NOT named after its
+ * input. Every other `run-<x>: true` input needs a script named `<x>`. The
+ * shared `scaling-gate` step runs `pnpm test:perf`; the shared `bench-compare`
+ * step runs `cosyte-bench compare` on the suites it is given, which
+ * `pnpm bench:compare` reproduces with a base and a head named.
+ */
+const SHARED_STEP_SCRIPTS: Record<string, string> = {
+  "scaling-gate": "test:perf",
+  "bench-compare": "bench:compare",
+};
+
+/**
  * Scripts that a local runner reaching only `check:*` / `verify:*` names cannot
  * see, declared here with what runs them, because an undeclared one is exactly
  * the invisible class this file exists to name.
@@ -163,11 +175,17 @@ function trueInputs(yaml: string): string[] {
  * the thing it describes, which is the failure mode this whole file is about.
  */
 function localRouteFor(command: string, scripts: Record<string, string>): string | undefined {
-  const normalized = command.replace(/^(pnpm|npm|yarn)\s+(run\s+)?/, "").trim();
+  const normalized = command.replace(/^(pnpm|npm|yarn)\s+(run\s+|exec\s+)?/, "").trim();
+  // A script called with arguments after its name (`pnpm bench:profile --out <dir>`), or a
+  // script's whole body run through `pnpm exec` with arguments after it, is still that script:
+  // the arguments choose where it writes or what it reads, not which gate runs. Only a WHOLE name
+  // or body counts, so a command that shares a prefix with a script and then differs is not one.
+  const extends_ = (text: string, head: string): boolean =>
+    text === head || text.startsWith(`${head} `);
   for (const [name, body] of Object.entries(scripts)) {
     if (body.trim() === command.trim()) return name;
-    if (name === normalized) return name;
-    if (body.trim() === normalized) return name;
+    if (extends_(normalized, name)) return name;
+    if (extends_(normalized, body.trim())) return name;
   }
   return undefined;
 }
@@ -189,10 +207,13 @@ function main(): number {
     for (const command of repoInvocations(yaml)) {
       const declared = DECLARED_UNREACHABLE.find((d) => command.includes(d.match));
       const route = localRouteFor(command, scripts);
-      if (route !== undefined) {
-        covered.push(`${file}: ${command}  ->  pnpm run ${route}`);
-      } else if (declared) {
+      // A declared command is disclosed even where a script's name or body starts it: the
+      // declaration names what the arguments add that no local run reproduces (`--stdin` reads
+      // the pull request itself).
+      if (declared) {
         disclosed.push(`${file}: ${command}\n      NOT RUNNABLE LOCALLY: ${declared.why}`);
+      } else if (route !== undefined) {
+        covered.push(`${file}: ${command}  ->  pnpm run ${route}`);
       } else {
         problems.push(
           `  - ${file} runs \`${command}\`, and no package script reproduces it.\n` +
@@ -203,13 +224,14 @@ function main(): number {
     }
 
     for (const input of trueInputs(yaml)) {
-      if (scripts[input] === undefined) {
+      const script = SHARED_STEP_SCRIPTS[input] ?? input;
+      if (scripts[script] === undefined) {
         problems.push(
           `  - ${file} switches on the shared pipeline's \`${input}\` step, but this repo has ` +
-            `no \`${input}\` script for it to call.`,
+            `no \`${script}\` script for it to call.`,
         );
       } else {
-        covered.push(`${file}: shared pipeline input run-${input}  ->  pnpm run ${input}`);
+        covered.push(`${file}: shared pipeline input run-${input}  ->  pnpm run ${script}`);
       }
     }
   }
