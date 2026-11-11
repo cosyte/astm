@@ -76,19 +76,34 @@ export function parseAstmDate(raw: string): AstmDate | undefined {
   // the structured value rather than zero-filled into a fabricated time, and the flag lets a caller
   // warn. Extra digits beyond 14 (fractional seconds some vendors append) are not "truncated".
   const truncated = s.length < 14 && s.length % 2 === 1;
-  const base = { raw: s, year, ...(truncated ? { truncated: true as const } : {}) };
+  // The keys are set one at a time in the order a reader sees them (`raw`, `year`, `truncated` when
+  // it holds, each component present, then `precision`), with no partial object spread in.
+  const date: DateUnderConstruction = { raw: s, year };
+  if (truncated) date.truncated = true;
 
-  if (s.length < 6) return { ...base, precision: "year" };
-  const month = Number(s.slice(4, 6));
-  if (s.length < 8) return { ...base, month, precision: "month" };
-  const day = Number(s.slice(6, 8));
-  if (s.length < 10) return { ...base, month, day, precision: "day" };
-  const hour = Number(s.slice(8, 10));
-  if (s.length < 12) return { ...base, month, day, hour, precision: "hour" };
-  const minute = Number(s.slice(10, 12));
-  if (s.length < 14) return { ...base, month, day, hour, minute, precision: "minute" };
-  const second = Number(s.slice(12, 14));
-  return { ...base, month, day, hour, minute, second, precision: "second" };
+  if (s.length < 6) return withPrecision(date, "year");
+  date.month = Number(s.slice(4, 6));
+  if (s.length < 8) return withPrecision(date, "month");
+  date.day = Number(s.slice(6, 8));
+  if (s.length < 10) return withPrecision(date, "day");
+  date.hour = Number(s.slice(8, 10));
+  if (s.length < 12) return withPrecision(date, "hour");
+  date.minute = Number(s.slice(10, 12));
+  if (s.length < 14) return withPrecision(date, "minute");
+  date.second = Number(s.slice(12, 14));
+  return withPrecision(date, "second");
+}
+
+/** An {@link AstmDate} with its keys still being set, `precision` last. */
+type DateUnderConstruction = { -readonly [K in keyof AstmDate]?: AstmDate[K] } & {
+  raw: string;
+  year: number;
+};
+
+/** Set the last key of a date under construction, its precision, and return the date. */
+function withPrecision(date: DateUnderConstruction, precision: AstmDatePrecision): AstmDate {
+  date.precision = precision;
+  return date as AstmDate;
 }
 
 /**

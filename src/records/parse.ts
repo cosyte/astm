@@ -54,7 +54,14 @@ import { classifyMessage } from "./host-query.js";
 import { applyAstmProfileToWarnings } from "../profiles/apply.js";
 import { getDefaultAstmProfile } from "../profiles/registry.js";
 import type { AstmProfile } from "../profiles/types.js";
-import { fieldScalar, tokenizeFields, tokenizeHeaderFields, type FieldSinks } from "./tokenize.js";
+import {
+  fieldScalar,
+  plainField,
+  tokenizeHeaderFields,
+  tokenizeSlots,
+  type FieldSinks,
+  type FieldSlot,
+} from "./tokenize.js";
 import type {
   AstmField,
   AstmMessage,
@@ -194,14 +201,24 @@ export function parseAstmRecords(
   let active = delimiters;
   const at: RecordAt = { recordIndex: 0, recordType: "" };
   const sinks = parseSinks(at, warnings);
-  const built: AstmRecord[] = lines.map((line, recordIndex) => {
+  // Each comment is attached to its immediately-preceding H/P/O/R parent as the records are read
+  // (an orphan, with none, to the root). The orphan warnings are pushed after every record is read,
+  // in record order, where the attachment pass after the read used to push them.
+  let lastParentIndex: number | undefined;
+  const orphans: AstmRecordWarning[] = [];
+  const records: AstmRecord[] = lines.map((line, recordIndex) => {
     if (recordIndex > 0 && line.charAt(0) === "H") {
       active = adoptRedeclaredDelimiters(line, active, recordIndex, warnings);
     }
-    return buildRecord(line, recordIndex, active, warnings, sinks, at);
+    const record = buildRecord(line, recordIndex, active, warnings, sinks, at, lastParentIndex);
+    if (record.type === "H" || record.type === "P" || record.type === "O" || record.type === "R") {
+      lastParentIndex = recordIndex;
+    } else if (record.type === "C" && record.attachedToRoot) {
+      orphans.push(orphanComment({ recordIndex, recordType: "C" }));
+    }
+    return record;
   });
-  // Second pass: attach each comment to its immediately-preceding H/P/O/R parent (an orphan → root).
-  const records = attachComments(built, warnings);
+  warnings.push(...orphans);
 
   // Host-query classification, folded over the whole stream rather than per message. `Q` dominates
   // so a query is never read as a result set; a stream that carries BOTH a Q and an R, in one message
@@ -365,9 +382,91 @@ function hasWindows1252Difference(bytes: Uint8Array): boolean {
   return false;
 }
 
-/** ASTM fields are 1-indexed; the type letter is field 1. Map an ASTM field number to the array slot. */
-function astmField(fields: readonly AstmField[], n: number): AstmField | undefined {
-  return fields[n - 1];
+/**
+ * The field at ASTM field number `n` (1-indexed; the type letter is field 1), built if it is still
+ * held as its text, and kept built in `slots` so `fields` hands back this same object.
+ */
+function fieldAt(slots: FieldSlot[], n: number): AstmField | undefined {
+  const slot = slots[n - 1];
+  if (typeof slot !== "string") return slot;
+  const field = plainField(slot);
+  slots[n - 1] = field;
+  return field;
+}
+
+/** The first component of field `n` when it has text: {@link fieldScalar} over a slot. */
+function slotScalar(slots: readonly FieldSlot[], n: number): string | undefined {
+  const slot = slots[n - 1];
+  if (typeof slot === "string") return slot.length > 0 ? slot : undefined;
+  return fieldScalar(slot);
+}
+
+/** The full text of field `n` (all components), or `undefined` when it is absent or empty. */
+function slotRaw(slots: readonly FieldSlot[], n: number): string | undefined {
+  const slot = slots[n - 1];
+  const raw = typeof slot === "string" ? slot : slot?.raw;
+  return raw !== undefined && raw.length > 0 ? raw : undefined;
+}
+
+/**
+ * Each parsed record's fields until they are read: the slots the parse held, then, once `fields`
+ * is read, the frozen array built from them. Private to this module, so no caller can reach or
+ * change what a record's fields will read as.
+ */
+const recordFields = new WeakMap<object, FieldSlot[] | readonly AstmField[]>();
+
+/**
+ * The getter every parsed record's `fields` is read through: the record's fields, built from its
+ * slots on the first read and the same frozen array on every read after it. An object that only
+ * inherits a parsed record reads that record's fields, as it would a data property.
+ */
+function readFields(this: unknown): readonly AstmField[] | undefined {
+  return fieldsOf(this);
+}
+
+/** The fields of the parsed record `target` is, or inherits from: {@link readFields}' body. */
+function fieldsOf(target: unknown): readonly AstmField[] | undefined {
+  for (let at = target; at !== null && typeof at === "object"; at = Object.getPrototypeOf(at)) {
+    const held = recordFields.get(at);
+    if (held === undefined) continue;
+    if (Object.isFrozen(held)) return held as readonly AstmField[];
+    const fields = Object.freeze(
+      held.map((slot) => (typeof slot === "string" ? plainField(slot) : slot)),
+    );
+    recordFields.set(at, fields);
+    return fields;
+  }
+  return undefined;
+}
+
+/** The descriptor of `fields` on every parsed record: enumerable, read through {@link readFields}. */
+const FIELDS_PROPERTY: PropertyDescriptor = {
+  get: readFields,
+  enumerable: true,
+  configurable: true,
+};
+
+/**
+ * Give a record under construction its `fields`, as the key after the ones it already has, read
+ * through {@link readFields} from `slots`.
+ */
+function withFields<R extends object>(record: Partial<R>, slots: FieldSlot[]): R {
+  Object.defineProperty(record, "fields", FIELDS_PROPERTY);
+  recordFields.set(record, slots);
+  // Every other key the record type requires is set by the caller before the record is sealed.
+  return record as R;
+}
+
+/**
+ * Freeze a finished record and everything it holds but its `fields`, which are frozen as they are
+ * built and are not read here, so freezing a record never builds them.
+ */
+function sealRecord<T extends object>(record: T): T {
+  const values = record as Record<string, unknown>;
+  for (const key in values) {
+    if (key !== "fields" && Object.hasOwn(values, key)) freezeBuilt(values[key]);
+  }
+  return Object.freeze(record);
 }
 
 /**
@@ -491,6 +590,7 @@ function buildRecord(
   warnings: AstmRecordWarning[],
   sinks: FieldSinks,
   at: RecordAt,
+  parentIndex: number | undefined,
 ): AstmRecord {
   const rawType = line.charAt(0);
   at.recordIndex = recordIndex;
@@ -499,10 +599,9 @@ function buildRecord(
   // delimiter declaration, so the generic tokenizer would split the declaration on its own repeat
   // and component characters and report its escape character as unpaired. Every node is frozen as
   // it is built, so the message's final freeze never walks the fields.
-  const fields =
-    rawType === "H"
-      ? tokenizeHeaderFields(line, d, sinks, true)
-      : tokenizeFields(line, d, sinks, 0, true);
+  // A plain field is held as its text and built only when `fields` is read (see FieldSlot).
+  const slots: FieldSlot[] =
+    rawType === "H" ? tokenizeHeaderFields(line, d, sinks, true) : tokenizeSlots(line, d, sinks);
 
   // A record that carries content beyond its type letter but yields exactly ONE field contains no
   // field separator at all, so the delimiters in force are not the set this record was written
@@ -549,108 +648,109 @@ function buildRecord(
   //
   // A header is exempt by construction, not by exception: `tokenizeHeader` always yields the type
   // letter plus the delimiter declaration, and a header is read with the set it declares itself.
-  if (fields.length === 1 && line.slice(1).trim().length > 0) {
+  if (slots.length === 1 && line.slice(1).trim().length > 0) {
     warnings.push(fieldsUnseparated({ recordIndex, recordType: rawType }));
   }
 
   switch (rawType) {
-    case "H":
-      return {
-        type: "H",
-        recordIndex,
-        fields,
-        delimiters: d,
-        rawLine: line,
-      } satisfies HeaderRecord;
+    case "H": {
+      const header = withFields<Mutable<HeaderRecord>>({ type: "H", recordIndex }, slots);
+      header.delimiters = d;
+      header.rawLine = line;
+      return sealRecord(header);
+    }
     case "P":
-      return buildPatient(recordIndex, fields, warnings);
+      return buildPatient(recordIndex, slots, warnings);
     case "O":
-      return buildOrder(recordIndex, fields);
+      return buildOrder(recordIndex, slots);
     case "R":
-      return buildResult(recordIndex, fields, warnings);
+      return buildResult(recordIndex, slots, warnings);
     case "C":
-      return buildComment(recordIndex, fields);
+      return buildComment(recordIndex, slots, parentIndex);
     case "Q":
-      return buildQuery(recordIndex, fields, warnings);
+      return buildQuery(recordIndex, slots, warnings);
     // `M` (manufacturer) and `S` (scientific) are vendor-defined free-form data surfaced VERBATIM and
     // NEVER interpreted into typed clinical fields: the exact wire line is preserved for round-trip.
     case "M":
-      return { type: "M", recordIndex, fields, rawLine: line } satisfies ManufacturerRecord;
-    case "S":
-      return { type: "S", recordIndex, fields, rawLine: line } satisfies ScientificRecord;
+    case "S": {
+      const verbatim = withFields<Mutable<ManufacturerRecord | ScientificRecord>>(
+        { type: rawType, recordIndex },
+        slots,
+      );
+      verbatim.rawLine = line;
+      return sealRecord(verbatim);
+    }
     case "L":
-      return { type: "L", recordIndex, fields } satisfies TerminatorRecord;
+      return sealRecord(withFields<TerminatorRecord>({ type: "L", recordIndex }, slots));
     default: {
       warnings.push(unknownRecordType({ recordIndex, recordType: rawType }));
-      return { type: "unsupported", rawType, recordIndex, fields } satisfies UnsupportedRecord;
+      return sealRecord(
+        withFields<UnsupportedRecord>({ type: "unsupported", rawType, recordIndex }, slots),
+      );
     }
   }
 }
 
 function buildPatient(
   recordIndex: number,
-  fields: readonly AstmField[],
+  slots: FieldSlot[],
   warnings: AstmRecordWarning[],
 ): PatientRecord {
   // A name is built from the parts present: an empty component is absent from `name`, never the
   // empty string, whether the sender wrote its delimiter (`DOE^^`) or left it off (`DOE`), and a
   // name whose last part is empty (`^JANE^`) is still a name. Only a field with no text in any of
   // the three parts reads no name.
-  const nameField = astmField(fields, 6);
-  const nameParts = {
-    ...nonEmptyString("last", nameField?.components[0]),
-    ...nonEmptyString("first", nameField?.components[1]),
-    ...nonEmptyString("middle", nameField?.components[2]),
-  };
-  const name: PatientName | undefined =
-    nameField !== undefined && Object.keys(nameParts).length > 0
-      ? { raw: nameField.raw, ...nameParts }
-      : undefined;
+  const name = patientName(slots[5]);
 
-  const birthDate = parseDateField(
-    fieldScalar(astmField(fields, 8)),
-    recordIndex,
-    "P",
-    8,
-    warnings,
-  );
+  const birthDate = parseDateField(slotScalar(slots, 8), recordIndex, "P", 8, warnings);
 
-  return {
-    type: "P",
-    recordIndex,
-    fields,
-    ...definedString("seq", fieldScalar(astmField(fields, 2))),
-    // The three patient identifiers stay DISTINCT: practice-assigned (3), laboratory-assigned (4),
-    // and a third ID (5) never collapse into one; conflating them is the primary misfiling path.
-    ...definedString("practiceAssignedId", fieldScalar(astmField(fields, 3))),
-    ...definedString("laboratoryAssignedId", fieldScalar(astmField(fields, 4))),
-    ...definedString("patientIdThree", fieldScalar(astmField(fields, 5))),
-    ...(name !== undefined ? { name } : {}),
-    ...definedString("mothersMaidenName", fieldScalar(astmField(fields, 7))),
-    ...(birthDate !== undefined ? { birthDate } : {}),
-    ...definedString("sex", fieldScalar(astmField(fields, 9))),
-  };
+  // Each optional key is set only when it has a value, in this order, so the record is built
+  // without a temporary object for each key.
+  const out = withFields<Mutable<PatientRecord>>({ type: "P", recordIndex }, slots);
+  put(out, "seq", slotScalar(slots, 2));
+  // The three patient identifiers stay DISTINCT: practice-assigned (3), laboratory-assigned (4),
+  // and a third ID (5) never collapse into one; conflating them is the primary misfiling path.
+  put(out, "practiceAssignedId", slotScalar(slots, 3));
+  put(out, "laboratoryAssignedId", slotScalar(slots, 4));
+  put(out, "patientIdThree", slotScalar(slots, 5));
+  put(out, "name", name);
+  put(out, "mothersMaidenName", slotScalar(slots, 7));
+  put(out, "birthDate", birthDate);
+  put(out, "sex", slotScalar(slots, 9));
+  return sealRecord(out);
 }
 
-function buildOrder(recordIndex: number, fields: readonly AstmField[]): OrderRecord {
-  const utidField = astmField(fields, 5);
-  return {
-    type: "O",
-    recordIndex,
-    fields,
-    ...definedString("seq", fieldScalar(astmField(fields, 2))),
-    ...definedString("specimenId", fieldScalar(astmField(fields, 3))),
-    ...definedString("instrumentSpecimenId", fieldScalar(astmField(fields, 4))),
-    ...(hasContent(utidField)
-      ? { universalTestId: recognizeUniversalTestId(utidField.components) }
-      : {}),
-    // Priority (6), action code (~12), and report type (~26) are surfaced verbatim. The `~` field
-    // indices and the code sets are `[OSS-derived]` (paywalled), so they are never mapped to a
-    // guessed meaning: see the JSDoc on `OrderRecord`.
-    ...definedString("priority", fieldScalar(astmField(fields, 6))),
-    ...definedString("actionCode", fieldScalar(astmField(fields, 12))),
-    ...definedString("reportType", fieldScalar(astmField(fields, 26))),
-  };
+/**
+ * The patient name a name field carries: each of the three parts present, an empty part absent,
+ * and no name at all when no part has text.
+ */
+function patientName(slot: FieldSlot | undefined): PatientName | undefined {
+  if (slot === undefined) return undefined;
+  // A plain field is one component, the last name.
+  if (typeof slot === "string") return slot.length > 0 ? { raw: slot, last: slot } : undefined;
+  const name: Mutable<PatientName> = { raw: slot.raw };
+  putNonEmpty(name, "last", slot.components[0]);
+  putNonEmpty(name, "first", slot.components[1]);
+  putNonEmpty(name, "middle", slot.components[2]);
+  return name.last !== undefined || name.first !== undefined || name.middle !== undefined
+    ? name
+    : undefined;
+}
+
+function buildOrder(recordIndex: number, slots: FieldSlot[]): OrderRecord {
+  const utidField = fieldAt(slots, 5);
+  const out = withFields<Mutable<OrderRecord>>({ type: "O", recordIndex }, slots);
+  put(out, "seq", slotScalar(slots, 2));
+  put(out, "specimenId", slotScalar(slots, 3));
+  put(out, "instrumentSpecimenId", slotScalar(slots, 4));
+  if (hasContent(utidField)) out.universalTestId = recognizeUniversalTestId(utidField.components);
+  // Priority (6), action code (~12), and report type (~26) are surfaced verbatim. The `~` field
+  // indices and the code sets are `[OSS-derived]` (paywalled), so they are never mapped to a
+  // guessed meaning: see the JSDoc on `OrderRecord`.
+  put(out, "priority", slotScalar(slots, 6));
+  put(out, "actionCode", slotScalar(slots, 12));
+  put(out, "reportType", slotScalar(slots, 26));
+  return sealRecord(out);
 }
 
 /**
@@ -664,46 +764,36 @@ function hasContent(field: AstmField | undefined): field is AstmField {
 
 function buildResult(
   recordIndex: number,
-  fields: readonly AstmField[],
+  slots: FieldSlot[],
   warnings: AstmRecordWarning[],
 ): ResultRecord {
-  const utidField = astmField(fields, 3);
-  const valueField = astmField(fields, 4);
-  const startedAt = parseDateField(
-    fieldScalar(astmField(fields, 12)),
-    recordIndex,
-    "R",
-    12,
-    warnings,
-  );
-  const completedAt = parseDateField(
-    fieldScalar(astmField(fields, 13)),
-    recordIndex,
-    "R",
-    13,
-    warnings,
-  );
+  const utidField = fieldAt(slots, 3);
+  const valueSlot = slots[3];
+  const startedAt = parseDateField(slotScalar(slots, 12), recordIndex, "R", 12, warnings);
+  const completedAt = parseDateField(slotScalar(slots, 13), recordIndex, "R", 13, warnings);
 
   // A value field with more than one component carried an *unescaped* component delimiter: an
   // ambiguity. Fail-safe: surface BOTH the full raw value (so nothing is truncated) AND the split,
   // and WARN. Never resolve it silently to a single (wrong, truncated) value.
+  // Only a field that was split can hold more than one component, and that field is built already.
+  const valueField = typeof valueSlot === "object" ? valueSlot : undefined;
   const ambiguous = valueField !== undefined && valueField.components.length > 1;
   const valueComponents = ambiguous ? valueField.components : undefined;
   // The primary `value` is the decoded scalar for the ordinary single-component case, but the FULL
   // raw field text when ambiguous, so `results(msg)[0].value` is never a truncated component.
-  const value = ambiguous ? valueField.raw : fieldScalar(valueField);
+  const value = ambiguous ? valueField.raw : slotScalar(slots, 4);
   if (ambiguous) {
     warnings.push(ambiguousValueSplit({ recordIndex, recordType: "R", fieldIndex: 4 }));
   }
 
   // ── Phase 2: modeled, fail-safe result semantics (raw fields still surfaced alongside). ──
-  const units = fieldScalar(astmField(fields, 5));
+  const units = slotScalar(slots, 5);
   // Reference range is surfaced from the FULL field text (not the first component), so a
   // component-delimited value (`low^high`) is preserved verbatim and read as `unparsed` + warned,
   // never truncated to a single bound. A present-but-empty field is treated as absent (no warn).
-  const rangeRaw = fieldRaw(astmField(fields, 6));
-  const flagRaw = fieldScalar(astmField(fields, 7));
-  const statusRaw = fieldScalar(astmField(fields, 9));
+  const rangeRaw = slotRaw(slots, 6);
+  const flagRaw = slotScalar(slots, 7);
+  const statusRaw = slotScalar(slots, 9);
 
   // Units: a *numeric* value with no units is the hazard (a bare magnitude is meaningless). Warn only
   // then: a qualitative result (e.g. "POSITIVE") legitimately has no units. Never default or guess.
@@ -727,53 +817,57 @@ function buildResult(
     warnings.push(undefinedResultStatus({ recordIndex, recordType: "R", fieldIndex: 9 }));
   }
 
-  return {
-    type: "R",
-    recordIndex,
-    fields,
-    ...definedString("seq", fieldScalar(astmField(fields, 2))),
-    ...(hasContent(utidField)
-      ? { universalTestId: recognizeUniversalTestId(utidField.components) }
-      : {}),
-    ...definedString("value", value),
-    ...(valueComponents !== undefined ? { valueComponents } : {}),
-    ...definedString("units", units),
-    ...definedString("referenceRange", rangeRaw),
-    ...(range !== undefined ? { range } : {}),
-    ...definedString("abnormalFlags", flagRaw),
-    ...(flag !== undefined ? { flag } : {}),
-    ...definedString("resultStatus", statusRaw),
-    status,
-    ...definedString("operator", fieldScalar(astmField(fields, 11))),
-    ...(startedAt !== undefined ? { startedAt } : {}),
-    ...(completedAt !== undefined ? { completedAt } : {}),
-    ...definedString("instrument", fieldScalar(astmField(fields, 14))),
-  };
+  const out = withFields<
+    Mutable<Omit<ResultRecord, "status">> & { status?: ResultRecord["status"] }
+  >({ type: "R", recordIndex }, slots);
+  put(out, "seq", slotScalar(slots, 2));
+  if (hasContent(utidField)) out.universalTestId = recognizeUniversalTestId(utidField.components);
+  put(out, "value", value);
+  put(out, "valueComponents", valueComponents);
+  put(out, "units", units);
+  put(out, "referenceRange", rangeRaw);
+  put(out, "range", range);
+  put(out, "abnormalFlags", flagRaw);
+  put(out, "flag", flag);
+  put(out, "resultStatus", statusRaw);
+  out.status = status;
+  put(out, "operator", slotScalar(slots, 11));
+  put(out, "startedAt", startedAt);
+  put(out, "completedAt", completedAt);
+  put(out, "instrument", slotScalar(slots, 14));
+  return sealRecord(out as ResultRecord);
 }
 
 /**
  * Build a `C` (comment) record from its fields. Parent attachment is resolved in a second pass
  * ({@link attachComments}); here `attachedToRoot` is a provisional `false` and `parentIndex` is unset.
  */
-function buildComment(recordIndex: number, fields: readonly AstmField[]): CommentRecord {
-  const textField = astmField(fields, 4);
+function buildComment(
+  recordIndex: number,
+  slots: FieldSlot[],
+  parentIndex: number | undefined,
+): CommentRecord {
+  // Only a field that was split can hold more than one component, and that field is built already.
+  const textSlot = slots[3];
+  const textField = typeof textSlot === "object" ? textSlot : undefined;
   // Comment text is component-capable: multiple components are a normal structured comment, not an
   // ambiguity, so no warning. Surface the FULL field text (never truncated) plus the component split.
   const textComponents =
     textField !== undefined && textField.components.length > 1 ? textField.components : undefined;
-  const text = textField !== undefined && textField.raw.length > 0 ? textField.raw : undefined;
+  const text = slotRaw(slots, 4);
 
-  return {
-    type: "C",
-    recordIndex,
-    fields,
-    attachedToRoot: false,
-    ...definedString("seq", fieldScalar(astmField(fields, 2))),
-    ...definedString("source", fieldScalar(astmField(fields, 3))),
-    ...definedString("text", text),
-    ...(textComponents !== undefined ? { textComponents } : {}),
-    ...definedString("commentType", fieldScalar(astmField(fields, 5))),
-  };
+  // The comment's parent is the H, P, O or R record before it, found as the records are read, so
+  // `attachedToRoot` is set where it has always sat and `parentIndex` is the last key, as the
+  // attachment pass after the read used to leave them.
+  const out = withFields<Mutable<CommentRecord>>({ type: "C", recordIndex }, slots);
+  out.attachedToRoot = parentIndex === undefined;
+  put(out, "seq", slotScalar(slots, 2));
+  put(out, "source", slotScalar(slots, 3));
+  put(out, "text", text);
+  put(out, "textComponents", textComponents);
+  put(out, "commentType", slotScalar(slots, 5));
+  put(out, "parentIndex", parentIndex);
+  return sealRecord(out);
 }
 
 /**
@@ -785,38 +879,37 @@ function buildComment(recordIndex: number, fields: readonly AstmField[]): Commen
  */
 function buildQuery(
   recordIndex: number,
-  fields: readonly AstmField[],
+  slots: FieldSlot[],
   warnings: AstmRecordWarning[],
 ): QueryRecord {
-  const utidField = astmField(fields, 5);
+  const utidField = fieldAt(slots, 5);
   // The `ALL` universal-query keyword is recognized as a literal token only; its behavior is paywalled.
-  const utidRaw = fieldRaw(utidField);
+  const utidRaw = slotRaw(slots, 5);
   const queriesAllTests = utidRaw !== undefined && utidRaw.trim().toUpperCase() === "ALL";
 
   // Surfaced from the FULL field text (fieldRaw, not fieldScalar) so it is literally verbatim: never
   // escape-decoded and never truncated to the first component, and so the uninterpreted-status warning
   // fires on ANY non-empty field-13 (matching the range-ID fields above). The status code set is
   // paywalled, so the value is passed through untouched, never interpreted.
-  const requestInformationStatus = fieldRaw(astmField(fields, 13));
+  const requestInformationStatus = slotRaw(slots, 13);
   if (requestInformationStatus !== undefined) {
     warnings.push(uninterpretedQueryStatus({ recordIndex, recordType: "Q", fieldIndex: 13 }));
   }
 
-  return {
-    type: "Q",
-    recordIndex,
-    fields,
-    ...definedString("seq", fieldScalar(astmField(fields, 2))),
-    // Range IDs are surfaced from the FULL field text (never truncated to a component); their internal
-    // caret structure is [OSS-derived]/paywalled and is not interpreted here.
-    ...definedString("startingRangeId", fieldRaw(astmField(fields, 3))),
-    ...definedString("endingRangeId", fieldRaw(astmField(fields, 4))),
-    ...(hasContent(utidField) && !queriesAllTests
-      ? { universalTestId: recognizeUniversalTestId(utidField.components) }
-      : {}),
-    queriesAllTests,
-    ...definedString("requestInformationStatus", requestInformationStatus),
-  };
+  const out = withFields<
+    Mutable<Omit<QueryRecord, "queriesAllTests">> & { queriesAllTests?: boolean }
+  >({ type: "Q", recordIndex }, slots);
+  put(out, "seq", slotScalar(slots, 2));
+  // Range IDs are surfaced from the FULL field text (never truncated to a component); their internal
+  // caret structure is [OSS-derived]/paywalled and is not interpreted here.
+  put(out, "startingRangeId", slotRaw(slots, 3));
+  put(out, "endingRangeId", slotRaw(slots, 4));
+  if (hasContent(utidField) && !queriesAllTests) {
+    out.universalTestId = recognizeUniversalTestId(utidField.components);
+  }
+  out.queriesAllTests = queriesAllTests;
+  put(out, "requestInformationStatus", requestInformationStatus);
+  return sealRecord(out as QueryRecord);
 }
 
 /**
@@ -893,17 +986,15 @@ function isNumericValue(value: string): boolean {
   return /^\s*(?:[<>]\s*)?-?\d+(?:\.\d+)?\s*$/u.test(value);
 }
 
-/** The full field text (all components), or `undefined` when the field is absent or empty. */
-function fieldRaw(field: AstmField | undefined): string | undefined {
-  return field !== undefined && field.raw.length > 0 ? field.raw : undefined;
+/** A record type with every key writable, so the parse can set its keys one at a time. */
+type Mutable<T> = { -readonly [K in keyof T]: T[K] };
+
+/** Set `key` only when `value` is defined, so an absent value leaves the key absent. */
+function put<T, K extends keyof T>(target: T, key: K, value: T[K] | undefined): void {
+  if (value !== undefined) target[key] = value;
 }
 
-/** Spread helper: include `{ [key]: value }` only when `value` is a defined string. */
-function definedString(key: string, value: string | undefined): Record<string, string> {
-  return value === undefined ? {} : { [key]: value };
-}
-
-/** Like {@link definedString}, but an empty string is absent too. */
-function nonEmptyString(key: string, value: string | undefined): Record<string, string> {
-  return value === undefined || value.length === 0 ? {} : { [key]: value };
+/** Like {@link put} for a string, with an empty string absent too. */
+function putNonEmpty<T, K extends keyof T>(target: T, key: K, value: string | undefined): void {
+  if (value !== undefined && value.length > 0) target[key] = value as T[K];
 }

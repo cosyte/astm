@@ -227,6 +227,62 @@ export function tokenizeFields(
 }
 
 /**
+ * One field of a record as the parse first holds it: the field's own text where the field is
+ * plain (see {@link isPlainField}), or the field already built where reading it took a split or a
+ * decode. A plain field is built only when a caller reads it ({@link plainField}), and it is built
+ * the same as it would have been at once.
+ *
+ * @internal
+ */
+export type FieldSlot = string | AstmField;
+
+/**
+ * Tokenize a record's fields into {@link FieldSlot}s: the same reading as {@link tokenizeFields},
+ * reporting the same things in the same order, with each plain field left as its text. A plain
+ * field reports nothing (every report needs an escape character), so leaving it unbuilt moves no
+ * report.
+ *
+ * @internal
+ */
+export function tokenizeSlots(record: string, d: Delimiters, sinks: FieldSinks): FieldSlot[] {
+  const rawFields: FieldSlot[] = splitEscapeAware(
+    record,
+    d.field,
+    d.escape,
+    (fieldIndex) => report(sinks.onAmbiguousAlignment, fieldIndex),
+    (fieldIndex) => report(sinks.onAlignmentShiftedFields, fieldIndex),
+  );
+  for (let i = 0; i < rawFields.length; i += 1) {
+    const raw = rawFields[i] as string;
+    if (!isPlainField(raw, d)) rawFields[i] = toField(raw, d, sinks, i, true);
+  }
+  return rawFields;
+}
+
+/**
+ * Whether a field has no repeat delimiter, no component delimiter and no escape character: one
+ * repeat of one component, its own text. The splits would each hand back the whole text and report
+ * nothing, since every report needs an escape character, and the decode would return it as is.
+ *
+ * @internal
+ */
+export function isPlainField(raw: string, d: Delimiters): boolean {
+  return !raw.includes(d.repeat) && !raw.includes(d.component) && !raw.includes(d.escape);
+}
+
+/**
+ * The frozen field a plain field's text reads as: one repeat of one component, its text. Every
+ * empty field is the one shared {@link EMPTY_FIELD}.
+ *
+ * @internal
+ */
+export function plainField(raw: string): AstmField {
+  if (raw.length === 0) return EMPTY_FIELD;
+  const components = Object.freeze([raw]);
+  return Object.freeze({ raw, components, repeats: Object.freeze([components]) });
+}
+
+/**
  * The body of {@link tokenizeHeader}, with the same `freeze` switch as {@link tokenizeFields}.
  *
  * @internal
@@ -270,17 +326,11 @@ function toField(
   fieldIndex: number,
   freeze: boolean,
 ): AstmField {
-  // A field with no repeat delimiter, no component delimiter and no escape character is one repeat
-  // of one component, its own text: the splits below would each hand back the whole text and report
-  // nothing, since every report needs an escape character, and the decode would return it as is.
-  if (!raw.includes(d.repeat) && !raw.includes(d.component) && !raw.includes(d.escape)) {
-    if (!freeze) {
-      const components = [raw];
-      return { raw, components, repeats: [components] };
-    }
-    if (raw.length === 0) return EMPTY_FIELD;
-    const components = Object.freeze([raw]);
-    return Object.freeze({ raw, components, repeats: Object.freeze([components]) });
+  // A plain field is one repeat of one component, its own text (see isPlainField).
+  if (isPlainField(raw, d)) {
+    if (freeze) return plainField(raw);
+    const components = [raw];
+    return { raw, components, repeats: [components] };
   }
   const onUnknownEscape = (): void => report(sinks.onUnknownEscape, fieldIndex);
   const onUnpairedEscape = (): void => report(sinks.onUnpairedEscape, fieldIndex);

@@ -1559,6 +1559,11 @@ surfaced, never mapped to a guessed meaning.
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
 
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
+
 ###### Inherited from
 
 `RecordBase.fields`
@@ -2024,6 +2029,11 @@ guessed one.
 > `readonly` **fields**: readonly [`AstmField`](#astmfield)[]
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
+
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
 
 ###### Inherited from
 
@@ -2645,6 +2655,11 @@ this record carries **no typed accessors at all**: the exact wire text is in
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
 
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
+
 ###### Inherited from
 
 `RecordBase.fields`
@@ -2822,6 +2837,11 @@ Field 12: action code, surfaced raw (e.g. `C` cancel, `A` add, `N` new). The exa
 > `readonly` **fields**: readonly [`AstmField`](#astmfield)[]
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
+
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
 
 ###### Inherited from
 
@@ -3022,6 +3042,11 @@ Field 8: birthdate (`YYYYMMDDHHMMSS`, precision-preserving; a truncated run sets
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
 
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
+
 ###### Inherited from
 
 `RecordBase.fields`
@@ -3170,6 +3195,11 @@ Field 4: ending range ID number, surfaced verbatim (same `[OSS-derived]` caveat 
 > `readonly` **fields**: readonly [`AstmField`](#astmfield)[]
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
+
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
 
 ###### Inherited from
 
@@ -3401,6 +3431,11 @@ Field 13: test completed timestamp.
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
 
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
+
 ###### Inherited from
 
 `RecordBase.fields`
@@ -3616,6 +3651,11 @@ as [ManufacturerRecord](#manufacturerrecord)).
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
 
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
+
 ###### Inherited from
 
 `RecordBase.fields`
@@ -3670,6 +3710,11 @@ The `L` (terminator) record: closes a message.
 > `readonly` **fields**: readonly [`AstmField`](#astmfield)[]
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
+
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
 
 ###### Inherited from
 
@@ -3834,6 +3879,11 @@ not theirs they do not split at all, which is reported per record as
 > `readonly` **fields**: readonly [`AstmField`](#astmfield)[]
 
 The record's fields. `fields[0]` is the type-letter field; data fields are 1-indexed after it.
+
+On a record the parser returns this is an enumerable getter, not a data property: a field with
+no repeat, component or escape character is built the first time `fields` is read, and every
+read after that returns the same frozen array. Object keys, spread, `JSON.stringify` and
+`structuredClone` all see it as a value. Every empty field is one shared frozen object.
 
 ###### Inherited from
 

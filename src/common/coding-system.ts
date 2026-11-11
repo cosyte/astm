@@ -96,14 +96,17 @@ export function recognizeUniversalTestId(components: readonly string[]): Univers
   else if (testName !== undefined) provenance = "name-only";
   else provenance = "empty";
 
-  const base = { components, provenance };
-  return {
-    ...base,
-    ...(unvalidatedWireValue !== undefined ? { unvalidatedWireValue } : {}),
-    ...(testName !== undefined ? { testName } : {}),
-    ...(codingScheme !== undefined ? { codingScheme } : {}),
-    ...(localCode !== undefined ? { localCode } : {}),
+  // Each part present is set in this order and an absent one left absent, with no temporary object
+  // spread in for each.
+  const id: { -readonly [K in keyof UniversalTestId]: UniversalTestId[K] } = {
+    components,
+    provenance,
   };
+  if (unvalidatedWireValue !== undefined) id.unvalidatedWireValue = unvalidatedWireValue;
+  if (testName !== undefined) id.testName = testName;
+  if (codingScheme !== undefined) id.codingScheme = codingScheme;
+  if (localCode !== undefined) id.localCode = localCode;
+  return id;
 }
 
 /**
