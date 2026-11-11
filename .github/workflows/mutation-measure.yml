@@ -1,0 +1,102 @@
+name: Mutation measure
+
+# Temporary: two full mutation runs at StrykerJS's default timeouts and two at the raised ones in
+# stryker.config.mjs, each from nothing (no incremental results), so the count of timed-out mutants
+# can be compared across runs. Removed before the pull request is ready.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        timeouts: ["default", "raised"]
+        run: [1, 2]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Use StrykerJS's default timeouts
+        if: ${{ matrix.timeouts == 'default' }}
+        shell: bash
+        run: |
+          cat > stryker.config.mjs <<'EOF'
+          import { cosyteStryker } from "@cosyte/vitest-config/stryker";
+          export default cosyteStryker({ vitestConfig: "vitest.mutation.config.ts" });
+          EOF
+          cat stryker.config.mjs
+      - name: Mutate this shard
+        shell: bash
+        env:
+          COSYTE_MUTATE_SHARD: ${{ matrix.shard }}/8
+        run: pnpm mutate:full
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: measure-${{ matrix.timeouts }}-${{ matrix.run }}-shard-${{ matrix.shard }}-of-8
+          path: reports/mutation/shard-${{ matrix.shard }}-of-8.json
+          if-no-files-found: error
+          retention-days: 7
+
+  merge:
+    needs: shard
+    strategy:
+      fail-fast: false
+      matrix:
+        timeouts: ["default", "raised"]
+        run: [1, 2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: cosyte/.github
+          ref: 398cd4ded647dddd9f2e220ceb042840f59e1426
+          path: .cosyte-mutation-tooling
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: measure-${{ matrix.timeouts }}-${{ matrix.run }}-shard-*-of-8
+          path: ${{ runner.temp }}/shards/reports/mutation
+          merge-multiple: true
+      - name: Merge, count and score
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .cosyte-mutation-tooling/scripts/mutation-shards.mjs merge \
+            --shards "${RUNNER_TEMP}/shards" --count 8 --into .
+          node -e '
+            const r = JSON.parse(require("node:fs").readFileSync("reports/mutation/mutation.json", "utf8"));
+            const c = {};
+            for (const f of Object.values(r.files)) for (const m of f.mutants) c[m.status] = (c[m.status] ?? 0) + 1;
+            console.log("MEASURE ${{ matrix.timeouts }} run ${{ matrix.run }}: " + JSON.stringify(c));
+          '
+          pnpm exec cosyte-ratchet check --skip coverage || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: measure-${{ matrix.timeouts }}-${{ matrix.run }}-merged
+          path: reports/mutation/mutation.json
+          retention-days: 7
