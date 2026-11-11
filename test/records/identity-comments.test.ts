@@ -153,6 +153,23 @@ describe("attachComments: the orphan fail-safe", () => {
     expect((out[3] as CommentRecord).parentIndex).toBe(1);
     expect(warnings).toHaveLength(0);
   });
+
+  it("passes a record that is neither a comment nor a parent through as it is", () => {
+    const warnings: AstmRecordWarning[] = [];
+    const terminator: AstmRecord = { type: "L", recordIndex: 1, fields: [] };
+    const recs: AstmRecord[] = [{ type: "P", recordIndex: 0, fields: [] }];
+    const out = attachComments([...recs, terminator], warnings);
+    expect(out[1]).toBe(terminator);
+    expect(warnings).toHaveLength(0);
+  });
+
+  it("matches what the parse attaches for a stream read whole", () => {
+    const msg = parseAstmRecords("H|\\^&\rC|1|I|a|G\rP|1\rC|1|I|b|G\rL|1\rC|1|I|c|G\r");
+    const warnings: AstmRecordWarning[] = [];
+    const attached = attachComments(msg.records, warnings);
+    expect(attached).toEqual(msg.records);
+    expect(warnings).toEqual([]);
+  });
 });
 
 describe("parseAstmRecords: partial-timestamp hardening (Tier-2)", () => {
