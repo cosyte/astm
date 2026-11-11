@@ -57,10 +57,10 @@ raise a floor, run `pnpm quality:raise` after a full run and open a pull request
 Properties under `test/property/` run through `test/property/_property.ts`: 100 cases a property on
 a pull request, and 10,000 each night (`.github/workflows/nightly-properties.yml`, which runs
 `pnpm test:properties`), each night's seed of each property printed in its log. The fuzz targets
-keep their own nightly run, `pnpm fuzz`. CI runs the suite on Linux and macOS, and under Bun and
+keep their own nightly run, `pnpm fuzz`. CI runs the suite on Linux and macOS, on Windows (Node 22, 24 and
+26, in `ci.yml`'s `windows` job, every `verify` step up to the build but attw), and under Bun and
 Deno; a test that cannot run on one is skipped there by name, with its reason, through the checks
-in `test/_helpers/runtime.ts`. The suite also passes on Windows, where CI's `verify` waits on the
-shared attw gate (see `ci.yml`).
+in `test/_helpers/runtime.ts`.
 
 ## Benchmarks
 

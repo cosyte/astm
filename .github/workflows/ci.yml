@@ -50,10 +50,7 @@ jobs:
   # release's name carries its date, which a PHI scan of a changed file reads as a date of service,
   # so the comment names its commit instead.
   #
-  # Not on Windows yet. The suite passes there (1,404 tests on Node 22, 24 and 26, measured on
-  # this caller's first Windows run), but `verify` then runs `pnpm attw`, and the shared attw gate
-  # in @cosyte/script-utils starts `node_modules/.bin/attw` without a shell, which Windows cannot
-  # do (spawnSync ... ENOENT). `windows-latest` joins `os` below once that gate runs there.
+  # Windows runs the suite in the `windows` job below rather than in `verify`: see there.
   ci:
     uses: cosyte/.github/.github/workflows/ci.yml@398cd4ded647dddd9f2e220ceb042840f59e1426 # the release of 398cd4ded647
     with:
@@ -66,6 +63,40 @@ jobs:
       run-scaling-gate: true
       run-bench-compare: true
       bench-suites: bench/astm.bench.mjs
+
+  # `verify`'s steps on Windows, on Node 22, 24 and 26, up to the build: not attw and the packed
+  # smoke after it. Not the shared `verify` on `windows-latest`: that leg runs `pnpm attw`, and the
+  # attw gate in @cosyte/script-utils 0.1.10 starts `node_modules/.bin/attw` without a shell, which
+  # on Windows is a `.cmd` shim Node cannot start (spawnSync ... ENOENT, after every earlier step
+  # passed). Once a script-utils release runs that gate on Windows, add "windows-latest" to `os`
+  # above and delete this job. Not a required context.
+  windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "24", "26"]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      # Actions are pinned to a commit rather than to a tag that can move.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm phi-scan
+      - run: pnpm test
+      - run: pnpm test:coverage
+      - run: pnpm build
 
   # The runnable examples under examples/, checked the way a consumer meets them: each imports
   # `@cosyte/astm` by name, which resolves through package.json `exports` to the BUILT dist/, so
