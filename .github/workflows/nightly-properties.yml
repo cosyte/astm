@@ -14,6 +14,8 @@ name: Nightly properties
 # property take far longer than 100 do. The shared job stops the whole run at 60 minutes.
 
 on:
+  push:
+    branches: [test/testing-standard]
   schedule:
     # 04:29 UTC. An odd minute: GitHub delays scheduled runs at the start of every hour.
     - cron: "29 4 * * *"

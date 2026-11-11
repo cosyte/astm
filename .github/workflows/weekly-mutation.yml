@@ -13,6 +13,8 @@ name: Weekly mutation
 # `pnpm quality:raise --skip coverage`, and open a pull request.
 
 on:
+  push:
+    branches: [test/testing-standard]
   schedule:
     # Sunday and Wednesday 06:41 UTC. An odd minute: GitHub delays scheduled runs at the start of
     # every hour.
