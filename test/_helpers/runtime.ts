@@ -2,9 +2,10 @@
  * Where the suite runs, and how a test starts this repository's TypeScript tooling (`tsx`) in a
  * child process on every system and runtime CI runs it on.
  *
- * CI runs the suite on Linux, Windows and macOS under Node, and again under Bun and under Deno. A
- * test that cannot run on one of them is skipped there by name, with `it.skipIf(...)` and a comment
- * giving the reason, never left to fail or deleted.
+ * CI runs the suite on Linux and macOS under Node, and again under Bun and under Deno; the suite
+ * also passes on Windows, and these helpers keep it so. A test that cannot run on one of them is
+ * skipped there by name, with `it.skipIf(...)` and a comment giving the reason, never left to fail
+ * or deleted.
  *
  * @module
  */

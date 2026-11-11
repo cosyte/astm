@@ -133,12 +133,13 @@ describe("the property suites", () => {
 });
 
 describe("the workflow callers", () => {
-  it("ci.yml turns on every system, Bun, Deno, the coverage ratchet and the mutation job", () => {
+  it("ci.yml turns on macOS, Bun, Deno, the coverage ratchet and the mutation job", () => {
     const ci = read(".github", "workflows", "ci.yml");
     for (const input of ["run-bun", "run-deno", "run-coverage-ratchet", "run-mutation"]) {
       expect(ci).toMatch(new RegExp(`^      ${input}: true$`, "mu"));
     }
-    expect(ci).toMatch(/^ {6}os: '\["ubuntu-latest", "windows-latest", "macos-latest"\]'$/mu);
+    // Windows waits on the shared attw gate, which cannot start attw there (see ci.yml).
+    expect(ci).toMatch(/^ {6}os: '\["ubuntu-latest", "macos-latest"\]'$/mu);
   });
 
   it("the nightly property run and the sharded weekly mutation run are scheduled, at the reference ci.yml uses", () => {

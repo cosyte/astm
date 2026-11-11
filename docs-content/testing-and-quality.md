@@ -34,7 +34,7 @@ what the parser returns, not only that it did not throw.
 ## How each one runs
 
 - **Unit tests, fixtures, properties, fuzzing and doc samples** run in one Vitest suite on every pull
-  request and on `main`, on Node.js 22, 24 and 26, on Linux, Windows and macOS, and again under Bun
+  request and on `main`, on Node.js 22, 24 and 26, on Linux and macOS, and again under Bun
   and under Deno. A test that cannot run on one of them is skipped there by name, with its reason in
   the test file.
 - **Property tests** run 100 cases each on a pull request, or the larger count a test names. Each

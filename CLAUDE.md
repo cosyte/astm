@@ -8,9 +8,9 @@ framing, E1394 records, LIVD-based LOINC lookup). Public on npm, it copies the A
 ## Gate
 
 Required: `ci / verify` (Node 22, 24), `ci / actionlint`, `no-internal-refs / public-surface`; CI
-also runs Node 26, Windows and macOS, Bun and Deno, `coverage-ratchet` and `mutation`. From the
-repo root, in this order, with the pnpm `packageManager` pins first on PATH: a newer one refuses
-the install, and `test/docs-content.test.ts` runs a bare `pnpm build`.
+also runs Node 26, macOS, Bun and Deno, `coverage-ratchet` and `mutation`. From the repo root, in
+this order, with the pnpm `packageManager` pins first on PATH: a newer one refuses the install, and
+`test/docs-content.test.ts` runs a bare `pnpm build`.
 
 ```sh
 pnpm install --frozen-lockfile
