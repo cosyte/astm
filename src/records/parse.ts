@@ -201,11 +201,10 @@ export function parseAstmRecords(
   let active = delimiters;
   const at: RecordAt = { recordIndex: 0, recordType: "" };
   const sinks = parseSinks(at, warnings);
-  // Each comment is attached to its immediately-preceding H/P/O/R parent as the records are read
-  // (an orphan, with none, to the root). The orphan warnings are pushed after every record is read,
-  // in record order, where the attachment pass after the read used to push them.
-  let lastParentIndex: number | undefined;
-  const orphans: AstmRecordWarning[] = [];
+  // Each comment is attached to its immediately-preceding H/P/O/R parent as the records are read.
+  // The first record is always the `H` (anything else is the fatal above), so every comment has a
+  // parent and none is an orphan: `attachComments` reports an orphan only for a list a caller built.
+  let lastParentIndex = 0;
   const records: AstmRecord[] = lines.map((line, recordIndex) => {
     if (recordIndex > 0 && line.charAt(0) === "H") {
       active = adoptRedeclaredDelimiters(line, active, recordIndex, warnings);
@@ -213,12 +212,9 @@ export function parseAstmRecords(
     const record = buildRecord(line, recordIndex, active, warnings, sinks, at, lastParentIndex);
     if (record.type === "H" || record.type === "P" || record.type === "O" || record.type === "R") {
       lastParentIndex = recordIndex;
-    } else if (record.type === "C" && record.attachedToRoot) {
-      orphans.push(orphanComment({ recordIndex, recordType: "C" }));
     }
     return record;
   });
-  warnings.push(...orphans);
 
   // Host-query classification, folded over the whole stream rather than per message. `Q` dominates
   // so a query is never read as a result set; a stream that carries BOTH a Q and an R, in one message
@@ -590,7 +586,7 @@ function buildRecord(
   warnings: AstmRecordWarning[],
   sinks: FieldSinks,
   at: RecordAt,
-  parentIndex: number | undefined,
+  parentIndex: number,
 ): AstmRecord {
   const rawType = line.charAt(0);
   at.recordIndex = recordIndex;
@@ -842,11 +838,7 @@ function buildResult(
  * Build a `C` (comment) record from its fields. Parent attachment is resolved in a second pass
  * ({@link attachComments}); here `attachedToRoot` is a provisional `false` and `parentIndex` is unset.
  */
-function buildComment(
-  recordIndex: number,
-  slots: FieldSlot[],
-  parentIndex: number | undefined,
-): CommentRecord {
+function buildComment(recordIndex: number, slots: FieldSlot[], parentIndex: number): CommentRecord {
   // Only a field that was split can hold more than one component, and that field is built already.
   const textSlot = slots[3];
   const textField = typeof textSlot === "object" ? textSlot : undefined;
@@ -860,13 +852,13 @@ function buildComment(
   // `attachedToRoot` is set where it has always sat and `parentIndex` is the last key, as the
   // attachment pass after the read used to leave them.
   const out = withFields<Mutable<CommentRecord>>({ type: "C", recordIndex }, slots);
-  out.attachedToRoot = parentIndex === undefined;
+  out.attachedToRoot = false;
   put(out, "seq", slotScalar(slots, 2));
   put(out, "source", slotScalar(slots, 3));
   put(out, "text", text);
   put(out, "textComponents", textComponents);
   put(out, "commentType", slotScalar(slots, 5));
-  put(out, "parentIndex", parentIndex);
+  out.parentIndex = parentIndex;
   return sealRecord(out);
 }
 

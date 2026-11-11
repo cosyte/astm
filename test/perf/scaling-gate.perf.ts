@@ -38,19 +38,19 @@ import type { AstmMessage, MessageInput } from "../../src/index.js";
 // these sizes a 50 ms batch holds several passes. Each base phase is still above the contract's
 // 4 ms floor on a hosted runner (about 7 to 10 ms there), and the regression is made strong enough
 // for its signal to clear the ceiling at these sizes. The parse later ran about twice as fast and
-// the build about three times as fast, so each phase reads that many more inputs to stay above the
+// the build about six times as fast, so each phase reads that many more inputs to stay above the
 // floor.
 
 /** Result messages in the count axis's base phase, about 80 KiB. */
 const COUNT = 200;
 /** The build is several times faster than a parse, so its count axis has more messages. */
-const BUILD_COUNT = 750;
+const BUILD_COUNT = 1_500;
 /** Results in the size axis's base session, about 9 KiB; the scaled phase has 4 times as many. */
 const RESULTS = 100;
 /** Sessions in each size-axis phase. */
 const SESSIONS = 8;
 /** Sessions in each of the build's size-axis phases, for the same reason as `BUILD_COUNT`. */
-const BUILD_SESSIONS = 24;
+const BUILD_SESSIONS = 48;
 /** The chunk the regressed copy appends at a time. */
 const CHUNK = 8;
 

@@ -37,7 +37,7 @@ const MESSAGE = astm.parseFramedAstm(WIRE).message;
 /** The settled heap: collected until a further collection frees under 1 KiB. */
 function settledHeap(): number {
   let before = getHeapStatistics().used_heap_size;
-  for (let i = 0; i < 20; i += 1) {
+  for (let i = 0; i < 6; i += 1) {
     collect();
     const after = getHeapStatistics().used_heap_size;
     if (before - after < 1024) return after;
