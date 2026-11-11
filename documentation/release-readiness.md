@@ -64,7 +64,7 @@ rather than a data property. Each claim was checked against the tree rather than
   `src/records/serialize.ts` compares a verbatim record's line without building a field tree;
   `src/records/build.ts`, `src/common/dates.ts` and `src/common/coding-system.ts` build their
   objects without spreads. No file under `src/` adds or removes an export of `src/index.ts`.
-- **What the tests show.** `test/output-equivalence.test.ts` holds 806 digests of a synthetic
+- **What the tests show.** `test/output-equivalence.test.ts` holds 808 digests of a synthetic
   corpus (every parse, tokenizing, escape split and decode, frame decode with each stream split at
   every byte boundary, frame encode, serialize and build, with which objects come back frozen)
   captured from the published source, and the changed source matches every one. The existing suite
