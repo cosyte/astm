@@ -10,10 +10,10 @@
  *
  * WHAT IT ASSERTS
  *   - the pending set is non-empty and resolves the package to the prepared version off the
- *     published base, `0.1.6` off `0.1.5`, which needs `patch` bumps only: no `minor` and no
+ *     published base, `0.1.7` off `0.1.6`, which needs `patch` bumps only: no `minor` and no
  *     `major`;
- *   - the patient-name changeset, the one the record audits, carries `patch`, because neither its own
- *     text nor the tree since the published base moves a public value;
+ *   - the parse and build performance changeset, the one the record audits, carries `patch`,
+ *     because neither its own text nor the tree since the published base moves a public value;
  *   - the record's audit table accounts for every pending changeset and states the bump each
  *     one actually carries;
  *   - the surface the record enumerates is exactly what the entry point re-exports, values
@@ -62,13 +62,13 @@ const PACKAGE_NAME = "@cosyte/astm";
  * computed from. It is compared against `package.json` rather than trusted: if the two ever
  * disagree, the audit is describing a release that already happened.
  */
-const PUBLISHED_BASE = "0.1.5";
+const PUBLISHED_BASE = "0.1.6";
 
 /** The version the pending set is prepared to resolve to. */
-const PREPARED_VERSION = "0.1.6";
+const PREPARED_VERSION = "0.1.7";
 
 /** The changeset the record audits, whose own text and change move no public value. */
-const AUDITED_CHANGESET = "patient-name-empty-parts.md";
+const AUDITED_CHANGESET = "parse-build-memory.md";
 
 type Bump = "patch" | "minor" | "major";
 
@@ -435,12 +435,12 @@ describe.skipIf(RELEASE_COMMIT)("the pending changeset set", () => {
     expect(resolveNextVersion(PUBLISHED_BASE, BUMPS)).toBe(PREPARED_VERSION);
   });
 
-  it("classifies the patient-name changeset as patch, because it moves no public value", () => {
-    // Its own text says a name whose last part is empty now parses and an empty part is absent
-    // rather than the empty string, and the tree agrees: since the published base `src/` changed in
-    // the private name reading inside `src/records/parse.ts` and in doc comments, every exported name
-    // and type is the same, and `PatientName` already declared each part optional. Section 1 of the
-    // record sets out what was compared.
+  it("classifies the parse and build performance changeset as patch", () => {
+    // Its own text says parsing, validating and building take less time and memory with every
+    // parsed record, warning, error, checksum and written byte unchanged, and names the one thing a
+    // caller can see: a parsed record's `fields` is an enumerable getter rather than a data property.
+    // Every exported name and type is the same, and `fields` keeps its declared type, so section 1 of
+    // the record keeps it at patch.
     const entry = PENDING.find((pending) => pending.file === AUDITED_CHANGESET);
     expect(entry, `${AUDITED_CHANGESET} is not in the pending set`).toBeDefined();
     expect(entry?.bump).toBe("patch");

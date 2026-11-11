@@ -7,11 +7,12 @@ line makes; every break a consumer would see; and what has to happen before anyt
 
 It was first taken for `0.1.0`. It was taken again on 2026-11-07 for the first set pending after
 `0.1.0` published, on 2026-11-08 for the first sets pending after `0.1.1`, after `0.1.2`, after
-`0.1.3` and after `0.1.4`, and on 2026-11-10 for the first set pending after `0.1.5`, because
+`0.1.3` and after `0.1.4`, and on 2026-11-10 for the first sets pending after `0.1.5` and after
+`0.1.6`, because
 `test/scripts/release-readiness.test.ts` fails on such a set until it is audited and the published
 base is moved. The `0.1.0` audit as it stood when that version shipped is this file at the `v0.1.0`
-tag, and the `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4` and `0.1.5` audits are this file at the `v0.1.1`,
-`v0.1.2`, `v0.1.3`, `v0.1.4` and `v0.1.5` tags. What it found that still matters to a consumer, the breaks `0.1.0` shipped, is
+tag, and the `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, `0.1.5` and `0.1.6` audits are this file at the
+`v0.1.1`, `v0.1.2`, `v0.1.3`, `v0.1.4`, `v0.1.5` and `v0.1.6` tags. What it found that still matters to a consumer, the breaks `0.1.0` shipped, is
 kept in section 4.
 
 It is bookkeeping, not consumer documentation. It is deliberately not `README.md` and not
@@ -30,68 +31,49 @@ wrong.
 
 ## 1. The pending changeset audit
 
-The published version is the `version` field of `package.json`, `0.1.5`, published on 2026-11-08
-through npm trusted publishing. The pending set below is every file matching `.changeset/*.md`
-other than `README.md` (`config.json` is the tool's configuration and carries no bump).
+The published version is the `version` field of `package.json`, `0.1.6`. The pending set below is
+every file matching `.changeset/*.md` other than `README.md` (`config.json` is the tool's
+configuration and carries no bump).
 
 One changeset is pending, and it arrived carrying `patch`. It is applied as written, because its own
-text and the change it documents both support `patch`, as read below. Reclassification runs in both
-directions or it is not a reading, so the same rule that moved three `0.1.0` changesets up to
-`minor` is what keeps this one at `patch`.
+text and the change it documents both support `patch`, as read below.
 
 <!-- audit:begin -->
 
-| pending changeset             | bump as written | applied bump |
-| ----------------------------- | --------------- | ------------ |
-| `patient-name-empty-parts.md` | `patch`         | `patch`      |
+| pending changeset       | bump as written | applied bump |
+| ----------------------- | --------------- | ------------ |
+| `parse-build-memory.md` | `patch`         | `patch`      |
 
 <!-- audit:end -->
 
-Highest bump in the set: `patch`. Applied to the published `0.1.5`, Changesets resolves
-`@cosyte/astm` to **`0.1.6`**.
+Highest bump in the set: `patch`. Applied to the published `0.1.6`, Changesets resolves
+`@cosyte/astm` to **`0.1.7`**.
 
-### `patient-name-empty-parts.md`: `patch`
+### `parse-build-memory.md`: `patch`
 
-Its own text says a patient name whose last part is empty now parses, so a name built with only a
-first or middle part reads back equal; that an empty name part is now absent from `name` whether
-the sender wrote its delimiter or not; and that a field with no text in any of the three parts
-still reads no name. Each claim was checked against the tree rather than taken from the text.
+Its own text says parsing, validating and building take less time and memory, that every parsed
+record, warning, error, checksum and written byte is the same as before, and that one change is
+visible only through a property descriptor: on a parsed record, `fields` is an enumerable getter
+rather than a data property. Each claim was checked against the tree rather than taken from the text.
 
-- **Why the release exists.** The coverage work that took the suite to 100% found that the private
-  `buildPatient` in `src/records/parse.ts` built a name only when its first component, the last
-  name, carried text. `P|1|||ID3|^JANE^` read no name at all, and `buildAstmMessage` emits exactly
-  that field for `name: { first: "JANE" }`, so a built message did not read back equal, against the
-  builder's documented round-trip. The same function surfaced an empty part as the empty string when
-  its delimiter was written (`DOE^^`) and left it absent when it was not (`DOE`). A name is now
-  built from the parts present, and an empty part is absent in both cases.
-- **What the tarball changes.** `package.json` ships `dist`, `README.md`, `LICENSE`,
-  `TRADEMARKS.md` and `CHANGELOG.md`. Between the `v0.1.5` tag and this branch eight files under
-  `src/` changed. `src/records/parse.ts` changed in that private function, one private helper beside
-  it, and comments, and `src/records/types.ts` in the doc comments on `PatientName` and
-  `PatientRecord.name`. The coverage work changed the rest without changing what any of them
-  returns: `src/profiles/validate.ts` lost two early returns from the private `levenshtein` that the
-  loop below them already answers, `src/records/build.ts` lost an unreachable `undefined` case from
-  the private `utid`, and `src/ltp/reducer.ts`, `src/common/delimiters.ts`,
-  `src/records/tokenize.ts` and `src/terminology/catalog.ts` gained comments only. `tsup.config.ts`,
-  `tsconfig.json`, `package.json` and `pnpm-lock.yaml` are unchanged. `CHANGELOG.md` gains the entry
-  Changesets writes from this changeset.
-- **What the build shows.** Built from this branch, `dist/index.mjs` and `dist/index.cjs` differ
-  from the files in the published `0.1.5` tarball in the patient-name reading and its helper, in the
-  two early returns and the `undefined` case, and in one comment the build keeps. `dist/index.d.ts`
-  and `dist/index.d.cts` differ in the two doc comments only, and the file list of `dist/` is the
-  same.
-- **What the tests show.** `test/records/build.test.ts` pins the reading through the public API:
-  `^JANE^`, `^JANE`, `^^Q` and `^JANE^Q` each read a name; `DOE^^`, `DOE^` and `DOE` read the same
-  `{ last: "DOE" }`, and `DOE^JANE` and `DOE^JANE^` the same two parts; an empty field and `^^`
-  read no name; and each of seven part combinations built by `buildAstmMessage` reads back equal to
-  its input. The whole suite passes with coverage at 100%.
+- **What changed.** `src/common/escapes.ts` slices each field between delimiters and decodes a run
+  at a time; `src/records/tokenize.ts` and `src/records/parse.ts` hold a plain field as its text
+  until `fields` is read, freeze each node as it is built, and attach comments as the records are
+  read; `src/common/freeze.ts` gains a private walk for the parse; `src/frames/encode.ts` writes
+  frames into one buffer; `src/frames/decode.ts` builds each frame as one literal;
+  `src/records/serialize.ts` compares a verbatim record's line without building a field tree;
+  `src/records/build.ts`, `src/common/dates.ts` and `src/common/coding-system.ts` build their
+  objects without spreads. No file under `src/` adds or removes an export of `src/index.ts`.
+- **What the tests show.** `test/output-equivalence.test.ts` holds 806 digests of a synthetic
+  corpus (every parse, tokenizing, escape split and decode, frame decode with each stream split at
+  every byte boundary, frame encode, serialize and build, with which objects come back frozen)
+  captured from the published source, and the changed source matches every one. The existing suite
+  passes unchanged.
 
 Measured against section 3's enumeration, it adds no value, removes none, renames none, and changes
-no exported type: `PatientName` already declared `last`, `first` and `middle` optional, and
-`PatientRecord.name` was already optional. A consumer that read `first === ""` on `DOE^^` now reads
-`undefined`, which the type always allowed, and a name the parser dropped is now surfaced. That is a
-fix to a documented behaviour, the round-trip, and a `patch` claims exactly that, so `patch` is what
-it keeps.
+no exported type: `fields` keeps its declared type `readonly AstmField[]`. A caller that read the
+property descriptor's `value` reads `undefined` there now and reads `record.fields` instead; nothing
+typed in the package promised a data property. So `patch` is what it keeps.
 
 ## 2. Why no changeset in this set is classified `major`
 
@@ -109,7 +91,7 @@ convenience: leave its bump unapplied, record it in section 4 as a break candida
 operator, and do not quietly write `minor` over it. A `major` silently downgraded to `minor` reads,
 from the outside, exactly like a repo that had nothing to escalate.
 
-## 3. The public export surface certified at `0.1.0`, unchanged in `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, `0.1.5`, and `0.1.6`
+## 3. The public export surface certified at `0.1.0`, unchanged in `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, `0.1.5`, `0.1.6`, and `0.1.7`
 
 The subject of the stability claim is the package's single public entry point, `src/index.ts`, and
 the surface is everything it re-exports: values and types both. `package.json` publishes exactly one
