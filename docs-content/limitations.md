@@ -1,11 +1,11 @@
 ---
 id: limitations
-title: What it does, and does not do
-sidebar_label: What it does, and does not do
+title: Limitations
+sidebar_label: Limitations
 description: "What the library promises about lab results, and the edges of that promise, stated plainly."
 ---
 
-# What `@cosyte/astm` does, and does not do
+# Limitations of `@cosyte/astm`
 
 A lab result drives treatment. A parser that silently hands back a wrong value, unit, flag, status, or
 patient ID can cause harm. So this page is deliberately blunt about the promise and its edges. Read it

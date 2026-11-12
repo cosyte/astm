@@ -35,6 +35,8 @@ Lab integration teams receive ASTM off analyzers that each read the standard a l
 
 Published on npm. The public API is settled and is stable enough to depend on. The record, framing, transport, emit, profile, and terminology layers are all shipped, and their exported names, options, and return shapes are what a consumer builds against. Warning and error codes are part of that surface: consumers branch on `w.code`, so renaming one is a breaking change and is treated as one.
 
+Below 1.0 every release is a patch. A breaking or narrowing change ships as a patch whose changeset, and so whose changelog entry, states the change and what a caller must do.
+
 Two public surfaces are still moving, named here rather than left to be found:
 
 - **The contents of the built-in profile registry.** `defineAstmProfile()`, the safety gate, and the registry API are settled; what ships today is `default` plus the corpus-grounded `referenceCorpus`. Named per-vendor profiles are deliberately withheld until a public, vendor-attributed quirk document grounds them, so that set will grow.
@@ -102,7 +104,7 @@ The full documentation lives at [docs.cosyte.com/astm](https://docs.cosyte.com/a
 - How-to guides: [read a result safely](https://github.com/cosyte/astm/blob/main/docs-content/read-results.md), [read several messages](https://github.com/cosyte/astm/blob/main/docs-content/read-several-messages.md), [decode a framed stream](https://github.com/cosyte/astm/blob/main/docs-content/decode-framed-streams.md), [write records and frames](https://github.com/cosyte/astm/blob/main/docs-content/write-records-and-frames.md), [map local codes to LOINC](https://github.com/cosyte/astm/blob/main/docs-content/map-local-codes-to-loinc.md), [read a timestamp](https://github.com/cosyte/astm/blob/main/docs-content/read-dates.md) and [write a vendor profile](https://github.com/cosyte/astm/blob/main/docs-content/guides-vendor-profiles.md).
 - [Coverage and compatibility](https://github.com/cosyte/astm/blob/main/docs-content/concepts-coverage.md): what the parser reads and emits, and the escape edge cases each warning code reports.
 - [Warning and error codes](https://github.com/cosyte/astm/blob/main/docs-content/warning-codes.md): every code, with what it means.
-- [What the library does with patient data](https://github.com/cosyte/astm/blob/main/docs-content/patient-data.md), and [what it does and does not do](https://github.com/cosyte/astm/blob/main/docs-content/limitations.md).
+- [What the library does with patient data](https://github.com/cosyte/astm/blob/main/docs-content/patient-data.md), and [limitations](https://github.com/cosyte/astm/blob/main/docs-content/limitations.md).
 - [Troubleshooting](https://github.com/cosyte/astm/blob/main/docs-content/troubleshooting.md): common symptoms, and how to read what the parser is telling you.
 
 ## Support
@@ -147,7 +149,7 @@ pnpm run phi-scan
 
 Three house rules reject a change on sight. **No real patient data**, in a fixture, a test, an example, or a commit message: every record in this repository is synthetic, and `pnpm phi-scan` runs on every commit. **No em or en dash anywhere**, including commit messages (`pnpm run check:no-emdash`); write a comma, a colon, a period, or parentheses instead. **No internal project bookkeeping on a public surface** (`pnpm run check:no-internal-refs`): this file, the shipped docs, and every JSDoc comment say what the software does, never how the change got made.
 
-A behavior change needs a test that fails without it. Renaming a published warning or error code is a breaking change; adding one is not, though it can change which streams a `{ strict: true }` parse refuses, so say so.
+A behavior change needs a test that fails without it. Renaming a published warning or error code is a breaking change; adding one is not, though it can change which streams a `{ strict: true }` parse refuses, so say so. Below 1.0 every release is a patch: a breaking or narrowing change gets a `patch` changeset that states the change and what a caller must do.
 
 ## Trademarks
 

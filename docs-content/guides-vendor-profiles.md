@@ -130,5 +130,5 @@ answer is to read the raw line, not to tolerate the code.
   [`setDefaultAstmProfile`](./api/README.md#setdefaultastmprofile) and
   [`isSafetyCriticalCode`](./api/README.md#issafetycriticalcode)
 - [Handle warnings and fail fast](./handle-warnings.md): matching a warning code without a profile.
-- [What it does, and does not do](./limitations.md): the boundary, including the deviations no
+- [Limitations](./limitations.md): the boundary, including the deviations no
   profile may tolerate.

@@ -15,8 +15,9 @@ shape as our HL7 v2 parser, `@cosyte/hl7`: a lenient parser, an immutable model,
 writes only spec-clean output, and vendor profiles.
 
 > **Status:** published on npm, and the public API is settled and stable: the exported names,
-> options, return shapes, and warning codes are the surface a release keeps, and a breaking change
-> bumps the minor version with its migration in the changelog. Two surfaces are still moving, both
+> options, return shapes, and warning codes are the surface a release keeps. Below 1.0 every release
+> is a patch, and a breaking or narrowing change ships as a patch whose changelog entry states the
+> change and what a caller must do. Two surfaces are still moving, both
 > additively: the built-in profile registry and the warning and error code sets.
 > Read the version you have with `npm view @cosyte/astm version`.
 
@@ -66,7 +67,7 @@ r?.status.isActiveFinal; // => true
 - **Not a compliance product.** It does not log, store or send anything, and what it does with
   patient data is on [What it does with patient data](./patient-data.md).
 
-[What it does, and does not do](./limitations.md) states the boundary in full. Read it before you
+[Limitations](./limitations.md) states the boundary in full. Read it before you
 rely on the library.
 
 ## Where to go next

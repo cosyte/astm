@@ -90,7 +90,7 @@ Everything at the edges, which is most of the compliance surface:
 - **Test data.** Keep fixtures synthetic. Real traffic in a test corpus is the most common way a
   patient identifier reaches a repository, and a repository is forever.
 
-Read [What it does, and does not do](./limitations.md) for the rest of the boundary, including the
+Read [Limitations](./limitations.md) for the rest of the boundary, including the
 cases where a value the parser hands back is contested and the raw line is the thing to read.
 
 ## How-to guides that apply this

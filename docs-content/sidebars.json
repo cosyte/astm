@@ -32,14 +32,13 @@
         "architecture",
         "delimiters",
         "concepts-coverage",
-        "patient-data",
-        "limitations"
+        "patient-data"
       ]
     },
     {
       "type": "category",
       "label": "Reference",
-      "items": ["warning-codes", "result-flags-and-statuses"]
+      "items": ["warning-codes", "result-flags-and-statuses", "limitations"]
     },
     { "type": "category", "label": "Troubleshooting", "items": ["troubleshooting"] },
     "testing-and-quality",
