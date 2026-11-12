@@ -425,9 +425,9 @@ not the same thing once a record has split across several of them. A frame carri
 when the stream ends immediately after its `STX`, which is not something `composeAstmFrames` writes,
 so that fallback never fires on a part it composed.
 
-## Known limitations
+## Where the promise ends
 
-The promise is deliberately narrow. See [What it does, and does not do](./limitations.md) for the
+The promise is deliberately narrow. See [Limitations](./limitations.md) for the
 full boundary: no live I/O, units are verbatim free text (not UCUM), no bundled terminology
 dictionary (LIVD is bring-your-own), and `M`/`S` records are surfaced verbatim, never interpreted.
 

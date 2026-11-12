@@ -13,19 +13,15 @@ Add a changeset for every meaningful change:
 pnpm changeset
 ```
 
-Until the operator says otherwise, we publish patch versions only (their decision of 2026-11-07):
-write `patch`, and raise a change whose honest bump is `minor` with the operator before it merges.
-The rule below is how that bump is judged.
+Below `1.0.0` every release is a patch, so write `patch` for every changeset. A breaking or
+narrowing change to the public surface, which is everything `src/index.ts` exports and the
+behaviour behind it, ships as a patch too. Its changeset states the change and what a caller must
+do about it, in the summary, because the summary is the changelog entry and the only place a
+consumer is told. A feature, a fix and a change nobody installing the package can observe are
+`patch` as well.
 
-The package is on the `0.1.x` line, so pick the bump by what the change does to the public surface,
-which is everything `src/index.ts` exports and the behaviour behind it:
-
-- **`minor`** for a feature or an added public value, and for a break. Below `1.0.0` a break ships in
-  the minor channel: call it out in the changeset summary with its migration, and surface it for a
-  decision before the release rather than absorbing it.
-- **`patch`** for a real fix, and for a change nobody installing the package can observe.
-- **Never `major`.** On a `0.x` version it resolves to `1.0.0`. Record the change as a break
-  candidate for the operator instead, as section 2 of `documentation/release-readiness.md` says.
+Never write `minor` or `major`. `test/scripts/release-readiness.test.ts` fails a pending set that
+carries either, and a `major` on a `0.x` version would resolve to `1.0.0`.
 
 `test/scripts/release-readiness.test.ts` fails on the first changeset after each release until the
 pending set is audited in `documentation/release-readiness.md` and the published base is moved.

@@ -85,5 +85,4 @@ the wire or the clock: it models the state transitions, and you drive them with 
   over your own I/O.
 - [Write records and frames](./write-records-and-frames.md): the emit side of both layers.
 
-[The parser archetype](./concepts-archetype.md) covers the model both layers share, and [What it
-does, and does not do](./limitations.md) the boundary of the whole.
+[The parser archetype](./concepts-archetype.md) covers the model both layers share, and [Limitations](./limitations.md) the boundary of the whole.

@@ -117,8 +117,7 @@ r?.status.vocabulary.attributed; // => false
 ```
 
 The flag's `version` is the version we compared against, not a claim about what the sender meant.
-The status letters are attributed to nothing, and `status.vocabulary.reason` says why. [What it
-does, and does not do](./limitations.md#which-vocabulary-a-letter-was-graded-against) explains both.
+The status letters are attributed to nothing, and `status.vocabulary.reason` says why. [Limitations](./limitations.md#which-vocabulary-a-letter-was-graded-against) explains both.
 
 ## Read the patient and the comments
 

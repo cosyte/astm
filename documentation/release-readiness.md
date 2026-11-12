@@ -7,12 +7,12 @@ line makes; every break a consumer would see; and what has to happen before anyt
 
 It was first taken for `0.1.0`. It was taken again on 2026-11-07 for the first set pending after
 `0.1.0` published, on 2026-11-08 for the first sets pending after `0.1.1`, after `0.1.2`, after
-`0.1.3` and after `0.1.4`, and on 2026-11-10 for the first sets pending after `0.1.5` and after
-`0.1.6`, because
+`0.1.3` and after `0.1.4`, and on 2026-11-10 for the first sets pending after `0.1.5`, after
+`0.1.6` and after `0.1.7`, because
 `test/scripts/release-readiness.test.ts` fails on such a set until it is audited and the published
 base is moved. The `0.1.0` audit as it stood when that version shipped is this file at the `v0.1.0`
-tag, and the `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, `0.1.5` and `0.1.6` audits are this file at the
-`v0.1.1`, `v0.1.2`, `v0.1.3`, `v0.1.4`, `v0.1.5` and `v0.1.6` tags. What it found that still matters to a consumer, the breaks `0.1.0` shipped, is
+tag, and the `0.1.1`, `0.1.2`, `0.1.3`, `0.1.4`, `0.1.5`, `0.1.6` and `0.1.7` audits are this file at the
+`v0.1.1`, `v0.1.2`, `v0.1.3`, `v0.1.4`, `v0.1.5`, `v0.1.6` and `v0.1.7` tags. What it found that still matters to a consumer, the breaks `0.1.0` shipped, is
 kept in section 4.
 
 It is bookkeeping, not consumer documentation. It is deliberately not `README.md` and not
@@ -31,7 +31,7 @@ wrong.
 
 ## 1. The pending changeset audit
 
-The published version is the `version` field of `package.json`, `0.1.6`. The pending set below is
+The published version is the `version` field of `package.json`, `0.1.7`. The pending set below is
 every file matching `.changeset/*.md` other than `README.md` (`config.json` is the tool's
 configuration and carries no bump).
 
@@ -42,38 +42,29 @@ text and the change it documents both support `patch`, as read below.
 
 | pending changeset       | bump as written | applied bump |
 | ----------------------- | --------------- | ------------ |
-| `parse-build-memory.md` | `patch`         | `patch`      |
+| `patch-only-readme.md`  | `patch`         | `patch`      |
 
 <!-- audit:end -->
 
-Highest bump in the set: `patch`. Applied to the published `0.1.6`, Changesets resolves
-`@cosyte/astm` to **`0.1.7`**.
+Highest bump in the set: `patch`. Applied to the published `0.1.7`, Changesets resolves
+`@cosyte/astm` to **`0.1.8`**.
 
-### `parse-build-memory.md`: `patch`
+### `patch-only-readme.md`: `patch`
 
-Its own text says parsing, validating and building take less time and memory, that every parsed
-record, warning, error, checksum and written byte is the same as before, and that one change is
-visible only through a property descriptor: on a parsed record, `fields` is an enumerable getter
-rather than a data property. Each claim was checked against the tree rather than taken from the text.
+Its own text says the README now states that below 1.0 every release is a patch and that a breaking
+or narrowing change ships as a patch whose changeset states the change and what a caller must do,
+that the limitations page now sits under Reference in the docs, and that nothing in the code
+changes. Each claim was checked against the tree rather than taken from the text.
 
-- **What changed.** `src/common/escapes.ts` slices each field between delimiters and decodes a run
-  at a time; `src/records/tokenize.ts` and `src/records/parse.ts` hold a plain field as its text
-  until `fields` is read, freeze each node as it is built, and attach comments as the records are
-  read; `src/common/freeze.ts` gains a private walk for the parse; `src/frames/encode.ts` writes
-  frames into one buffer; `src/frames/decode.ts` builds each frame as one literal;
-  `src/records/serialize.ts` compares a verbatim record's line without building a field tree;
-  `src/records/build.ts`, `src/common/dates.ts` and `src/common/coding-system.ts` build their
-  objects without spreads. No file under `src/` adds or removes an export of `src/index.ts`.
-- **What the tests show.** `test/output-equivalence.test.ts` holds 808 digests of a synthetic
-  corpus (every parse, tokenizing, escape split and decode, frame decode with each stream split at
-  every byte boundary, frame encode, serialize and build, with which objects come back frozen)
-  captured from the published source, and the changed source matches every one. The existing suite
-  passes unchanged.
+- **What changed.** `README.md` gains the patch-only paragraph in its status section and the same
+  sentence in its contributing section; `.changeset/README.md` states the rule for a contributor;
+  `docs-content/` files the limitations page under Reference and says the rule in its introduction
+  and installation pages. No file under `src/` changes.
+- **What the tests show.** No file under `src/` is touched, so `src/index.ts` is the entry point it
+  was at `0.1.7`, and section 3's enumeration holds without a line moved.
 
-Measured against section 3's enumeration, it adds no value, removes none, renames none, and changes
-no exported type: `fields` keeps its declared type `readonly AstmField[]`. A caller that read the
-property descriptor's `value` reads `undefined` there now and reads `record.fields` instead; nothing
-typed in the package promised a data property. So `patch` is what it keeps.
+It adds no value, removes none, renames none and changes no exported type, so `patch` is what it
+keeps.
 
 ## 2. Why no changeset in this set is classified `major`
 
@@ -82,9 +73,10 @@ No changeset in the set is `major`, and this is a decision rather than an omissi
 `major` applied to a `0.x` version resolves to `1.0.0`. That is a different claim from the one being
 made here and a different release from the one being prepared: it would take this package out of the
 coordinated batch and assert a `1.0.0` stability guarantee nobody has decided to make. On the
-pre-1.0 ladder the minor channel is where a break belongs, which is why the breaks `0.1.0` shipped
-(section 4) went out as `minor` rather than being escalated as a version-class question. This set
-carries no break at all.
+pre-1.0 ladder every release is a patch: a break or a narrowing change ships as a patch whose
+changeset states the change and what a caller must do. The breaks `0.1.0` shipped (section 4) went
+out as `minor` before that rule was settled, and a later break does not. This set carries no break
+at all.
 
 If a future pending changeset's honest class ever is `major`, the rule is the opposite of a
 convenience: leave its bump unapplied, record it in section 4 as a break candidate escalated to the
@@ -798,8 +790,14 @@ The `0.1.0` audit recorded that this repository's guidance said a change ships w
 is `patch` on the `0.0.x` ladder, that the guidance would go stale the moment `0.1.0` published, and
 that it must then be revised: a feature or an added public value is `minor`, a real fix is `patch`,
 and on the `0.x` ladder a break ships in the minor channel and is surfaced for a decision before the
-release rather than absorbed.
+release rather than absorbed. That rule has since been replaced: below `1.0.0` every release is a
+patch, and a break ships as a patch whose changeset states the change and what a caller must do.
 
 Checked again on 2026-11-07. `CLAUDE.md` has since been rewritten and states no bump rule, but
 `.changeset/README.md` still told a contributor to pick `patch` to stay on the `0.0.x` ladder. It is
 revised to the rule above in the same change as this audit.
+
+Revised again on 2026-11-12, in the change that carries `patch-only-readme.md`. `.changeset/README.md`
+now says below `1.0.0` every release is a patch and a breaking or narrowing change ships as a patch
+whose changeset states the change and what a caller must do, so the minor channel above is no longer
+how a break ships.

@@ -12,7 +12,7 @@
  *   - the pending set is non-empty and resolves the package to the prepared version off the
  *     published base, `0.1.7` off `0.1.6`, which needs `patch` bumps only: no `minor` and no
  *     `major`;
- *   - the parse and build performance changeset, the one the record audits, carries `patch`,
+ *   - the README changeset, the one the record audits, carries `patch`,
  *     because neither its own text nor the tree since the published base moves a public value;
  *   - the record's audit table accounts for every pending changeset and states the bump each
  *     one actually carries;
@@ -62,13 +62,13 @@ const PACKAGE_NAME = "@cosyte/astm";
  * computed from. It is compared against `package.json` rather than trusted: if the two ever
  * disagree, the audit is describing a release that already happened.
  */
-const PUBLISHED_BASE = "0.1.6";
+const PUBLISHED_BASE = "0.1.7";
 
 /** The version the pending set is prepared to resolve to. */
-const PREPARED_VERSION = "0.1.7";
+const PREPARED_VERSION = "0.1.8";
 
 /** The changeset the record audits, whose own text and change move no public value. */
-const AUDITED_CHANGESET = "parse-build-memory.md";
+const AUDITED_CHANGESET = "patch-only-readme.md";
 
 type Bump = "patch" | "minor" | "major";
 
@@ -435,12 +435,10 @@ describe.skipIf(RELEASE_COMMIT)("the pending changeset set", () => {
     expect(resolveNextVersion(PUBLISHED_BASE, BUMPS)).toBe(PREPARED_VERSION);
   });
 
-  it("classifies the parse and build performance changeset as patch", () => {
-    // Its own text says parsing, validating and building take less time and memory with every
-    // parsed record, warning, error, checksum and written byte unchanged, and names the one thing a
-    // caller can see: a parsed record's `fields` is an enumerable getter rather than a data property.
-    // Every exported name and type is the same, and `fields` keeps its declared type, so section 1 of
-    // the record keeps it at patch.
+  it("classifies the README changeset as patch", () => {
+    // Its own text says the README now states the patch-only rule below the first major version,
+    // and nothing in the code changes. No exported name or type moves, so section 1 of the record
+    // keeps it at patch.
     const entry = PENDING.find((pending) => pending.file === AUDITED_CHANGESET);
     expect(entry, `${AUDITED_CHANGESET} is not in the pending set`).toBeDefined();
     expect(entry?.bump).toBe("patch");
