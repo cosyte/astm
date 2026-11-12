@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.8
+
+### Patch Changes
+
+- 0e35c6b: No example in the README or the docs prints a value that identifies a person: the samples now read a patient identifier into a variable or assert on it, and print only types, codes, counts and booleans. The handle-warnings page gains a "What is safe to log" section that names the fields holding raw input, and the README install section says that a caret range does not protect a consumer below 1.0 and shows the exact-version install command. Nothing in the code changes, and no exported name, option or return shape moves.
+- 3c949c2: The README now states that below 1.0 every release is a patch, and that a breaking or narrowing change ships as a patch whose changeset states the change and what a caller must do. The limitations page now sits under Reference in the docs. Nothing in the code changes, and no exported name, option or return shape moves.
+
 ## 0.1.7
 
 ### Patch Changes
