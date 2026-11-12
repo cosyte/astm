@@ -35,7 +35,7 @@ Lab integration teams receive ASTM off analyzers that each read the standard a l
 
 Published on npm. The public API is settled and is stable enough to depend on. The record, framing, transport, emit, profile, and terminology layers are all shipped, and their exported names, options, and return shapes are what a consumer builds against. Warning and error codes are part of that surface: consumers branch on `w.code`, so renaming one is a breaking change and is treated as one.
 
-Below 1.0 every release is a patch. A breaking or narrowing change ships as a patch whose changeset, and so whose changelog entry, states the change and what a caller must do.
+Before the first major version every release is a patch. A breaking or narrowing change ships as a patch whose changeset, and so whose changelog entry, states the change and what a caller must do.
 
 Two public surfaces are still moving, named here rather than left to be found:
 
@@ -149,7 +149,7 @@ pnpm run phi-scan
 
 Three house rules reject a change on sight. **No real patient data**, in a fixture, a test, an example, or a commit message: every record in this repository is synthetic, and `pnpm phi-scan` runs on every commit. **No em or en dash anywhere**, including commit messages (`pnpm run check:no-emdash`); write a comma, a colon, a period, or parentheses instead. **No internal project bookkeeping on a public surface** (`pnpm run check:no-internal-refs`): this file, the shipped docs, and every JSDoc comment say what the software does, never how the change got made.
 
-A behavior change needs a test that fails without it. Renaming a published warning or error code is a breaking change; adding one is not, though it can change which streams a `{ strict: true }` parse refuses, so say so. Below 1.0 every release is a patch: a breaking or narrowing change gets a `patch` changeset that states the change and what a caller must do.
+A behavior change needs a test that fails without it. Renaming a published warning or error code is a breaking change; adding one is not, though it can change which streams a `{ strict: true }` parse refuses, so say so. Before the first major version every release is a patch: a breaking or narrowing change gets a `patch` changeset that states the change and what a caller must do.
 
 ## Trademarks
 

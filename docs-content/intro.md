@@ -15,7 +15,7 @@ shape as our HL7 v2 parser, `@cosyte/hl7`: a lenient parser, an immutable model,
 writes only spec-clean output, and vendor profiles.
 
 > **Status:** published on npm, and the public API is settled and stable: the exported names,
-> options, return shapes, and warning codes are the surface a release keeps. Below 1.0 every release
+> options, return shapes, and warning codes are the surface a release keeps. Before the first major version every release
 > is a patch, and a breaking or narrowing change ships as a patch whose changelog entry states the
 > change and what a caller must do. Two surfaces are still moving, both
 > additively: the built-in profile registry and the warning and error code sets.
