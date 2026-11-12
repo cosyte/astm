@@ -50,6 +50,14 @@ pnpm add @cosyte/astm
 npm install @cosyte/astm
 ```
 
+Below 1.0 a breaking change can ship in a patch release, so a caret range such as `^0.1.0` does not protect you from one. Pin the exact version you have tested, and read the changeset summary before you move it:
+
+```bash
+pnpm add --save-exact @cosyte/astm
+# or
+npm install --save-exact @cosyte/astm
+```
+
 - **Node.js 22 or later, tested on 22, 24, and 26.** That floor is `package.json` `engines.node` (`>=22.0.0`); nothing below it is supported.
 - **Dual ESM and CJS.** `import` resolves to `dist/index.mjs` and `require` to `dist/index.cjs`, each with its own type declarations, so the package loads from either module system without an interop shim.
 - **Zero runtime dependencies.** `dependencies` is empty and the package imports no Node built-in.
@@ -76,7 +84,10 @@ console.log(first?.value, first?.units);
 console.log(first?.status.meaning, first?.status.isActiveFinal);
 console.log(first?.flag?.meaning);
 console.log(first?.universalTestId?.localCode);
-console.log(patient(msg)?.practiceAssignedId, patient(msg)?.laboratoryAssignedId);
+const who = patient(msg);
+const practiceId = who?.practiceAssignedId; // "PRACTICE-0001", synthetic
+const laboratoryId = who?.laboratoryAssignedId; // "LAB-0002", synthetic
+console.log(practiceId !== undefined && practiceId !== laboratoryId);
 console.log(msg.warnings.length);
 ```
 
@@ -85,11 +96,11 @@ console.log(msg.warnings.length);
 final true
 normal
 687
-PRACTICE-0001 LAB-0002
+true
 0
 ```
 
-Six things are worth reading off that output. The value and the units are surfaced raw, never converted, and never defaulted. `status.isActiveFinal` is `true` only for a plain `F`, so a correction (`C`) or a cancellation (`X`) can never read as an active final result. An unrecognized abnormal flag reads `undefined`, never `normal`. The identifier a result is keyed on is the vendor local code in the Universal Test ID's fourth component. The practice- and laboratory-assigned patient IDs stay distinct, because collapsing them is the primary result-misfiling path. And `warnings` is empty here only because this stream is spec-clean: on vendor-quirky input it fills with stable, value-free codes instead of throwing, and the pages under Documentation below say what each one means.
+Six things are worth reading off that output. The value and the units are surfaced raw, never converted, and never defaulted. `status.isActiveFinal` is `true` only for a plain `F`, so a correction (`C`) or a cancellation (`X`) can never read as an active final result. An unrecognized abnormal flag reads `undefined`, never `normal`. The identifier a result is keyed on is the vendor local code in the Universal Test ID's fourth component. The practice- and laboratory-assigned patient IDs stay distinct (the sample reads each into a variable and prints only that they differ, since a patient identifier is never something to log), because collapsing them is the primary result-misfiling path. And `warnings` is empty here only because this stream is spec-clean: on vendor-quirky input it fills with stable, value-free codes instead of throwing, and the pages under Documentation below say what each one means.
 
 That block is executed on every test run and its output is asserted against the text beside it (`test/readme-usage.test.ts`), so an example that drifts from the package fails the build rather than misleading a reader.
 

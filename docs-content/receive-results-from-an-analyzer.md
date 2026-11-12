@@ -234,6 +234,7 @@ const msg = parseAstmRecords(stream);
 msg.warnings; // => []
 messages(msg).length; // => 1
 for (const m of messages(msg)) {
+  // "PRAC-0001" is a synthetic patient ID: asserted, never printed.
   m.patient?.practiceAssignedId; // => "PRAC-0001"
   m.results[0]?.value; // => "28.6"
   m.results[0]?.units; // => "U/L"
