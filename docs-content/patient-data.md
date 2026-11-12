@@ -95,7 +95,7 @@ cases where a value the parser hands back is contested and the raw line is the t
 
 ## How-to guides that apply this
 
-- [Handle warnings and fail fast](./handle-warnings.md#log-the-warning-not-the-record): logging a
+- [Handle warnings and fail fast](./handle-warnings.md#what-is-safe-to-log): logging a
   warning rather than a record.
 - [Drive the LTP receiver over your own connection](./drive-the-ltp-receiver.md): the input and
   output adapter that stays yours.

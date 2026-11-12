@@ -36,9 +36,9 @@ messages](./read-several-messages.md#check-for-an-unrecognized-record-before-you
 and `ASTM_RECORD_FIELDS_UNSEPARATED`, which means a record lost its fields ([How delimiters are read
 and written](./delimiters.md#a-record-that-lost-its-fields)).
 
-## Log the warning, not the record
+## What is safe to log
 
-A warning is safe to log as it is:
+A warning is safe to log as it is. Its `message` is a fixed sentence, and its `position` is only indices (a record, field and component, or a frame number and byte offset):
 
 ```ts runnable
 import { parseAstmRecords } from "@cosyte/astm";
@@ -49,8 +49,21 @@ const lines = warnings.map((w) => `${w.code} ${w.message} ${JSON.stringify(w.pos
 lines[0]?.includes("28.6"); // => false
 ```
 
-The record itself is not: a parsed message keeps every field as it arrived. [What it does with
-patient data](./patient-data.md) explains the difference.
+None of this package's own errors or warnings holds a snippet of the input, so logging a warning, a
+thrown error's `code` or an error's `position` puts no patient data in a log. Log those, along with
+message types, codes, counts, lengths and positions.
+
+What does hold raw input is what the parse returns, and none of it is safe to log:
+
+- the `raw` field of every parsed record field, of `PatientName` and of `AbnormalFlag`, which is the
+  wire text exactly as received;
+- the `text` of a decoded frame, which is the record bytes, even for a frame that failed its checksum;
+- the `record` bytes of a `deliverRecord` action from the receiver;
+- any value read off a `P` record (identifiers, name, birth date) or a `C` record's free text, and a
+  whole message or record.
+
+Read those into a variable or assert on them, and never pass them to `console.log` or any other
+logger. [What it does with patient data](./patient-data.md) explains the difference.
 
 ## Refuse every deviation with strict mode
 

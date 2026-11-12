@@ -20,8 +20,10 @@ const msg = parseAstmRecords(stream);
 
 // The practice- and laboratory-assigned IDs stay distinct: collapsing them misfiles results.
 const who = patient(msg);
-console.log("Practice-assigned patient ID:", who?.practiceAssignedId);
-console.log("Laboratory-assigned patient ID:", who?.laboratoryAssignedId);
+// Read both IDs into variables and print only whether they differ: a patient ID is never logged.
+const practiceId = who?.practiceAssignedId; // "PRAC-0001", synthetic
+const laboratoryId = who?.laboratoryAssignedId; // "LAB-0009", synthetic
+console.log("Two distinct patient IDs:", practiceId !== undefined && practiceId !== laboratoryId);
 
 // Values and units come back as sent: never converted, never defaulted.
 for (const r of results(msg)) {

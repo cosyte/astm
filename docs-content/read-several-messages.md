@@ -19,6 +19,7 @@ const two =
   "H|\\^&\rP|1|PRAC-1\rR|1|^^^687|10.0|U/L||N||F\rL|1|N\r" +
   "H|\\^&\rP|1|PRAC-2\rR|1|^^^688|99.9|U/L||H||F\rL|1|N\r";
 
+// "PRAC-1" and "PRAC-2" are synthetic patient IDs, asserted here and never printed.
 const pairs = messages(parseAstmRecords(two)).map(
   (m) => `${String(m.patient?.practiceAssignedId)}:${String(m.results[0]?.value)}`,
 );
@@ -73,6 +74,7 @@ const raw =
   "H|\\^&\rP|1|PRAC-1\rR|1|^^^687|10.0|U/L||N||F\rP|2|PRAC-2\rR|1|^^^688|9|U/L||N||F\rL|1\r";
 const [m] = messages(parseAstmRecords(raw));
 
+// "PRAC-1" and "PRAC-2" are synthetic patient IDs.
 m?.patient; // => undefined
 m?.patients.map((p) => p.practiceAssignedId); // => ["PRAC-1", "PRAC-2"]
 ```

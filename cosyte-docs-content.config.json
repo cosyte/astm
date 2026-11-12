@@ -1,0 +1,12 @@
+{
+  "examplePrint": {
+    "required": true,
+    "accessors": [
+      "practiceAssignedId",
+      "laboratoryAssignedId",
+      "patientIdThree",
+      "specimenId",
+      "instrumentSpecimenId"
+    ]
+  }
+}

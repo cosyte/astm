@@ -132,6 +132,8 @@ const raw =
   "R|1|^^^687|28.6|U/L|10-40|N||F\rC|1|I|Hemolyzed sample|G\rL|1|N\r";
 const msg = parseAstmRecords(raw);
 
+// The identifiers, name and birth date below are synthetic. Assert on them or read them into a
+// variable; never pass them to a logger.
 const p = patient(msg);
 p?.practiceAssignedId; // => "PRAC-0001"
 p?.laboratoryAssignedId; // => "LAB-0009"

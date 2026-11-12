@@ -42,8 +42,15 @@ const text = buildAstmMessage({
   terminationCode: "N",
 });
 
-console.log("Records as built (one per line):");
-console.log(text.trimEnd().split("\r").join("\n"));
+// Print each record's type letter, never the record: a `P` record carries the patient's identifiers.
+console.log(
+  "Record types as built:",
+  text
+    .trimEnd()
+    .split("\r")
+    .map((record) => record.slice(0, 1))
+    .join(" "),
+);
 
 // Frame the records: STX, frame number, text, ETX, checksum, CR LF.
 const framed = serializeFramedAstm(parseAstmRecords(text));

@@ -35,14 +35,15 @@ The published version is the `version` field of `package.json`, `0.1.7`. The pen
 every file matching `.changeset/*.md` other than `README.md` (`config.json` is the tool's
 configuration and carries no bump).
 
-One changeset is pending, and it arrived carrying `patch`. It is applied as written, because its own
-text and the change it documents both support `patch`, as read below.
+Two changesets are pending, and both arrived carrying `patch`. Each is applied as written, because
+its own text and the change it documents both support `patch`, as read below.
 
 <!-- audit:begin -->
 
-| pending changeset       | bump as written | applied bump |
-| ----------------------- | --------------- | ------------ |
-| `patch-only-readme.md`  | `patch`         | `patch`      |
+| pending changeset                       | bump as written | applied bump |
+| --------------------------------------- | --------------- | ------------ |
+| `patch-only-readme.md`                  | `patch`         | `patch`      |
+| `examples-print-nothing-identifying.md` | `patch`         | `patch`      |
 
 <!-- audit:end -->
 
@@ -65,6 +66,14 @@ changes. Each claim was checked against the tree rather than taken from the text
 
 It adds no value, removes none, renames none and changes no exported type, so `patch` is what it
 keeps.
+
+### `examples-print-nothing-identifying.md`: `patch`
+
+Its own text says the README and docs samples no longer print a value that identifies a person, that
+the handle-warnings page gains a section on what is safe to log, that the README install section
+states the exact-version install, and that nothing in the code changes. Only `README.md`,
+`docs-content/`, `examples/`, the docs check's configuration and a development dependency change. No
+file under `src/` is touched, so it adds, removes and renames no value, and `patch` is what it keeps.
 
 ## 2. Why no changeset in this set is classified `major`
 
